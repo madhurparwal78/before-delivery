@@ -1,0 +1,1179 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "workspace-access",
+    "stage-gates",
+    "drawing-register",
+    "sealed-tender",
+    "bid-levelling",
+    "variations",
+    "payment-certificates",
+    "shop-drawing-review",
+    "snagging",
+    "finishes-schedule",
+    "case-studies",
+    "enquiries",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 90
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "killbill", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Plumbline <plumbline@marrowhall.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 5
+S5 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 5
+Q5 = 5
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Sign in and accept an invitation"
+text = "A member signs in with email and password, recovers from a wrong password on the same screen and signs out, and an invitee joins from the emailed link, as described in Feedback states."
+kind = "behavior"
+primary = "workflow"
+workflow = "workspace-access"
+tests = [
+    "test_app.py::test_wf_workspace_access_sign_in",
+    "test_app.py::test_wf_workspace_access_join",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Members, roles and approval limits"
+text = "The studio director invites members, changes roles and approval limits and removes members, and any other role calling those member actions gets 403."
+kind = "behavior"
+primary = "pytest"
+workflow = "workspace-access"
+tests = [
+    "test_app.py::test_member_admin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Role-shaped responses"
+text = "The member directory returns only the fields published for the caller's role, so contractors and client approvers never receive other members' emails or phones."
+kind = "behavior"
+primary = "pytest"
+workflow = "workspace-access"
+tests = [
+    "test_app.py::test_member_projection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Brand and company scoping"
+text = "A client approver or contractor who asks for a project outside their brand or company, or for a sheet, tender, variation or certificate inside one, gets the same 404 as for a record that does not exist."
+kind = "behavior"
+primary = "pytest"
+workflow = "workspace-access"
+tests = [
+    "test_app.py::test_scoping",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Stage gate sequence"
+text = "Stages run Groundwork to Aftercare in order, each fee-bearing stage moves from requested to signed off or returned, and every illegal step is refused with 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "stage-gates"
+tests = [
+    "test_app.py::test_stage_sequence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Sign-off is one record, one invoice, one receipt"
+text = "A client approver's sign-off records the sign-off, raises exactly one Kill Bill invoice for the stage fee and sends exactly one receipt with no internal notes. When Kill Bill is unreachable it does none of these and answers 503."
+kind = "behavior"
+primary = "pytest"
+workflow = "stage-gates"
+tests = [
+    "test_app.py::test_sign_off_effects",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "One approver wins a sign-off race"
+text = "When approvers sign the same stage off at once, exactly one succeeds and every other gets 409 naming who signed and when."
+kind = "behavior"
+primary = "pytest"
+workflow = "stage-gates"
+tests = [
+    "test_app.py::test_sign_off_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Stage sign-off by keyboard and phone"
+text = "A project lead requests a stage and a client approver signs it off by keyboard alone, with the published focus targets and announced copy. An approver who loses a sign-off race or meets a billing outage sees that copy, and the stage panel works as a bottom sheet at 375x812. Every screen and dialog in this journey passes the automated WCAG 2.2 AA audit."
+kind = "behavior"
+primary = "workflow"
+workflow = "stage-gates"
+tests = [
+    "test_app.py::test_wf_stage_gates_keyboard_sign_off",
+    "test_app.py::test_wf_stage_gates_lost_race",
+    "test_app.py::test_wf_stage_gates_billing_outage_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Sheet revisions"
+text = "Each upload to a sheet becomes its next revision letter, skipping I and O, the previous revision becomes superseded and read-only, and the register shows the history."
+kind = "behavior"
+primary = "pytest"
+workflow = "drawing-register"
+tests = [
+    "test_app.py::test_sheet_revisions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Sheet uploads judged by content and size"
+text = "Each sheet file is accepted or refused by its content signature as PDF, PNG, JPEG or script-free SVG within the published byte limit, and SVGs are served inert. A storage outage answers 503 and adds no register row."
+kind = "behavior"
+primary = "pytest"
+workflow = "drawing-register"
+tests = [
+    "test_app.py::test_sheet_uploads_content",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Transmittal sets"
+text = "Issuing a set builds exactly one transmittal ZIP in storage, and its manifest lists each sheet, revision, byte count and SHA-256, matching the files inside."
+kind = "behavior"
+primary = "pytest"
+workflow = "drawing-register"
+tests = [
+    "test_app.py::test_transmittal",
+    "test_app.py::test_wf_drawing_register_issue_set",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Multi-file upload with honest rows"
+text = "A designer uploads several sheets at once and hears progress for each file. Any refused file's early row is removed and its reason announced. Every screen and dialog in this journey passes the automated WCAG 2.2 AA audit."
+kind = "behavior"
+primary = "workflow"
+workflow = "drawing-register"
+tests = [
+    "test_app.py::test_wf_drawing_register_multi_upload",
+    "test_app.py::test_wf_drawing_register_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Tender lifecycle and close instant"
+text = "Tenders move through draft, open, closed, opened and awarded. Each closes at the instant set in project time, and a bid or amendment received at or after that instant is refused with 409 and the late copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "sealed-tender"
+tests = [
+    "test_app.py::test_tender_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Sealed bids"
+text = "Each invited contractor bids once and may amend before close, and no one but the bidder sees any bid amount until the bids are opened after close."
+kind = "behavior"
+primary = "pytest"
+workflow = "sealed-tender"
+tests = [
+    "test_app.py::test_sealed_bids",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Tender invitations and calendar files"
+text = "Publishing sends each bidder their own invitation with a calendar file for the close, and moving the close re-sends it with the same UID and a higher SEQUENCE. Company names with line breaks are refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "sealed-tender"
+tests = [
+    "test_app.py::test_tender_invitations_ics",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Single-use tender sign-in links"
+text = "Each tender email carries a sign-in link that works once and expires TENDER_LINK_TTL_SECONDS after issue. After that it answers the same 404 as an unknown link."
+kind = "behavior"
+primary = "pytest"
+workflow = "sealed-tender"
+tests = [
+    "test_app.py::test_tender_links_single_use",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Tender setup and bidding by keyboard"
+text = "A project lead sets up and publishes a tender and moves its close by keyboard alone. A contractor signs in by link, bids and amends, and sees the late copy after close. Every screen and dialog in this journey passes the automated WCAG 2.2 AA audit."
+kind = "behavior"
+primary = "workflow"
+workflow = "sealed-tender"
+tests = [
+    "test_app.py::test_wf_sealed_tender_keyboard_setup",
+    "test_app.py::test_wf_sealed_tender_contractor_bid_late",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Levelled totals and award"
+text = "Each opened bid's levelled total follows the published formula in exact cents with half-up rounding, bids rank by the published tie-break, and award is refused while any exclusion is unpriced."
+kind = "behavior"
+primary = "pytest"
+workflow = "bid-levelling"
+tests = [
+    "test_app.py::test_levelling_totals_award",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Levelling view kept in the URL"
+text = "The levelling table's sort and filters live in the URL and survive reload, and Back and Forward restore each earlier view."
+kind = "behavior"
+primary = "pytest"
+workflow = "bid-levelling"
+tests = [
+    "test_app.py::test_levelling_url_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Levelling CSV export"
+text = "The levelling export lists every bid's figures and neutralises any text cell that starts with a formula character."
+kind = "behavior"
+primary = "pytest"
+workflow = "bid-levelling"
+tests = [
+    "test_app.py::test_levelling_csv",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Levelling on desk and phone"
+text = "A project lead opens bids, levels each one and awards by keyboard, after an award attempt with an unpriced exclusion shows the unpriced copy. At 375x812 the bidder column stays pinned and the page never scrolls sideways. Every screen and dialog in this journey passes the automated WCAG 2.2 AA audit."
+kind = "behavior"
+primary = "workflow"
+workflow = "bid-levelling"
+tests = [
+    "test_app.py::test_wf_bid_levelling_keyboard_award",
+    "test_app.py::test_wf_bid_levelling_phone_pinned",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Variation lifecycle and approval limits"
+text = "Variations move from raised through under review to approved, rejected or withdrawn. The raiser never approves their own, a project lead approves only within their limit, and text fields keep their published character limits."
+kind = "behavior"
+primary = "pytest"
+workflow = "variations"
+tests = [
+    "test_app.py::test_variation_lifecycle_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Replayed variations return the original"
+text = "Raising a variation again with the same idempotency key and body returns the original variation, and the same key with a different body answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "variations"
+tests = [
+    "test_app.py::test_variation_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Stale variation saves refused"
+text = "Saving a variation over a newer version answers 412 with the newer saver's name and time."
+kind = "behavior"
+primary = "pytest"
+workflow = "variations"
+tests = [
+    "test_app.py::test_variation_stale_save",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Raising a variation on site"
+text = "A contractor raises a variation on a 375x812 phone through a bottom sheet with a sticky action bar. If the server refuses a withdrawal, the row rolls back and the reason is announced, and an edit over a newer version shows the newer-version copy. Every screen and dialog in this journey passes the automated WCAG 2.2 AA audit."
+kind = "behavior"
+primary = "workflow"
+workflow = "variations"
+tests = [
+    "test_app.py::test_wf_variations_phone_raise",
+    "test_app.py::test_wf_variations_withdraw_rollback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Interim certificates and retention"
+text = "Each interim certificate holds 10% of the period's valuation as retention until 5% of the contract sum is held. Half is released at practical completion and the rest after the defects period ends, in exact cents."
+kind = "behavior"
+primary = "pytest"
+workflow = "payment-certificates"
+tests = [
+    "test_app.py::test_certificate_retention",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Paired retention ledger"
+text = "Every retention hold and release is posted as one balanced debit and credit pair, and the held balance always equals the entries."
+kind = "behavior"
+primary = "pytest"
+workflow = "payment-certificates"
+tests = [
+    "test_app.py::test_retention_ledger_pairs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Per-store certificate split"
+text = "Every certificate's amount splits across the rollout's stores by weight, using largest remainder with a store-code tie-break, sums exactly to the certificate, and is shown and exported."
+kind = "behavior"
+primary = "pytest"
+workflow = "payment-certificates"
+tests = [
+    "test_app.py::test_store_split",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Certificate issue by keyboard"
+text = "A project lead issues a certificate and records practical completion by keyboard alone with the published focus targets. An attempt to release final retention before the defects period ends shows the defects-period copy, and studio finance reviews the split and ledger tables. Every screen and dialog in this journey passes the automated WCAG 2.2 AA audit."
+kind = "behavior"
+primary = "workflow"
+workflow = "payment-certificates"
+tests = [
+    "test_app.py::test_wf_payment_certificates_keyboard_issue",
+    "test_app.py::test_wf_payment_certificates_finance_review",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Review due dates in Hong Kong working days"
+text = "A shop drawing's review is due five Hong Kong working days after its received time, using a 17:00 HKT cut-off and the published holiday list, and is flagged overdue after that date."
+kind = "behavior"
+primary = "pytest"
+workflow = "shop-drawing-review"
+tests = [
+    "test_app.py::test_review_due_dates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Review codes and resubmission"
+text = "A designer returns each submission once with Code 1 to 4, with comments required for Codes 2 to 4. A second return answers 409 naming who returned it and when, and Codes 3 and 4 allow resubmission."
+kind = "behavior"
+primary = "pytest"
+workflow = "shop-drawing-review"
+tests = [
+    "test_app.py::test_review_codes_resubmission",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Status labels beyond colour"
+text = "Shop-drawing codes, snag states and review-overdue flags each show a text label and a shape, and meet the published contrast."
+kind = "visual"
+primary = "pytest"
+workflow = "shop-drawing-review"
+tests = [
+    "test_app.py::test_status_labels",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Shop drawings from site phones"
+text = "A contractor submits a shop drawing and a designer reviews it on a 375x812 phone. Each hears the announced copy for success, a lost race, an ended session and an outage. Every screen and dialog in this journey passes the automated WCAG 2.2 AA audit."
+kind = "behavior"
+primary = "workflow"
+workflow = "shop-drawing-review"
+tests = [
+    "test_app.py::test_wf_shop_drawing_review_phone_submit_review",
+    "test_app.py::test_wf_shop_drawing_review_lost_race_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Intent seam frame and input"
+text = "The seam splits the render and site photo at the published pixel column. It moves by pointer, by touch after 8 px of mostly-horizontal movement, and by Arrow, Shift+Arrow, Home and End, and it exposes its position as published."
+kind = "visual"
+primary = "pytest"
+workflow = "snagging"
+tests = [
+    "test_app.py::test_seam_input",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Snag markers on the seam"
+text = "Dropping a snag pins a numbered marker at its seam position and height, and the marker persists across reloads, shows its state in text and shape and is flagged when near the seam. Selecting its card glides the seam to it."
+kind = "behavior"
+primary = "pytest"
+workflow = "snagging"
+tests = [
+    "test_app.py::test_snag_markers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Seam under reduced motion"
+text = "Under reduced motion the seam and markers jump with no easing or scale, and Render, Split and Photo buttons set the seam to 100, 50 and 0."
+kind = "visual"
+primary = "pytest"
+workflow = "snagging"
+tests = [
+    "test_app.py::test_seam_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Snag rules and defects period"
+text = "Snags follow the published state machine, keep notes within the character limit and cannot move once closed. A snag observed in the future or after the defects end date is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "snagging"
+tests = [
+    "test_app.py::test_snag_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Site photos without location"
+text = "Site photos are stored and served with GPS data removed and camera orientation applied to the pixels."
+kind = "behavior"
+primary = "pytest"
+workflow = "snagging"
+tests = [
+    "test_app.py::test_site_photo_stripped",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Site walk on a phone"
+text = "A designer on a 375x812 phone drags the seam by touch and drops a snag from a sticky action bar that never covers the focused control. A snag move the server refuses rolls back with its reason. Every screen and dialog in this journey passes the automated WCAG 2.2 AA audit."
+kind = "behavior"
+primary = "workflow"
+workflow = "snagging"
+tests = [
+    "test_app.py::test_wf_snagging_phone_site_walk",
+    "test_app.py::test_wf_snagging_refused_move",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Legacy finishes import"
+text = "Importing the previous tool's finishes CSV matches rows by code, then by name. Each row is reported as created, updated, unchanged or rejected with its reason, and a re-import creates nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "finishes-schedule"
+tests = [
+    "test_app.py::test_finishes_import",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Finishes reorder by drag or keyboard"
+text = "Finishes reorder by drag, or by keyboard pick up, move, drop and cancel. Each move is announced with the new position, and the order persists."
+kind = "behavior"
+primary = "pytest"
+workflow = "finishes-schedule"
+tests = [
+    "test_app.py::test_finishes_reorder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Finishes CSV export"
+text = "The finishes export lists the schedule in order and neutralises any text cell that starts with a formula character."
+kind = "behavior"
+primary = "pytest"
+workflow = "finishes-schedule"
+tests = [
+    "test_app.py::test_finishes_csv",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Finishes upkeep journey"
+text = "A designer imports a legacy CSV, reads the per-row report, reorders a finish by keyboard, cancels a second pick-up with Escape and exports the schedule. Every screen and dialog in this journey passes the automated WCAG 2.2 AA audit."
+kind = "behavior"
+primary = "workflow"
+workflow = "finishes-schedule"
+tests = [
+    "test_app.py::test_wf_finishes_schedule_upkeep",
+    "test_app.py::test_wf_finishes_schedule_reimport",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Case study lifecycle and preview links"
+text = "Case studies move through draft, preview sent, client approved, published and withdrawn. Preview links stop working when revoked, replaced or expired, and a link alone can never change anything."
+kind = "behavior"
+primary = "pytest"
+workflow = "case-studies"
+tests = [
+    "test_app.py::test_case_study_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Withdrawn case studies vanish"
+text = "A withdrawn case study disappears at once from the public grid, the featured rail, the sector counts, its direct URL, its cover image and every preview link."
+kind = "behavior"
+primary = "pytest"
+workflow = "case-studies"
+tests = [
+    "test_app.py::test_withdrawn_vanishes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Public work index in the URL"
+text = "The public sector filter, with counts per sector, and the grid or list view live in the URL, and Back and Forward restore them."
+kind = "behavior"
+primary = "pytest"
+workflow = "case-studies"
+tests = [
+    "test_app.py::test_work_index_url",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Featured rail"
+text = "The featured rail drags with inertia by mouse or swipe, settles on a card, never opens a card after a drag, and steps with Previous and Next."
+kind = "visual"
+primary = "pytest"
+workflow = "case-studies"
+tests = [
+    "test_app.py::test_featured_rail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Public page motion and names"
+text = "Public pages change with a panel wipe that reverses on Back and moves focus to the new heading. The header flips over dark sections, primary labels roll and headings reveal line by line, and every public accessible name equals its visible text exactly once."
+kind = "visual"
+primary = "pytest"
+workflow = "case-studies"
+tests = [
+    "test_app.py::test_public_motion_names",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Case study approval to publication"
+text = "The director sends a preview, the brand's client approver approves it from the link and the director publishes it. A prospective client finds it, and withdrawal removes it. Every screen and dialog in this journey passes the automated WCAG 2.2 AA audit."
+kind = "behavior"
+primary = "workflow"
+workflow = "case-studies"
+tests = [
+    "test_app.py::test_wf_case_studies_preview_publish_withdraw",
+    "test_app.py::test_wf_case_studies_public_find",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Enquiry submission and notifications"
+text = "A valid enquiry is stored, notifies each studio director and acknowledges the enquirer. Names or companies with line breaks are refused, so no header can be injected."
+kind = "behavior"
+primary = "pytest"
+workflow = "enquiries"
+tests = [
+    "test_app.py::test_enquiry_notifications",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Enquiry rate limit"
+text = "A fourth enquiry from one email address within the published window answers 429 with Retry-After and the exact retry copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "enquiries"
+tests = [
+    "test_app.py::test_enquiry_rate_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Keyboard enquiry with a kept draft"
+text = "A prospective client completes the three-step enquiry by keyboard, fixing a refused step through the error summary links. The step lives in the URL, Back and Forward move between steps, and the draft survives reload. Every screen and dialog in this journey passes the automated WCAG 2.2 AA audit."
+kind = "behavior"
+primary = "workflow"
+workflow = "enquiries"
+tests = [
+    "test_app.py::test_wf_enquiries_keyboard_draft",
+    "test_app.py::test_wf_enquiries_error_summary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Three viewports without overflow"
+text = "Every screen works at 375x812, 768x1024 and 1280x800 with no horizontal page overflow and no sticky bar covering the focused control."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_three_viewports",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Accessibility audit"
+text = "The sign-in, join, Rollouts, Members, Enquiries and not-found screens, and the invite dialog, pass the automated WCAG 2.2 AA audit with no violations at all three viewports."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_accessibility_audit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "One error order"
+text = "Every API error follows the one published precedence and the one published error body shape, with the health check's starting response as the one published exemption."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Ended sessions and removed access"
+text = "A session that ends mid-form keeps the draft and restores it after the member signs in again, and a member whose access is removed mid-session sees the removed-access copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_ended_session_removed_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Run manifest, health and boundary"
+text = "The app installs, builds and serves from run.json on the published port and answers the health check. It reads every credential from the environment and serves nothing outside the published routes."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_run_health_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Motion system"
+text = "Every motion uses the one easing curve and one of the three published durations, nothing bounces or loops, and each motion has its published reduced-motion substitute."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_system",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Plaster-calm drafted look"
+text = "Office and public screens show the warm plaster ground, ink hairline rules, title-block panel headers, alternating dark public sections and the two published typefaces."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Real wiring in source"
+text = "The source raises real Kill Bill invoices, sends real mail over SMTP, stores files in the S3 bucket and keeps state in Postgres, with no fake state endpoints and no hard-coded credentials."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\", and those commands alone install, build and start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at the repository root names every shipped package and font, and the icon set, with its version and licence. Shipped packages are the lockfile's non-dev packages, leaving out optional packages that the install skipped."
+tests = [
+    "test_app.py::test_if_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and asset uses one of MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0, CC0-1.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "State lives only in Postgres and the S3 bucket, with no SQLite, Redis, other database or state files on disk."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "/app, outside node_modules, contains no Docker Compose file of its own: no file named compose*.yml, compose*.yaml, docker-compose*.yml or docker-compose*.yaml at any depth."
+tests = [
+    "test_app.py::test_if_no_compose",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "A package-lock.json sits next to package.json at the root of /app."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Fonts, icons and images are served by the app itself, with no runtime requests to third-party hosts from the browser."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "/app/USER_README.md lists every environment variable the app reads, as named in Configuration and secrets."
+tests = [
+    "test_app.py::test_if_user_readme",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "workspace-access"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_workspace_access_sign_in",
+    "test_app.py::test_member_projection",
+    "test_app.py::test_scoping",
+    "test_app.py::test_member_admin",
+]
+
+[[workflows]]
+id = "stage-gates"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_wf_stage_gates_keyboard_sign_off",
+    "test_app.py::test_sign_off_effects",
+    "test_app.py::test_sign_off_race",
+]
+
+[[workflows]]
+id = "drawing-register"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_drawing_register_multi_upload",
+    "test_app.py::test_sheet_uploads_content",
+]
+
+[[workflows]]
+id = "sealed-tender"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_sealed_tender_keyboard_setup",
+    "test_app.py::test_tender_lifecycle",
+    "test_app.py::test_tender_links_single_use",
+    "test_app.py::test_tender_invitations_ics",
+]
+
+[[workflows]]
+id = "bid-levelling"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_bid_levelling_keyboard_award",
+    "test_app.py::test_levelling_totals_award",
+    "test_app.py::test_levelling_csv",
+    "test_app.py::test_levelling_url_state",
+]
+
+[[workflows]]
+id = "variations"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_variations_phone_raise",
+    "test_app.py::test_wf_variations_withdraw_rollback",
+    "test_app.py::test_variation_replay",
+    "test_app.py::test_variation_stale_save",
+]
+
+[[workflows]]
+id = "payment-certificates"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_payment_certificates_keyboard_issue",
+    "test_app.py::test_retention_ledger_pairs",
+    "test_app.py::test_store_split",
+    "test_app.py::test_certificate_retention",
+]
+
+[[workflows]]
+id = "shop-drawing-review"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_shop_drawing_review_phone_submit_review",
+    "test_app.py::test_wf_shop_drawing_review_lost_race_outage",
+    "test_app.py::test_review_due_dates",
+    "test_app.py::test_status_labels",
+]
+
+[[workflows]]
+id = "snagging"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_snagging_phone_site_walk",
+    "test_app.py::test_seam_input",
+    "test_app.py::test_site_photo_stripped",
+    "test_app.py::test_snag_markers",
+]
+
+[[workflows]]
+id = "finishes-schedule"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_finishes_schedule_upkeep",
+    "test_app.py::test_finishes_import",
+    "test_app.py::test_finishes_reorder",
+    "test_app.py::test_finishes_csv",
+]
+
+[[workflows]]
+id = "case-studies"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_wf_case_studies_preview_publish_withdraw",
+    "test_app.py::test_withdrawn_vanishes",
+    "test_app.py::test_case_study_lifecycle",
+    "test_app.py::test_work_index_url",
+    "test_app.py::test_public_motion_names",
+    "test_app.py::test_featured_rail",
+]
+
+[[workflows]]
+id = "enquiries"
+requirements = [
+    "DP-50",
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_enquiries_keyboard_draft",
+    "test_app.py::test_enquiry_rate_limit",
+    "test_app.py::test_enquiry_notifications",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_error_order",
+    "test_app.py::test_run_health_boundary",
+]

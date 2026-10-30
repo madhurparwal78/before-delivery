@@ -1,0 +1,16 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const page = await (await browser.newContext({viewport:{width:1280,height:800}})).newPage();
+page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
+page.on("console", (m) => console.log("CONSOLE[" + m.type() + "]:", m.text().slice(0, 300)));
+page.on("requestfailed", (r) => console.log("REQFAIL:", r.url(), r.failure()?.errorText));
+await page.goto("http://localhost:4173/signin", { waitUntil: "networkidle" });
+console.log("--- email count:", await page.getByLabel("Email").count());
+await page.getByLabel("Email").fill("ben.osei@harbourview.test");
+await page.getByLabel("Password").fill("credwell-demo-1");
+await page.getByRole("button", { name: "Sign in" }).click();
+await page.waitForTimeout(3000);
+console.log("URL now:", page.url());
+console.log("BODY:", (await page.textContent("body"))?.slice(0, 400));
+await page.screenshot({ path: "/tmp/shot.png" });
+await browser.close();

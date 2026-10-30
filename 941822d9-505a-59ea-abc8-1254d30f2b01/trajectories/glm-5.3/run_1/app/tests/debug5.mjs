@@ -1,0 +1,17 @@
+import { chromium } from "playwright";
+const BASE = "http://localhost:4173";
+const browser = await chromium.launch();
+const page = await (await browser.newContext({viewport:{width:1280,height:800}})).newPage();
+page.on("pageerror", (e) => console.log("PAGEERROR:", e.message, e.stack?.split("\n")[1]));
+page.on("console", (m) => { if (m.type() === "error") console.log("CONSOLE-ERR:", m.text().slice(0,200)); });
+await page.goto(BASE + "/signin");
+await page.getByLabel("Email").fill("ben.osei@harbourview.test");
+await page.getByLabel("Password").fill("credwell-demo-1");
+await page.getByRole("button", { name: "Sign in" }).click();
+await page.getByRole("heading", { name: "Courses" }).waitFor();
+await page.getByRole("link", { name: "Sepsis Recognition in the First Hour" }).click();
+await page.waitForTimeout(2500);
+console.log("URL:", page.url());
+console.log("h1:", await page.getByRole("heading", { level: 1 }).allTextContents());
+console.log("body:", (await page.textContent("body"))?.slice(0, 300));
+await browser.close();
