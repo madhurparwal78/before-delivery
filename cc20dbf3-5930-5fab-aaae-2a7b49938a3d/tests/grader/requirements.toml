@@ -1,0 +1,1249 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 62
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "cross-cutting",
+    "browse-lanes",
+    "reserve-unit",
+    "pickup-window",
+    "counter-checkout",
+    "walk-in-reminders",
+    "condition-photos",
+    "check-in-inspection",
+    "late-fees",
+    "settlement",
+    "member-records",
+    "billing-outage",
+    "borrowing-pause",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 83
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+SHEDLINE_PICKUP_WINDOW_SECONDS = "180"
+SHEDLINE_REMINDER_LEAD_SECONDS = "691200"
+
+[[services]]
+name = "killbill"
+
+[services.env]
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Common Shed Co. <desk@commonshed.example>"
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "/app/run.json names the install, build and serve commands, and the server answers GET /api/health with HTTP 200 {\"status\":\"ok\"} on port 4173 or APP_PUBLIC_PORT, even while billing or photo storage is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_on_every_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Services wired from the environment"
+text = "Every service URL and credential is read from the environment variables listed in Configuration and secrets, all state lives in the four named services, and no credential is hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Sign-in and roles"
+text = "Seeded people sign in with email and password, receive an HttpOnly session cookie, and can use only the screens and actions of their role (member, volunteer or founder) as set out in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_sign_in_and_roles",
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Error shape and precedence"
+text = "Every API error uses the one error body and the one precedence order stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Server boundary"
+text = "The server accepts only same-origin state changes within the stated body limits and never serves source files, configuration or credentials, as qualified in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Catalogue"
+text = "Signed-in users see every seeded item with its deposit, replacement value, unit count and units free today."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-lanes"
+tests = [
+    "test_app.py::test_catalogue_items",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Unit lanes"
+text = "Each item shows one 28-day lane per unit, marking every busy span as held, out or overdue together with the open day the unit is back."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-lanes"
+tests = [
+    "test_app.py::test_unit_lanes",
+    "test_app.py::test_wf_browse_lanes_library_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Lane fields by role"
+text = "Members see only when each unit is busy and back plus whether a span is their own, staff also see the borrower's name, and nobody sees contact details in lanes."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-lanes"
+tests = [
+    "test_app.py::test_lane_fields_by_role",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Browse journey"
+text = "A member opens an item from the catalogue, sees its unit lanes, and picks pickup and return dates to see how many units are free for that range."
+kind = "behavior"
+primary = "workflow"
+workflow = "browse-lanes"
+tests = [
+    "test_app.py::test_wf_browse_lanes_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "First free lane"
+text = "A hold that passes the borrowing checks in Business rules claims the lowest-numbered unit that is free on every day of the chosen range and returns that unit with the new free count."
+kind = "behavior"
+primary = "pytest"
+workflow = "reserve-unit"
+tests = [
+    "test_app.py::test_first_free_lane",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "One winner for the last unit"
+text = "When several members claim the last free unit for overlapping dates at the same moment, exactly one hold is created and every other claim gets the no-unit-free conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "reserve-unit"
+tests = [
+    "test_app.py::test_last_unit_one_winner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Hold dates"
+text = "A hold's pickup and return dates must be open days, closure dates excluded, within the booking horizon and loan length set out in Business rules, or the hold is rejected with field errors."
+kind = "behavior"
+primary = "pytest"
+workflow = "reserve-unit"
+tests = [
+    "test_app.py::test_hold_dates",
+]
+criteria = []
+parameter_cases = [
+    "before_today",
+    "past_horizon",
+    "monday_pickup",
+    "return_before_pickup",
+    "loan_too_long",
+    "monday_return",
+]
+
+[[requirements]]
+id = "DP-13"
+title = "Hold replay"
+text = "Repeating a hold request with the same Idempotency-Key returns the original response without claiming a second unit, and reusing the key with a different body is rejected."
+kind = "behavior"
+primary = "pytest"
+workflow = "reserve-unit"
+tests = [
+    "test_app.py::test_hold_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Lane drop"
+text = "After a hold request, a claim bar steps down the lanes, pauses on busy ones and settles in the lane of the unit the server assigned while the units-free numeral counts down, or drops past the last lane on any refusal, as detailed in Motion and effects."
+kind = "visual"
+primary = "pytest"
+workflow = "reserve-unit"
+tests = [
+    "test_app.py::test_lane_drop",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Reserve journey"
+text = "A member picks dates, holds a unit, hears and sees the held unit and remaining free count, and finds the hold under My loans."
+kind = "behavior"
+primary = "workflow"
+workflow = "reserve-unit"
+tests = [
+    "test_app.py::test_wf_reserve_unit_happy",
+    "test_app.py::test_wf_reserve_unit_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Hold states"
+text = "Holds move only along the requested, ready, collected, expired and cancelled paths set out in Business rules, and every other move is rejected with the invalid-transition conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "pickup-window"
+tests = [
+    "test_app.py::test_hold_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Ready notice"
+text = "Marking a hold ready emails the member once with the item, the unit and the pickup deadline in the library's time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "pickup-window"
+tests = [
+    "test_app.py::test_ready_notice_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Pickup window expiry"
+text = "A ready hold not collected by its pickup deadline expires on the server, frees its unit and emails a lapse notice without any page load, within the delay qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "pickup-window"
+tests = [
+    "test_app.py::test_pickup_window_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Pickup journey"
+text = "A volunteer marks a requested hold ready from the Counter and the member then sees the hold as ready with its pickup deadline."
+kind = "behavior"
+primary = "workflow"
+workflow = "pickup-window"
+tests = [
+    "test_app.py::test_wf_pickup_window_ready",
+    "test_app.py::test_wf_pickup_window_stale_row",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Counter checkout"
+text = "Staff turn a ready hold into a loan due on the hold's return date for a member whose borrowing is not paused, and repeating the checkout with the same Idempotency-Key changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "counter-checkout"
+tests = [
+    "test_app.py::test_counter_checkout_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Deposit hold in billing"
+text = "Checking out an item with a deposit creates the loan, exactly one deposit purchase on the member's Kill Bill account and exactly one deposit-hold ledger entry together, or none of them."
+kind = "behavior"
+primary = "pytest"
+workflow = "counter-checkout"
+tests = [
+    "test_app.py::test_checkout_deposit_billing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Counter checkout journey"
+text = "A volunteer checks out a ready hold, sees the borrower's name and due time, and the loan appears under Out on loan."
+kind = "behavior"
+primary = "workflow"
+workflow = "counter-checkout"
+tests = [
+    "test_app.py::test_wf_counter_checkout_happy",
+    "test_app.py::test_wf_counter_checkout_two_devices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Walk-in and back-timed loans"
+text = "Staff lend a free unit directly to a member who passes the borrowing checks, optionally back-timed to the moment written on the paper sheet, and a unit busy on any of those days is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "walk-in-reminders"
+tests = [
+    "test_app.py::test_walk_in_loans",
+    "test_app.py::test_wf_walk_in_reminders_paper_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Due reminder"
+text = "Each loan still out receives exactly one due reminder email for its due time once it comes within the reminder lead time of that due time."
+kind = "behavior"
+primary = "pytest"
+workflow = "walk-in-reminders"
+tests = [
+    "test_app.py::test_due_reminder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Photo type and size"
+text = "Condition photos are accepted only as JPEG, PNG or WebP judged by content and only up to the published byte limit, and anything else is rejected with nothing stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "condition-photos"
+tests = [
+    "test_app.py::test_photo_type_and_size",
+]
+criteria = []
+parameter_cases = [
+    "jpeg",
+    "png",
+    "webp",
+    "at_size_limit",
+    "over_size_limit",
+    "svg_named_jpg",
+    "html",
+    "pdf",
+    "missing_field",
+]
+
+[[requirements]]
+id = "DP-26"
+title = "Server-named photo storage"
+text = "Each accepted photo is stored in the bucket under a server-generated key tied to its loan and stage, never under the device's file name."
+kind = "behavior"
+primary = "pytest"
+workflow = "condition-photos"
+tests = [
+    "test_app.py::test_photo_storage_key",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Photo storage outage"
+text = "When photo storage is down, photo uploads and downloads answer the photo-storage outage error while every other loan action keeps working."
+kind = "behavior"
+primary = "pytest"
+workflow = "condition-photos"
+tests = [
+    "test_app.py::test_photo_storage_outage",
+    "test_app.py::test_wf_condition_photos_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Photo capture journey"
+text = "A volunteer adds checkout photos after lending and return photos after check-in, and each photo appears in the loan's matching photo panel."
+kind = "behavior"
+primary = "workflow"
+workflow = "condition-photos"
+tests = [
+    "test_app.py::test_wf_condition_photos_capture",
+    "test_app.py::test_wf_condition_photos_owner_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Due at posted closing time"
+text = "A loan is due at the library's closing time on its due date in the library's time zone, so a return at or before that instant is on time, including across clock changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "check-in-inspection"
+tests = [
+    "test_app.py::test_due_at_closing_time",
+]
+criteria = []
+parameter_cases = [
+    "sat_at_closing",
+    "sat_after_closing",
+    "dst_sun_at_closing",
+    "dst_sun_after_closing",
+]
+
+[[requirements]]
+id = "DP-30"
+title = "Return and inspection"
+text = "Staff check a loan in and then record an OK or damaged inspection, and each step is allowed only from the state set out in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "check-in-inspection"
+tests = [
+    "test_app.py::test_return_and_inspection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Check-in journey"
+text = "A volunteer checks in a loan, sees whether it came back on time, adds return photos and saves the inspection."
+kind = "behavior"
+primary = "workflow"
+workflow = "check-in-inspection"
+tests = [
+    "test_app.py::test_wf_check_in_inspection_happy",
+    "test_app.py::test_wf_check_in_inspection_late_and_stale",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Late days and late-fee cap"
+text = "The late fee counts late days from the missed closing instants, is capped at the item's replacement value in whole cents, and is fixed once at settlement, as set out in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "late-fees"
+tests = [
+    "test_app.py::test_late_fee_examples",
+]
+criteria = []
+parameter_cases = [
+    "spring_after_closing",
+    "spring_before_closing",
+    "rate_change",
+    "replacement_cap",
+]
+
+[[requirements]]
+id = "DP-33"
+title = "Settlement amounts"
+text = "Settling a loan splits its deposit into a released part and a part kept for damage that sum exactly to the deposit, and adds the late fee, as set out in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "settlement"
+tests = [
+    "test_app.py::test_settlement_split",
+]
+criteria = []
+parameter_cases = [
+    "inspected_ok",
+    "within_deposit",
+    "whole_deposit",
+]
+
+[[requirements]]
+id = "DP-34"
+title = "Settlement in billing once"
+text = "Each settlement records its deposit release, any charge beyond the deposit and any late fee in Kill Bill exactly once, a retry completes missing records without duplicates, and a replay with the same Idempotency-Key changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "settlement"
+tests = [
+    "test_app.py::test_settlement_billing_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Settlement receipt email"
+text = "Each settlement emails the member exactly one receipt whose figures match the settlement response and the billing records."
+kind = "behavior"
+primary = "pytest"
+workflow = "settlement"
+tests = [
+    "test_app.py::test_settlement_receipt_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Deposit ledger"
+text = "The founder sees every deposit hold, release, damage charge, extra damage charge and late fee as a ledger entry, each settled loan's deposit entries net to zero, and the deposits-held figure equals the deposits of loans not yet settled."
+kind = "behavior"
+primary = "pytest"
+workflow = "settlement"
+tests = [
+    "test_app.py::test_deposit_ledger",
+    "test_app.py::test_wf_settlement_ledger_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Dispute and settle journey"
+text = "The founder opens an inspected loan, compares checkout and return photos side by side, enters a damage charge, settles, and then sees the receipt figures."
+kind = "behavior"
+primary = "workflow"
+workflow = "settlement"
+tests = [
+    "test_app.py::test_wf_settlement_dispute",
+    "test_app.py::test_wf_settlement_invalid_then_fixed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Own records only"
+text = "A member asking for another member's hold, loan, photo or receipt gets the same not-found answer as for an id that does not exist."
+kind = "behavior"
+primary = "pytest"
+workflow = "member-records"
+tests = [
+    "test_app.py::test_own_records_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Member records journey"
+text = "A member opens My loans, pages back with Show more loans, opens a loan's photos and its receipt, and sees only their own holds and loans, each listed once."
+kind = "behavior"
+primary = "workflow"
+workflow = "member-records"
+tests = [
+    "test_app.py::test_wf_member_records_history",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Lending while billing is down"
+text = "While billing is unreachable, items without a deposit still lend, deposit items are refused and shown blocked with the reason, and lending resumes without a restart once billing returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-outage"
+tests = [
+    "test_app.py::test_lending_while_billing_down",
+    "test_app.py::test_wf_billing_outage_counter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Settling while billing is down"
+text = "While billing is unreachable, a settlement that needs a billing record leaves the loan inspected with no ledger entry and no email, as qualified in Business rules, and the same request succeeds once billing returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-outage"
+tests = [
+    "test_app.py::test_settling_while_billing_down",
+    "test_app.py::test_wf_billing_outage_settlement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Responsive layout"
+text = "Every screen fits viewports 375, 768 and 1280 pixels wide with no horizontal scrolling and with tap targets at least 44 pixels in both directions."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layout",
+]
+criteria = []
+parameter_cases = [
+    "375",
+    "768",
+    "1280",
+]
+
+[[requirements]]
+id = "DP-43"
+title = "Keyboard and focus"
+text = "Every control can be reached with Tab in reading order and shows a visible focus ring, and the settlement dialog keeps focus inside, closes on Escape and returns focus to its opener."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_and_focus",
+    "test_app.py::test_wf_cross_cutting_menu",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Workshop look"
+text = "Screens use the pegboard ground, ink-ruled boxes, uppercase mono labels, and status shown as both a word and a fill pattern, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Motion and reduced motion"
+text = "Only the motions named in Motion and effects run, none loops for decoration, and under reduced motion each one is replaced by its stated substitute."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_and_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Racing checkouts"
+text = "When two volunteers check out the same ready hold at once, exactly one loan, one deposit purchase and one deposit-hold entry exist, and every other attempt gets the invalid-transition conflict with nothing billed."
+kind = "behavior"
+primary = "pytest"
+workflow = "counter-checkout"
+tests = [
+    "test_app.py::test_racing_checkouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Late-fee rate history"
+text = "Each late day is charged at the rate in force on that day's local date from the seeded schedule, the sum is capped at the replacement value, and the screen, email, ledger and billing show the same total."
+kind = "behavior"
+primary = "pytest"
+workflow = "late-fees"
+tests = [
+    "test_app.py::test_wf_late_fees_rate_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Paged history"
+text = "Holds and loans lists page by cursor with a page size from 1 to 50 (default 20), and every record present when the first page is read appears exactly once across the pages, only the caller's own for a member, even while records are added."
+kind = "behavior"
+primary = "pytest"
+workflow = "member-records"
+tests = [
+    "test_app.py::test_paged_history",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Retry through an outage"
+text = "A checkout or settlement refused because billing is down can be retried with the same Idempotency-Key, gets the same outage answer each time, and completes exactly once with that key after billing returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-outage"
+tests = [
+    "test_app.py::test_retry_through_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Borrowing pause"
+text = "A member with any loan overdue now cannot place a hold or receive a loan and gets the borrowing-paused conflict, which starts the instant a due time passes and lifts at check-in, as set out in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "borrowing-pause"
+tests = [
+    "test_app.py::test_borrowing_pause",
+    "test_app.py::test_wf_borrowing_pause_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Closure dates"
+text = "The seeded closure dates are not open days anywhere: hold dates, walk-in and renewal due dates, the day a unit is back and late-day counting all skip them."
+kind = "behavior"
+primary = "pytest"
+workflow = "late-fees"
+tests = [
+    "test_app.py::test_closure_dates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Borrowing limit"
+text = "A member never has more than 4 holds and loans active at once, even under simultaneous requests, and a slot frees the instant a hold is cancelled, a loan is checked in or a pickup deadline passes, as set out in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "borrowing-pause"
+tests = [
+    "test_app.py::test_borrowing_limit",
+    "test_app.py::test_wf_borrowing_pause_limit_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Free count at commit"
+text = "Each successful hold reports the free count for its dates right after its own claim, so racing winners report distinct counts ending at zero and the catalogue and lanes agree afterwards."
+kind = "behavior"
+primary = "pytest"
+workflow = "reserve-unit"
+tests = [
+    "test_app.py::test_hold_race_for_last_units",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Photo cap under simultaneous uploads"
+text = "Simultaneous uploads never take a stage past 4 photos, the bucket holds exactly one object per photo record, and a refused upload leaves no object and no record."
+kind = "behavior"
+primary = "pytest"
+workflow = "condition-photos"
+tests = [
+    "test_app.py::test_photo_cap_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "One check-in and one inspection"
+text = "Among simultaneous check-ins or inspections of the same loan exactly one succeeds, the stored values are the winner's, and every other attempt gets the invalid-transition conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "check-in-inspection"
+tests = [
+    "test_app.py::test_one_check_in_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Late days across the spring clock change"
+text = "Each late day's closing instant uses that date's own offset, so a return after the 18:00 daylight-time closing on the Tuesday after the March clock change counts that Tuesday as late."
+kind = "behavior"
+primary = "pytest"
+workflow = "late-fees"
+tests = [
+    "test_app.py::test_wf_late_fees_spring_clock_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Damage beyond the deposit"
+text = "A damage charge up to the replacement value takes what it can from the deposit and bills the remainder once as a separate charge, with the released, kept and extra amounts adding up exactly."
+kind = "behavior"
+primary = "pytest"
+workflow = "settlement"
+tests = [
+    "test_app.py::test_damage_beyond_deposit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Settlements one at a time"
+text = "Simultaneous settlement attempts for one loan with different Idempotency-Keys are decided one after another, so billing, the ledger and the receipt email each record the settlement once."
+kind = "behavior"
+primary = "pytest"
+workflow = "settlement"
+tests = [
+    "test_app.py::test_settlements_one_at_a_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Honest Cancel hold"
+text = "A member's hold row changes only after the server answers Cancel hold, and a refused cancel shows the hold's real state with the reason, never Cancelled."
+kind = "behavior"
+primary = "pytest"
+workflow = "member-records"
+tests = [
+    "test_app.py::test_wf_member_records_honest_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Opaque outage answers"
+text = "Every outage answer carries only the published code and message with no provider address or error text, and a refused checkout or walk-in changes no free count, lane, span or deposits-held figure."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-outage"
+tests = [
+    "test_app.py::test_opaque_outage_answers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Renew once"
+text = "The borrower or staff can renew a loan that is out once, to an open day at most 7 days after its due date, never billed, and a renewal racing another member's hold for the extension days has exactly one winner."
+kind = "behavior"
+primary = "pytest"
+workflow = "walk-in-reminders"
+tests = [
+    "test_app.py::test_renewal",
+    "test_app.py::test_wf_walk_in_reminders_busy_renewal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Reminder per due time"
+text = "A renewed loan receives one due reminder naming its new due time when that time comes within the reminder lead time, and the old due time's reminder is never sent again."
+kind = "behavior"
+primary = "pytest"
+workflow = "walk-in-reminders"
+tests = [
+    "test_app.py::test_reminder_per_due_time",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json is a JSON object with exactly the string fields _schema (value run-manifest-v1), install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package and every bundled font with its name, version and licence, where shipped packages are the production dependency tree reported by npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (as defined in IF-02) and every bundled font is licensed under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "No datastore is used beyond PostgreSQL, Kill Bill, MinIO and the SMTP server: no SQLite, Redis, embedded database, or files written by the app to hold records."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration files and their environment values are left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The browser loads nothing from third-party hosts; fonts, scripts and styles are served by the app itself."
+tests = [
+    "test_app.py::test_if_no_third_party_hosts",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "package-lock.json is committed and the install command installs from it."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+
+[[workflows]]
+id = "browse-lanes"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+]
+critical = [
+    "test_app.py::test_wf_browse_lanes_happy",
+    "test_app.py::test_lane_fields_by_role",
+    "test_app.py::test_wf_browse_lanes_library_time",
+]
+
+[[workflows]]
+id = "reserve-unit"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_reserve_unit_happy",
+    "test_app.py::test_last_unit_one_winner",
+    "test_app.py::test_hold_race_for_last_units",
+    "test_app.py::test_hold_replay",
+]
+
+[[workflows]]
+id = "pickup-window"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_pickup_window_ready",
+    "test_app.py::test_pickup_window_expiry",
+    "test_app.py::test_ready_notice_email",
+]
+
+[[workflows]]
+id = "counter-checkout"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_counter_checkout_happy",
+    "test_app.py::test_wf_counter_checkout_two_devices",
+    "test_app.py::test_racing_checkouts",
+    "test_app.py::test_checkout_deposit_billing",
+    "test_app.py::test_counter_checkout_replay",
+]
+
+[[workflows]]
+id = "walk-in-reminders"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-61",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_walk_in_reminders_paper_sheet",
+    "test_app.py::test_renewal",
+    "test_app.py::test_due_reminder",
+]
+
+[[workflows]]
+id = "condition-photos"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-54",
+]
+critical = [
+    "test_app.py::test_wf_condition_photos_capture",
+    "test_app.py::test_wf_condition_photos_owner_only",
+    "test_app.py::test_photo_type_and_size",
+    "test_app.py::test_photo_cap_race",
+]
+
+[[workflows]]
+id = "check-in-inspection"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_check_in_inspection_happy",
+    "test_app.py::test_due_at_closing_time",
+    "test_app.py::test_one_check_in_race",
+]
+
+[[workflows]]
+id = "late-fees"
+requirements = [
+    "DP-32",
+    "DP-47",
+    "DP-51",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_late_fees_rate_change",
+    "test_app.py::test_wf_late_fees_spring_clock_change",
+    "test_app.py::test_late_fee_examples",
+]
+
+[[workflows]]
+id = "settlement"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-57",
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_wf_settlement_dispute",
+    "test_app.py::test_deposit_ledger",
+    "test_app.py::test_settlement_split",
+    "test_app.py::test_settlement_billing_once",
+    "test_app.py::test_damage_beyond_deposit",
+]
+
+[[workflows]]
+id = "member-records"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-48",
+    "DP-59",
+]
+critical = [
+    "test_app.py::test_wf_member_records_history",
+    "test_app.py::test_wf_member_records_honest_cancel",
+    "test_app.py::test_paged_history",
+    "test_app.py::test_own_records_only",
+]
+
+[[workflows]]
+id = "billing-outage"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-49",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_billing_outage_counter",
+    "test_app.py::test_wf_billing_outage_settlement",
+    "test_app.py::test_lending_while_billing_down",
+    "test_app.py::test_retry_through_outage",
+    "test_app.py::test_opaque_outage_answers",
+]
+
+[[workflows]]
+id = "borrowing-pause"
+requirements = [
+    "DP-50",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_borrowing_pause_ui",
+    "test_app.py::test_borrowing_pause",
+    "test_app.py::test_borrowing_limit",
+]

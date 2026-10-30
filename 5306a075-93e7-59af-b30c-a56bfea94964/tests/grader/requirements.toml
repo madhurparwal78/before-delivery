@@ -1,0 +1,1069 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 53
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "triage-inbox",
+    "evidence-thread",
+    "evidence-integrity",
+    "call-notes",
+    "legacy-import",
+    "scoring",
+    "roadmap-board",
+    "release-ship",
+    "roadmap-sharing",
+    "exec-export",
+    "global-search",
+    "invitations",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 79
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Loomwise Evidence Desk <updates@loomwise.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[requirements]]
+id = "DP-01"
+title = "Feedback inbox triage"
+text = "A product manager opens the inbox, filters notes by Unprocessed, Snoozed and Processed, loads further pages with \"Load more notes\", reads a note in the reading column, and marks it processed so it leaves the Unprocessed list."
+kind = "behavior"
+primary = "workflow"
+workflow = "triage-inbox"
+tests = [
+    "test_app.py::test_wf_triage_inbox_happy",
+    "test_app.py::test_wf_triage_inbox_reopen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Note body allowlist"
+text = "Every note body is reduced on save to the allowlist in Business rules, so the stored body, the API response and the reading view never carry scripts, event handlers, inline styles or links other than http, https and mailto."
+kind = "behavior"
+primary = "pytest"
+workflow = "triage-inbox"
+tests = [
+    "test_app.py::test_note_body_allowlist",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Note states and snooze"
+text = "Notes move between unprocessed, snoozed and processed only along the legal edges in Business rules, and a snoozed note returns to Unprocessed at the chosen local time in the workspace time zone, including across daylight-saving changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "triage-inbox"
+tests = [
+    "test_app.py::test_note_states_and_snooze",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Highlight a quote into an insight"
+text = "Selecting text in a note, choosing a feature by pressing L or by dragging the mark onto the hierarchy rail, and confirming an importance creates an insight whose marks sit on the same characters after a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "evidence-thread"
+tests = [
+    "test_app.py::test_wf_evidence_thread_keyboard_link",
+    "test_app.py::test_wf_evidence_thread_drag_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Insight records exact offsets"
+text = "Creating an insight stores the note id, the start and end offsets into the note's plain text and the importance, and returns a quote that is exactly that slice of the plain text."
+kind = "behavior"
+primary = "pytest"
+workflow = "evidence-thread"
+tests = [
+    "test_app.py::test_insight_exact_offsets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Evidence thread motion"
+text = "Linking a quote draws the thread from the mark to the feature row, counts the row's numbers up, slides the row to its new rank and leaves a persistent tick beside the quote, within the timings in Motion and effects."
+kind = "visual"
+primary = "pytest"
+workflow = "evidence-thread"
+tests = [
+    "test_app.py::test_evidence_thread_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Workspace-scoped feature picker"
+text = "The feature picker and its feature search return only non-archived top-level features from the signed-in user's own workspace, matching the typed text literally."
+kind = "behavior"
+primary = "pytest"
+workflow = "evidence-thread"
+tests = [
+    "test_app.py::test_feature_picker_scope",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Derived feature counters"
+text = "Each feature's insight count, unique-company count and impact score always equal a recomputation from its linked insights, in the API, the hierarchy rail and the ranking table."
+kind = "behavior"
+primary = "pytest"
+workflow = "evidence-integrity"
+tests = [
+    "test_app.py::test_derived_counters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Evidence edits keep counters true"
+text = "A product manager who unlinks an insight, deletes a note or changes a note's contact sees the affected feature rows change to the recomputed counts and scores without reloading."
+kind = "behavior"
+primary = "workflow"
+workflow = "evidence-integrity"
+tests = [
+    "test_app.py::test_wf_evidence_integrity_edits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Company merge"
+text = "Merging one company into another moves its contacts, notes and domains to the target, removes the merged company from every surface, and recounts unique companies on every affected feature in the same request."
+kind = "behavior"
+primary = "pytest"
+workflow = "evidence-integrity"
+tests = [
+    "test_app.py::test_company_merge",
+    "test_app.py::test_wf_evidence_integrity_merge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Highlights survive note edits"
+text = "Editing a note body keeps or re-anchors every highlighted span as defined in Business rules, and rejects with 409 an edit that would remove highlighted text."
+kind = "behavior"
+primary = "pytest"
+workflow = "evidence-integrity"
+tests = [
+    "test_app.py::test_highlights_survive_edits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Log a call note with a transcript"
+text = "A customer success manager logs a call note for a contact with a transcript attached that passes the content check, and the note appears in the inbox with the attachment listed."
+kind = "behavior"
+primary = "workflow"
+workflow = "call-notes"
+tests = [
+    "test_app.py::test_wf_call_notes_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Attachment pending during storage outage"
+text = "When object storage is unreachable, saving a note still succeeds, and an attachment that passes the content check is accepted with status pending and shown as pending, never as a broken link."
+kind = "behavior"
+primary = "pytest"
+workflow = "call-notes"
+tests = [
+    "test_app.py::test_attachment_pending_outage",
+    "test_app.py::test_wf_call_notes_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Pending attachments upload on recovery"
+text = "Pending attachments upload on their own once object storage is reachable again, picked up from the shared database by any running instance within the retry interval in Services, without a server restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "call-notes"
+tests = [
+    "test_app.py::test_pending_upload_recovers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Import preview before writing"
+text = "A customer success manager pastes a legacy feedback CSV, sees a preview of created, matched and skipped rows with line numbers that writes nothing, then imports and sees the new notes in the inbox."
+kind = "behavior"
+primary = "workflow"
+workflow = "legacy-import"
+tests = [
+    "test_app.py::test_wf_legacy_import_happy",
+    "test_app.py::test_wf_legacy_import_bad_header",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Import matching rules"
+text = "Imported rows match existing contacts by normalised email and companies by normalised email domain within the workspace, rows that are invalid or duplicates are skipped with a stated reason, and a repeated import creates nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "legacy-import"
+tests = [
+    "test_app.py::test_import_matching_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Objectives and weights"
+text = "The head of product creates objectives and sets their weights, and every feature's objective fit and priority score reflect the new weights on the next read without changing any score version."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_objective_weights",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Priority score and ranking"
+text = "Every feature's priority score and rank follow the formula, rounding and tie-break rules in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_priority_and_rank",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Score version conflicts"
+text = "Of simultaneous score saves on one version exactly one wins and every other gets 409 with identical current values, and each committed version is kept in a readable history with the priority computed at that commit."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_score_version_conflicts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Rank a feature against objectives"
+text = "A product manager edits a feature's effort, confidence and objective fits on its detail screen and sees its priority, rank and score history update."
+kind = "behavior"
+primary = "workflow"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_wf_scoring_happy",
+    "test_app.py::test_wf_scoring_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Roadmap board by target month"
+text = "The roadmap board shows releases grouped into columns by target month in the workspace time zone, and a product manager reorders features within a release and moves them between releases by pointer drag."
+kind = "behavior"
+primary = "workflow"
+workflow = "roadmap-board"
+tests = [
+    "test_app.py::test_wf_roadmap_board_pointer",
+    "test_app.py::test_wf_roadmap_board_columns",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Keyboard moves with announced positions"
+text = "Every board move can be made by keyboard alone, and each pick-up, step, drop and cancel is announced with the feature's position and release."
+kind = "behavior"
+primary = "pytest"
+workflow = "roadmap-board"
+tests = [
+    "test_app.py::test_keyboard_board_moves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Board order versions"
+text = "Board moves persist across reloads and follow the release and status guards in Business rules in the published error precedence, and a move made against any outdated release order is rejected with 409 and every touched release's current order."
+kind = "behavior"
+primary = "pytest"
+workflow = "roadmap-board"
+tests = [
+    "test_app.py::test_board_order_versions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Feature status machine"
+text = "Feature status changes follow only the legal edges in Business rules, with archive from any state and restore to the prior state, and every illegal edge is rejected with 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "roadmap-board"
+tests = [
+    "test_app.py::test_feature_status_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Freeze a release scope"
+text = "Freezing a release stores its scope snapshot in object storage before the release reports frozen, and later scope changes to a frozen release need the head of product and write the next snapshot version."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-ship"
+tests = [
+    "test_app.py::test_freeze_scope_snapshots",
+    "test_app.py::test_wf_release_ship_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Ship once per idempotency key"
+text = "Shipping a frozen release releases the features in its latest scope snapshot and makes the release immutable; a replayed idempotency key returns the stored response and every other repeat is rejected, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-ship"
+tests = [
+    "test_app.py::test_ship_idempotency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "You asked, we shipped emails"
+text = "Shipping a release sends exactly one email per distinct requesting contact per release, listing only that contact's features in board order with content fixed at ship time and carrying only published fields, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-ship"
+tests = [
+    "test_app.py::test_you_asked_we_shipped_emails",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Ship and close the loop"
+text = "The head of product freezes and ships a release from the roadmap board and sees the release marked shipped along with the number of customer emails queued."
+kind = "behavior"
+primary = "workflow"
+workflow = "release-ship"
+tests = [
+    "test_app.py::test_wf_release_ship_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Customer request status"
+text = "A customer success manager sees on a company's page each feature its contacts asked for and, once it has shipped, the release and target month it shipped in."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-ship"
+tests = [
+    "test_app.py::test_customer_request_status",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Revocable share links"
+text = "The head of product creates, regenerates and revokes unguessable roadmap links in Settings, and a link that is revoked, replaced or expired stops working at once, as qualified in Business rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "roadmap-sharing"
+tests = [
+    "test_app.py::test_wf_roadmap_sharing_happy",
+    "test_app.py::test_wf_roadmap_sharing_regenerate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Public roadmap shows published fields only"
+text = "The public roadmap page and its API show only public releases with feature name, public description, release name and target month, and accept no changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "roadmap-sharing"
+tests = [
+    "test_app.py::test_public_roadmap_published_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Prioritised feature export"
+text = "The head of product downloads the ranked feature list as CSV, with current feature names, up to three top customer quotes per feature and only their own workspace's data."
+kind = "behavior"
+primary = "workflow"
+workflow = "exec-export"
+tests = [
+    "test_app.py::test_wf_exec_export_download",
+    "test_app.py::test_wf_exec_export_rename",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Export cells cannot run as formulas"
+text = "Every export cell that a spreadsheet could read as a formula is neutralised by the rule in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "exec-export"
+tests = [
+    "test_app.py::test_export_formula_neutralised",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Workspace-scoped search and totals"
+text = "Global search, company lists and each feature's requested-by totals show only records from the signed-in user's own workspace."
+kind = "behavior"
+primary = "pytest"
+workflow = "global-search"
+tests = [
+    "test_app.py::test_workspace_scoped_search",
+    "test_app.py::test_wf_global_search_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Invite members by email"
+text = "The head of product invites a member by email with a role, the invitation is delivered through the outbox, and its accept link works exactly once before it expires."
+kind = "behavior"
+primary = "workflow"
+workflow = "invitations"
+tests = [
+    "test_app.py::test_wf_invitations_happy",
+    "test_app.py::test_wf_invitations_replaced",
+    "test_app.py::test_wf_invitations_mail_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Sign-in, sessions and roles"
+text = "Members sign in with email and password, and each action is allowed only to the roles listed for it in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_sessions_and_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "One error contract"
+text = "Every API error uses one JSON shape and the single precedence order stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_contract",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Server boundary"
+text = "The server accepts state changes only from its own origin, enforces body-size limits, never serves source or credentials, and keeps serving when object storage or mail is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from /app/run.json on port 4173 (or APP_PUBLIC_PORT) and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_port",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Responsive panes"
+text = "The three-pane desktop layout collapses into stacked pane tabs below 900 pixels wide, with no horizontal page overflow at 375, 768 and 1280 pixels wide."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_panes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Keyboard and focus"
+text = "Every control in the public controls table can be reached by Tab in reading order and shows a visible focus ring; dialogs trap focus, Escape closes them and focus returns to the control that opened them."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_and_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Reduced motion substitutes"
+text = "When reduced motion is requested, no thread drawing, numeral counting or row sliding runs, and the substitutes in Motion and effects appear at once."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion_substitutes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Paper-and-ink visual identity"
+text = "Screens use the paper ground, ink text, hairline rules, cobalt accent, marker-yellow highlights, serif display with sans body type, and monospaced score figures described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Credentials from environment"
+text = "Every service credential and URL is read from the environment variables in Configuration and secrets, never hard-coded and never sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Stable inbox paging"
+text = "The inbox lists notes in capped pages, newest first, with a cursor bound to its filter, so walking every page returns each matching note exactly once even when notes share a creation time or arrive mid-walk, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "triage-inbox"
+tests = [
+    "test_app.py::test_inbox_paging_stable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Deleted means gone everywhere"
+text = "A deleted note or a merged-away company disappears from every read surface in the same request, and a deleted note's stored objects leave object storage within the window in Services, whichever instance ran the delete."
+kind = "behavior"
+primary = "pytest"
+workflow = "evidence-integrity"
+tests = [
+    "test_app.py::test_deleted_note_gone_everywhere",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Uploads judged by content"
+text = "An attachment is accepted only when its bytes match its extension, on every path including pending, and downloads carry the canonical type, a no-sniff header and a safe attachment filename."
+kind = "behavior"
+primary = "pytest"
+workflow = "call-notes"
+tests = [
+    "test_app.py::test_uploads_judged_by_content",
+    "test_app.py::test_wf_call_notes_bad_file",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Imports never write twice"
+text = "Real imports in a workspace run one at a time, so two simultaneous imports of the same file create each note, contact and company exactly once, and the CSV reading rules in Business rules hold."
+kind = "behavior"
+primary = "pytest"
+workflow = "legacy-import"
+tests = [
+    "test_app.py::test_imports_never_write_twice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Share link expiry and lifecycle"
+text = "A share link works only while server time is before its expiresAt, regenerating gives a fresh window of the same lifetime, a revoked link can never be regenerated, and every public roadmap response forbids caching and indexing."
+kind = "behavior"
+primary = "pytest"
+workflow = "roadmap-sharing"
+tests = [
+    "test_app.py::test_share_link_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Renames propagate with history"
+text = "A renamed feature shows its new name on every live surface on the next read, while scope snapshots and already-queued emails keep the name they had, and feature names stay unique per workspace ignoring case."
+kind = "behavior"
+primary = "pytest"
+workflow = "exec-export"
+tests = [
+    "test_app.py::test_renames_propagate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Bounded literal search"
+text = "Global search matches only note titles and plain text, treats percent, underscore and backslash literally, caps query length, and returns ordered groups of at most 10 with the exact snippet window in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "global-search"
+tests = [
+    "test_app.py::test_bounded_literal_search",
+    "test_app.py::test_wf_global_search_snippet_text",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Overlapping highlights as exact segments"
+text = "Saved and pending highlights render as mark segments over runs where the set of covering insights is constant, each carrying its offsets and sorted insight ids, split at element boundaries and never splitting a surrogate pair."
+kind = "behavior"
+primary = "pytest"
+workflow = "evidence-thread"
+tests = [
+    "test_app.py::test_highlight_segments",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Simultaneous links stay exact"
+text = "Of simultaneous identical links exactly one succeeds and the rest get 409 duplicate_insight, and simultaneous distinct links, importance changes and unlinks leave every counter equal to a recomputation."
+kind = "behavior"
+primary = "pytest"
+workflow = "evidence-thread"
+tests = [
+    "test_app.py::test_simultaneous_links_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string fields install, build, serve and \"_schema\":\"run-manifest-v1\", and those commands are the only way the app is installed, built and started."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package with its version and licence. Shipped packages are the production dependency tree reported by npm ls --omit=dev --all --json (the lockfile's non-dev group)."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and bundled font uses MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0, CC0-1.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The only datastores are the provided PostgreSQL database and object storage bucket. No SQLite, embedded key-value store, Redis or data files are used as storage."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Provided service configuration (compose fragments, service images, seeded credentials) is used as given and left unmodified."
+tests = [
+    "test_app.py::test_if_provided_services_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Application source, server and client, is TypeScript. JavaScript files appear only as build output or tool configuration."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Icons come from Lucide, and all illustration is SVG generated by the app. No stock or downloaded imagery."
+tests = [
+    "test_app.py::test_if_lucide_and_generated_art",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "Pages load no scripts, styles or fonts from other hosts."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "triage-inbox"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_triage_inbox_happy",
+    "test_app.py::test_note_body_allowlist",
+    "test_app.py::test_inbox_paging_stable",
+]
+
+[[workflows]]
+id = "evidence-thread"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-52",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_evidence_thread_keyboard_link",
+    "test_app.py::test_simultaneous_links_exact",
+    "test_app.py::test_feature_picker_scope",
+]
+
+[[workflows]]
+id = "evidence-integrity"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_evidence_integrity_edits",
+    "test_app.py::test_derived_counters",
+    "test_app.py::test_highlights_survive_edits",
+    "test_app.py::test_deleted_note_gone_everywhere",
+]
+
+[[workflows]]
+id = "call-notes"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_call_notes_happy",
+    "test_app.py::test_pending_upload_recovers",
+    "test_app.py::test_uploads_judged_by_content",
+]
+
+[[workflows]]
+id = "legacy-import"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_legacy_import_happy",
+    "test_app.py::test_import_matching_rules",
+    "test_app.py::test_imports_never_write_twice",
+]
+
+[[workflows]]
+id = "scoring"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_scoring_happy",
+    "test_app.py::test_score_version_conflicts",
+    "test_app.py::test_priority_and_rank",
+]
+
+[[workflows]]
+id = "roadmap-board"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_roadmap_board_pointer",
+    "test_app.py::test_keyboard_board_moves",
+    "test_app.py::test_board_order_versions",
+]
+
+[[workflows]]
+id = "release-ship"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_release_ship_happy",
+    "test_app.py::test_you_asked_we_shipped_emails",
+]
+
+[[workflows]]
+id = "roadmap-sharing"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_wf_roadmap_sharing_happy",
+    "test_app.py::test_share_link_lifecycle",
+    "test_app.py::test_public_roadmap_published_fields",
+]
+
+[[workflows]]
+id = "exec-export"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_exec_export_download",
+    "test_app.py::test_export_formula_neutralised",
+    "test_app.py::test_renames_propagate",
+]
+
+[[workflows]]
+id = "global-search"
+requirements = [
+    "DP-34",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_global_search_happy",
+    "test_app.py::test_workspace_scoped_search",
+    "test_app.py::test_bounded_literal_search",
+]
+
+[[workflows]]
+id = "invitations"
+requirements = [
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_invitations_happy",
+    "test_app.py::test_wf_invitations_mail_outage",
+    "test_app.py::test_wf_invitations_replaced",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+]
+critical = [
+    "test_app.py::test_health_and_port",
+    "test_app.py::test_sessions_and_roles",
+]

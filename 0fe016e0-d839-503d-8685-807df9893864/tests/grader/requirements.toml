@@ -1,0 +1,498 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 18
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "force-enable-gap",
+    "ladder-climb",
+    "rollback",
+    "breach-cascade",
+    "exports",
+    "live-values",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 82
+services = [
+    { name = "postgres", env = {} },
+]
+outages = []
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 5
+Q4 = 5
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[requirements]]
+id = "DP-01"
+title = "Contiguous ladder"
+text = "Promote a cohort for a flag only when every rung below it carries an active promotion for the same flag (rung 1 needs none), and of simultaneous promotions or force enables of one flag to one rung let exactly one succeed while the rest receive the published already-active field error, so a flag's active rungs never skip or repeat a rung."
+kind = "behavior"
+primary = "pytest"
+workflow = "force-enable-gap"
+tests = [
+    "test_app.py::test_wf_force_enable_gap_race",
+    "test_app.py::test_simultaneous_promotions_one_winner",
+    "test_app.py::test_force_enable_idempotent_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Inclusive soak gate"
+text = "Promote only when the rung below has soaked at least its minimum soak minutes, with exactly the minimum allowed, measured on the server clock from that rung's current active promotion, and name the elapsed, minimum and remaining minutes in every soak refusal."
+kind = "behavior"
+primary = "pytest"
+workflow = "ladder-climb"
+tests = [
+    "test_app.py::test_wf_ladder_climb_alert",
+    "test_app.py::test_soak_gate_edges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Rate gate"
+text = "Promote only when the adverse rate of the rung below, in whole basis points of events per device, sits at or below the flag's maximum adverse rate."
+kind = "behavior"
+primary = "pytest"
+workflow = "ladder-climb"
+tests = [
+    "test_app.py::test_wf_ladder_climb_rate_gate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Attestation gate"
+text = "Promote only with a signed bench attestation reference that is trimmed, within its published length and character limits and never used by any promotion row before, active or demoted, with limit and reuse failures answered before any gate refusal, as qualified in API and Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "ladder-climb"
+tests = [
+    "test_app.py::test_attestation_reference_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "One-rung rollback and fresh restore"
+text = "A rollback demotes only the flag's highest active rung and keeps that row with its demotion instant, a retry carrying the same idempotency key replays the first response instead of demoting again, and restoring a rolled-back rung is always a new promotion row with the next code, a fresh reference and a restarted soak, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "rollback"
+tests = [
+    "test_app.py::test_wf_rollback_flaky_retry",
+    "test_app.py::test_wf_rollback_empty_ladder",
+    "test_app.py::test_rollback_idempotency_and_concurrency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Breach cascade"
+text = "When a rung's adverse rate exceeds the flag maximum, demote every active rung above it, highest first, each exactly once with its own instant even when events arrive together, while the breaching rung itself stays active and no later reassessment moves a recorded instant."
+kind = "behavior"
+primary = "pytest"
+workflow = "breach-cascade"
+tests = [
+    "test_app.py::test_wf_breach_cascade_console",
+    "test_app.py::test_breach_burst_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Evidence gaps"
+text = "The evidence pack lists as a gap, once each, every active rung without a complete soak, rate and attestation record below it, and a console whose promotion, force enable or rollback is refused shows the server's current ladder and evidence pack within 2 seconds without waiting for its regular reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "force-enable-gap"
+tests = [
+    "test_app.py::test_wf_force_enable_gap_refusal_reload",
+    "test_app.py::test_evidence_gap_lists",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Scoped adverse rate"
+text = "A rung's adverse rate counts each normalised event code once, and only events of that flag on that cohort's devices that occurred inside any interval while the flag was active there, past intervals included, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "breach-cascade"
+tests = [
+    "test_app.py::test_wf_breach_cascade_backdated",
+    "test_app.py::test_adverse_rate_scope",
+    "test_app.py::test_duplicate_event_codes_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Ladder state export"
+text = "Produce `ladder-state.csv` on demand with one row per flag and rung pair, byte for byte in the columns, order, quoting, formula neutralisation and line endings given in Exports, neutralising in that file only."
+kind = "behavior"
+primary = "pytest"
+workflow = "exports"
+tests = [
+    "test_app.py::test_wf_exports_formula_references",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Evidence pack export"
+text = "Produce `evidence-pack.json` on demand, byte for byte in the shape, order and layout given in Exports, with every empty list written as an empty array."
+kind = "behavior"
+primary = "pytest"
+workflow = "exports"
+tests = [
+    "test_app.py::test_wf_exports_force_enabled_gap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Adverse rates export"
+text = "Produce `adverse-rates.txt` on demand, byte for byte with one line per flag and cohort in the format and order given in Exports."
+kind = "behavior"
+primary = "pytest"
+workflow = "exports"
+tests = [
+    "test_app.py::test_exports_byte_exact_live",
+    "test_app.py::test_restart_keeps_seed_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Live rate maximum"
+text = "Every gate, figure and export re-reads a flag's maximum adverse rate from live state, so a saved whole number within its published range triggers the breach cascade at once, raising it never restores a demoted rung, and a refused change alters and triggers nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-values"
+tests = [
+    "test_app.py::test_wf_live_values_max",
+    "test_app.py::test_max_setting_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Live soak minimum"
+text = "Every gate, figure and export re-reads a cohort's minimum soak from live state, so a saved whole number within its published range governs the next promotion, lowering it never restores a demoted rung, and a refused change alters and triggers nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-values"
+tests = [
+    "test_app.py::test_wf_live_values_soak",
+    "test_app.py::test_soak_setting_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Legible evidence"
+text = "Every figure on a rung card sits beside the evidence it was derived from with its unit, every state word is printed beside any colour used for it, and every refusal reads beside the control that was used."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Keyboard and narrow windows"
+text = "Every page works by keyboard alone at 375x812, 768x1024 and 1280x800 without horizontal scrolling, in the published tab order, and nothing depends on a hover a keyboard cannot reproduce."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Runtime contract"
+text = "Serve the pages and the JSON API from one Go process on one origin, answer `GET /api/health` with 200 once ready, answer every list route with a top-level array, accept on every write route only the fields of its published request shape while listing every failing field at once, and load the seed exactly once so a restart neither re-seeds nor duplicates a row."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_api_runtime_contract",
+    "test_app.py::test_promotion_strict_shape",
+    "test_app.py::test_adverse_event_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Read-time derivation and agreement"
+text = "Compute every derived figure and state word at read time from the records it cites, store none as a column, make every surface that shows a count, rate or state agree, and let a refused request change no record and consume no promotion code."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_refusals_change_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Reader and operator separation"
+text = "Reader pages show only published records rendered from live state, and no reader route ever exposes an operator control."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_reader_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "Every duration on a page reads as whole minutes with the word minutes beside it, and every rate reads as basis points with the words basis points beside it."
+tests = [
+    "test_app.py::test_if_units_beside_figures",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "No promotion row is ever deleted, and no table carries a stored highest-rung, gap, rate or state column."
+tests = [
+    "test_app.py::test_if_no_deleted_rows_or_stored_figures",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Demotions caused by one breach are recorded from the highest rung downward, so their instants strictly increase as the rung index decreases."
+tests = [
+    "test_app.py::test_if_cascade_instants_descend",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The application writes exactly the three named deliverables into the working directory root, and no other file at run time."
+tests = [
+    "test_app.py::test_if_only_deliverables_written",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "/app/run.json is a JSON object with string install, build and serve fields and \"_schema\":\"run-manifest-v1\"."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package with its licence. Shipped packages means the modules the production binary links, as listed by go version -m on the built server."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Every shipped package is under the MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC or MPL-2.0 licence."
+tests = [
+    "test_app.py::test_if_licence_allowlist",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "The PostgreSQL database named by DATABASE_URL is the only datastore, so there is no embedded database, cache server or state file."
+tests = [
+    "test_app.py::test_if_postgres_only_datastore",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "force-enable-gap"
+requirements = [
+    "DP-01",
+    "DP-07",
+]
+critical = [
+    "test_app.py::test_wf_force_enable_gap_race",
+    "test_app.py::test_wf_force_enable_gap_refusal_reload",
+    "test_app.py::test_simultaneous_promotions_one_winner",
+    "test_app.py::test_force_enable_idempotent_replay",
+]
+
+[[workflows]]
+id = "ladder-climb"
+requirements = [
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_ladder_climb_alert",
+    "test_app.py::test_wf_ladder_climb_rate_gate",
+    "test_app.py::test_attestation_reference_rules",
+    "test_app.py::test_soak_gate_edges",
+]
+
+[[workflows]]
+id = "rollback"
+requirements = [
+    "DP-05",
+]
+critical = [
+    "test_app.py::test_wf_rollback_flaky_retry",
+    "test_app.py::test_wf_rollback_empty_ladder",
+    "test_app.py::test_rollback_idempotency_and_concurrency",
+]
+
+[[workflows]]
+id = "breach-cascade"
+requirements = [
+    "DP-06",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_wf_breach_cascade_console",
+    "test_app.py::test_wf_breach_cascade_backdated",
+    "test_app.py::test_breach_burst_once",
+    "test_app.py::test_duplicate_event_codes_once",
+    "test_app.py::test_adverse_rate_scope",
+]
+
+[[workflows]]
+id = "exports"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_wf_exports_formula_references",
+    "test_app.py::test_wf_exports_force_enabled_gap",
+    "test_app.py::test_exports_byte_exact_live",
+    "test_app.py::test_restart_keeps_seed_once",
+]
+
+[[workflows]]
+id = "live-values"
+requirements = [
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_live_values_max",
+    "test_app.py::test_wf_live_values_soak",
+    "test_app.py::test_max_setting_refusals",
+    "test_app.py::test_soak_setting_refusals",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_keyboard",
+    "test_app.py::test_wf_cross_cutting_reader_pages",
+]
