@@ -1,0 +1,100 @@
+
+### Tool call: browser_resize
+- Args
+```json
+{
+  "width": 1280,
+  "height": 800
+}
+```
+- Result
+```json
+{
+  "page": "- Page URL: about:blank"
+}
+```
+
+### Tool call: browser_navigate
+- Args
+```json
+{
+  "url": "http://127.0.0.1:4173/signin"
+}
+```
+- Result
+```json
+{
+  "page": "- Page URL: http://127.0.0.1:4173/signin\n- Page Title: Stationkeeper\n- Console: 1 errors, 0 warnings",
+  "snapshot": "- generic [ref=e2]:\n  - generic [ref=e3]:\n    - status \"Activity\" [ref=e4]\n    - alert \"Problem\" [ref=e5]\n  - main [ref=e6]:\n    - generic [ref=e7]:\n      - heading \"Stationkeeper\" [level=1] [ref=e8]\n      - paragraph [ref=e9]: Larder Row Kitchen\n      - generic [ref=e10]:\n        - generic [ref=e11]:\n          - generic [ref=e12]: Email\n          - textbox \"Email\" [ref=e13]\n        - generic [ref=e14]:\n          - generic [ref=e15]: Password\n          - textbox \"Password\" [ref=e16]\n        - button \"Sign in\" [ref=e17] [cursor=pointer]",
+  "events": "- New console entries: evidence/reduced/console-2026-10-28T21-10-19-071Z.log#L1"
+}
+```
+
+### Tool call: browser_snapshot
+- Args
+```json
+{}
+```
+- Result
+```json
+{
+  "page": "- Page URL: http://127.0.0.1:4173/signin\n- Page Title: Stationkeeper\n- Console: 1 errors, 0 warnings",
+  "inlineSnapshot": "- generic [ref=e2]:\n  - generic [ref=e3]:\n    - status \"Activity\" [ref=e4]\n    - alert \"Problem\" [ref=e5]\n  - main [ref=e6]:\n    - generic [ref=e7]:\n      - heading \"Stationkeeper\" [level=1] [ref=e8]\n      - paragraph [ref=e9]: Larder Row Kitchen\n      - generic [ref=e10]:\n        - generic [ref=e11]:\n          - generic [ref=e12]: Email\n          - textbox \"Email\" [ref=e13]\n        - generic [ref=e14]:\n          - generic [ref=e15]: Password\n          - textbox \"Password\" [ref=e16]\n        - button \"Sign in\" [ref=e17] [cursor=pointer]"
+}
+```
+
+### Tool call: browser_fill_form
+- Args
+```json
+{
+  "fields": [
+    {
+      "target": "e13",
+      "name": "Email",
+      "type": "textbox",
+      "value": "owner@juniperrye.test"
+    },
+    {
+      "target": "e16",
+      "name": "Password",
+      "type": "textbox",
+      "value": "kitchen-demo-2026"
+    }
+  ]
+}
+```
+- Result
+```json
+{}
+```
+
+### Tool call: browser_click
+- Args
+```json
+{
+  "element": "Sign in",
+  "target": "e17"
+}
+```
+- Result
+```json
+{
+  "page": "- Page URL: http://127.0.0.1:4173/\n- Page Title: Stationkeeper\n- Console: 1 errors, 0 warnings",
+  "snapshot": "- generic [ref=e2]:\n  - banner [ref=e18]:\n    - generic [ref=e19]: Stationkeeper\n    - generic [ref=e20]: Kitchen time 16:10\n    - navigation \"Main\" [ref=e21]:\n      - link \"Dial\" [ref=e22] [cursor=pointer]:\n        - /url: /\n      - link \"Bookings\" [ref=e23] [cursor=pointer]:\n        - /url: /bookings\n      - link \"Documents\" [ref=e24] [cursor=pointer]:\n        - /url: /documents\n      - link \"Billing\" [ref=e25] [cursor=pointer]:\n        - /url: /billing\n    - button \"Sign out\" [ref=e26] [cursor=pointer]\n  - generic [ref=e30]:\n    - status \"Activity\" [ref=e31]\n    - alert \"Problem\" [ref=e32]\n  - main [ref=e33]:\n    - generic [ref=e34]:\n      - generic [ref=e35]:\n        - heading \"Service dial\" [level=1] [ref=e36]\n        - generic [ref=e37]:\n          - button \"Previous day\" [ref=e38] [cursor=pointer]\n          - generic [ref=e41]:\n            - generic [ref=e42]: Day\n            - textbox \"Day\" [ref=e43]: 2026-10-28\n          - button \"Next day\" [ref=e44] [cursor=pointer]\n          - button \"Now\" [ref=e47] [cursor=pointer]\n        - img \"Kitchen floor plan and service dial\" [ref=e51]:\n          - generic [ref=e52] [cursor=pointer]\n          - slider \"Service dial\" [ref=e53]\n          - group \"Floor plan\" [ref=e57]:\n            - generic [ref=e59]: Walk-in\n            - generic [ref=e60]: storage\n            - button \"Hot Line 1, free\" [ref=e61] [cursor=pointer]:\n              - generic [ref=e62]:\n                - generic [ref=e64]: Hot Line 1\n                - generic [ref=e65]: Free\n            - button \"Hot Line 2, free\" [ref=e66] [cursor=pointer]:\n              - generic [ref=e67]:\n                - generic [ref=e69]: Hot Line 2\n                - generic [ref=e70]: Free\n            - button \"Bake Deck, free\" [ref=e71] [cursor=pointer]:\n              - generic [ref=e72]:\n                - generic [ref=e74]: Bake Deck\n                - generic [ref=e75]: Free\n            - button \"Cold-Prep Bench A, free\" [ref=e76] [cursor=pointer]:\n              - generic [ref=e77]:\n                - generic [ref=e79]: Cold-Prep Bench A\n                - generic [ref=e80]: Free\n            - button \"Cold-Prep Bench B, free\" [ref=e81] [cursor=pointer]:\n              - generic [ref=e82]:\n                - generic [ref=e84]: Cold-Prep Bench B\n                - generic [ref=e85]: Free\n          - generic [ref=e87]: 16:00\n          - generic [ref=e88]: 5 of 5 open\n      - region \"Selected instant\" [ref=e89]:\n        - heading \"Selected instant\" [level=2] [ref=e90]\n        - generic [ref=e91]:\n          - generic [ref=e92]: \"01\"\n          - generic [ref=e93]:\n            - text: Hot Line 1\n            - strong [ref=e94]: Free\n        - generic [ref=e95]:\n          - generic [ref=e96]: \"02\"\n          - generic [ref=e97]:\n            - text: Hot Line 2\n            - strong [ref=e98]: Free\n        - generic [ref=e99]:\n          - generic [ref=e100]: \"03\"\n          - generic [ref=e101]:\n            - text: Bake Deck\n            - strong [ref=e102]: Free\n        - generic [ref=e103]:\n          - generic [ref=e104]: \"04\"\n          - generic [ref=e105]:\n            - text: Cold-Prep Bench A\n            - strong [ref=e106]: Free\n        - generic [ref=e107]:\n          - generic [ref=e108]: \"05\"\n          - generic [ref=e109]:\n            - text: Cold-Prep Bench B\n            - strong [ref=e110]: Free\n        - generic [ref=e111]:\n          - button \"Hold this station\" [disabled] [ref=e112]\n          - listbox \"Time\" [ref=e113]:\n            - option \"00:00\" [ref=e114] [cursor=pointer]\n            - option \"00:15\" [ref=e115] [cursor=pointer]\n            - option \"00:30\" [ref=e116] [cursor=pointer]\n            - option \"00:45\" [ref=e117] [cursor=pointer]\n            - option \"01:00\" [ref=e118] [cursor=pointer]\n            - option \"01:15\" [ref=e119] [cursor=pointer]\n            - option \"01:30\" [ref=e120] [cursor=pointer]\n            - option \"01:45\" [ref=e121] [cursor=pointer]\n            - option \"02:00\" [ref=e122] [cursor=pointer]\n            - option \"02:15\" [ref=e123] [cursor=pointer]\n            - option \"02:30\" [ref=e124] [cursor=pointer]\n            - option \"02:45\" [ref=e125] [cursor=pointer]\n            - option \"03:00\" [ref=e126] [cursor=pointer]\n            - option \"03:15\" [ref=e127] [cursor=pointer]\n            - option \"03:30\" [ref=e128] [cursor=pointer]\n            - option \"03:45\" [ref=e129] [cursor=pointer]\n            - option \"04:00\" [ref=e130] [cursor=pointer]\n            - option \"04:15\" [ref=e131] [cursor=pointer]\n            - option \"04:30\" [ref=e132] [cursor=pointer]\n            - option \"04:45\" [ref=e133] [cursor=pointer]\n            - option \"05:00\" [ref=e134] [cursor=pointer]\n            - option \"05:15\" [ref=e135] [cursor=pointer]\n            - option \"05:30\" [ref=e136] [cursor=pointer]\n            - option \"05:45\" [ref=e137] [cursor=pointer]\n            - option \"06:00\" [ref=e138] [cursor=pointer]\n            - option \"06:15\" [ref=e139] [cursor=pointer]\n            - option \"06:30\" [ref=e140] [cursor=pointer]\n            - option \"06:45\" [ref=e141] [cursor=pointer]\n            - option \"07:00\" [ref=e142] [cursor=pointer]\n            - option \"07:15\" [ref=e143] [cursor=pointer]\n            - option \"07:30\" [ref=e144] [cursor=pointer]\n            - option \"07:45\" [ref=e145] [cursor=pointer]\n            - option \"08:00\" [ref=e146] [cursor=pointer]\n            - option \"08:15\" [ref=e147] [cursor=pointer]\n            - option \"08:30\" [ref=e148] [cursor=pointer]\n            - option \"08:45\" [ref=e149] [cursor=pointer]\n            - option \"09:00\" [ref=e150] [cursor=pointer]\n            - option \"09:15\" [ref=e151] [cursor=pointer]\n            - option \"09:30\" [ref=e152] [cursor=pointer]\n            - option \"09:45\" [ref=e153] [cursor=pointer]\n            - option \"10:00\" [ref=e154] [cursor=pointer]\n            - option \"10:15\" [ref=e155] [cursor=pointer]\n            - option \"10:30\" [ref=e156] [cursor=pointer]\n            - option \"10:45\" [ref=e157] [cursor=pointer]\n            - option \"11:00\" [ref=e158] [cursor=pointer]\n            - option \"11:15\" [ref=e159] [cursor=pointer]\n            - option \"11:30\" [ref=e160] [cursor=pointer]\n            - option \"11:45\" [ref=e161] [cursor=pointer]\n            - option \"12:00\" [ref=e162] [cursor=pointer]\n            - option \"12:15\" [ref=e163] [cursor=pointer]\n            - option \"12:30\" [ref=e164] [cursor=pointer]\n            - option \"12:45\" [ref=e165] [cursor=pointer]\n            - option \"13:00\" [ref=e166] [cursor=pointer]\n            - option \"13:15\" [ref=e167] [cursor=pointer]\n            - option \"13:30\" [ref=e168] [cursor=pointer]\n            - option \"13:45\" [ref=e169] [cursor=pointer]\n            - option \"14:00\" [ref=e170] [cursor=pointer]\n            - option \"14:15\" [ref=e171] [cursor=pointer]\n            - option \"14:30\" [ref=e172] [cursor=pointer]\n            - option \"14:45\" [ref=e173] [cursor=pointer]\n            - option \"15:00\" [ref=e174] [cursor=pointer]\n            - option \"15:15\" [ref=e175] [cursor=pointer]\n            - option \"15:30\" [ref=e176] [cursor=pointer]\n            - option \"15:45\" [ref=e177] [cursor=pointer]\n            - option \"16:00\" [selected] [ref=e178] [cursor=pointer]\n            - option \"16:15\" [ref=e179] [cursor=pointer]\n            - option \"16:30\" [ref=e180] [cursor=pointer]\n            - option \"16:45\" [ref=e181] [cursor=pointer]\n            - option \"17:00\" [ref=e182] [cursor=pointer]\n            - option \"17:15\" [ref=e183] [cursor=pointer]\n            - option \"17:30\" [ref=e184] [cursor=pointer]\n            - option \"17:45\" [ref=e185] [cursor=pointer]\n            - option \"18:00\" [ref=e186] [cursor=pointer]\n            - option \"18:15\" [ref=e187] [cursor=pointer]\n            - option \"18:30\" [ref=e188] [cursor=pointer]\n            - option \"18:45\" [ref=e189] [cursor=pointer]\n            - option \"19:00\" [ref=e190] [cursor=pointer]\n            - option \"19:15\" [ref=e191] [cursor=pointer]\n            - option \"19:30\" [ref=e192] [cursor=pointer]\n            - option \"19:45\" [ref=e193] [cursor=pointer]\n            - option \"20:00\" [ref=e194] [cursor=pointer]\n            - option \"20:15\" [ref=e195] [cursor=pointer]\n            - option \"20:30\" [ref=e196] [cursor=pointer]\n            - option \"20:45\" [ref=e197] [cursor=pointer]\n            - option \"21:00\" [ref=e198] [cursor=pointer]\n            - option \"21:15\" [ref=e199] [cursor=pointer]\n            - option \"21:30\" [ref=e200] [cursor=pointer]\n            - option \"21:45\" [ref=e201] [cursor=pointer]\n            - option \"22:00\" [ref=e202] [cursor=pointer]\n            - option \"22:15\" [ref=e203] [cursor=pointer]\n            - option \"22:30\" [ref=e204] [cursor=pointer]\n            - option \"22:45\" [ref=e205] [cursor=pointer]\n            - option \"23:00\" [ref=e206] [cursor=pointer]\n            - option \"23:15\" [ref=e207] [cursor=pointer]\n            - option \"23:30\" [ref=e208] [cursor=pointer]\n            - option \"23:45\" [ref=e209] [cursor=pointer]\n            - option \"24:00\" [ref=e210] [cursor=pointer]"
+}
+```
+
+### Tool call: browser_snapshot
+- Args
+```json
+{
+  "depth": 5
+}
+```
+- Result
+```json
+{
+  "page": "- Page URL: http://127.0.0.1:4173/\n- Page Title: Stationkeeper\n- Console: 1 errors, 0 warnings",
+  "inlineSnapshot": "- generic [ref=e2]:\n  - banner [ref=e18]:\n    - generic [ref=e19]: Stationkeeper\n    - generic [ref=e20]: Kitchen time 16:10\n    - navigation \"Main\" [ref=e21]:\n      - link \"Dial\" [ref=e22] [cursor=pointer]:\n        - /url: /\n      - link \"Bookings\" [ref=e23] [cursor=pointer]:\n        - /url: /bookings\n      - link \"Documents\" [ref=e24] [cursor=pointer]:\n        - /url: /documents\n      - link \"Billing\" [ref=e25] [cursor=pointer]:\n        - /url: /billing\n    - button \"Sign out\" [ref=e26] [cursor=pointer]\n  - generic [ref=e30]:\n    - status \"Activity\" [ref=e31]\n    - alert \"Problem\" [ref=e32]\n  - main [ref=e33]:\n    - generic [ref=e34]:\n      - generic [ref=e35]:\n        - heading \"Service dial\" [level=1] [ref=e36]\n        - generic [ref=e37]:\n          - button \"Previous day\" [ref=e38] [cursor=pointer]\n          - generic [ref=e41]\n          - button \"Next day\" [ref=e44] [cursor=pointer]\n          - button \"Now\" [ref=e47] [cursor=pointer]\n        - img \"Kitchen floor plan and service dial\" [ref=e51]:\n          - generic [ref=e52] [cursor=pointer]\n          - slider \"Service dial\" [ref=e53]\n          - group \"Floor plan\" [ref=e57]\n          - generic [ref=e87]: 16:00\n          - generic [ref=e88]: 5 of 5 open\n      - region \"Selected instant\" [ref=e89]:\n        - heading \"Selected instant\" [level=2] [ref=e90]\n        - generic [ref=e91]:\n          - generic [ref=e92]: \"01\"\n          - generic [ref=e93]\n        - generic [ref=e95]:\n          - generic [ref=e96]: \"02\"\n          - generic [ref=e97]\n        - generic [ref=e99]:\n          - generic [ref=e100]: \"03\"\n          - generic [ref=e101]\n        - generic [ref=e103]:\n          - generic [ref=e104]: \"04\"\n          - generic [ref=e105]\n        - generic [ref=e107]:\n          - generic [ref=e108]: \"05\"\n          - generic [ref=e109]\n        - generic [ref=e111]:\n          - button \"Hold this station\" [disabled] [ref=e112]\n          - listbox \"Time\" [ref=e113]"
+}
+```
