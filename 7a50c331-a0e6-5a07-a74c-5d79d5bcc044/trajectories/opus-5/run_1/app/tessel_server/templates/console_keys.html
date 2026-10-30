@@ -1,0 +1,91 @@
+{% extends "base_console.html" %}
+{% block main %}
+<header class="console-head">
+  <h1>API keys</h1>
+</header>
+<nav class="settings-rail" aria-label="Settings sections">
+  <a href="/console/settings">Members</a>
+  <a href="/console/settings/keys" aria-current="page">API keys</a>
+  <a href="/console/settings/billing">Billing</a>
+  <a href="/console/settings/audit">Audit log</a>
+</nav>
+
+{% if fresh_secret %}
+<div class="panel one-time-panel">
+  <p class="one-time">Copy this key now. It will not be shown again.</p>
+  <p><code class="secret">{{ fresh_secret }}</code></p>
+</div>
+{% endif %}
+
+<section class="panel">
+  <h2>Create a key</h2>
+  <form method="post" action="/console/settings/keys" class="inline-form">
+    <input type="hidden" name="action" value="create-key">
+    <div class="field">
+      <label for="key-name">Key name</label>
+      <input type="text" id="key-name" name="name" value="{{ values.name }}" aria-describedby="key-name-error">
+      <p class="field-error" id="key-name-error" {% if not errors.name %}hidden{% endif %}>{{ errors.name }}</p>
+    </div>
+    <div class="field">
+      <label for="key-role">Key role</label>
+      <select id="key-role" name="role">
+        <option value="viewer">viewer</option>
+        <option value="editor">editor</option>
+      </select>
+    </div>
+    <fieldset class="scope-choice">
+      <legend>Scope</legend>
+      <label><input type="radio" name="scope" value="all" checked> All databases</label>
+      <label><input type="radio" name="scope" value="chosen"> Chosen databases</label>
+      <div class="scope-list">
+        {% for name in database_names %}
+        <label><input type="checkbox" name="databases" value="{{ name }}"> {{ name }}</label>
+        {% endfor %}
+      </div>
+      <p class="field-error" {% if not errors.databases %}hidden{% endif %}>{{ errors.databases }}</p>
+    </fieldset>
+    <button type="submit" class="capsule capsule-primary">Create key</button>
+  </form>
+</section>
+
+<div class="table-wrap">
+  <table class="data-table">
+    <caption class="visually-hidden">API keys</caption>
+    <thead><tr><th scope="col">Name</th><th scope="col">Role</th><th scope="col">Prefix</th>
+      <th scope="col">Created</th><th scope="col">Scope</th><th scope="col">Last used</th>
+      <th scope="col">Rotated</th><th scope="col">Actions</th></tr></thead>
+    <tbody>
+      {% for key in keys %}
+      <tr>
+        <td data-label="Name">{{ key.name }}</td>
+        <td data-label="Role">{{ key.role }}</td>
+        <td data-label="Prefix">{{ key.prefix }}</td>
+        <td data-label="Created"><time>{{ key.created_at }}</time></td>
+        <td data-label="Scope">{% if key.databases is none %}All databases{% elif key.databases %}{{ key.databases | join(', ') }}{% else %}No databases{% endif %}</td>
+        <td data-label="Last used">{{ key.last_used_at or 'never' }}</td>
+        <td data-label="Rotated">{{ key.rotated_at or 'never' }}</td>
+        <td data-label="Actions" class="row-actions">
+          {% if key.revoked_at %}
+          <span class="muted">revoked</span>
+          {% else %}
+          <form method="post" action="/console/settings/keys" class="row-form">
+            <input type="hidden" name="action" value="rotate-key">
+            <input type="hidden" name="id" value="{{ key.id }}">
+            <button type="submit" class="capsule">Rotate</button>
+          </form>
+          <form method="post" action="/console/settings/keys" class="row-form">
+            <input type="hidden" name="action" value="revoke-key">
+            <input type="hidden" name="id" value="{{ key.id }}">
+            <button type="submit" class="capsule">Revoke</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      {% if not keys %}
+      <tr><td colspan="8" class="empty-state">No API keys yet</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

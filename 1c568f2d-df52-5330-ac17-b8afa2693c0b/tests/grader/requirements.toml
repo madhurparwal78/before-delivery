@@ -1,0 +1,987 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 51
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "deployment",
+    "access",
+    "review-rules",
+    "state-machine",
+    "queue-desk",
+    "catalogue",
+    "budget",
+    "schedule-wall",
+    "records",
+    "accessible-review",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 82
+services = [
+    { name = "postgres", env = {} },
+    { name = "keycloak", env = {} },
+]
+
+[criterion_weights]
+B1 = 3
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 5
+B11 = 3
+B12 = 3
+B13 = 3
+S1 = 3
+S2 = 3
+S3 = 3
+S4 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 5
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "keycloak-down"
+port = 4174
+url_env = "APP_KEYCLOAK_DOWN_URL"
+
+[outages.env]
+AUTH_ISSUER_URL = "http://127.0.0.1:9"
+KEYCLOAK_URL = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Deployment and health"
+text = "The app serves from its run manifest on `0.0.0.0` at `APP_PUBLIC_PORT`, answers `GET /api/health` with `200` and the health body the API section defines, including its `identity` key, and answers every page and API route whatever host name the request carries."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_wf_deployment_health_and_hosts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Server-rendered surfaces"
+text = "Every staff surface and both public surfaces answer their own address with their headings, copy and data already in the first HTML response, and every staff route opened without a session redirects to `/login`."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_wf_deployment_server_rendered",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Sign in"
+text = "`POST /api/auth/login` exchanges a seeded work email and passphrase with the identity provider server-side and returns the app's own opaque `access_token`, and `GET /api/auth/me` answers `{ id, email, name, role }` with the role the seed gave that account."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_wf_access_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Sign out"
+text = "`Sign out` and `POST /api/auth/logout` end the session server-side, so the revoked token is refused on every later read and write."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_sign_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Credential refusal and lockout"
+text = "Every failed sign-in gets the same status and byte-identical body whether or not the email belongs to an account, and the fifth failure for one trimmed, lower-cased email within the lockout window locks that email out, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_wf_access_lockout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Sign-in redirects"
+text = "A staff route opened without a session redirects to `/login?next=<PATH>`, `next` is honoured only for a same-origin path beginning with a single `/`, and the public wall and plaque never redirect."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_sign_in_redirects",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Role permissions and draft privacy"
+text = "Every write is checked server-side against the role table and refused with `403` when the role may not act, every signed-in role reads every staff surface, and a maker naming another maker's draft on any route gets `404`."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_wf_access_draft_privacy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Auditor read-only"
+text = "An `auditor` opens every piece by its id but is refused every write with `403`, its own preferences being the one exception, and no refused write changes anything stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_wf_access_auditor_read_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Own-piece rule"
+text = "The account that created a piece may not record either review on it, clear it or publish it, refused with `403` and the own-piece message, and the refusal writes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-rules"
+tests = [
+    "test_app.py::test_wf_review_rules_own_piece",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Second-reviewer rule"
+text = "The account that recorded a piece's licence review may not record its accessibility review, refused with `403` and the second-reviewer message, while a different accessibility reviewer may."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-rules"
+tests = [
+    "test_app.py::test_second_reviewer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Citation checks"
+text = "Submitting a piece that cites no object, or cites an unusable object, is refused on `object_ids` with one line per offending object naming one of the three pinned reasons."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-rules"
+tests = [
+    "test_app.py::test_citation_checks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Duplicate acknowledgement"
+text = "A licence review cannot pass while any flagged duplicate of a cited object is unacknowledged in the current review round, and each acknowledgement is stored once with who made it, for which piece and when."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-rules"
+tests = [
+    "test_app.py::test_wf_review_rules_duplicate_ack",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Legal steps"
+text = "A piece moves only along the rows of the state table, each successful step raising `version` and appending exactly one audit entry, with `Import pack` as the one stated exception that creates pieces directly in a state."
+kind = "behavior"
+primary = "pytest"
+workflow = "state-machine"
+tests = [
+    "test_app.py::test_wf_state_machine_legal_steps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Illegal steps"
+text = "Any step or `action` value outside the state table is refused with `409` and the illegal-step message, leaving the piece and the audit trail unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "state-machine"
+tests = [
+    "test_app.py::test_wf_state_machine_illegal_steps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Revision resets the round"
+text = "Revising a piece back to `draft` is the owning maker's step alone and discards both review records and every duplicate acknowledgement for that piece, so the next round starts from nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-rules"
+tests = [
+    "test_app.py::test_wf_review_rules_revise_round",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Version conflicts"
+text = "A write carrying a stale `version` answers `409` with the current piece, and two decisions sent from one version, including a licence and an accessibility review at the same moment, end in exactly one success and one conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "state-machine"
+tests = [
+    "test_app.py::test_wf_state_machine_version_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Field rules"
+text = "Titles, summaries, fees and reasons outside their ranges are refused on their field and store nothing, and every money value is held as a whole number of cents."
+kind = "behavior"
+primary = "pytest"
+workflow = "state-machine"
+tests = [
+    "test_app.py::test_field_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Clearance queue"
+text = "`/` lists every piece this account may see with its state chip and both review marks, counts the nine states over those pieces, searches, sorts, pages at the account's `Rows per page` and states the result line."
+kind = "behavior"
+primary = "pytest"
+workflow = "queue-desk"
+tests = [
+    "test_app.py::test_wf_queue_desk_queue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Needs my decision"
+text = "The `Needs my decision` filter answers each role exactly the pieces Business rules gives it to decide, and nothing for an auditor."
+kind = "behavior"
+primary = "pytest"
+workflow = "queue-desk"
+tests = [
+    "test_app.py::test_wf_queue_desk_needs_my_decision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Decision rail"
+text = "The piece desk offers only the actions this account may take from this state, leaving every other action absent rather than disabled, and `New piece` is rendered only for a maker."
+kind = "behavior"
+primary = "pytest"
+workflow = "queue-desk"
+tests = [
+    "test_app.py::test_wf_queue_desk_decision_rail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Catalogue walk"
+text = "`GET /api/objects` pages by cursor against a seed so a full walk returns every matching object exactly once before it reports `wrap`, the same seed and cursor always rebuild the same board, and a new seed only reorders it."
+kind = "behavior"
+primary = "pytest"
+workflow = "catalogue"
+tests = [
+    "test_app.py::test_wf_catalogue_walk",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Catalogue board"
+text = "`/catalogue` draws each object at its own stored proportions between 48 and 220 pixels on its longer side, as a control named by its title that lifts and reveals its artist and licence on hover or focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "catalogue"
+tests = [
+    "test_app.py::test_wf_catalogue_board",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Duplicate check"
+text = "`GET /api/objects/{id}/similar` scores each pair from 0 to 100, the same in both directions and on every call, ordered highest first then by ascending id, and the object detail lists those objects below its record."
+kind = "behavior"
+primary = "pytest"
+workflow = "catalogue"
+tests = [
+    "test_app.py::test_wf_catalogue_similar",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Featured schedule"
+text = "At most one piece holds any UTC calendar day even when two bookings arrive at once, a taken day is refused with `409` and a past day is refused, as Business rules sets out."
+kind = "behavior"
+primary = "pytest"
+workflow = "schedule-wall"
+tests = [
+    "test_app.py::test_wf_schedule_wall_concurrent_booking",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Plaque visitor count"
+text = "A plaque raises its booked day's visitor count by one the first time it is opened in a browsing session, and the schedule's `Today` panel states that count."
+kind = "behavior"
+primary = "pytest"
+workflow = "schedule-wall"
+tests = [
+    "test_app.py::test_plaque_visitor_count",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Public wall"
+text = "`/wall` needs no session and shows only published pieces, most recently published first, as cards linking to `/wall/<PIECE_ID>`, which answers 404 unless that piece is published."
+kind = "behavior"
+primary = "workflow"
+workflow = "schedule-wall"
+tests = [
+    "test_app.py::test_wf_schedule_wall_publish_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Plaque"
+text = "The plaque gives each cited object's title, artist, licence name and licence address under `Sources`, the maker under `Credits`, and ends with the cleared line naming the date and the lead."
+kind = "behavior"
+primary = "pytest"
+workflow = "schedule-wall"
+tests = [
+    "test_app.py::test_plaque",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Committed budget"
+text = "Committed is the summed fee of every piece in `cleared`, `scheduled` or `published` whose `cleared_at` falls in the quarter, and a clear that would take committed above the budget is refused with `409` naming the exact overspend, even when two clears arrive at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "budget"
+tests = [
+    "test_app.py::test_wf_budget_concurrent_clears",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Fee adjustment and reset"
+text = "A lead adjusts a fee through the number field, the `x10`, `x100` and `x1,000` buttons and `Apply`, and `Reset quarter` asks for confirmation before returning every fee in the quarter to its submitted value, neither ever taking committed above the budget."
+kind = "behavior"
+primary = "pytest"
+workflow = "budget"
+tests = [
+    "test_app.py::test_wf_budget_fee_adjust_and_reset",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Audit trail"
+text = "The trail is append-only, filters by piece, actor, to-state and date range, pages at the account's `Rows per page`, and `Export CSV` downloads the filtered rows quoted and made spreadsheet-safe as the CSV rules state."
+kind = "behavior"
+primary = "pytest"
+workflow = "records"
+tests = [
+    "test_app.py::test_wf_records_audit_csv",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Preferences"
+text = "Each account's `Rows per page`, `Date display` and `High contrast` default to 50, `relative` and off, save at once into one row per account, and survive signing out and back in."
+kind = "behavior"
+primary = "pytest"
+workflow = "records"
+tests = [
+    "test_app.py::test_wf_records_preferences",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Clearance pack"
+text = "`Export pack` returns every piece as one document, and `Import pack` applies a clean pack completely or refuses a bad one with its pinned message while writing nothing at all."
+kind = "behavior"
+primary = "pytest"
+workflow = "records"
+tests = [
+    "test_app.py::test_wf_records_pack",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Persistence"
+text = "Every piece, review, acknowledgement, booking, fee, session and audit entry lives in `postgres` and survives a reload, a restart and the seed path running again unchanged."
+kind = "behavior"
+primary = "workflow"
+workflow = "records"
+tests = [
+    "test_app.py::test_wf_records_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Responsive layout"
+text = "The queue becomes stacked cards at or below 600 pixels, the wall steps from one to four columns at 600, 800 and 1300 pixels, the queue shows `Fee` and `Updated` above 1000 pixels, and nothing scrolls horizontally from 320 pixels up."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_responsive",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Accessibility"
+text = "Pages meet WCAG 2.2 AA, a whole review including its dialog can be done by keyboard alone with a visible focus ring on every control, dialogs trap focus, close on `Escape` and return focus, every drawn cut-out and icon-only control carries its published name, and no status rests on colour alone."
+kind = "behavior"
+primary = "pytest"
+workflow = "accessible-review"
+tests = [
+    "test_app.py::test_wf_accessible_review_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Motion"
+text = "The decision stamp and the wall card entry are browser-native animations with the timings Motion and effects gives, and under the reduced-motion setting both become instant with all content kept."
+kind = "behavior"
+primary = "pytest"
+workflow = "accessible-review"
+tests = [
+    "test_app.py::test_wf_accessible_review_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Self-contained build"
+text = "The app ships its own stylesheet with no utility-class framework or fingerprint, draws every picture, links nowhere off-site, and its pages make no browser or asset request to another host."
+kind = "source"
+primary = "pytest"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_wf_deployment_self_contained",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Public chrome"
+text = "The public pages carry the tagline, the footer line and the count of pieces whose first clearing fell on the current UTC day, which never moves on an unschedule or a withdrawal."
+kind = "behavior"
+primary = "pytest"
+workflow = "schedule-wall"
+tests = [
+    "test_app.py::test_wf_schedule_wall_cleared_today",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "List failures"
+text = "A list whose request fails shows the list-failure message with a `Try again` control while the rest of the page keeps working."
+kind = "behavior"
+primary = "pytest"
+workflow = "queue-desk"
+tests = [
+    "test_app.py::test_wf_queue_desk_list_failure",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Surface copy"
+text = "Every pinned label, empty-state sentence, count line and pager line appears on the surface this brief places it on."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_surface_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Paper and sheets"
+text = "The light field is a near-white paper neutral with every card, panel and dialog on pure white above it, near-black ink for primary text and a mid cool neutral for secondary text."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Colour by meaning"
+text = "One mid blue means press here, one green means passed or cleared, one light vivid orange means waiting or flagged and fields the `Shuffle` button, one red means refused or failed, and a warm cream field is reserved for pieces on the public wall."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Two type roles"
+text = "Interface labels, table text and prose use a plain system sans, and every identifier, count, money amount and timestamp uses a system monospace with tabular numerals."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Staff header"
+text = "Every staff page carries one white header bar above a hairline with `Clearhouse` linking to `/` beside the centre's name, the five surface links, the signed-in name, a role chip and `Sign out`."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B9",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Density and composition"
+text = "The queue is a dense comparison table beside a narrow sidebar, the wall is generous with large cards and wide gutters, and the plaque is one narrow reading column."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Drawn pictures and icons"
+text = "Every cut-out and cover is drawn by the app from stored records, and every icon is a thin unfilled line drawing from one set."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "High contrast"
+text = "The `High contrast` preference keeps the same light layout while deepening hairlines, well edges, secondary text and status tints."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Designed empty and placeholder states"
+text = "Empty lists show their pinned sentence where the rows or cards would stand, and loading lists show grey placeholders shaped like the rows or cards they await."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_empty_and_loading",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Identity outage"
+text = "While the identity provider is unreachable the app still starts and stays healthy, sign-in answers `503` without counting toward lockout, existing sessions keep working, and sign-in recovers with no restart once the provider returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_wf_deployment_identity_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Only published fields"
+text = "A JSON write body carrying any key outside its endpoint's published fields is refused with `400` on the first such key and stores nothing, the clearance pack excepted."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-rules"
+tests = [
+    "test_app.py::test_wf_review_rules_published_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Refusal order"
+text = "A request with several faults is answered by the first failing check in the one published refusal order."
+kind = "behavior"
+primary = "pytest"
+workflow = "state-machine"
+tests = [
+    "test_app.py::test_wf_state_machine_refusal_order",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` is valid JSON carrying `\"_schema\":\"run-manifest-v1\"` and string `install`, `build` and a non-empty foreground `serve`."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`/app/USER_README.md` lists the six seeded emails, their roles and the passphrase `deku-demo-pw-2026`."
+tests = [
+    "test_app.py::test_if_user_readme",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Empty `.browser_screenshots/` and `.downloads/` directories exist at the app root."
+tests = [
+    "test_app.py::test_if_artifact_dirs",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "`/app/THIRD_PARTY_NOTICES.md` names every shipped package with its licence; shipped packages means the production dependency tree, everything the `install` command installs including transitive dependencies (the lockfile's non-dev group), and no test or development tool."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Every shipped package carries one of MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC, PSF-2.0, MPL-2.0 or LGPL-3.0-or-later."
+tests = [
+    "test_app.py::test_if_licence_allowlist",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "No shipped package is a client for any datastore other than PostgreSQL, and the app writes no database file of its own."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The provided service configuration and the realm's client settings are left untouched."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "deployment"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-37",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_wf_deployment_health_and_hosts",
+    "test_app.py::test_wf_deployment_server_rendered",
+    "test_app.py::test_wf_deployment_identity_outage",
+]
+
+[[workflows]]
+id = "access"
+requirements = [
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_wf_access_sign_in",
+    "test_app.py::test_wf_access_lockout",
+    "test_app.py::test_wf_access_draft_privacy",
+    "test_app.py::test_wf_access_auditor_read_only",
+]
+
+[[workflows]]
+id = "review-rules"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-15",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_review_rules_own_piece",
+    "test_app.py::test_wf_review_rules_duplicate_ack",
+    "test_app.py::test_wf_review_rules_revise_round",
+    "test_app.py::test_wf_review_rules_published_fields",
+]
+
+[[workflows]]
+id = "state-machine"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-16",
+    "DP-17",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_state_machine_legal_steps",
+    "test_app.py::test_wf_state_machine_illegal_steps",
+    "test_app.py::test_wf_state_machine_version_conflict",
+    "test_app.py::test_wf_state_machine_refusal_order",
+]
+
+[[workflows]]
+id = "queue-desk"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_queue_desk_queue",
+    "test_app.py::test_wf_queue_desk_needs_my_decision",
+    "test_app.py::test_wf_queue_desk_decision_rail",
+]
+
+[[workflows]]
+id = "catalogue"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_wf_catalogue_walk",
+    "test_app.py::test_wf_catalogue_board",
+    "test_app.py::test_wf_catalogue_similar",
+]
+
+[[workflows]]
+id = "budget"
+requirements = [
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_budget_concurrent_clears",
+    "test_app.py::test_wf_budget_fee_adjust_and_reset",
+]
+
+[[workflows]]
+id = "schedule-wall"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_schedule_wall_concurrent_booking",
+    "test_app.py::test_wf_schedule_wall_publish_journey",
+    "test_app.py::test_wf_schedule_wall_cleared_today",
+]
+
+[[workflows]]
+id = "records"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_records_audit_csv",
+    "test_app.py::test_wf_records_preferences",
+    "test_app.py::test_wf_records_pack",
+    "test_app.py::test_wf_records_restart",
+]
+
+[[workflows]]
+id = "accessible-review"
+requirements = [
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_accessible_review_keyboard",
+    "test_app.py::test_wf_accessible_review_motion",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-34",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_responsive",
+    "test_app.py::test_wf_cross_cutting_surface_copy",
+]

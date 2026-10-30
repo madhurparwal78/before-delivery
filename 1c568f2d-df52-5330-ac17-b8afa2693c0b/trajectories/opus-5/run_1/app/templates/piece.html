@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% from "parts.html" import icon, cutout, state_chip, review_mark, stamp, error_summary %}
+{% block title %}{{ piece.title }}{% endblock %}
+{% block main %}
+{% set editable = account.role == 'maker' and piece.owner_id == account.id and piece.state == 'draft' %}
+<div class="desk" data-piece="{{ piece.id }}" data-version="{{ piece.version }}"
+     data-title="{{ piece.title }}">
+  <section class="desk-main panel">
+    {{ error_summary() }}
+    <div class="desk-head">
+      <h1 id="piece-title" tabindex="-1">{{ piece.title }}</h1>
+      {{ state_chip(piece.state) }}
+      {% if next_piece %}
+      <a class="icon-button" href="/pieces/{{ next_piece }}" aria-label="Next in queue"
+         title="Next in queue">{{ icon('arrow-next') }}</a>
+      {% endif %}
+    </div>
+    <p class="desk-maker">{{ icon('reviewer') }}{{ piece.owner_name }}</p>
+
+    {% if editable %}
+    <div class="field">
+      <label for="piece-title-field">Title</label>
+      <input type="text" id="piece-title-field" name="title" value="{{ piece.title }}">
+    </div>
+    <div class="field">
+      <label for="piece-summary-field">Summary</label>
+      <textarea id="piece-summary-field" name="summary" rows="4">{{ piece.summary }}</textarea>
+    </div>
+    <div class="field">
+      <label for="piece-fee-field">Fee in dollars</label>
+      <input type="text" id="piece-fee-field" name="fee" inputmode="decimal"
+             value="{{ '%.2f'|format(piece.fee_cents / 100) }}">
+    </div>
+    <button type="button" class="button button-primary" data-save-draft>Save draft</button>
+    {% else %}
+    <p class="desk-summary">{{ piece.summary }}</p>
+    <p class="desk-fee">Fee <span class="figure">{{ piece.fee_cents|money }}</span></p>
+    {% endif %}
+
+    <h2>Cited objects</h2>
+    {% if editable %}
+    <button type="button" class="button" data-open-dialog="picker-dialog">Add object</button>
+    {% endif %}
+    {% if cited %}
+    <ul class="cited-board" data-cited>
+      {% for obj, width, height in cited %}
+      <li class="cited" data-object="{{ obj.id }}">
+        <span class="cutout cutout-still">
+          {{ cutout(obj, width, height) }}
+          <span class="cutout-strip"><span>{{ obj.artist or 'Not recorded' }}</span><span>{{ obj.license }}</span></span>
+        </span>
+        <p class="cited-title">{{ obj.title }}</p>
+        <p class="cited-meta">{{ obj.artist or 'Not recorded' }} · {{ obj.license }}</p>
+        {% if marks.get(obj.id) %}
+        {% if marks[obj.id].acknowledged_by %}
+        <p class="mark mark-ack">{{ icon('check') }}Duplicate acknowledged by {{ marks[obj.id].acknowledged_by }}</p>
+        {% else %}
+        <p class="mark mark-flag">{{ icon('flag') }}Possible duplicate</p>
+        {% endif %}
+        {% endif %}
+        <a class="cited-view" href="/catalogue/{{ obj.id }}?piece={{ piece.id }}"
+           aria-label="View {{ obj.title }}">View</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">No objects are cited yet</p>
+    {% endif %}
+
+    <h2>Reviews</h2>
+    <div class="reviews">
+      {% for kind, label in [('licence', 'Licence'), ('accessibility', 'Accessibility')] %}
+      {% set entry = reviews.get(kind) %}
+      <section class="review-slot" data-review-slot="{{ kind }}">
+        <h3>{{ label }} review</h3>
+        <p class="review-result">{{ review_mark(entry.result if entry else none) }}</p>
+        {% if entry %}
+        <p class="review-by">{{ entry.reviewer_name }}</p>
+        {% if entry.reason %}<p class="review-reason">{{ entry.reason }}</p>{% endif %}
+        {{ stamp(label, entry.result) }}
+        {% endif %}
+      </section>
+      {% endfor %}
+    </div>
+
+    <h2>History</h2>
+    {% if history %}
+    <ol class="history">
+      {% for entry in history %}
+      <li>
+        <span class="figure">{{ entry.created_at|stamp }}</span>
+        <span class="history-step">{{ entry.from_state or 'new' }} → {{ entry.to_state }}</span>
+        <span class="history-actor">{{ entry.actor_name }} ({{ role_label[entry.actor_role] }})</span>
+        {% if entry.reason %}<span class="history-reason">{{ entry.reason }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="empty">No steps have been taken yet</p>
+    {% endif %}
+  </section>
+
+  <aside class="desk-rail panel" aria-label="Decisions">
+    <h2>Decisions</h2>
+    {% if account.role == 'auditor' %}
+    <p class="read-only">Read only</p>
+    {% else %}
+    {% if not rail %}<p class="read-only">Nothing to decide here</p>{% endif %}
+    {% for action in rail %}
+      {% if action.startswith('review:') %}
+      <button type="button" class="button button-primary"
+              data-open-dialog="review-{{ action.split(':')[1] }}-dialog">{{ labels[action] }}</button>
+      {% elif action in reason_actions %}
+      <button type="button" class="button" data-open-dialog="reason-{{ action }}-dialog">{{ labels[action] }}</button>
+      {% elif action == 'schedule' %}
+      <button type="button" class="button" data-open-dialog="book-dialog">{{ labels[action] }}</button>
+      {% else %}
+      <button type="button" class="button {{ 'button-primary' if action in ('submit', 'clear', 'publish') else '' }}"
+              data-action="{{ action }}">{{ labels[action] }}</button>
+      {% endif %}
+    {% endfor %}
+    {% if booked_day %}
+    <p class="rail-note">Booked for <span class="figure">{{ booked_day }}</span></p>
+    {% endif %}
+    {% endif %}
+  </aside>
+</div>
+
+{% for kind in ['licence', 'accessibility'] if 'review:' ~ kind in rail %}
+<dialog class="modal" id="review-{{ kind }}-dialog" aria-label="Record {{ kind }} review"
+        data-review-kind="{{ kind }}">
+  <form method="dialog" class="modal-body">
+    <div class="modal-head">
+      <h2>Record {{ kind }} review</h2>
+      <button type="button" class="icon-button" data-close-dialog aria-label="Close" title="Close">{{ icon('cross') }}</button>
+    </div>
+    <div role="radiogroup" aria-label="Result" class="radio-group">
+      <label><input type="radio" name="result-{{ kind }}" value="pass" checked> Pass</label>
+      <label><input type="radio" name="result-{{ kind }}" value="fail"> Fail</label>
+    </div>
+    <div class="field">
+      <label for="reason-{{ kind }}">Reason</label>
+      <textarea id="reason-{{ kind }}" name="reason" rows="3"></textarea>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="button button-primary" data-save-review>Save review</button>
+      <button type="button" class="button button-quiet" data-close-dialog>Cancel</button>
+    </div>
+  </form>
+</dialog>
+{% endfor %}
+
+{% for action in reason_actions if action in rail %}
+<dialog class="modal" id="reason-{{ action }}-dialog" aria-label="{{ labels[action] }}">
+  <form method="dialog" class="modal-body">
+    <div class="modal-head">
+      <h2>{{ labels[action] }}</h2>
+      <button type="button" class="icon-button" data-close-dialog aria-label="Close" title="Close">{{ icon('cross') }}</button>
+    </div>
+    <div class="field">
+      <label for="reason-field-{{ action }}">Reason</label>
+      <textarea id="reason-field-{{ action }}" name="reason" rows="3"></textarea>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="button button-primary" data-action="{{ action }}" data-needs-reason>Confirm</button>
+      <button type="button" class="button button-quiet" data-close-dialog>Cancel</button>
+    </div>
+  </form>
+</dialog>
+{% endfor %}
+
+{% if 'schedule' in rail %}
+<dialog class="modal" id="book-dialog" aria-label="Book a day">
+  <form method="dialog" class="modal-body">
+    <div class="modal-head">
+      <h2>Book a day</h2>
+      <button type="button" class="icon-button" data-close-dialog aria-label="Close" title="Close">{{ icon('cross') }}</button>
+    </div>
+    <div class="field">
+      <label for="book-day">Day</label>
+      <input type="text" id="book-day" name="day" placeholder="YYYY-MM-DD">
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="button button-primary" data-book-day>Confirm</button>
+      <button type="button" class="button button-quiet" data-close-dialog>Cancel</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+
+{% if editable %}
+<dialog class="modal modal-wide" id="picker-dialog" aria-label="Add object">
+  <form method="dialog" class="modal-body">
+    <div class="modal-head">
+      <h2>Add object</h2>
+      <button type="button" class="icon-button" data-close-dialog aria-label="Close" title="Close">{{ icon('cross') }}</button>
+    </div>
+    <div class="picker-board" data-picker-board data-list="picker"></div>
+    <div class="modal-foot">
+      <button type="button" class="button button-primary" data-close-dialog>Done</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}

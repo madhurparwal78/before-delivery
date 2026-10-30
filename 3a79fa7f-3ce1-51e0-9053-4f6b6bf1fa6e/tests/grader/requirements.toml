@@ -1,0 +1,1579 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 84
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "rider-match-build-save",
+    "configurator-pricing",
+    "build-validation",
+    "cart-rules",
+    "checkout-totals",
+    "idempotent-orders",
+    "stock-races",
+    "trade-in",
+    "demo-days",
+    "callbacks",
+    "tracking-lookup",
+    "access-control",
+    "newsletter-partners",
+    "deployment-storage",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 83
+services = [
+    { name = "postgres", env = { CLOCK_CONTROL = "enabled" } },
+    { name = "mailpit", env = { MAIL_FROM = "Tern Foils <orders@ternfoils.com>" } },
+    { name = "killbill", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 5
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 5
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+MAILPIT_URL = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Quiz scores and tie break."
+text = "POST /api/match scores exactly five answers from the points table, picks the winner with the published tie break and two reasons, stores the result for GET /api/match/<id>, and refuses a wrong count or an unknown key with 422 validation_error."
+kind = "behavior"
+primary = "pytest"
+workflow = "rider-match-build-save"
+tests = [
+    "test_app.py::test_match_scoring_and_storage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Saved build codes reload."
+text = "POST /api/builds answers 201 for a new build and 200 with the same code for an identical one, and GET /api/builds/<code> returns it at the current price to any client or answers 404 not_found."
+kind = "behavior"
+primary = "pytest"
+workflow = "rider-match-build-save"
+tests = [
+    "test_app.py::test_build_save_and_reload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Quiz progress lives in the address."
+text = "Every quiz step and chosen answer is held in the /match address, so back, forward, reload and a new browser show the same question with the same answers, /match?result=<id> reopens the identical result anywhere, and \"Build this board\" opens the configurator with the result's board and rider weight."
+kind = "behavior"
+primary = "workflow"
+workflow = "rider-match-build-save"
+tests = [
+    "test_app.py::test_wf_rider_match_build_save_quiz_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Quiz step transition."
+text = "Moving between questions plays the step transition with the timings of Motion and effects, moves focus to the new question heading and announces it, and under reduced motion swaps instantly with the same focus move, announcement and no layout jump."
+kind = "behavior"
+primary = "pytest"
+workflow = "rider-match-build-save"
+tests = [
+    "test_app.py::test_quiz_step_transition",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Saved build link restores the scene."
+text = "Opening a /build/<code> link with its view in a new browser restores every choice, the summary, the price, the ride time, the viewer's loaded parts, colours, mast length, battery fill and the camera pose, as qualified in Board viewer contract."
+kind = "behavior"
+primary = "workflow"
+workflow = "rider-match-build-save"
+tests = [
+    "test_app.py::test_wf_rider_match_build_save_shared_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Exact build price, ride time and code."
+text = "Every build is priced in integer cents, timed in whole minutes from battery energy, wing draw, speed gear and rider weight, and coded by the formulas in Builds."
+kind = "behavior"
+primary = "pytest"
+workflow = "configurator-pricing"
+tests = [
+    "test_app.py::test_build_price_ride_time_and_code",
+]
+criteria = []
+parameter_cases = [
+    "dr49-defaults",
+    "cr52-example",
+    "cr52-heavy-rider",
+    "sw43-max",
+    "dr49-bat22-spares",
+]
+
+[[requirements]]
+id = "DP-07"
+title = "Catalog matches Seed data."
+text = "GET /api/catalog returns every board package, component and accessory of Seed data with its price, fits, finish, defaults, energy, live stock, in_stock and as_low_as_cents."
+kind = "behavior"
+primary = "pytest"
+workflow = "configurator-pricing"
+tests = [
+    "test_app.py::test_catalog_matches_seed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Build bodies refuse unpublished fields."
+text = "Build quotes and saves accept exactly the nine pick keys with strict types and refuse any other key with 422 unknown_field before any other build check, saving nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "configurator-pricing"
+tests = [
+    "test_app.py::test_build_unknown_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Ride-time readout and gauge."
+text = "The Rider weight and Speed gear sliders re-quote the build, the Up to N min readout counts to the new value with the timings of Motion and effects, the summary gauge and the viewer's battery fill settle on the same bars, and reduced motion makes the readout jump."
+kind = "behavior"
+primary = "pytest"
+workflow = "configurator-pricing"
+tests = [
+    "test_app.py::test_ride_time_readout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Configurator agrees on every surface."
+text = "After every change the Build total, financing line, Up to N min, gauge, summary parts, viewer parts and address describe the same build as POST /api/builds/quote returns for the newest input, and an older answer never replaces a newer one."
+kind = "behavior"
+primary = "workflow"
+workflow = "configurator-pricing"
+tests = [
+    "test_app.py::test_wf_configurator_pricing_live_summary",
+    "test_app.py::test_wf_configurator_pricing_stale_answer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Board viewer shows the build."
+text = "The Board viewer renders the chosen board package and five parts as distinct shapes and colours, exposes its loaded parts, colours, mast length, battery fill and camera through the viewer contract, holds still when idle, and shows a labelled still drawing without WebGL."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-validation"
+tests = [
+    "test_app.py::test_board_viewer_contract",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Camera views, orbit and zoom."
+text = "The four camera views, Reset view, drag orbit, zoom and the arrow and zoom keys move the camera to the exact poses, steps and clamps of Board viewer contract, report yaw, pitch and zoom, and record the view in the address."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-validation"
+tests = [
+    "test_app.py::test_camera_views_and_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Part swap choreography."
+text = "Changing a part plays the swap in the viewer with the timings of Motion and effects, so a frame taken mid-swap differs from both the old and the new settled frames, and reduced motion swaps instantly."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-validation"
+tests = [
+    "test_app.py::test_part_swap_choreography",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Build checks in order."
+text = "Build quotes and saves run the checks of Builds in their published order and answer the first failure with its code and field message."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-validation"
+tests = [
+    "test_app.py::test_build_checks_in_order",
+]
+criteria = []
+parameter_cases = [
+    "unknown-key-first",
+    "unknown-board",
+    "board-not-string",
+    "unknown-part",
+    "part-in-wrong-slot",
+    "incompatible-before-spares",
+    "spares-string",
+    "rider-step",
+    "rider-fraction",
+    "gear-boolean",
+    "gear-null",
+    "gear-before-stock",
+    "sold-out",
+]
+
+[[requirements]]
+id = "DP-15"
+title = "Incompatible parts disabled and ghosted."
+text = "On /build a part that does not fit the board stays visible but disabled with its reason, hovering or focusing it ghosts it in the viewer without changing the build, quote or address, and a sold-out size cannot be chosen."
+kind = "behavior"
+primary = "workflow"
+workflow = "build-validation"
+tests = [
+    "test_app.py::test_wf_build_validation_ghost",
+    "test_app.py::test_wf_build_validation_sold_out_size",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Disabled options readable without colour."
+text = "Every option name and description on /build, disabled ones included, and every Out of Stock badge reach 4.5:1 contrast with fading counted, a disabled option shows its reason text and a not-allowed icon, and the selected option shows a tick as well as the accent border."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-validation"
+tests = [
+    "test_app.py::test_disabled_options_contrast",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Malformed and oversized bodies."
+text = "Any /api request whose body is not a JSON object, is too large or has the wrong content type answers the opaque error of Server boundary as JSON, never a stack trace, path, SQL text or HTML."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-validation"
+tests = [
+    "test_app.py::test_malformed_bodies",
+]
+criteria = []
+parameter_cases = [
+    "invalid-json",
+    "array",
+    "string",
+    "number",
+    "wrong-content-type",
+    "too-large",
+    "too-large-and-wrong-type",
+    "exactly-at-limit",
+]
+
+[[requirements]]
+id = "DP-18"
+title = "Cart caps and strict lines."
+text = "Cart lines accept only their published keys with integer quantities, the per-line, all-builds and accessory caps answer 422 limit, more than the stock answers 422 out_of_stock, quantity 0 removes a line, and every refusal leaves the cart unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "cart-rules"
+tests = [
+    "test_app.py::test_cart_caps_and_strict_lines",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Discount codes and stacking."
+text = "FLYFIRST and CHARGE25 apply ignoring case to the accessory subtotal only, computed and capped as in Cart, at most two per cart, with invalid_code, too_many_codes and code_already_applied refusals."
+kind = "behavior"
+primary = "pytest"
+workflow = "cart-rules"
+tests = [
+    "test_app.py::test_discount_codes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Guest cart merges on sign in."
+text = "Signing in adds the guest cart's lines and codes into the account cart under the merge rule of Cart and empties the guest cart, so a second browser of the same customer sees the merged cart."
+kind = "behavior"
+primary = "pytest"
+workflow = "cart-rules"
+tests = [
+    "test_app.py::test_guest_cart_merge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Shared cart links expire and leak nothing."
+text = "POST /api/cart/share mints a new unguessable token each time, the snapshot shows only the published line keys with the no-referrer, no-store and noindex headers, and from 2,592,000 seconds after sharing the read, the import and an unknown token all answer the identical 404 not_found."
+kind = "behavior"
+primary = "pytest"
+workflow = "cart-rules"
+tests = [
+    "test_app.py::test_shared_cart_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Monthly financing terms."
+text = "Build quotes, carts, checkout quotes and catalog items carry the financing terms of Financing, computed exactly in cents with the last payment absorbing the difference, none under $500.00 and only the Canadian terms for Canada."
+kind = "behavior"
+primary = "pytest"
+workflow = "cart-rules"
+tests = [
+    "test_app.py::test_financing_terms",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Financing agrees on every surface."
+text = "The product card, configurator, cart and checkout each show \"As low as $<m>/mo\" from the server's financing for their own amount and country, and every one updates to the same cent as the API after a quantity, code or country change."
+kind = "behavior"
+primary = "workflow"
+workflow = "cart-rules"
+tests = [
+    "test_app.py::test_wf_cart_rules_financing_surfaces",
+    "test_app.py::test_wf_cart_rules_financing_country",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Cart page and checkout redirect."
+text = "/cart shows its empty state, disables the plus button at a cap with the limit text, shows code refusals under the code field, the expired shared cart page shows its copy, and /checkout sends a visitor to /login?next=/checkout and back after sign in."
+kind = "behavior"
+primary = "pytest"
+workflow = "cart-rules"
+tests = [
+    "test_app.py::test_cart_page_and_checkout_redirect",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Header menus, cart drawer and count."
+text = "One header menu is open at a time with aria-expanded, the cart drawer opens with the drawer motion, traps focus and returns it on close, and the Cart link's name and badge and the announcement follow every cart change."
+kind = "behavior"
+primary = "pytest"
+workflow = "cart-rules"
+tests = [
+    "test_app.py::test_header_menus_and_cart_drawer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Checkout totals for six countries."
+text = "POST /api/checkout/quote and POST /api/orders compute shipping, the free accessory shipping threshold, the dangerous goods fee split between spares packed with a board and batteries shipped alone, separately rounded tax components on merchandise only and the total exactly as in Checkout and orders, and refuse any other country with 422 unsupported_country."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-totals"
+tests = [
+    "test_app.py::test_checkout_totals",
+]
+criteria = []
+parameter_cases = [
+    "us-chargers-flyfirst",
+    "ca-ontario-build",
+    "ca-quebec-float",
+    "au-standalone-batteries",
+    "pr-packed-spares",
+    "us-free-accessory-shipping",
+    "unsupported-country",
+]
+
+[[requirements]]
+id = "DP-27"
+title = "Canadian tax by postal code."
+text = "A Canadian quote or order needs a valid Canadian postal code and takes its tax components from the code's first letter, each rounded half up on its own, with the components listed on the quote, order, checkout screen and email."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-totals"
+tests = [
+    "test_app.py::test_canadian_tax_by_postal_code",
+]
+criteria = []
+parameter_cases = [
+    "A-newfoundland",
+    "B-nova-scotia",
+    "K-ontario",
+    "G-quebec",
+    "V-british-columbia",
+    "S-saskatchewan",
+    "T-alberta",
+    "lowercase-no-space",
+    "forbidden-first-letter",
+    "missing",
+]
+
+[[requirements]]
+id = "DP-28"
+title = "Totals agree across surfaces."
+text = "The checkout screen, the quote, the stored order, its Kill Bill invoice items and its confirmation email show the same shipping, dangerous goods, tax components and total to the cent."
+kind = "behavior"
+primary = "workflow"
+workflow = "checkout-totals"
+tests = [
+    "test_app.py::test_wf_checkout_totals_ontario_order",
+    "test_app.py::test_wf_checkout_totals_quebec_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Checkout page places one order."
+text = "On /checkout choosing a country or changing a Canadian postal code updates shipping, dangerous goods, tax, delivery dates, financing and total without a reload, a double click on Place order creates exactly one order, and the order page opens with its banner."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-totals"
+tests = [
+    "test_app.py::test_checkout_page_places_one_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Checkout progress bar."
+text = "The Checkout progress bar counts completed checkout steps, fills with the progress motion of Motion and effects so a mid-fill frame is partway, falls back on a refused placement, and jumps under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-totals"
+tests = [
+    "test_app.py::test_checkout_progress_bar",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Protection plans."
+text = "An owner adds 2 or 3 year protection to a build line with the order's tax components, only inside the protection window, once per line and never on a cancelled order, as qualified in Protection plans."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-totals"
+tests = [
+    "test_app.py::test_protection_plans",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Shipping page and not-found page."
+text = "/shipping renders every country row of the checkout table with both dangerous goods fees, the free shipping threshold, the tax and the Canadian province table, and an unknown page address answers 404 with the not-found page."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-totals"
+tests = [
+    "test_app.py::test_shipping_and_not_found_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Idempotent order placement."
+text = "POST /api/orders needs a valid Idempotency-Key, a replay returns the stored order with 200, a changed body answers 409 idempotency_conflict, and a request whose key is still being placed answers 409 idempotency_in_progress without being stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "idempotent-orders"
+tests = [
+    "test_app.py::test_idempotent_order_placement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "One Kill Bill account and an itemised invoice per order."
+text = "Every customer has one Kill Bill account, every placed order makes one charge call whose invoice holds one item per non-zero total component with the published descriptions and attribution headers, and replays never charge again."
+kind = "behavior"
+primary = "pytest"
+workflow = "idempotent-orders"
+tests = [
+    "test_app.py::test_killbill_account_per_customer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Billing outage refuses the order."
+text = "When Kill Bill refuses or cannot be reached, placement answers 503 billing_unavailable with no stock moved, no credit used, no number consumed, no email and the cart kept, and checkout shows the billing outage copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "idempotent-orders"
+tests = [
+    "test_app.py::test_billing_outage_refuses_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Cancellation adjusts every invoice item."
+text = "An owner cancellation adjusts every item of the order's invoice by its full amount with the cancellation attribution, so the account balance always equals the customer's non-cancelled order totals, and answers 503 leaving the order placed when Kill Bill is unavailable."
+kind = "behavior"
+primary = "pytest"
+workflow = "idempotent-orders"
+tests = [
+    "test_app.py::test_cancellation_and_billing_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Gap-free order numbers."
+text = "Order numbers rise by one from TF-100001 with no gap, and no refused or rolled-back placement consumes a number."
+kind = "behavior"
+primary = "pytest"
+workflow = "idempotent-orders"
+tests = [
+    "test_app.py::test_gap_free_order_numbers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Attributed order events."
+text = "Every order move appends one event naming its status, instant and the email of who made it, no API changes or removes an event, and tracking shows only status and instant."
+kind = "behavior"
+primary = "pytest"
+workflow = "idempotent-orders"
+tests = [
+    "test_app.py::test_order_events_attributed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Ship-by cut-off and arrival date."
+text = "Every quote and order dates shipping and arrival from the warehouse's 14:00 cut-off, business days and holidays in the warehouse's time zone, and a replay keeps the order's first dates."
+kind = "behavior"
+primary = "pytest"
+workflow = "idempotent-orders"
+tests = [
+    "test_app.py::test_ship_by_dates",
+]
+criteria = []
+parameter_cases = [
+    "de-before-cutoff",
+    "de-at-cutoff",
+    "us-after-cutoff-holiday",
+    "fr-friday-holiday",
+    "au-christmas-eve",
+]
+
+[[requirements]]
+id = "DP-40"
+title = "One order seen alike by customer, staff and email."
+text = "A placed order shows the same number, totals, delivery dates and status history on the order page, the admin Orders tab, the confirmation email and a second session of the customer, and the admin's ship and deliver moves appear in the customer's order under the admin's email."
+kind = "behavior"
+primary = "workflow"
+workflow = "idempotent-orders"
+tests = [
+    "test_app.py::test_wf_idempotent_orders_staff_ship_deliver",
+    "test_app.py::test_wf_idempotent_orders_second_session",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "The last unit sells once."
+text = "Customers racing for the last unit of a board package get exactly one order, every other racer gets 409 out_of_stock naming the SKU, and stock ends at zero."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-races"
+tests = [
+    "test_app.py::test_last_unit_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Stock conserved and every view agrees."
+text = "Racing multi-line orders answer only 201 or 409, seeded stock equals current stock plus non-cancelled ordered quantities for every SKU, and in_stock, the /boards badge and the build stock check flip together on sell-out and on cancellation."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-races"
+tests = [
+    "test_app.py::test_stock_conservation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Order lifecycle."
+text = "Orders move placed to shipped to delivered by an admin and placed to cancelled by their owner, cancellation restores stock and credits, and every other move answers 409 illegal_transition."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-races"
+tests = [
+    "test_app.py::test_order_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Stable order list pages."
+text = "GET /api/orders and GET /api/staff/orders return capped pages with an opaque cursor that never repeats or skips an order while orders are placed or cancelled, refuse a bad limit or cursor with 422, and the Orders tab and /account append pages with \"Load more orders\"."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-races"
+tests = [
+    "test_app.py::test_order_list_pages",
+    "test_app.py::test_wf_stock_races_load_more",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Sold-out line at checkout."
+text = "A customer who loses a race at checkout sees the sold-out copy, a refreshed cart without the line, and the same Out of Stock badge on /boards."
+kind = "behavior"
+primary = "workflow"
+workflow = "stock-races"
+tests = [
+    "test_app.py::test_wf_stock_races_sold_out_checkout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Board registration and warranty."
+text = "An owner registers each board of a delivered build line by a Luhn-checked serial, racing registrations of one serial or one line have exactly one winner, warranty end dates follow the country rules from the delivery date, and a transfer keeps them."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-races"
+tests = [
+    "test_app.py::test_board_registration_and_warranty",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Registered boards on the account."
+text = "/account lists each registered board with its board and battery warranty days left counted in the order country's time zone, and the transfer dialog moves the board to the other customer's account."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-races"
+tests = [
+    "test_app.py::test_registered_boards_on_account",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Trade-in lifecycle and credit."
+text = "Trade-ins follow the transition table with 409 illegal_transition for any other move, a quote mails its notice, and an accepted credit comes off a Crest build line at checkout and returns when that order is cancelled."
+kind = "behavior"
+primary = "pytest"
+workflow = "trade-in"
+tests = [
+    "test_app.py::test_trade_in_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Trade-in quote expiry edges."
+text = "A quote expires exactly 1,209,600 seconds after it is given: accepting one second earlier succeeds, accepting at the instant answers 409 quote_expired, and every list shows expired from that instant without any accept attempt."
+kind = "behavior"
+primary = "pytest"
+workflow = "trade-in"
+tests = [
+    "test_app.py::test_trade_in_quote_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Trade-ins stay private."
+text = "A customer reads, accepts and declines only their own trade-ins, and another customer's trade-in id answers 404 not_found."
+kind = "behavior"
+primary = "pytest"
+workflow = "trade-in"
+tests = [
+    "test_app.py::test_trade_ins_stay_private",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Trade-in screens."
+text = "/trade-in shows the customer's status badge, the quoted credit and its expiry, hides Accept quote once the quote has expired with the expired copy, and the support staff screen lists and quotes submitted trade-ins."
+kind = "behavior"
+primary = "workflow"
+workflow = "trade-in"
+tests = [
+    "test_app.py::test_wf_trade_in_quote_accept",
+    "test_app.py::test_wf_trade_in_expired",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Demo seats never overbook."
+text = "Racing bookings for a slot never exceed its capacity and the losers get 409 slot_full, a booking overlapping one the customer holds answers 409 already_booked with back-to-back slots allowed, and staff slots follow their rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "demo-days"
+tests = [
+    "test_app.py::test_demo_seats_never_overbook",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Demo time rules."
+text = "Booking closes and cancellation ends at the exact second offsets of Demo days, attendance is marked only once a slot has started, and slots are stored in UTC."
+kind = "behavior"
+primary = "pytest"
+workflow = "demo-days"
+tests = [
+    "test_app.py::test_demo_time_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Demo credit."
+text = "Marking a booking attended grants one 20000 cent demo credit valid for 7,776,000 seconds at most once per customer, an order spends it and cancelling that order returns it."
+kind = "behavior"
+primary = "pytest"
+workflow = "demo-days"
+tests = [
+    "test_app.py::test_demo_credit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Exact locator distances and events."
+text = "GET /api/locations filters and sorts by haversine distance rounded half up to one decimal with its radius and coordinate bounds, and GET /api/events lists only upcoming demo days."
+kind = "behavior"
+primary = "pytest"
+workflow = "demo-days"
+tests = [
+    "test_app.py::test_locator_distances_and_events",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Locator and demo day screens."
+text = "/locations finds a location by coordinates, lists its slots in the location's own local time across daylight-saving changes whatever the browser's time zone, updates and announces seats after a booking, and refreshes a lost race to Fully booked."
+kind = "behavior"
+primary = "workflow"
+workflow = "demo-days"
+tests = [
+    "test_app.py::test_wf_demo_days_dst_labels",
+    "test_app.py::test_wf_demo_days_booking_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Dealers see masked booking emails."
+text = "GET /api/staff/locations/<id>/bookings and the Demo days tab show a dealer each customer email masked as its first character, *** and the domain, while an admin and the booking's own customer see it in full."
+kind = "behavior"
+primary = "pytest"
+workflow = "demo-days"
+tests = [
+    "test_app.py::test_dealer_sees_masked_emails",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Callbacks in the caller's timezone."
+text = "A callback is accepted only at a half-hour start inside business hours on a weekday in the caller's timezone, within the lead time and horizon of Callbacks, with every refused field named and at most two upcoming per email even under races."
+kind = "behavior"
+primary = "pytest"
+workflow = "callbacks"
+tests = [
+    "test_app.py::test_callback_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "No header or recipient injection."
+text = "Callback names, case subjects, partner business names and every email field refuse control and line-separator characters, emails also refuse list and angle-bracket characters, a refusal consumes no reference, and every notice goes to exactly one recipient with its body intact."
+kind = "behavior"
+primary = "pytest"
+workflow = "callbacks"
+tests = [
+    "test_app.py::test_no_header_or_recipient_injection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Callback form, build and reference."
+text = "/callback opened from a saved build shows that build in the Board viewer at the linked camera pose, each refused field shows its message beneath it with focus on the first, and success replaces the form with the reference copy."
+kind = "behavior"
+primary = "workflow"
+workflow = "callbacks"
+tests = [
+    "test_app.py::test_wf_callbacks_build_panel",
+    "test_app.py::test_wf_callbacks_field_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Notices queue while mail is down."
+text = "A notice that cannot be sent is kept pending in the outbox and retried on the published schedule without failing the action that caused it, and once mail is reachable every pending notice is delivered once, oldest first, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "callbacks"
+tests = [
+    "test_app.py::test_notices_queue_while_mail_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Exactly the listed notices."
+text = "Only the six notices of Notices send email, each exactly once with its subject and body lines, the callback notice states the call time in the caller's zone and in UTC, and every one is recorded in the outbox."
+kind = "behavior"
+primary = "pytest"
+workflow = "callbacks"
+tests = [
+    "test_app.py::test_exactly_the_listed_notices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Lookups never reveal existence."
+text = "Order tracking and case lookup answer only when the reference exists and its email matches ignoring case, and every miss answers the identical 404 not_found body."
+kind = "behavior"
+primary = "pytest"
+workflow = "tracking-lookup"
+tests = [
+    "test_app.py::test_lookups_never_reveal_existence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Lookup attempts limited per email."
+text = "Five order or case lookup misses for one email within 900 seconds make every further lookup for that email answer 429 too_many_attempts with the computed Retry-After, while other emails are unaffected."
+kind = "behavior"
+primary = "pytest"
+workflow = "tracking-lookup"
+tests = [
+    "test_app.py::test_lookup_attempt_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Track and support screens."
+text = "/track shows an order's status timeline or only the not found copy, shows the limit copy after too many misses, and /support opens a case with its reference."
+kind = "behavior"
+primary = "workflow"
+workflow = "tracking-lookup"
+tests = [
+    "test_app.py::test_wf_tracking_lookup_found",
+    "test_app.py::test_wf_tracking_lookup_limit",
+    "test_app.py::test_wf_tracking_lookup_support_case",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Role guards."
+text = "Every customer endpoint answers 401 without a session, every staff endpoint answers 401 to a visitor and 403 to a customer or a staff role the role table does not allow, and customer actions answer 403 to staff."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-control"
+tests = [
+    "test_app.py::test_role_guards",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Signup, login and sessions."
+text = "Signup normalises the email and refuses a weak password or taken email, login refuses a wrong email and a wrong password alike, the session lives in an HttpOnly cookie, and logout ends it."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-control"
+tests = [
+    "test_app.py::test_signup_login_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Password reset and change."
+text = "A reset request answers identically for known and unknown emails, a reset link works once and only before its expiry, and a reset or password change ends the customer's other sessions."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-control"
+tests = [
+    "test_app.py::test_password_reset_and_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Account and staff screens."
+text = "/signup, /login, /forgot-password and /account work with unique control names, /staff shows each staff role only its own tabs, and a customer opening /staff sees the denied copy."
+kind = "behavior"
+primary = "workflow"
+workflow = "access-control"
+tests = [
+    "test_app.py::test_wf_access_control_signup_login",
+    "test_app.py::test_wf_access_control_staff_tabs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Newsletter and partners once per email."
+text = "Repeated or racing newsletter signups store one record and partner applications are accepted once per email, as qualified in Newsletter, partners and search."
+kind = "behavior"
+primary = "pytest"
+workflow = "newsletter-partners"
+tests = [
+    "test_app.py::test_newsletter_and_partners_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Literal, bounded search."
+text = "GET /api/search matches its trimmed 2 to 64 character query literally, % _ and backslash included, ignoring case, and returns at most 20 results in the published order."
+kind = "behavior"
+primary = "pytest"
+workflow = "newsletter-partners"
+tests = [
+    "test_app.py::test_literal_bounded_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Newsletter and search screens."
+text = "The footer newsletter form and the header search dialog show their pending, success and refusal states with names unique on the page, and the search dialog traps and returns focus."
+kind = "behavior"
+primary = "workflow"
+workflow = "newsletter-partners"
+tests = [
+    "test_app.py::test_wf_newsletter_partners_newsletter",
+    "test_app.py::test_wf_newsletter_partners_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Health, boot and speed."
+text = "GET /api/health answers 200 once ready, the app starts and serves while Kill Bill or Mailpit is unreachable, and pages and quotes meet the limits of Browser support and performance."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment-storage"
+tests = [
+    "test_app.py::test_health_boot_and_speed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Only the published API surface."
+text = "An unknown /api path answers 404 not_found JSON, a published path with an unpublished method answers 405 with Allow, and no response carries X-Powered-By."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment-storage"
+tests = [
+    "test_app.py::test_published_api_surface",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Exact response fields."
+text = "Every success body carries exactly the keys of Shapes for the caller's role, and no answer or outbox row ever contains a password hash, session id, reset token, Kill Bill account id or notice body."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment-storage"
+tests = [
+    "test_app.py::test_never_in_response",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Records outlive the instance."
+text = "A refused call changes no state, every record a page shows lives in PostgreSQL, and a second app instance on the same database shows the same saved build scene, cart, order and outbox as the first."
+kind = "behavior"
+primary = "workflow"
+workflow = "deployment-storage"
+tests = [
+    "test_app.py::test_wf_deployment_storage_second_instance_build",
+    "test_app.py::test_wf_deployment_storage_second_instance_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Controlled clock."
+text = "With CLOCK_CONTROL enabled, PUT and DELETE /api/_clock set and clear the instant every time rule reads, and otherwise both answer 404 not_found."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment-storage"
+tests = [
+    "test_app.py::test_controlled_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Credentials from the environment."
+text = "Every service URL and credential is read from its environment variable and never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "deployment-storage"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Storefront pages and hero reveal."
+text = "/, /boards, /foil-boards and /parts show the sections and catalog-driven cards of Screens and layout, and the hero and section reveals play with the timings of Motion and effects or render at rest under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_storefront_pages_and_hero",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Keyboard access and unique names."
+text = "Every control works by keyboard in visual order with a visible focus ring, no page has two controls with the same role and name, dialogs trap focus and return it, and the pages listed in Browser support have no serious or critical automated accessibility violation."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_keyboard_and_axe",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Three viewport layouts."
+text = "Every public page lays out as described for 375 by 812, 768 by 1024 and 1280 by 800 with no sideways scroll, with the menu drawer and the fixed configurator summary on the phone."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Storefront look."
+text = "The storefront carries the calm monochrome look with one shallow-water teal, the drawn hero, the two typefaces and the shapes of Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Configurator look."
+text = "The configurator shows the 3D board with distinct part colours on a studio backdrop, the view buttons, the sliders and a summary that reads as one panel, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Rules decided once."
+text = "Prices, compatibility, ride time, build codes, financing, shipping, fees, tax, delivery dates, warranty dates, stock and every state transition are decided once on the server, and the browser shows server-quoted values without recomputing them."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json is a JSON object with \"_schema\": \"run-manifest-v1\" and non-empty string install, build and serve commands."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/USER_README.md lists the three seeded staff logins with their passwords and roles."
+tests = [
+    "test_app.py::test_if_user_readme",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and every bundled font, each with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Shipped packages (the same production dependency tree) use only MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0 or 0BSD licences, and bundled fonts use the SIL Open Font License 1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "No datastore other than the provided PostgreSQL holds records (no SQLite, Redis, record files or in-memory stand-ins), and no script installs, downloads or starts PostgreSQL, Mailpit or Kill Bill."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = ".browser_screenshots/ and .downloads/ exist at the app root and the app writes nothing into them."
+tests = [
+    "test_app.py::test_if_browser_dirs",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "rider-match-build-save"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+]
+critical = [
+    "test_app.py::test_wf_rider_match_build_save_quiz_address",
+    "test_app.py::test_wf_rider_match_build_save_shared_link",
+]
+
+[[workflows]]
+id = "configurator-pricing"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_configurator_pricing_live_summary",
+    "test_app.py::test_build_price_ride_time_and_code",
+    "test_app.py::test_build_unknown_fields",
+]
+
+[[workflows]]
+id = "build-validation"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_build_validation_ghost",
+    "test_app.py::test_wf_build_validation_sold_out_size",
+    "test_app.py::test_malformed_bodies",
+    "test_app.py::test_disabled_options_contrast",
+    "test_app.py::test_build_checks_in_order",
+]
+
+[[workflows]]
+id = "cart-rules"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_cart_rules_financing_surfaces",
+    "test_app.py::test_shared_cart_links",
+    "test_app.py::test_cart_caps_and_strict_lines",
+    "test_app.py::test_discount_codes",
+]
+
+[[workflows]]
+id = "checkout-totals"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_checkout_totals_ontario_order",
+    "test_app.py::test_checkout_totals",
+    "test_app.py::test_checkout_page_places_one_order",
+]
+
+[[workflows]]
+id = "idempotent-orders"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+]
+critical = [
+    "test_app.py::test_wf_idempotent_orders_staff_ship_deliver",
+    "test_app.py::test_idempotent_order_placement",
+    "test_app.py::test_billing_outage_refuses_order",
+    "test_app.py::test_order_events_attributed",
+    "test_app.py::test_cancellation_and_billing_outage",
+    "test_app.py::test_killbill_account_per_customer",
+]
+
+[[workflows]]
+id = "stock-races"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_stock_races_sold_out_checkout",
+    "test_app.py::test_last_unit_race",
+    "test_app.py::test_stock_conservation",
+    "test_app.py::test_order_list_pages",
+]
+
+[[workflows]]
+id = "trade-in"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_trade_in_quote_accept",
+    "test_app.py::test_trade_ins_stay_private",
+    "test_app.py::test_trade_in_quote_expiry",
+    "test_app.py::test_trade_in_lifecycle",
+]
+
+[[workflows]]
+id = "demo-days"
+requirements = [
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+]
+critical = [
+    "test_app.py::test_wf_demo_days_booking_race",
+    "test_app.py::test_demo_seats_never_overbook",
+    "test_app.py::test_dealer_sees_masked_emails",
+    "test_app.py::test_demo_time_rules",
+]
+
+[[workflows]]
+id = "callbacks"
+requirements = [
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-61",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_callbacks_build_panel",
+    "test_app.py::test_callback_rules",
+    "test_app.py::test_no_header_or_recipient_injection",
+    "test_app.py::test_exactly_the_listed_notices",
+]
+
+[[workflows]]
+id = "tracking-lookup"
+requirements = [
+    "DP-63",
+    "DP-64",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_tracking_lookup_found",
+    "test_app.py::test_wf_tracking_lookup_limit",
+    "test_app.py::test_lookups_never_reveal_existence",
+    "test_app.py::test_lookup_attempt_limit",
+]
+
+[[workflows]]
+id = "access-control"
+requirements = [
+    "DP-66",
+    "DP-67",
+    "DP-68",
+    "DP-69",
+]
+critical = [
+    "test_app.py::test_wf_access_control_staff_tabs",
+    "test_app.py::test_role_guards",
+    "test_app.py::test_signup_login_sessions",
+]
+
+[[workflows]]
+id = "newsletter-partners"
+requirements = [
+    "DP-70",
+    "DP-71",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_newsletter_partners_newsletter",
+    "test_app.py::test_newsletter_and_partners_once",
+    "test_app.py::test_literal_bounded_search",
+]
+
+[[workflows]]
+id = "deployment-storage"
+requirements = [
+    "DP-73",
+    "DP-74",
+    "DP-75",
+    "DP-76",
+    "DP-77",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_deployment_storage_second_instance_order",
+    "test_app.py::test_published_api_surface",
+    "test_app.py::test_never_in_response",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-79",
+    "DP-80",
+    "DP-81",
+    "DP-82",
+    "DP-83",
+    "DP-84",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_layouts",
+    "test_app.py::test_wf_cross_cutting_keyboard_and_axe",
+]
+checkpoints = [
+    "B1",
+    "B8",
+    "B11",
+]
+critical_checkpoints = [
+    "B1",
+]

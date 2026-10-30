@@ -1,0 +1,1229 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "workbook-list",
+    "import-workbook",
+    "offline-entry",
+    "cell-conflicts",
+    "formula-recalc",
+    "charts-analysis",
+    "season-lifecycle",
+    "station-members",
+    "versions-restore",
+    "exports",
+    "sponsor-share",
+    "storage-outage",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 81
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 5
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 5
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Furrowbook by Tilth & Tally <furrowbook@tilth-tally.example>"
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[requirements]]
+id = "DP-01"
+title = "Sign in with station accounts"
+text = "Members sign in with email and password and get a session for their one station, and every other API call without a session answers 401, as defined in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "workbook-list"
+tests = [
+    "test_app.py::test_sign_in_and_sessions",
+    "test_app.py::test_sign_in_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Station-scoped workbook list and search"
+text = "The workbook list and its name search show only the signed-in member's station's workbooks, with the search text bounded as stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "workbook-list"
+tests = [
+    "test_app.py::test_station_scoped_list_and_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Other stations' workbooks stay not found"
+text = "Every workbook-scoped request, page, export, version, conflict and share-link id that belongs to another station answers exactly like an id that does not exist."
+kind = "behavior"
+primary = "pytest"
+workflow = "workbook-list"
+tests = [
+    "test_app.py::test_other_station_ids_not_found",
+    "test_app.py::test_other_station_pages_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "One workbook per create request"
+text = "Creating or importing a workbook carries a request key, so a repeated or doubled request returns the first response and the list gains exactly one workbook."
+kind = "behavior"
+primary = "pytest"
+workflow = "workbook-list"
+tests = [
+    "test_app.py::test_create_workbook_idempotent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Workbook list journey"
+text = "A trial lead signs in, searches the list, creates a workbook with one tap or a double tap and lands in its grid, and the list then shows it once."
+kind = "behavior"
+primary = "workflow"
+workflow = "workbook-list"
+tests = [
+    "test_app.py::test_wf_workbook_list_happy",
+    "test_app.py::test_wf_workbook_list_invalid_name",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Import xlsx and csv"
+text = "A trial lead imports an .xlsx or .csv file and gets a draft workbook whose sheets, values, formulas, dates and bold match the file as mapped in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "import-workbook"
+tests = [
+    "test_app.py::test_import_xlsx_and_csv_mapping",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Reject unsafe import files before parsing"
+text = "Files that are too large, not really xlsx or csv, archive bombs, unsafe archive paths, too many sheets or too many cells are rejected with the published limit before any workbook exists."
+kind = "behavior"
+primary = "pytest"
+workflow = "import-workbook"
+tests = [
+    "test_app.py::test_import_rejects_unsafe_files",
+]
+criteria = []
+parameter_cases = [
+    "too_large",
+    "renamed_photo",
+    "zip_without_workbook",
+    "csv_not_utf8",
+    "csv_with_nul",
+    "archive_too_large",
+    "archive_too_compressed",
+    "unsafe_archive_parent",
+    "unsafe_archive_absolute",
+    "too_many_sheets",
+    "cells_past_column_z",
+    "cells_past_row_500",
+]
+
+[[requirements]]
+id = "DP-08"
+title = "Import is all or nothing"
+text = "An import stores the original file in object storage and creates the workbook together, or leaves neither the file nor any workbook record behind."
+kind = "behavior"
+primary = "pytest"
+workflow = "import-workbook"
+tests = [
+    "test_app.py::test_import_all_or_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Import journey"
+text = "A trial lead opens Import workbook, sees the published limits, imports last season's file, and lands in the new draft workbook with its sheets as tabs."
+kind = "behavior"
+primary = "workflow"
+workflow = "import-workbook"
+tests = [
+    "test_app.py::test_wf_import_workbook_happy",
+    "test_app.py::test_wf_import_workbook_rejected_file",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Op batch sync"
+text = "Devices send edits as ordered op batches against a base sequence and get a per-op result of applied, conflict or rejected, with the dependency closure of each applied cell edit."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-entry"
+tests = [
+    "test_app.py::test_sync_per_op_results",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Each batch applies exactly once"
+text = "Resending a batch with the same key returns the identical acknowledgement without new sequence numbers, and reusing a key with a different batch answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-entry"
+tests = [
+    "test_app.py::test_batch_exactly_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Offline edits show at once as pending"
+text = "Edits made with no connection appear in the grid at once with a pending marker, survive a reload, and sync on their own when the connection returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-entry"
+tests = [
+    "test_app.py::test_offline_pending_survives_reload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Rejected edits roll back with a reason"
+text = "When the server rejects an edit, the grid shows the server state again and the reason is announced, and rejected cell edits are kept in the author's conflict tray as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-entry"
+tests = [
+    "test_app.py::test_rejected_edit_rolls_back",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Keyboard grid editing"
+text = "Members move through the grid, edit, commit, cancel and clear cells, and switch sheets using only the keyboard, with a visible focus ring."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-entry"
+tests = [
+    "test_app.py::test_keyboard_grid_editing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Field entry journey"
+text = "A field technician loses signal, records plot readings and a days-after-planting formula, reloads the tab, regains signal, and sees every edit synced once."
+kind = "behavior"
+primary = "workflow"
+workflow = "offline-entry"
+tests = [
+    "test_app.py::test_wf_offline_entry_happy",
+    "test_app.py::test_wf_offline_entry_formula_bar",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Server sequence decides cell conflicts"
+text = "When two members edit the same cell from the same base, the edit the server sequences first stays and the other becomes a named conflict for its author, never silently dropped."
+kind = "behavior"
+primary = "pytest"
+workflow = "cell-conflicts"
+tests = [
+    "test_app.py::test_server_sequence_decides_conflicts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Conflict tray"
+text = "Each member's conflict tray lists their own open conflicts and rejected edits by cell name and lets them re-apply their value or keep the current one."
+kind = "behavior"
+primary = "pytest"
+workflow = "cell-conflicts"
+tests = [
+    "test_app.py::test_conflict_tray_resolve",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Conflict journey"
+text = "Two technicians edit the same plot cell offline and reconnect, and the losing technician re-applies their value from the conflict tray using only the keyboard."
+kind = "behavior"
+primary = "workflow"
+workflow = "cell-conflicts"
+tests = [
+    "test_app.py::test_wf_cell_conflicts_reapply",
+    "test_app.py::test_wf_cell_conflicts_keep_current",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Formula language"
+text = "Formulas support the operators, functions, references, value types and error values listed in Business rules, evaluated the same way on the server and in the browser."
+kind = "behavior"
+primary = "pytest"
+workflow = "formula-recalc"
+tests = [
+    "test_app.py::test_formula_language",
+]
+criteria = []
+parameter_cases = [
+    "arithmetic_precedence",
+    "power",
+    "concatenate",
+    "comparison",
+    "not_equal",
+    "unary_minus",
+    "parentheses",
+    "sum",
+    "average_ignores_text_and_empty",
+    "count",
+    "counta",
+    "min_max",
+    "stdev_sample",
+    "round_half_away",
+    "round_digits",
+    "abs",
+    "if",
+    "and_or",
+    "sumif_case_insensitive",
+    "countif",
+    "averageif",
+    "date",
+    "date_arithmetic",
+    "absolute_ref",
+    "whole_column",
+    "sheet_qualified_case_insensitive",
+    "empty_is_zero",
+    "text_arithmetic",
+    "divide_by_zero",
+    "missing_sheet",
+    "unknown_function",
+    "syntax_error",
+    "error_propagates",
+    "apostrophe_text",
+    "boolean_input",
+    "signed_number_input",
+    "date_input",
+]
+
+[[requirements]]
+id = "DP-20"
+title = "Cross-sheet dependency closure"
+text = "Every cell edit reports exactly the transitive dependents of the edited cell across all sheets, each with its dependency depth."
+kind = "behavior"
+primary = "pytest"
+workflow = "formula-recalc"
+tests = [
+    "test_app.py::test_cross_sheet_closure",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Cycle and size budgets"
+text = "Circular references show #CYCLE and formulas over the published node, cell or depth budget show #LIMIT, while sync, reads and the browser tab stay within the published time limits."
+kind = "behavior"
+primary = "pytest"
+workflow = "formula-recalc"
+tests = [
+    "test_app.py::test_cycle_and_budgets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "TODAY and NOW in station time"
+text = "TODAY() and NOW() use the station's configured time zone on the server and in the browser, whatever the tablet's or the server's own zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "formula-recalc"
+tests = [
+    "test_app.py::test_today_in_browser_uses_station_zone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Server-derived values"
+text = "The server derives every value from its stored edit sequence, ignores values sent by clients, and a reopened workbook shows the same values the editing client showed."
+kind = "behavior"
+primary = "pytest"
+workflow = "formula-recalc"
+tests = [
+    "test_app.py::test_server_derived_values",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Recalc furrow waves"
+text = "After a committed edit, each dependent cell gets an accent outline and counts to its new value in waves by dependency depth, and bound chart bars move in the same wave, as timed in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "formula-recalc"
+tests = [
+    "test_app.py::test_recalc_furrow_waves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Sheet-tab change badges"
+text = "Sheet tabs other than the current one show a count of their recalculated cells that rises as waves land and ends equal to the server-reported closure on that sheet."
+kind = "behavior"
+primary = "pytest"
+workflow = "formula-recalc"
+tests = [
+    "test_app.py::test_sheet_tab_badges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Reduced-motion recalc"
+text = "With reduced motion requested, dependents get a static outline, values swap at once, badges show final counts, and the Changed cells list opens in the rail."
+kind = "behavior"
+primary = "pytest"
+workflow = "formula-recalc"
+tests = [
+    "test_app.py::test_wf_formula_recalc_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Recalc journey"
+text = "A trial lead corrects a mistyped plot yield and watches the plot's adjusted yield, the entry means, the deltas against the check and the chart update across both sheets."
+kind = "behavior"
+primary = "workflow"
+workflow = "formula-recalc"
+tests = [
+    "test_app.py::test_wf_formula_recalc_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Charts from ranges"
+text = "Leads and data managers build bar and line charts from a sheet range, and chart series always show the server-derived values of that range."
+kind = "behavior"
+primary = "pytest"
+workflow = "charts-analysis"
+tests = [
+    "test_app.py::test_charts_from_ranges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Sheets and cell formats"
+text = "Leads and data managers add and rename sheets, members who may edit cells set number formats and bold on ranges, and formulas keep pointing at renamed sheets."
+kind = "behavior"
+primary = "pytest"
+workflow = "charts-analysis"
+tests = [
+    "test_app.py::test_sheets_and_formats",
+    "test_app.py::test_wf_charts_analysis_sheet_rollback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Chart building journey"
+text = "A trial lead adds a sheet, enters entry-mean formulas, formats them to two decimals and builds a bar chart from them."
+kind = "behavior"
+primary = "workflow"
+workflow = "charts-analysis"
+tests = [
+    "test_app.py::test_wf_charts_analysis_happy",
+    "test_app.py::test_wf_charts_analysis_invalid_range",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Season state machine"
+text = "A workbook moves from draft to in-season to locked to archived, with reopen from locked to in-season, and every other move answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "season-lifecycle"
+tests = [
+    "test_app.py::test_season_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Season cutoff in station time"
+text = "A cutoff is a local date and time in the station's zone, edits received at or after it are rejected, and the workbook locks on its own within the delay stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "season-lifecycle"
+tests = [
+    "test_app.py::test_season_cutoff_station_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Role gates per season state"
+text = "Viewer, technician, lead and data manager roles allow exactly the actions in the Business rules role table, checked on every request."
+kind = "behavior"
+primary = "pytest"
+workflow = "season-lifecycle"
+tests = [
+    "test_app.py::test_role_gates",
+]
+criteria = []
+parameter_cases = [
+    "viewer",
+    "technician",
+    "lead",
+    "data_manager",
+]
+
+[[requirements]]
+id = "DP-34"
+title = "Season-close notice"
+text = "Every trial lead in the station gets one season-close email each time a workbook locks, by cutoff or by hand, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "season-lifecycle"
+tests = [
+    "test_app.py::test_season_close_notice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Season close journey"
+text = "A trial lead sets a cutoff, a technician's late edit is rolled back with the season-closed reason, the lead reopens with a later cutoff, and the technician re-applies from the tray."
+kind = "behavior"
+primary = "workflow"
+workflow = "season-lifecycle"
+tests = [
+    "test_app.py::test_wf_season_lifecycle_cutoff",
+    "test_app.py::test_wf_season_lifecycle_menu",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Station time zone"
+text = "The data manager sets the station's time zone from the IANA zone list, and TODAY(), NOW(), cutoffs and displayed times follow it from the next read."
+kind = "behavior"
+primary = "pytest"
+workflow = "station-members"
+tests = [
+    "test_app.py::test_station_time_zone_today",
+    "test_app.py::test_wf_station_members_time_zone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Member invites"
+text = "The data manager adds a member with a role, the member gets one invite email as qualified in Services, and the invite link lets them set a password once and sign in."
+kind = "behavior"
+primary = "pytest"
+workflow = "station-members"
+tests = [
+    "test_app.py::test_member_invites",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Role changes and removal"
+text = "A role change applies from the member's next sync or request, and a removed member's sessions end at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "station-members"
+tests = [
+    "test_app.py::test_role_change_and_removal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Member management journey"
+text = "A data manager invites a technician, the technician accepts and edits, the manager changes them to viewer, and their next offline edit is rolled back."
+kind = "behavior"
+primary = "workflow"
+workflow = "station-members"
+tests = [
+    "test_app.py::test_wf_station_members_invite_demote",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Save versions"
+text = "Leads and data managers save labelled, numbered versions whose snapshot is stored in object storage."
+kind = "behavior"
+primary = "pytest"
+workflow = "versions-restore"
+tests = [
+    "test_app.py::test_save_versions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Exact restore as a new version"
+text = "Restoring a version reproduces its sheets, cell inputs, values, formats and charts exactly and records the restore as a new version."
+kind = "behavior"
+primary = "pytest"
+workflow = "versions-restore"
+tests = [
+    "test_app.py::test_restore_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Undo a restore"
+text = "Every restore first saves the current state as a version, and restoring that version undoes the restore exactly."
+kind = "behavior"
+primary = "pytest"
+workflow = "versions-restore"
+tests = [
+    "test_app.py::test_restore_undo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Restore journey"
+text = "A data manager finds a bad bulk paste, restores an earlier saved version, checks the Analysis sheet, then undoes the restore from the notice."
+kind = "behavior"
+primary = "workflow"
+workflow = "versions-restore"
+tests = [
+    "test_app.py::test_wf_versions_restore_undo",
+    "test_app.py::test_wf_versions_restore_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Export xlsx and csv"
+text = "Leads and data managers export the whole workbook as xlsx or one sheet as csv, built in the background and stored in object storage before it is offered."
+kind = "behavior"
+primary = "pytest"
+workflow = "exports"
+tests = [
+    "test_app.py::test_export_xlsx_and_csv",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "CSV text never becomes a formula"
+text = "Text values that start with =, +, - or @ are written to csv with a leading apostrophe, while numbers, dates and error values are written as shown."
+kind = "behavior"
+primary = "pytest"
+workflow = "exports"
+tests = [
+    "test_app.py::test_csv_neutralisation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Export-ready email and download"
+text = "When an export file is stored, its requester gets one email with a download link that works only for permitted members of that station, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "exports"
+tests = [
+    "test_app.py::test_export_email_and_download",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Export journey"
+text = "A data manager exports the Plots sheet to csv and the whole workbook to xlsx, waits for both to show Ready, and downloads them."
+kind = "behavior"
+primary = "workflow"
+workflow = "exports"
+tests = [
+    "test_app.py::test_wf_exports_happy",
+    "test_app.py::test_wf_exports_double_tap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Read-only share links"
+text = "The data manager creates an unguessable, expiring link that shows one workbook's values, formats and charts without an account and accepts no changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "sponsor-share"
+tests = [
+    "test_app.py::test_share_link_read_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Revoke, regenerate and expire links"
+text = "A revoked, replaced or expired link answers not found at once, and only the newest regenerated link works."
+kind = "behavior"
+primary = "pytest"
+workflow = "sponsor-share"
+tests = [
+    "test_app.py::test_share_links_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Sponsor review journey"
+text = "A data manager shares the results workbook, a sponsor reviewer opens the link with no account and sees computed values and the chart, then the link is revoked and stops working."
+kind = "behavior"
+primary = "workflow"
+workflow = "sponsor-share"
+tests = [
+    "test_app.py::test_wf_sponsor_share_happy",
+    "test_app.py::test_wf_sponsor_share_regenerate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Editing through outages with an honest banner"
+text = "With object storage or mail down, even from boot, sign-in, editing and sync keep working, storage-backed actions answer 503 without side effects, and a banner says what is affected."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_storage_outage",
+    "test_app.py::test_mail_outage",
+    "test_app.py::test_wf_storage_outage_banner",
+    "test_app.py::test_wf_storage_outage_mail_banner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Queued work resumes without restart"
+text = "Exports waiting for storage and emails queued while mail is down complete on their own, exactly once, after the service returns, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_queued_work_resumes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from the run manifest on the stated port and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Server boundary"
+text = "The server is same-origin only, enforces the request size limits, rejects cross-origin writes and never serves source files or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_browser_loads_same_origin_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Responsive layout at three widths"
+text = "The list, workbook, station and share screens fit 375, 768 and 1280 pixel-wide viewports with no horizontal page scroll, as laid out in Screens and layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layout",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "desktop",
+]
+
+[[requirements]]
+id = "DP-56"
+title = "Keyboard reach and focus"
+text = "Every control is reachable by keyboard, F6 cycles the workbook regions, dialogs trap focus and return it on close, and Escape closes them."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_regions_and_dialogs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Field-ledger look"
+text = "The screens use the warm paper ground, graph-paper rule, ink, rust accent and field green, the stated typefaces, and monospaced right-aligned numerals."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Recalc furrow craft"
+text = "A mid-wave screenshot shows outlined dependents, counting numerals and tab badges that clearly read as a chain of recalculation."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B11",
+    "B12",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read from the named environment variables at start and is never written into source or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Values derived from the op log"
+text = "The source derives workbook state and values from the stored edit sequence and version snapshots, with no client-supplied values or stand-in in-memory store."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S3",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with exactly the string fields install, build, serve and \"_schema\":\"run-manifest-v1\", and the app is started only through it."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and every bundled font, each with its version and licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and bundled font uses one of MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in the provided PostgreSQL database, object storage bucket and mail sink; there are no other databases, caches, embedded stores, or data files written to disk."
+tests = [
+    "test_app.py::test_if_data_stores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and environment variable names are used unchanged, and no seeded service settings are edited."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "A package-lock.json is committed, and the app makes no network calls at runtime other than to the configured services."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "workbook-list"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+]
+critical = [
+    "test_app.py::test_wf_workbook_list_happy",
+    "test_app.py::test_other_station_ids_not_found",
+    "test_app.py::test_station_scoped_list_and_search",
+    "test_app.py::test_create_workbook_idempotent",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "import-workbook"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+]
+critical = [
+    "test_app.py::test_wf_import_workbook_happy",
+    "test_app.py::test_import_rejects_unsafe_files",
+    "test_app.py::test_import_all_or_nothing",
+]
+
+[[workflows]]
+id = "offline-entry"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_offline_entry_happy",
+    "test_app.py::test_rejected_edit_rolls_back",
+    "test_app.py::test_batch_exactly_once",
+    "test_app.py::test_keyboard_grid_editing",
+]
+
+[[workflows]]
+id = "cell-conflicts"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_cell_conflicts_reapply",
+    "test_app.py::test_server_sequence_decides_conflicts",
+]
+
+[[workflows]]
+id = "formula-recalc"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_formula_recalc_happy",
+    "test_app.py::test_cycle_and_budgets",
+    "test_app.py::test_today_in_browser_uses_station_zone",
+]
+checkpoints = [
+    "B11",
+    "B12",
+]
+
+[[workflows]]
+id = "charts-analysis"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_charts_analysis_happy",
+    "test_app.py::test_charts_from_ranges",
+    "test_app.py::test_wf_charts_analysis_sheet_rollback",
+]
+
+[[workflows]]
+id = "season-lifecycle"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_season_lifecycle_cutoff",
+    "test_app.py::test_season_cutoff_station_time",
+    "test_app.py::test_role_gates",
+]
+
+[[workflows]]
+id = "station-members"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_station_members_invite_demote",
+    "test_app.py::test_role_change_and_removal",
+]
+
+[[workflows]]
+id = "versions-restore"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_versions_restore_undo",
+    "test_app.py::test_restore_exact",
+    "test_app.py::test_restore_undo",
+    "test_app.py::test_save_versions",
+]
+
+[[workflows]]
+id = "exports"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_exports_happy",
+    "test_app.py::test_csv_neutralisation",
+    "test_app.py::test_export_email_and_download",
+    "test_app.py::test_wf_exports_double_tap",
+]
+
+[[workflows]]
+id = "sponsor-share"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_sponsor_share_happy",
+    "test_app.py::test_share_links_lifecycle",
+]
+
+[[workflows]]
+id = "storage-outage"
+requirements = [
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_storage_outage_banner",
+    "test_app.py::test_storage_outage",
+    "test_app.py::test_queued_work_resumes",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_health",
+]

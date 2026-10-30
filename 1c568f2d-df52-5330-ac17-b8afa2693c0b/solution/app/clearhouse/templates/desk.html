@@ -1,0 +1,158 @@
+{% extends "_staff.html" %}
+{% from "_macros.html" import icon, chip, review_mark, still, empty %}
+{% from "_dialogs.html" import review_dialog, reason_dialog, close_button %}
+{% block title %}{{ piece.title }}{% endblock %}
+{% block main %}
+<div class="desk" data-region="desk" data-piece-id="{{ piece.id }}" data-version="{{ piece.version }}" data-title="{{ piece.title }}">
+  <section class="sheet desk__main" aria-labelledby="piece-title">
+    <div class="alert" role="alert" data-panel-alert hidden></div>
+    <div class="desk__titlebar">
+      <h1 id="piece-title" tabindex="-1">{{ piece.title }}</h1>
+      {{ chip(piece.state) }}
+      {% if next_piece %}<a class="icon-link tip" href="/pieces/{{ next_piece }}" aria-label="Next in queue" data-tip="Next in queue">{{ icon("arrow-next") }}</a>{% endif %}
+    </div>
+    <p class="desk__maker">{{ icon("reviewer") }} Maker <strong>{{ piece.owner_name }}</strong></p>
+    {% if editable %}
+      {% include "_piece_form.html" %}
+    {% else %}
+      <p class="desk__summary">{{ piece.summary }}</p>
+    {% endif %}
+
+    <section class="desk__section" aria-labelledby="cited-title">
+      <div class="section-head">
+        <h2 id="cited-title">Cited objects <span class="count mono">{{ objects | length }}</span></h2>
+        {% if editable %}<button type="button" class="btn" data-open-picker>Add object</button>{% endif %}
+      </div>
+      {% if objects %}
+      <ul class="cited">
+        {% for item in layout["items"] %}{% set o = item.object %}
+        <li class="cited__item">
+          <div class="cited__art">{{ still(o, item.w, item.h) }}</div>
+          <p class="cited__title">{{ o.title }}</p>
+          <p class="cited__meta">{{ o.artist or "Not recorded" }}</p>
+          <p class="cited__meta">{{ o.license }}</p>
+          {% if o.id in duplicates %}
+            {% if duplicates[o.id] %}<p class="flag flag--done">{{ icon("check") }}<span>Duplicate acknowledged by {{ duplicates[o.id] }}</span></p>
+            {% else %}<p class="flag">{{ icon("flag") }}<span>Possible duplicate</span></p>{% endif %}
+          {% endif %}
+          <div class="cited__actions">
+            <a href="/catalogue/{{ o.id }}?piece={{ piece.id }}" aria-label="View {{ o.title }}">View</a>
+            {% if editable %}<button type="button" class="btn btn--quiet btn--small" data-remove-object="{{ o.id }}" aria-label="Remove {{ o.title }}">Remove</button>{% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      <div hidden data-cited-ids="{{ objects | map(attribute='id') | join(',') }}"></div>
+      {% else %}
+      {{ empty("No objects cited yet") }}
+      <div hidden data-cited-ids=""></div>
+      {% endif %}
+    </section>
+
+    <section class="desk__section" aria-labelledby="reviews-title">
+      <h2 id="reviews-title">Reviews</h2>
+      <div class="reviews">
+        {% for kind, label in (("licence", "Licence review"), ("accessibility", "Accessibility review")) %}
+        {% set r = reviews.get(kind) %}
+        {% set other = reviews.get("accessibility" if kind == "licence" else "licence") %}
+        <article class="review-slot" data-review-slot="{{ kind }}">
+          <h3>{{ label }}</h3>
+          {{ review_mark(r.result if r else None, piece.state == "in_review" and not r and other and other.result == "pass") }}
+          {% if r %}
+          <p class="review-slot__who">{{ icon("reviewer") }} {{ r.reviewer_name }} · <time class="mono" datetime="{{ r.created_at.isoformat() }}">{{ r.created_at | stamp }}</time></p>
+          {% if r.reason %}<p class="review-slot__reason">{{ r.reason }}</p>{% endif %}
+          <span class="stamp stamp--{{ r.result }}" role="img" aria-label="{{ label }} {{ 'passed' if r.result == 'pass' else 'failed' }}" data-stamp="{{ kind }}">
+            {{ icon("check" if r.result == "pass" else "cross") }}<span>{{ "Passed" if r.result == "pass" else "Failed" }}</span>
+          </span>
+          {% else %}
+          <p class="muted">No {{ label | lower }} has been recorded in this round.</p>
+          {% endif %}
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="desk__section" aria-labelledby="history-title">
+      <h2 id="history-title">History</h2>
+      {% if history %}
+      <ol class="history">
+        {% for e in history %}
+        <li>
+          <time class="mono" datetime="{{ e.created_at.isoformat() }}" title="{{ e.created_at | stamp }}">{{ e.created_at | when(prefs.date_display) }}</time>
+          <span class="history__step"><span class="mono">{{ e.from_state or "new" }}</span> {{ icon("chevron") }} <span class="mono">{{ e.to_state }}</span></span>
+          <span class="history__actor">{{ e.actor_name }} ({{ e.actor_role }})</span>
+          {% if e.reason %}<p class="history__reason">{{ e.reason }}</p>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      {{ empty("No steps yet. The history starts when the piece is submitted") }}
+      {% endif %}
+    </section>
+  </section>
+
+  <aside class="sheet desk__rail" aria-labelledby="rail-title">
+    <h2 id="rail-title">Decision</h2>
+    {% if account.role == "auditor" %}
+      <p class="readonly">Read only</p>
+    {% elif rail %}
+      <div class="rail__actions">
+        {% for name, label, primary in rail %}
+        <button type="button" class="btn{% if primary %} btn--primary{% endif %}" data-step="{{ name }}">{{ label }}</button>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="muted">Nothing here waits on your decision.</p>
+    {% endif %}
+    <dl class="facts">
+      <dt>Fee</dt><dd class="mono">{{ piece.fee_cents | money }}</dd>
+      {% if booked %}<dt>Featured day</dt><dd class="mono">{{ booked.isoformat() }}</dd>{% endif %}
+      <dt>Version</dt><dd class="mono">{{ piece.version }}</dd>
+      <dt>Updated</dt><dd class="mono"><time datetime="{{ piece.updated_at.isoformat() }}">{{ piece.updated_at | when(prefs.date_display) }}</time></dd>
+    </dl>
+  </aside>
+
+  {% for name, label, _ in rail %}
+    {% if name == "licence_review" %}{{ review_dialog("licence", label) }}
+    {% elif name == "accessibility_review" %}{{ review_dialog("accessibility", label) }}
+    {% elif name in ("return_for_changes", "reject", "withdraw") %}{{ reason_dialog(name, label) }}
+    {% elif name == "schedule" %}
+    <dialog class="dialog" id="dialog-schedule" aria-labelledby="dialog-schedule-title">
+      <form class="dialog__form" data-schedule-form novalidate>
+        <h2 id="dialog-schedule-title">Book a day</h2>
+        <div class="alert" role="alert" data-panel-alert hidden></div>
+        <div class="field">
+          <label for="field-day">Day</label>
+          <p class="field__hint" id="field-day-hint">Written as YYYY-MM-DD, today ({{ today.isoformat() }}) or later.</p>
+          <p class="field__error" id="field-day-error" hidden></p>
+          <input id="field-day" name="day" class="mono" inputmode="numeric" placeholder="{{ today.isoformat() }}" aria-describedby="field-day-hint">
+        </div>
+        <div class="dialog__actions">
+          <button type="submit" class="btn btn--primary">Confirm</button>
+          <button type="button" class="btn" data-close>Cancel</button>
+        </div>
+        {{ close_button() }}
+      </form>
+    </dialog>
+    {% endif %}
+  {% endfor %}
+</div>
+  {% if editable %}
+  <dialog class="dialog dialog--wide" id="dialog-picker" aria-labelledby="dialog-picker-title">
+    <div class="dialog__form">
+      <h2 id="dialog-picker-title">Add object</h2>
+      <div class="alert" role="alert" data-panel-alert hidden></div>
+      <div class="well well--dialog">
+        {{ icon("search") }}
+        <label class="sr-only" for="picker-search">Search objects</label>
+        <input type="search" id="picker-search" placeholder="Title or artist" autocomplete="off" data-picker-search>
+      </div>
+      <div class="picker list" data-picker aria-busy="false"></div>
+      <div class="dialog__actions">
+        <button type="button" class="btn btn--primary" data-close>Done</button>
+      </div>
+      {{ close_button() }}
+    </div>
+  </dialog>
+  {% endif %}
+{% endblock %}

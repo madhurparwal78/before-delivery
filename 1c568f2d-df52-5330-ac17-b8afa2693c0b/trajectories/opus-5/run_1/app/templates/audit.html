@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Audit trail{% endblock %}
+{% block main %}
+<section class="panel audit-page">
+  <header class="audit-header">
+    <h1>Audit trail</h1>
+    <a class="button" href="/api/audit/export{{ export_query }}" download>Export CSV</a>
+  </header>
+
+  <form class="audit-filters" method="get" action="/audit">
+    <div class="field">
+      <label for="piece">Piece</label>
+      <input type="text" id="piece" name="piece" value="{{ piece }}" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label for="actor">Actor</label>
+      <input type="text" id="actor" name="actor" value="{{ actor }}">
+    </div>
+    <div class="field">
+      <label for="to">To state</label>
+      <select id="to" name="to">
+        <option value="">Any state</option>
+        {% for name in states %}
+        <option value="{{ name }}" {% if name == to_state %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="from">From date</label>
+      <input type="date" id="from" name="from" value="{{ since }}">
+    </div>
+    <div class="field">
+      <label for="until">Until date</label>
+      <input type="date" id="until" name="until" value="{{ until }}">
+    </div>
+    <button type="submit" class="button button-primary">Apply filters</button>
+  </form>
+
+  <div data-list="audit">
+    {% if trail.rows %}
+    <table class="audit-table">
+      <caption class="visually-hidden">Audit entries, newest first</caption>
+      <thead>
+        <tr>
+          <th scope="col">When</th>
+          <th scope="col">Piece</th>
+          <th scope="col">Actor</th>
+          <th scope="col">From</th>
+          <th scope="col">To</th>
+          <th scope="col">Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in trail.rows %}
+        <tr>
+          <td data-label="When" class="figure">{{ entry.created_at|when }}</td>
+          <td data-label="Piece"><a href="/pieces/{{ entry.piece_id }}">{{ entry.piece_title }}</a></td>
+          <td data-label="Actor">{{ entry.actor.name }} ({{ role_label[entry.actor.role] }})</td>
+          <td data-label="From">{{ entry.from_state or '—' }}</td>
+          <td data-label="To">{{ entry.to_state }}</td>
+          <td data-label="Reason">{{ entry.reason or '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">No entries match these filters</p>
+    {% endif %}
+  </div>
+
+  <nav class="pager" aria-label="Pages">
+    {% set pages = (trail.total // trail.rows_per_page) + (1 if trail.total % trail.rows_per_page else 0) %}
+    {% set base = '/audit?' ~ (export_query[1:] ~ '&' if export_query else '') %}
+    {% if trail.page > 1 %}
+    <a href="{{ base }}page={{ trail.page - 1 }}">Previous page</a>
+    {% else %}<span class="pager-off">Previous page</span>{% endif %}
+    <span class="pager-line">{{ trail.rows|length }} of {{ trail.total }} entries</span>
+    {% if trail.page < pages %}
+    <a href="{{ base }}page={{ trail.page + 1 }}">Next page</a>
+    {% else %}<span class="pager-off">Next page</span>{% endif %}
+  </nav>
+</section>
+{% endblock %}

@@ -1,0 +1,94 @@
+services:
+  main:
+    environment:
+      APP_PUBLIC_PORT: '4173'
+      APP_PUBLIC_URL: http://127.0.0.1:4173
+      DATABASE_URL: postgresql://gf_app:gf-app-dev-2b7d41@postgres:5432/gf_dev
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: gf-dev
+      AUTH_ISSUER_URL: http://keycloak:8080/realms/gf-dev
+      AUTH_CLIENT_ID: app
+      AUTH_CLIENT_SECRET: gf-kc-app-dev-5e93c1a8
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    depends_on:
+      postgres-seed:
+        condition: service_completed_successfully
+      keycloak-seed:
+        condition: service_completed_successfully
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-dev-9e4a02
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  postgres-seed:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      PGHOST: postgres
+      PGUSER: gf_admin
+      PGPASSWORD: gf-admin-dev-9e4a02
+      PGDATABASE: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      psql -Atqc "SELECT 1 FROM pg_roles WHERE rolname = 'gf_app'" | grep -q 1 ||
+        psql -qc "CREATE ROLE gf_app LOGIN PASSWORD 'gf-app-dev-2b7d41'"
+      psql -Atqc "SELECT 1 FROM pg_database WHERE datname = 'gf_dev'" | grep -q 1 ||
+        psql -qc "CREATE DATABASE gf_dev OWNER gf_app"
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.7@sha256:4388e2379b7e870a447adbe7b80bd61f5fbf04e925832b19669fda4957f05a81
+    command:
+    - start-dev
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: gf-kc-dev-admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: gf-kc-dev-7d20b9e4
+      KC_HEALTH_ENABLED: 'true'
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\r\n\r\n' >&3 && timeout 5 cat <&3
+        | grep -q UP
+      interval: 5s
+      timeout: 10s
+      retries: 36
+      start_period: 30s
+  keycloak-seed:
+    image: quay.io/keycloak/keycloak:26.0.7@sha256:4388e2379b7e870a447adbe7b80bd61f5fbf04e925832b19669fda4957f05a81
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: gf-kc-dev-admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: gf-kc-dev-7d20b9e4
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+    - /bin/bash
+    - -ec
+    command:
+    - |
+      kc=/opt/keycloak/bin/kcadm.sh
+      $$kc config credentials --server http://keycloak:8080 --realm master \
+        --user "$$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$$KC_BOOTSTRAP_ADMIN_PASSWORD"
+      $$kc get realms/gf-dev >/dev/null 2>&1 && exit 0
+      $$kc create realms -s realm=gf-dev -s enabled=true -s sslRequired=none -s registrationAllowed=true
+      $$kc create clients -r gf-dev -s clientId=app -s secret=gf-kc-app-dev-5e93c1a8 \
+        -s publicClient=false -s standardFlowEnabled=true -s directAccessGrantsEnabled=true \
+        -s 'redirectUris=["*"]' -s 'webOrigins=["+"]'
+x-kc-admin:
+  KC_BOOTSTRAP_ADMIN_USERNAME: gf-kc-dev-admin
+  KC_BOOTSTRAP_ADMIN_PASSWORD: gf-kc-dev-7d20b9e4

@@ -1,0 +1,205 @@
+{% extends "console_base.html" %}
+{% set editor = me.role in ("editor", "owner") %}
+{% set owner = me.role == "owner" %}
+{% block main %}
+<header class="page-head workspace-head">
+  <div>
+    <p class="crumbs"><a class="inline-link" href="/console">Databases</a> <span aria-hidden="true">/</span></p>
+    <h1>{{ database }}</h1>
+  </div>
+</header>
+<div class="tabs workspace-tabs" role="tablist" aria-label="Workspace" data-workspace-tabs>
+  {% for key, label in tabs.items() %}<button type="button" role="tab" class="tab" id="tab-{{ key }}" data-tab="{{ key }}" aria-controls="panel-{{ key }}" aria-selected="{{ 'true' if key == tab else 'false' }}" tabindex="{{ 0 if key == tab else -1 }}">{{ label }}</button>{% endfor %}
+  <span class="tab-marker" aria-hidden="true"></span>
+</div>
+
+<section class="tab-panel workspace-panel" role="tabpanel" id="panel-sources" aria-labelledby="tab-sources" data-panel="sources"{% if tab != "sources" %} hidden{% endif %}>
+  <div class="toolbar">
+    <div class="field inline">
+      <label for="sources-collection">Collection</label>
+      <select id="sources-collection" data-collection-picker><option value="default">default</option></select>
+    </div>
+    <div class="field inline grow">
+      <label for="sources-filter">Filter sources</label>
+      <input id="sources-filter" type="text" autocomplete="off" spellcheck="false" placeholder="id or title">
+    </div>
+    {% if editor %}<button type="button" class="capsule capsule-primary" data-ingest-open>Ingest source</button>{% endif %}
+  </div>
+  <p class="field-error panel-error" data-panel-error></p>
+  <div class="table-wrap">
+    <table class="data-table sources-table">
+      <caption class="sr-only">Sources in the chosen collection</caption>
+      <thead><tr>
+        <th scope="col" data-sort="id"><button type="button" class="sort-button" data-sort-key="id">ID</button></th>
+        <th scope="col" data-sort="title"><button type="button" class="sort-button" data-sort-key="title">Title</button></th>
+        <th scope="col" class="num" data-sort="version"><button type="button" class="sort-button" data-sort-key="version">Version</button></th>
+        <th scope="col" class="num" data-sort="token_count"><button type="button" class="sort-button" data-sort-key="token_count">Tokens</button></th>
+        <th scope="col" class="num">Facts</th>
+        <th scope="col">Status</th>
+        <th scope="col" data-sort="ingested_at"><button type="button" class="sort-button" data-sort-key="ingested_at">Ingested</button></th>
+        {% if editor %}<th scope="col"><span class="sr-only">Actions</span></th>{% endif %}
+      </tr></thead>
+      <tbody data-source-rows></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="tab-panel workspace-panel" role="tabpanel" id="panel-graph" aria-labelledby="tab-graph" data-panel="graph"{% if tab != "graph" %} hidden{% endif %}>
+  <form class="query-form" data-graph-form novalidate>
+    <div class="field">
+      <label for="graph-statement">Statement</label>
+      <textarea id="graph-statement" class="editor" rows="4" spellcheck="false" aria-describedby="graph-statement-hint graph-error"></textarea>
+      <p class="hint" id="graph-statement-hint">Read-only graph language. Ctrl+Enter or Cmd+Enter answers.</p>
+    </div>
+    <div class="query-row">
+      <div class="field inline">
+        <label for="graph-as-of">As of</label>
+        <input id="graph-as-of" autocomplete="off" spellcheck="false" placeholder="now · YYYY-MM-DDTHH:MM:SSZ">
+      </div>
+      <button type="submit" class="capsule capsule-primary" data-busy-label="Running...">Run</button>
+    </div>
+    <p class="field-error" id="graph-error" data-error-for="cypher"></p>
+    <div class="examples">
+      <span class="hint">Examples</span>
+      <button type="button" class="chip-button" data-example="MATCH (a {name: 'Atlas Launch'})-[:OWNED_BY]->(o) RETURN o.name">Owner of Atlas Launch</button>
+      <button type="button" class="chip-button" data-example="MATCH (a {name: 'Atlas Launch'})-[:BLOCKED_BY]->(b)-[:OWNED_BY]->(o) RETURN b.name, o.name">Blockers and their owners</button>
+      <button type="button" class="chip-button" data-example="MATCH (a)-[:OWNED_BY]->(o) RETURN count(*)">Count ownerships</button>
+    </div>
+  </form>
+  <p class="served" data-served></p>
+  <div class="table-wrap" data-graph-results hidden>
+    <table class="data-table results-table"><caption class="sr-only">Graph query rows</caption><thead></thead><tbody></tbody></table>
+  </div>
+  <p class="empty-line" data-graph-empty hidden>No rows</p>
+</section>
+
+<section class="tab-panel workspace-panel" role="tabpanel" id="panel-search" aria-labelledby="tab-search" data-panel="search"{% if tab != "search" %} hidden{% endif %}>
+  <form class="query-form" data-search-form novalidate>
+    <div class="query-row">
+      <div class="field inline grow">
+        <label for="search-words">Words</label>
+        <input id="search-words" type="text" autocomplete="off" spellcheck="false" placeholder="billing migration" aria-describedby="search-error">
+      </div>
+      <div class="field inline">
+        <label for="search-limit">Result limit</label>
+        <input id="search-limit" type="number" min="1" max="20" step="1" value="5">
+      </div>
+      <button type="submit" class="capsule capsule-primary" data-busy-label="Searching...">Search</button>
+    </div>
+    <fieldset class="check-group" data-search-collections>
+      <legend>Collections</legend>
+    </fieldset>
+    <p class="field-error" id="search-error" data-error-for="query"></p>
+  </form>
+  <div class="table-wrap" data-search-results hidden>
+    <table class="data-table results-table search-table">
+      <caption class="sr-only">Search results</caption>
+      <thead><tr><th scope="col">ID</th><th scope="col">Title</th><th scope="col" class="num">Score</th><th scope="col">Snippet</th><th scope="col"><span class="sr-only">Feedback</span></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <p class="empty-line" data-search-empty hidden>No sources match these words</p>
+</section>
+
+<section class="tab-panel workspace-panel" role="tabpanel" id="panel-entity" aria-labelledby="tab-entity" data-panel="entity"{% if tab != "entity" %} hidden{% endif %}>
+  <form class="query-form" data-entity-form novalidate>
+    <div class="query-row">
+      <div class="field inline grow">
+        <label for="entity-name">Entity name</label>
+        <input id="entity-name" type="text" autocomplete="off" spellcheck="false" placeholder="Atlas Launch">
+      </div>
+      <div class="field inline">
+        <label for="entity-as-of">As of</label>
+        <input id="entity-as-of" autocomplete="off" spellcheck="false" placeholder="now · YYYY-MM-DDTHH:MM:SSZ">
+      </div>
+      <button type="submit" class="capsule capsule-primary" data-busy-label="Looking up...">Look up</button>
+    </div>
+    <p class="field-error" data-error-for="entity"></p>
+  </form>
+  <div class="entity-answer" data-entity-answer hidden></div>
+  <p class="empty-line" data-entity-empty hidden>No facts mention this entity</p>
+</section>
+
+<section class="tab-panel workspace-panel" role="tabpanel" id="panel-stats" aria-labelledby="tab-stats" data-panel="stats"{% if tab != "stats" %} hidden{% endif %}>
+  <dl class="counters" data-counters>
+    {% for key, label in (("sources", "Sources"), ("facts", "Facts"), ("entities", "Entities"), ("last_lsn", "Last LSN"), ("indexed_lsn", "Indexed LSN"), ("wal_pending", "WAL pending"), ("index_generation", "Index generation"), ("tokens_ingested", "Tokens ingested"), ("storage_bytes", "Storage bytes")) %}
+    <div class="counter" data-counter="{{ key }}"><dt>{{ label }}</dt><dd>–</dd></div>
+    {% endfor %}
+  </dl>
+  <div class="stats-actions">
+    {% if editor %}<button type="button" class="capsule capsule-primary" data-compact data-busy-label="Compacting...">Compact</button>{% endif %}
+    {% if owner %}<button type="button" class="capsule capsule-secondary" data-export>Export</button>{% endif %}
+  </div>
+  <p class="result-line" data-compact-line></p>
+  <ol class="job-lines" data-export-lines></ol>
+  <p class="field-error" data-error-for="stats"></p>
+</section>
+
+<section class="tab-panel workspace-panel" role="tabpanel" id="panel-explore" aria-labelledby="tab-explore" data-panel="explore"{% if tab != "explore" %} hidden{% endif %}>
+  <div class="explore-controls">
+    <div class="field timeline">
+      <label for="explore-moment">As of moment</label>
+      <input id="explore-moment" type="range" min="0" max="0" step="1" value="0">
+      <output class="moment-value" for="explore-moment" data-moment-value>now</output>
+    </div>
+    <div class="field inline">
+      <label for="explore-find">Find entity</label>
+      <input id="explore-find" type="text" autocomplete="off" spellcheck="false" placeholder="name">
+    </div>
+    <fieldset class="check-group" data-predicate-group><legend>Predicate</legend></fieldset>
+  </div>
+  <p class="explore-summary"><span data-explore-summary></span> <span class="find-count" data-find-count></span></p>
+  <div class="explore-stage">
+    <div class="explore-canvas" data-explore-canvas></div>
+    <section class="inspector card" data-inspector aria-labelledby="inspector-title" hidden>
+      <h2 class="panel-title" id="inspector-title"></h2>
+      <h3>Outgoing</h3><ul data-outgoing></ul>
+      <h3>Incoming</h3><ul data-incoming></ul>
+    </section>
+  </div>
+  <p class="empty-line" data-explore-empty hidden>No facts at this moment</p>
+  <div class="table-wrap" data-explore-table>
+    <table class="data-table"><caption class="sr-only">Facts true at this moment</caption>
+      <thead><tr><th scope="col">Subject</th><th scope="col">Predicate</th><th scope="col">Object</th><th scope="col">Valid from</th><th scope="col">Source</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+
+<template id="ingest-row">
+  <tr class="inline-row ingest-row">
+    <td colspan="8">
+      <form class="ingest-form" data-ingest-form novalidate>
+        <div class="ingest-grid">
+          <div class="field"><label data-for="collection">Collection</label><input name="collection" autocomplete="off" spellcheck="false"><p class="field-error" data-error-for="collection"></p></div>
+          <div class="field"><label data-for="id">Source id</label><input name="id" autocomplete="off" spellcheck="false" placeholder="optional"><p class="field-error" data-error-for="id"></p></div>
+          <div class="field span-2"><label data-for="title">Title</label><input name="title" autocomplete="off"><p class="field-error" data-error-for="title"></p></div>
+          <div class="field span-full"><label data-for="text">Text</label><textarea name="text" rows="4"></textarea><p class="field-error" data-error-for="text"></p></div>
+        </div>
+        <fieldset class="facts-editor">
+          <legend>Facts</legend>
+          <ol class="fact-rows" data-fact-rows></ol>
+          <p class="field-error" data-error-for="facts"></p>
+          <button type="button" class="text-button" data-add-fact>Add fact</button>
+        </fieldset>
+        <div class="form-actions">
+          <button type="submit" class="capsule capsule-primary" data-busy-label="Ingesting...">Ingest</button>
+          <button type="button" class="capsule capsule-secondary" data-ingest-close>Cancel</button>
+          <p class="field-error" data-error-for="general"></p>
+        </div>
+      </form>
+    </td>
+  </tr>
+</template>
+<template id="fact-row">
+  <li class="fact-row">
+    <div class="field"><label data-for="subject">Subject</label><input data-f="subject" autocomplete="off"><p class="field-error" data-error-for="subject"></p></div>
+    <div class="field"><label data-for="predicate">Predicate</label><input data-f="predicate" autocomplete="off" spellcheck="false" placeholder="OWNED_BY"><p class="field-error" data-error-for="predicate"></p></div>
+    <div class="field"><label data-for="object">Object</label><input data-f="object" autocomplete="off"><p class="field-error" data-error-for="object"></p></div>
+    <div class="field"><label data-for="valid_from">Valid from</label><input data-f="valid_from" autocomplete="off" spellcheck="false" placeholder="2026-01-05T09:00:00Z"><p class="field-error" data-error-for="valid_from"></p></div>
+    <div class="field"><label data-for="reason">Reason</label><input data-f="reason" autocomplete="off"><p class="field-error" data-error-for="reason"></p></div>
+    <button type="button" class="text-button" data-remove-fact>Remove</button>
+  </li>
+</template>
+<script type="application/json" id="workspace-data">{{ workspace_json|safe }}</script>
+{% endblock %}

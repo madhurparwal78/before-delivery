@@ -1,0 +1,993 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "onboarding",
+    "members",
+    "baton",
+    "live-editing",
+    "checkpoints",
+    "restore",
+    "import",
+    "rename",
+    "reviewer-links",
+    "erasure",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 79
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Relay Bench <bench@lanternwork.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 5
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+CHECKPOINT_UPLOAD_DEADLINE_SECONDS = "30"
+DATABASE_URL = "${DATABASE_URL}_nostore"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "short-timer"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+MAGIC_LINK_TTL_SECONDS = "5"
+REVIEWER_LINK_HOUR_SECONDS = "5"
+CHECKPOINT_UPLOAD_DEADLINE_SECONDS = "5"
+IMPORT_PLAN_TTL_SECONDS = "5"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Magic-link sign-in"
+text = "Requesting a sign-in link answers 202 with the same body whether or not the address has an account and sends exactly one email, and a link signs in once, only before it expires, and returns the landing path defined in API, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_magic_link_request_and_verify",
+    "test_app.py::test_sign_in_link_expiry",
+    "test_app.py::test_wf_onboarding_mail_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Sample workspace on first sign-in"
+text = "A new mentor's first sign-in creates the sample project from Seed data with its exact four files, the checkpoints \"Starter\" and \"Minute 40\", the demo learner Robin Vale and one scheduled session."
+kind = "behavior"
+primary = "pytest"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_sample_workspace_seed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Clean first boot"
+text = "At first boot the app holds no accounts, projects, checkpoints, storage objects or emails, and each new mentor gets a separate identical sample that no other mentor can open."
+kind = "behavior"
+primary = "pytest"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_samples_separate_and_identical",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Mentor onboarding journey"
+text = "A mentor enters an email on the sign-in screen, opens the link from the inbox, presses \"Finish signing in\" and lands at the sample project's workspace address with Robin Vale in the presence rail and both seeded checkpoints in the ledger."
+kind = "behavior"
+primary = "workflow"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_wf_onboarding_happy",
+    "test_app.py::test_wf_onboarding_invalid_email",
+    "test_app.py::test_wf_onboarding_used_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Projects and seats"
+text = "Mentors create one-to-one projects with one learner seat and group projects with up to six learner seats, learners cannot create projects, and an invite beyond the seats is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "members"
+tests = [
+    "test_app.py::test_projects_and_seats",
+    "test_app.py::test_wf_members_seat_full",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Learner invites"
+text = "A mentor's invite adds the learner as a student and sends one invite email whose link lands them in that project while they remain a member, and a retry with the same idempotency key replays the stored response without a second email, while a different body under that key is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "members"
+tests = [
+    "test_app.py::test_invites_idempotency_and_landing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Queued invite email"
+text = "When mail is unreachable an invite still succeeds and is recorded with email status \"queued\" on the invite and the member, and that status reads \"sent\" only once the email is delivered."
+kind = "behavior"
+primary = "pytest"
+workflow = "members"
+tests = [
+    "test_app.py::test_wf_members_queued",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Immediate member removal"
+text = "Removing a learner makes their very next request to that project answer 404, closes their open project socket within one second, and hands the baton to the mentor if they held it."
+kind = "behavior"
+primary = "pytest"
+workflow = "members"
+tests = [
+    "test_app.py::test_member_removal_immediate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Attributed audit"
+text = "Every action listed under Audit in Business rules writes exactly one audit event naming who did it and when, readable only by the project's mentor."
+kind = "behavior"
+primary = "pytest"
+workflow = "members"
+tests = [
+    "test_app.py::test_audit_attributed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Invite, landing and remove journey"
+text = "A mentor creates a group project and lands at its workspace address, invites a learner who already belongs to another project, that learner follows the invite email and lands in the new project, and after the mentor removes them they vanish from the member list and rail while their own screen shows the removal notice."
+kind = "behavior"
+primary = "workflow"
+workflow = "members"
+tests = [
+    "test_app.py::test_wf_members_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Session lifecycle"
+text = "Sessions move scheduled to live to paused to live to ended under the mentor's control, at most one session per project is live or paused, and every other transition is refused with illegal_transition."
+kind = "behavior"
+primary = "pytest"
+workflow = "baton"
+tests = [
+    "test_app.py::test_session_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Baton claim"
+text = "A claim succeeds only if it carries the session's current version, so of any number of simultaneous claims exactly one wins and every other gets baton_taken naming the winner."
+kind = "behavior"
+primary = "pytest"
+workflow = "baton"
+tests = [
+    "test_app.py::test_baton_claim_race",
+    "test_app.py::test_wf_baton_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Baton pass"
+text = "The mentor or the current driver passes the baton to another participant by naming the current version, and the server changes driver and version before any screen animates."
+kind = "behavior"
+primary = "pytest"
+workflow = "baton"
+tests = [
+    "test_app.py::test_baton_pass",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Viewing after handoff"
+text = "Once the driver changes, every write the old driver sends over HTTP or the socket is refused with not_driver and their editor turns read-only with the viewing notice."
+kind = "behavior"
+primary = "pytest"
+workflow = "baton"
+tests = [
+    "test_app.py::test_old_driver_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Presence rail"
+text = "The presence rail lists the mentor first and then learners in the order they joined, marks exactly one person as driving with an amber ring, and shows who is online within one second of them connecting or leaving."
+kind = "behavior"
+primary = "pytest"
+workflow = "baton"
+tests = [
+    "test_app.py::test_presence_rail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Baton Pass motion"
+text = "On every driver change the baton glyph flies from the centre of the old driver's avatar to the centre of the new driver's avatar in about a third of a second, then rings, write-stripe and carets change as described in Motion and effects."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_baton_pass_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Baton reduced motion"
+text = "With reduced motion requested the baton glyph appears on the new driver's avatar with no travel, rings and write-stripe switch in one frame, and the Baton status region announces the new driver."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_baton_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Group baton journey"
+text = "In a live group session a learner presses \"Take the baton\" and types into the editor, the mentor sees the edit and the amber ring move to that learner, and the mentor then passes the baton back from the Pass menu."
+kind = "behavior"
+primary = "workflow"
+workflow = "baton"
+tests = [
+    "test_app.py::test_wf_baton_happy",
+    "test_app.py::test_wf_baton_not_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Write rule"
+text = "While a session is live only the driver may change project files, while it is paused nobody may, and with no live or paused session any project member may, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-editing"
+tests = [
+    "test_app.py::test_write_rule",
+    "test_app.py::test_wf_live_editing_paused",
+    "test_app.py::test_wf_live_editing_between_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "No lost updates"
+text = "Every file save names the revision it was based on, and of any number of simultaneous saves over HTTP or the socket with the same base revision exactly one lands and raises the file's revision by exactly one while every other gets stale_revision carrying the winner's revision and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-editing"
+tests = [
+    "test_app.py::test_concurrent_saves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Follow a participant"
+text = "Following a participant opens the file their cursor is in and keeps their cursor line in view until the follower types, clicks into the editor, presses Escape or turns following off."
+kind = "behavior"
+primary = "pytest"
+workflow = "rename"
+tests = [
+    "test_app.py::test_follow_participant",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Project-scoped access"
+text = "A user asking for a project, file, checkpoint, checkpoint file, session, restore or import in a project they are not a member of gets 404, even when the same mentor owns both projects."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-editing"
+tests = [
+    "test_app.py::test_project_scoped_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Provider-confirmed checkpoint save"
+text = "Saving a checkpoint uploads every file blob with its SHA-256 checksum and then its manifest under the published keys, and the checkpoint counts as saved only once storage has confirmed every blob, overwriting any object already at a blob key whose bytes are unchecked or wrong."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkpoints"
+tests = [
+    "test_app.py::test_checkpoint_save_provider_confirmed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Pending upload"
+text = "If storage is unreachable a checkpoint save answers 202 pending_upload while editing continues, the server completes it on its own once storage returns or marks it failed at the upload deadline, and the saver's ledger row and Checkpoint status announce the new state in place without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkpoints"
+tests = [
+    "test_app.py::test_wf_checkpoints_outage",
+    "test_app.py::test_checkpoint_pending_recovers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Checkpoint ledger journey"
+text = "A participant types a name in the ledger and presses \"Save checkpoint\", and a new top row shows the name, the author, a monospaced time, the file count and its state, with the state label updating in place without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "checkpoints"
+tests = [
+    "test_app.py::test_wf_checkpoints_happy",
+    "test_app.py::test_wf_checkpoints_invalid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Byte-exact restore and damage check"
+text = "Restoring a saved checkpoint makes the project's files exactly the checkpoint's files with the same file IDs, recorded paths and SHA-256 hashes, and restoring, reading or reviewing a checkpoint whose stored bytes no longer match its manifest answers 409 checkpoint_damaged and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "restore"
+tests = [
+    "test_app.py::test_restore_byte_exact_and_damage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Undo restore"
+text = "The latest restore can be undone once to bring back the exact pre-restore files, unless the project's files changed after it, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "restore"
+tests = [
+    "test_app.py::test_undo_restore",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Restore journey"
+text = "A learner between sessions presses \"Restore Minute 40\", sees the editor show the restored files and the \"Undo restore\" button, presses it and gets back the files they had before."
+kind = "behavior"
+primary = "workflow"
+workflow = "restore"
+tests = [
+    "test_app.py::test_wf_restore_happy",
+    "test_app.py::test_wf_restore_superseded",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Zip safety"
+text = "A starter-project zip with a path escaping the project, an absolute path, an over-long path, a symlink, a disallowed or unreadable file, an unsafe SVG, a duplicate path, or any size, count or ratio over the published limits is rejected whole with every offending entry listed, and nothing reaches the project."
+kind = "behavior"
+primary = "pytest"
+workflow = "import"
+tests = [
+    "test_app.py::test_zip_rejected",
+]
+criteria = []
+parameter_cases = [
+    "path_traversal",
+    "absolute_path",
+    "path_too_long",
+    "symlink",
+    "disallowed_type",
+    "content_mismatch",
+    "unsafe_svg",
+    "duplicate_path",
+    "file_too_large",
+    "total_too_large",
+    "too_many_entries",
+    "ratio_exceeded",
+    "not_a_zip",
+]
+
+[[requirements]]
+id = "DP-30"
+title = "Import plan"
+text = "An accepted zip produces an import plan that matches each entry to the project by normalised path as new, changed or unchanged, lists project files missing from the zip, changes no file, and carries a server-set expiry after which the server deletes the quarantined zip on its own within 10 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "import"
+tests = [
+    "test_app.py::test_import_plan",
+    "test_app.py::test_import_plan_expiry_sweep",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Applying an import"
+text = "Applying a plan adds new files, replaces or keeps each changed file exactly as the mentor decided, never creates a duplicate path, and refuses a plan that is already applied, expired, superseded or changed since planning, in the order given in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "import"
+tests = [
+    "test_app.py::test_import_apply",
+    "test_app.py::test_import_apply_expired_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Homework re-import journey"
+text = "A mentor imports an updated homework zip into a learner's project, chooses keep or replace for each changed file in \"Review import\", applies it and sees the summary in Import status, with the dialog leaving the expiry decision to the server whatever the device clock shows."
+kind = "behavior"
+primary = "workflow"
+workflow = "import"
+tests = [
+    "test_app.py::test_wf_import_happy",
+    "test_app.py::test_wf_import_rejected",
+    "test_app.py::test_wf_import_expired",
+    "test_app.py::test_wf_import_clock_ahead",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Rename and delete propagation"
+text = "Renaming a file or folder keeps every file's ID and revision, updates the tree, open tabs, follow labels and open checkpoint dialogs for all participants in place within one second, and keeps the driver's unsaved typing so it saves into the renamed file, while each checkpoint keeps its recorded paths and a deleted file shows \"deleted since\"."
+kind = "behavior"
+primary = "pytest"
+workflow = "rename"
+tests = [
+    "test_app.py::test_rename_and_delete",
+    "test_app.py::test_wf_rename_live",
+    "test_app.py::test_wf_rename_delete",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Reviewer links"
+text = "A mentor creates a read-only reviewer link for one saved checkpoint with an unguessable token and an expiry of 1 to 336 hours, optionally emailed once per idempotency key in a message carrying only the checkpoint name, the link and the expiry."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-links"
+tests = [
+    "test_app.py::test_reviewer_link_create",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Reviewer link lifecycle and privacy"
+text = "A reviewer link stops working on the next request after it is revoked, regenerated or expired, no request through it can change anything, and the review page and review API carry no project, mentor or learner details and are sent no-store, no-referrer and noindex."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-links"
+tests = [
+    "test_app.py::test_reviewer_link_lifecycle_and_privacy",
+    "test_app.py::test_reviewer_link_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Guest review journey"
+text = "A guest opens the reviewer link from their email without signing in and sees only that checkpoint's name, save time, link expiry and files with no editing controls, sees the revoked copy after the mentor revokes it, and the mentor's open Share dialog relabels its links without losing anything typed or focused."
+kind = "behavior"
+primary = "workflow"
+workflow = "reviewer-links"
+tests = [
+    "test_app.py::test_wf_reviewer_links_happy",
+    "test_app.py::test_wf_reviewer_links_regenerate",
+    "test_app.py::test_wf_reviewer_links_expired",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Learner erasure"
+text = "A learner who erases their account loses their account, memberships, one-to-one projects, the checkpoints they made and every storage object only those held, and their name and email remain in no database row or queued email."
+kind = "behavior"
+primary = "pytest"
+workflow = "erasure"
+tests = [
+    "test_app.py::test_learner_erasure",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Erasure journey"
+text = "A learner opens Account, chooses \"Erase my account\", types ERASE, confirms, and lands on the sign-in screen showing the erasure notice."
+kind = "behavior"
+primary = "workflow"
+workflow = "erasure"
+tests = [
+    "test_app.py::test_wf_erasure_happy",
+    "test_app.py::test_wf_erasure_confirm_error",
+    "test_app.py::test_wf_erasure_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from /app/run.json on port 4173 or APP_PUBLIC_PORT, and GET /api/health answers 200 {\"status\":\"ok\"} even when storage or mail is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_on_every_instance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Server boundary"
+text = "The server rejects cross-origin writes and oversized bodies, never serves source, configuration or credentials, and boots and serves every feature that does not need storage or mail when either is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_storage_outage_serves_core",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Credentials from environment"
+text = "Every service URL and credential is read from the environment at start, never hard-coded, logged or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Published breakpoints and closed panels"
+text = "The workspace is stacked below 768 wide, rail and editor with a ledger drawer from 768 to 1279 wide, and three columns from 1280 wide, never scrolling sideways, and a collapsed or closed ledger or file overlay leaves nothing inside it visible, focusable, clickable or in the accessibility tree."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkpoints"
+tests = [
+    "test_app.py::test_wf_checkpoints_panels",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "767",
+    "768x1024",
+    "1279",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-43"
+title = "Keyboard and focus"
+text = "Every control is reachable by Tab in the order given in Interactions, Escape closes any dialog and returns focus to the control that opened it, and focus stays visible."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_and_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Nocturnal visual design"
+text = "The workspace is a graphite night surface with warm off-white text, amber reserved for whoever is driving, a serif only in session titles and empty states, and code and numerals in a monospaced face."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Motion discipline"
+text = "Every motion other than Baton Pass finishes within a quarter of a second, no decorative loop runs, and reduced motion removes all travel and fades."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_discipline",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build, serve and \"_schema\":\"run-manifest-v1\", and nothing else is needed to install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package and every bundled font with its licence, where shipped packages means the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (same definition) is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0 or CC0-1.0, and every font is under OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app keeps state only in Postgres and MinIO: no SQLite, Redis, embedded databases or state files on disk."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and environment files are left untouched."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "All application source is TypeScript compiled with strict enabled."
+tests = [
+    "test_app.py::test_if_typescript_strict",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Neither the server nor the browser loads anything from third-party hosts at run time, so fonts, scripts and styles are served by the app itself."
+tests = [
+    "test_app.py::test_if_no_third_party_hosts",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "onboarding"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_onboarding_happy",
+    "test_app.py::test_wf_onboarding_mail_outage",
+]
+checkpoints = [
+    "B1",
+    "B5",
+]
+critical_checkpoints = [
+    "B1",
+]
+
+[[workflows]]
+id = "members"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_members_happy",
+    "test_app.py::test_wf_members_queued",
+    "test_app.py::test_member_removal_immediate",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "baton"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_baton_happy",
+    "test_app.py::test_wf_baton_race",
+]
+checkpoints = [
+    "B3",
+]
+critical_checkpoints = [
+    "B3",
+]
+
+[[workflows]]
+id = "live-editing"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_live_editing_paused",
+    "test_app.py::test_concurrent_saves",
+    "test_app.py::test_project_scoped_access",
+]
+
+[[workflows]]
+id = "checkpoints"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_checkpoints_happy",
+    "test_app.py::test_wf_checkpoints_outage",
+    "test_app.py::test_wf_checkpoints_panels",
+    "test_app.py::test_checkpoint_save_provider_confirmed",
+    "test_app.py::test_checkpoint_pending_recovers",
+]
+checkpoints = [
+    "B10",
+    "B11",
+]
+
+[[workflows]]
+id = "restore"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_restore_happy",
+    "test_app.py::test_restore_byte_exact_and_damage",
+]
+
+[[workflows]]
+id = "import"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_import_happy",
+    "test_app.py::test_wf_import_rejected",
+    "test_app.py::test_wf_import_expired",
+]
+
+[[workflows]]
+id = "rename"
+requirements = [
+    "DP-21",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_rename_live",
+    "test_app.py::test_wf_rename_delete",
+]
+
+[[workflows]]
+id = "reviewer-links"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_reviewer_links_happy",
+    "test_app.py::test_wf_reviewer_links_regenerate",
+    "test_app.py::test_reviewer_link_lifecycle_and_privacy",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "erasure"
+requirements = [
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_erasure_happy",
+    "test_app.py::test_learner_erasure",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_health_on_every_instance",
+    "test_app.py::test_server_boundary",
+]

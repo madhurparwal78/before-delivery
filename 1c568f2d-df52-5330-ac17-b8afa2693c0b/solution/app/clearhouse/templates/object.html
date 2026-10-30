@@ -1,0 +1,52 @@
+{% extends "_staff.html" %}
+{% from "_macros.html" import icon, art, still, empty %}
+{% block title %}{{ obj.title }}{% endblock %}
+{% block main %}
+{% set long = 440 %}
+{% set w = long if obj.width >= obj.height else long * obj.width / obj.height %}
+{% set h = long if obj.height > obj.width else long * obj.height / obj.width %}
+<div class="object" data-region="object">
+  <section class="sheet object__record" aria-labelledby="object-title">
+    <div class="alert" role="alert" data-panel-alert hidden></div>
+    <p class="crumb"><a href="/catalogue">Catalogue</a> {{ icon("chevron") }} <span class="mono">#{{ obj.id }}</span></p>
+    <div class="object__grid">
+      <figure class="object__art{% if not usable(obj) %} object__art--blocked{% endif %}">
+        {% if usable(obj) %}{{ still(obj, w | round(1), h | round(1)) }}
+        {% else %}<span class="cut cut--blocked cut--large" role="img" aria-label="{{ obj.title }}, licence not cleared for reuse" style="--w:{{ w | round(1) }}px;--hh:{{ h | round(1) }}px;">{{ icon("lock") }}<span>Licence not cleared for reuse</span></span>{% endif %}
+      </figure>
+      <div>
+        <h1 id="object-title">{{ obj.title }}</h1>
+        <dl class="record">
+          {% for label, value in (("Title", obj.title), ("Artist", obj.artist), ("Licence", obj.license), ("Licence address", obj.license_url), ("Source page", obj.page_url), ("Description", obj.description), ("Extract", obj.extract)) %}
+          <dt>{{ label }}</dt><dd{% if label in ("Licence address", "Source page") %} class="mono url"{% endif %}>{{ value if value and value.strip() else "Not recorded" }}</dd>
+          {% endfor %}
+          <dt>Size</dt><dd class="mono">{{ obj.width }} by {{ obj.height }}</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+  <section class="sheet" aria-labelledby="similar-title">
+    <h2 id="similar-title">Similar objects</h2>
+    {% if context %}<p class="muted">Checking for <a href="/pieces/{{ context.id }}">{{ context.title }}</a>.</p>{% endif %}
+    <ul class="similar list" aria-label="Similar objects" data-region="similar" aria-busy="false">
+      {% for other, score in similar %}
+      <li class="similar__item">
+        <span class="similar__art">{{ art(other, 44 if other.width >= other.height else (44 * other.width / other.height) | round(1), 44 if other.height > other.width else (44 * other.height / other.width) | round(1), False) }}</span>
+        <span class="similar__title">{% if usable(other) %}<a href="/catalogue/{{ other.id }}{% if context %}?piece={{ context.id }}{% endif %}">{{ other.title }}</a>{% else %}{{ other.title }} <span class="muted">({{ other.license }})</span>{% endif %}</span>
+        <span class="similar__score mono">{{ score }}</span>
+        <span class="similar__flag">
+          {% if score >= duplicate_score %}
+            {% if other.id in acked %}<span class="flag flag--done">{{ icon("check") }}<span>Duplicate acknowledged by {{ acked[other.id] }}</span></span>
+            {% else %}<span class="flag">{{ icon("flag") }}<span>Possible duplicate</span></span>
+              {% if context %}<button type="button" class="btn btn--small" data-ack data-piece="{{ context.id }}" data-object="{{ obj.id }}" data-duplicate="{{ other.id }}" aria-label="Acknowledge {{ other.title }}">Acknowledge</button>{% endif %}
+            {% endif %}
+          {% endif %}
+        </span>
+      </li>
+      {% else %}
+      <li class="similar__none">{{ empty("No similar objects found", "search") }}</li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+{% endblock %}

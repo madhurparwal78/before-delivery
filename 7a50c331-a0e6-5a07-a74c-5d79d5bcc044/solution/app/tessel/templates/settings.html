@@ -1,0 +1,75 @@
+{% extends "console_base.html" %}
+{% set owner = me.role == "owner" %}
+{% block main %}
+<header class="page-head">
+  <div><h1>Settings</h1><p class="page-sub">{{ me.org_name }} · you are {{ "an" if me.role == "owner" or me.role == "editor" else "a" }} <strong>{{ me.role }}</strong></p></div>
+</header>
+{% include "settings_nav.html" %}
+<section class="card section-card" aria-labelledby="members-title">
+  <h2 class="panel-title" id="members-title">Members</h2>
+  {% if owner %}
+  <form class="inline-form add-member" data-add-member novalidate>
+    <div class="field"><label for="member-email">Email</label><input id="member-email" name="email" type="email" autocomplete="off"><p class="field-error" data-error-for="email"></p></div>
+    <div class="field"><label for="member-role">Role</label><select id="member-role" name="role"><option value="viewer">viewer</option><option value="editor">editor</option><option value="owner">owner</option></select></div>
+    <div class="field"><label for="member-password">Initial password</label><input id="member-password" name="password" type="password" autocomplete="new-password" aria-describedby="member-password-hint"><p class="hint" id="member-password-hint">At least 12 characters.</p><p class="field-error" data-error-for="password"></p></div>
+    <button type="submit" class="capsule capsule-primary" data-busy-label="Adding...">Add member</button>
+  </form>
+  {% endif %}
+  <div class="table-wrap">
+    <table class="data-table members-table">
+      <caption class="sr-only">Members of {{ me.org_name }}</caption>
+      <thead><tr><th scope="col">Email</th><th scope="col">Role</th>{% if owner %}<th scope="col"><span class="sr-only">Actions</span></th>{% endif %}</tr></thead>
+      <tbody data-member-rows>
+        {% for m in members %}
+        <tr data-member="{{ m.email }}">
+          <th scope="row" data-label="Email">{{ m.email }}{% if m.email == me.email %} <span class="badge">you</span>{% endif %}</th>
+          <td data-label="Role">{% if owner %}<label class="sr-only" for="role-{{ loop.index }}">Role for {{ m.email }}</label><select id="role-{{ loop.index }}" data-member-role="{{ m.email }}">{% for r in ("owner", "editor", "viewer") %}<option value="{{ r }}"{% if r == m.role %} selected{% endif %}>{{ r }}</option>{% endfor %}</select>{% else %}<span class="badge">{{ m.role }}</span>{% endif %}</td>
+          {% if owner %}<td class="row-actions"><button type="button" class="text-button danger" data-remove-member="{{ m.email }}">Remove</button></td>{% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card section-card" aria-labelledby="account-title">
+  <h2 class="panel-title" id="account-title">Your sessions</h2>
+  <p class="page-sub">End every session of {{ me.email }}, this one included.</p>
+  <button type="button" class="capsule capsule-secondary" data-logout-all>Sign out everywhere</button>
+</section>
+
+<section class="card section-card" aria-labelledby="password-title">
+  <h2 class="panel-title" id="password-title">Change password</h2>
+  <form class="stack-form narrow" data-change-password novalidate>
+    <div class="field"><label for="pw-current">Current password</label><input id="pw-current" type="password" autocomplete="current-password"><p class="field-error" data-error-for="current_password"></p></div>
+    <div class="field"><label for="pw-new">New password</label><input id="pw-new" type="password" autocomplete="new-password" aria-describedby="pw-new-hint"><p class="hint" id="pw-new-hint">At least 12 characters. Every other session ends.</p><p class="field-error" data-error-for="new_password"></p></div>
+    <div class="field"><label for="pw-confirm">Confirm new password</label><input id="pw-confirm" type="password" autocomplete="new-password"><p class="field-error" data-error-for="confirm"></p></div>
+    <button type="submit" class="capsule capsule-primary" data-busy-label="Changing...">Change password</button>
+  </form>
+</section>
+
+<section class="card section-card" aria-labelledby="totp-title" data-totp="{{ 'on' if totp_on else 'off' }}">
+  <h2 class="panel-title" id="totp-title">Two-step sign-in</h2>
+  <p>Status: <span class="badge" data-totp-state>{{ "On" if totp_on else "Off" }}</span></p>
+  <div data-totp-off{% if totp_on %} hidden{% endif %}>
+    <button type="button" class="capsule capsule-secondary" data-totp-setup>Set up two-step sign-in</button>
+    <div class="totp-setup" data-totp-setup-panel hidden>
+      <p>Add this setup key to your authenticator app, then enter the code it shows.</p>
+      <p class="secret" data-totp-secret></p>
+      <p class="uri" data-totp-uri></p>
+      <form class="inline-form" data-totp-enable novalidate>
+        <div class="field"><label for="totp-code-on">Code from your app</label><input id="totp-code-on" inputmode="numeric" autocomplete="one-time-code"><p class="field-error" data-error-for="code"></p></div>
+        <button type="submit" class="capsule capsule-primary">Turn on</button>
+      </form>
+    </div>
+    <div class="recovery" data-recovery hidden>
+      <p class="warning">Save these recovery codes now. Each works once.</p>
+      <ol class="codes" data-recovery-codes></ol>
+    </div>
+  </div>
+  <form class="inline-form" data-totp-disable novalidate{% if not totp_on %} hidden{% endif %}>
+    <div class="field"><label for="totp-code-off">Code from your app or a recovery code</label><input id="totp-code-off" autocomplete="one-time-code"><p class="field-error" data-error-for="code"></p></div>
+    <button type="submit" class="capsule capsule-secondary">Turn off</button>
+  </form>
+</section>
+{% endblock %}
