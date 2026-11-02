@@ -1,0 +1,600 @@
+from __future__ import annotations
+
+import base64
+import json
+import math
+import os
+import re
+import subprocess
+import time
+import uuid
+from collections.abc import Iterator
+from contextlib import closing, contextmanager
+from dataclasses import dataclass
+from io import BytesIO
+from pathlib import Path
+from typing import Any, Final, Literal
+from urllib.parse import urlparse
+from weakref import WeakKeyDictionary
+
+import httpx
+import pytest
+from PIL import Image, UnidentifiedImageError
+from playwright.sync_api import Browser, CDPSession, Locator, Page, expect, sync_playwright
+from playwright.sync_api import Error as PlaywrightError
+
+HERE: Final = Path(__file__).parent
+DEPLOYED_APP: Final = Path("/srv/app")
+AXE: Final = Path("/opt/axe/node_modules/axe-core/axe.min.js")
+CLOCK_START: Final = int(time.time())
+CHROMIUM_ARGS: Final = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader",
+                 "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"]
+
+
+@pytest.fixture(scope="session")
+def app_url() -> str:
+    return os.environ.get("APP_PUBLIC_URL", "http://127.0.0.1:4173").rstrip("/")
+
+
+@pytest.fixture(scope="session")
+def browser() -> Iterator[Browser]:
+    with sync_playwright() as driver, closing(driver.chromium.launch(headless=True, args=CHROMIUM_ARGS)) as instance:
+        yield instance
+
+
+@pytest.fixture
+def page(browser: Browser, app_url: str, request: pytest.FixtureRequest) -> Iterator[Page]:
+    options = getattr(request.module, "PAGE_OPTIONS", {}).get(request.node.originalname, {})
+    with open_app(browser, app_url, **options) as tab:
+        yield tab
+
+
+def observe(page: Page) -> dict[str, Any]:
+    return json.loads(page.evaluate("JSON.stringify(window.__VERIFIER_OBSERVE__())"))
+
+
+@contextmanager
+def open_app(
+    browser: Browser,
+    url: str,
+    *,
+    scale: float = 1,
+    reduced_motion: Literal["reduce", "no-preference"] = "no-preference",
+    no_webgl: bool = False,
+    touch: bool = False,
+) -> Iterator[Page]:
+    with closing(
+        browser.new_context(
+            viewport={"width": 1280, "height": 800},
+            device_scale_factor=scale,
+            has_touch=touch,
+            reduced_motion=reduced_motion,
+            service_workers="block",
+        )
+    ) as context:
+        context.add_init_script(path=HERE / "instrument.js")
+        if no_webgl:
+            context.add_init_script(
+                "const original=HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext=function(kind,...args){return /webgl/.test(kind)?null:original.call(this,kind,...args)}"
+            )
+        tab = context.new_page()
+        tab.set_default_timeout(5000)
+        tab.set_default_navigation_timeout(15000)
+        tab.clock.install(time=CLOCK_START)
+        tab.clock.pause_at(CLOCK_START + 10)
+        tab.goto(url)
+        yield tab
+
+
+def advance(page: Page, milliseconds: float) -> None:
+    remaining = round(milliseconds)
+    while remaining > 0:
+        step = min(16, remaining)
+        page.clock.run_for(step)
+        remaining -= step
+
+
+def until(page: Page, script: str, arg: Any = None, seconds: float = 30) -> None:
+    deadline = time.monotonic() + seconds
+    while not page.evaluate(script, arg):
+        if time.monotonic() > deadline:
+            raise AssertionError(f"condition never held: {script}")
+        advance(page, 48)
+
+
+SETTLE_S: Final = 5
+
+
+def come_to_rest(locator: Locator) -> None:
+    deadline = time.monotonic() + SETTLE_S
+    while time.monotonic() < deadline and locator.evaluate(
+        """e => { for (let n = e; n && n.getAnimations; n = n.parentElement)
+                    if (n.getAnimations().some(a => a.playState === 'running'
+                        && a.effect && a.effect.getComputedTiming().endTime !== Infinity)) return true;
+                  return false; }"""
+    ):
+        time.sleep(0.05)
+
+
+def center(locator: Locator) -> tuple[float, float]:
+    expect(locator).to_be_visible()
+    expect(locator).to_be_enabled()
+    hit = "(e,p) => {const hit=document.elementFromPoint(p.x,p.y);return hit===e||e.contains(hit)}"
+    deadline = time.monotonic() + SETTLE_S
+    while True:
+        come_to_rest(locator)
+        for block in ("nearest", "center"):
+            locator.evaluate(f"e => e.scrollIntoView({{block:'{block}',inline:'nearest',behavior:'instant'}})")
+            box = locator.bounding_box()
+            assert box is not None
+            point = {"x": box["x"] + box["width"] / 2, "y": box["y"] + box["height"] / 2}
+            if locator.evaluate(hit, point):
+                return point["x"], point["y"]
+        if time.monotonic() > deadline:
+            raise AssertionError("control is obscured at the actual pointer target")
+        advance(locator.page, 100)
+
+
+def click(locator: Locator) -> None:
+    locator.page.mouse.click(*center(locator))
+
+
+LABEL_POINT_JS: Final = """e => { for (const label of e.labels || []) {
+    label.scrollIntoView({block: 'center', behavior: 'instant'});
+    const r = label.getBoundingClientRect(); if (r.width < 1 || r.height < 1) continue;
+    const p = {x: r.left + Math.min(r.width / 2, 12), y: r.top + r.height / 2};
+    const hit = document.elementFromPoint(p.x, p.y); if (hit && (hit === label || label.contains(hit))) return p; }
+  return null; }"""
+
+
+def check(locator: Locator) -> None:
+    if not locator.is_checked():
+        expect(locator).to_be_enabled()
+        come_to_rest(locator)
+        box = locator.bounding_box()
+        hidden = box is None or box["width"] < 4 or box["height"] < 4
+        if not hidden:
+            locator.evaluate("e => e.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'})")
+            box = locator.bounding_box()
+            point = {"x": box["x"] + box["width"] / 2, "y": box["y"] + box["height"] / 2}
+            hidden = not locator.evaluate(
+                "(e,p) => {const hit=document.elementFromPoint(p.x,p.y);return hit===e||e.contains(hit)}", point)
+        if hidden:
+            point = locator.evaluate(LABEL_POINT_JS)
+            assert point is not None, "checkbox has no visible control: neither the input nor a label can be pressed"
+            locator.page.mouse.click(point["x"], point["y"])
+        else:
+            locator.page.mouse.click(point["x"], point["y"])
+    expect(locator).to_be_checked()
+
+
+def tap(locator: Locator) -> None:
+    locator.page.touchscreen.tap(*center(locator))
+
+
+def fill(locator: Locator, value: str) -> None:
+    click(locator)
+    locator.fill(value)
+
+
+def select(locator: Locator, choice: str) -> None:
+    center(locator)
+    locator.focus()
+    picked = locator.evaluate(
+        """(e, v) => {
+            if (e.tagName !== 'SELECT') return null;
+            const label = o => (o.label || o.text || '').trim();
+            const o = [...e.options].find(o => label(o) === v) || [...e.options].find(o => o.value === v);
+            if (!o) return [...e.options].map(label);
+            e.value = o.value;
+            e.dispatchEvent(new Event('input', {bubbles: true}));
+            e.dispatchEvent(new Event('change', {bubbles: true}));
+            return true;
+        }""",
+        choice,
+    )
+    if picked is None:
+        locator.click()
+        locator.page.get_by_role("option", name=choice, exact=True).first.click()
+        if locator.evaluate("e => 'value' in e"):
+            expect(locator).to_have_value(re.compile(re.escape(choice)))
+        else:
+            expect(locator).to_contain_text(choice)
+        return
+    assert picked is True, f"no option {choice!r} in the dropdown (options: {picked})"
+    assert locator.evaluate(
+        "(e, v) => [...e.selectedOptions].some(o => (o.label || o.text || '').trim() === v || o.value === v)", choice
+    ), f"option {choice!r} is not selected"
+
+
+SESSIONS: Final[WeakKeyDictionary[Page, CDPSession]] = WeakKeyDictionary()
+TOUCHES: Final[WeakKeyDictionary[Page, dict[str, dict[str, float]]]] = WeakKeyDictionary()
+TOUCH_IDS: Final[WeakKeyDictionary[Page, dict[str, int]]] = WeakKeyDictionary()
+
+
+def session(page: Page) -> CDPSession:
+    existing = SESSIONS.get(page)
+    if existing is None:
+        existing = SESSIONS[page] = page.context.new_cdp_session(page)
+        page.once("close", lambda _: SESSIONS.pop(page, None))
+    return existing
+
+
+def pointer(page: Page, action: str, event: str = "pointerdown") -> None:
+    active = TOUCHES.setdefault(page, {})
+    ids = TOUCH_IDS.setdefault(page, {})
+    box = page.get_by_test_id(f"touch-{action}").bounding_box()
+    assert box
+    if event == "pointerdown":
+        active[action] = {
+            "id": ids.setdefault(action, len(ids) + 1),
+            "x": box["x"] + box["width"] / 2,
+            "y": box["y"] + box["height"] / 2,
+        }
+    if event == "outside":
+        active[action] = {"id": active[action]["id"], "x": 1, "y": 1}
+    if event in ("pointerup", "pointercancel"):
+        active.pop(action, None)
+    kind = {"pointerdown": "touchStart", "pointerup": "touchEnd", "pointercancel": "touchCancel", "outside": "touchMove"}[event]
+    session(page).send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": list(active.values())})
+
+
+@dataclass(frozen=True, slots=True)
+class Pixels:
+    width: int
+    height: int
+    rgb: bytes
+
+    def variance(self) -> int:
+        return max(self.rgb) - min(self.rgb)
+
+
+def decode(payload: bytes) -> Pixels:
+    if payload[:8] != b"\x89PNG\r\n\x1a\n":
+        raise AssertionError("expected browser PNG")
+    try:
+        with Image.open(BytesIO(payload)) as picture:
+            rgb = picture.convert("RGB")
+            return Pixels(rgb.width, rgb.height, rgb.tobytes())
+    except (OSError, UnidentifiedImageError, Image.DecompressionBombError) as error:
+        raise AssertionError("malformed browser PNG") from error
+
+
+def difference(before: Pixels, after: Pixels) -> float:
+    assert (before.width, before.height) == (after.width, after.height), "capture size changed"
+    return sum(abs(a - b) for a, b in zip(before.rgb, after.rgb, strict=True)) / len(before.rgb)
+
+
+def capture(locator: Locator) -> bytes:
+    expect(locator).to_be_visible()
+    box = locator.bounding_box()
+    assert box is not None
+    page = locator.page
+    viewport = page.viewport_size
+    assert viewport is not None
+    result = session(page).send("Page.captureScreenshot", {"format": "png", "captureBeyondViewport": False})
+    payload = base64.b64decode(result["data"], validate=True)
+    with Image.open(BytesIO(payload)) as pixels:
+        size = (viewport["width"], viewport["height"])
+        assert pixels.width >= size[0] and pixels.height >= size[1], "capture smaller than viewport"
+        region = (
+            max(0, math.floor(box["x"])),
+            max(0, math.floor(box["y"])),
+            min(size[0], math.floor(box["x"] + box["width"])),
+            min(size[1], math.floor(box["y"] + box["height"])),
+        )
+        assert region[2] > region[0] and region[3] > region[1]
+        output = BytesIO()
+        pixels.resize(size, Image.Resampling.BOX).crop(region).save(output, format="PNG")
+        return output.getvalue()
+
+
+def changed(before: Pixels, after: Pixels, minimum: float = 0.15) -> None:
+    assert difference(before, after) > minimum, "rendered canvas did not respond to input"
+
+
+def axe(page: Page) -> None:
+    advance(page, 2000)
+    deadline = time.monotonic() + SETTLE_S
+    while time.monotonic() < deadline and page.evaluate(
+        "() => document.getAnimations().some(a => a.playState === 'running'"
+        " && a.effect && a.effect.getComputedTiming().endTime !== Infinity)"
+    ):
+        time.sleep(0.05)
+    page.add_script_tag(path=str(AXE))
+    page.evaluate(
+        """options => {
+          const result={done:false,error:null,violations:[]};
+          Object.defineProperty(window,'__VERIFIER_AXE_RESULT__',{value:()=>structuredClone(result),configurable:true});
+          axe.run(document,options).then(value=>{
+            result.violations=value.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>n.target)}));result.done=true;
+          },error=>{result.error=String(error);result.done=true});
+        }""",
+        {"runOnly": {"type": "tag", "values": ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]}},
+    )
+    for _ in range(625):
+        status = page.evaluate("window.__VERIFIER_AXE_RESULT__()")
+        if status["done"]:
+            assert status["error"] is None, status["error"]
+            assert not status["violations"], f"WCAG violations: {status['violations']}"
+            return
+        advance(page, 16)
+    raise AssertionError("axe audit did not settle under controlled time")
+
+
+CLIPPED_JS: Final = """e => { const r = e.getBoundingClientRect();
+  if (e.closest('[inert]')) return true;
+  for (let n = e.parentElement; n; n = n.parentElement) {
+    const s = getComputedStyle(n);
+    if (!/hidden|clip|auto|scroll/.test(s.overflowX)) continue;
+    const c = n.getBoundingClientRect();
+    if (r.right <= c.left + 1 || r.left >= c.right - 1) return true;  // parked outside a clipping box on purpose
+  }
+  return false; }"""
+
+
+def layout(page: Page) -> None:
+    viewport = page.viewport_size
+    assert viewport is not None
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1"), "horizontal overflow"
+    controls = page.get_by_role("button")
+    for index in range(controls.count()):
+        control = controls.nth(index)
+        if control.is_visible() and not control.evaluate(CLIPPED_JS):
+            control.evaluate("e => e.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'})")
+            box = control.bounding_box()
+            assert box and box["x"] >= -1 and box["x"] + box["width"] <= viewport["width"] + 1, \
+                f"button outside the viewport: {control.evaluate('e => e.outerHTML.slice(0, 120)')}"
+
+
+def animations(locator: Locator) -> list[dict[str, Any]]:
+    return locator.evaluate(
+        """e => e.getAnimations({subtree: true}).map(a => ({
+          name: a.animationName || a.transitionProperty || a.id || '', kind: a.constructor.name,
+          duration: Number(a.effect?.getTiming().duration) || 0, easing: a.effect?.getTiming().easing || '',
+          playState: a.playState}))"""
+    )
+
+
+SEEK: Final = """(e, n) => {
+  const anims = e.getAnimations();
+  if (!anims.length) return [];
+  const end = a => a.effect.getComputedTiming().endTime;
+  const a = anims.reduce((x, y) => (end(y) > end(x) ? y : x));
+  const total = end(a), now = a.currentTime ?? 0, paused = a.playState === 'paused';
+  a.pause();
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    a.currentTime = total * i / n;
+    const r = e.getBoundingClientRect();
+    out.push({dt: (total * i / n - now) / 1000, x: r.left + r.width / 2, y: r.top + r.height / 2,
+              top: r.top, bottom: r.bottom, w: r.width, h: r.height});
+  }
+  a.currentTime = now;
+  if (!paused) a.play();
+  return out;
+}"""
+
+
+def seek_rects(handle: Any, points: int = 24) -> list[dict[str, float]]:
+    try:
+        return handle.evaluate(SEEK, points) or []
+    except Exception:
+        return []
+
+
+def settle(locator: Locator) -> None:
+    locator.evaluate("e => e.getAnimations({subtree: true}).forEach(a => "
+                     "{ if (Number.isFinite(a.effect?.getComputedTiming().endTime)) a.finish(); })")
+
+
+def style(locator: Locator, *properties: str) -> dict[str, str]:
+    return locator.evaluate("(e, ps) => { const s = getComputedStyle(e); return Object.fromEntries("
+                            "ps.map(p => [p, s.getPropertyValue(p)])); }", list(properties))
+
+
+def state_styles(locator: Locator, *properties: str, state: Literal["hover", "focus"] = "hover") -> tuple[dict, dict]:
+    page = locator.page
+    page.mouse.move(0, 0)
+    settle(locator)
+    before = style(locator, *properties)
+    if state == "hover":
+        locator.hover()
+    else:
+        page.keyboard.press("Shift")
+        locator.focus()
+    settle(locator)
+    return before, style(locator, *properties)
+
+
+def scroll_samples(page: Page, locator: Locator, positions: list[int], *properties: str) -> list[dict[str, str]]:
+    samples = []
+    for y in positions:
+        page.evaluate("y => window.scrollTo({top: y, behavior: 'instant'})", y)
+        advance(page, 64)
+        settle(locator)
+        samples.append(style(locator, *properties))
+    return samples
+
+
+def tab_order(page: Page, presses: int) -> list[str]:
+    names = []
+    for _ in range(presses):
+        page.keyboard.press("Tab")
+        names.append(focused_name(page))
+    return names
+
+
+def focused_name(page: Page) -> str:
+    cdp = session(page)
+    found = cdp.send("Runtime.evaluate", {"expression": "document.activeElement === document.body ? null : document.activeElement"})
+    target = found.get("result", {}).get("objectId")
+    if not target:
+        return ""
+    nodes = cdp.send("Accessibility.getPartialAXTree", {"objectId": target, "fetchRelatives": False}).get("nodes", [])
+    return " ".join(str((nodes[0].get("name") or {}).get("value", "")).split()) if nodes else ""
+
+
+@contextmanager
+def held(page: Page, url_glob: str) -> Iterator[Any]:
+    waiting: list = []
+
+    def hold(route) -> None:
+        waiting.append(route)
+
+    page.route(url_glob, hold)
+
+    def release() -> None:
+        page.unroute(url_glob, hold)
+        while waiting:
+            try:
+                waiting.pop(0).fallback()
+            except PlaywrightError:
+                pass
+
+    release.release = release
+    try:
+        yield release
+    finally:
+        release()
+
+
+def unique(prefix: str = "visitor") -> tuple[str, str]:
+    token = uuid.uuid4().hex[:10]
+    return f"Ada {token}", f"{prefix}.{token}@example.com"
+
+
+def idempotency_key() -> str:
+    return f"verifier-{uuid.uuid4().hex}"
+
+
+def post_json(base: str, path: str, body: Any, key: str | None = None, **headers: str) -> httpx.Response:
+    sent = {"Content-Type": "application/json", **headers}
+    if key is not None:
+        sent["Idempotency-Key"] = key
+    payload = body if isinstance(body, (bytes, str)) else json.dumps(body)
+    return httpx.post(f"{base}{path}", content=payload, headers=sent, timeout=60)
+
+
+def same_origin(url: str, origin: str) -> bool:
+    return urlparse(url).netloc in ("", urlparse(origin).netloc) or url.startswith(("data:", "blob:"))
+
+
+APP_UID: Final = 10001
+
+
+def serve_copy(port: int, log: Any, **overrides: str) -> subprocess.Popen:
+    manifest = json.loads((DEPLOYED_APP / "run.json").read_text())
+    services = {k: v for k, v in os.environ.items()
+                if k not in ("PATH", "HOME") and not k.startswith(("PYTEST", "PYTHON", "PLAYWRIGHT"))
+                and "_OBSERVER_" not in k}
+    env = {**services, "PATH": "/home/app/.local/bin:/usr/local/bin:/usr/bin:/bin", "HOME": "/home/app",
+           "NODE_ENV": "production", "APP_PUBLIC_PORT": str(port), "APP_PUBLIC_URL": f"http://127.0.0.1:{port}",
+           **overrides}
+    command = ["setpriv", f"--reuid={APP_UID}", f"--regid={APP_UID}", "--clear-groups", "--no-new-privs", "--",
+               "/bin/sh", "-ec", manifest["serve"]]
+    return subprocess.Popen(command, cwd=DEPLOYED_APP, env=env, stdin=subprocess.DEVNULL, stdout=log,
+                            stderr=subprocess.STDOUT, start_new_session=True)
+
+
+import json
+import os
+import subprocess
+from urllib.parse import unquote, urlsplit
+
+
+class Postgres:
+
+    def __init__(self) -> None:
+        url = urlsplit(os.environ["POSTGRES_OBSERVER_URL"])
+        self.env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "PGHOST": url.hostname or "",
+                    "PGPORT": str(url.port or 5432), "PGDATABASE": url.path.lstrip("/"),
+                    "PGUSER": unquote(url.username or ""), "PGPASSWORD": unquote(url.password or "")}
+
+    def rows(self, sql: str) -> list[dict]:
+        wrapped = f"SELECT coalesce(json_agg(q), '[]') FROM ({sql}) q"
+        result = subprocess.run(["psql", "-XAtq", "-v", "ON_ERROR_STOP=1", "-c", wrapped],
+                                env=self.env, capture_output=True, text=True, timeout=30, check=False)
+        assert result.returncode == 0, result.stderr
+        return json.loads(result.stdout)
+
+    def tables(self) -> list[str]:
+        qualified = [r["t"] for r in self.rows(
+            "SELECT table_schema || '.' || table_name AS t FROM information_schema.tables "
+            "WHERE table_schema NOT IN ('pg_catalog', 'information_schema') ORDER BY 1")]
+        return qualified + [t.split(".", 1)[1] for t in qualified]
+
+
+import os
+from typing import Any
+
+import httpx
+
+
+class Keycloak:
+
+    def __init__(self) -> None:
+        url, realm = os.environ["KEYCLOAK_URL"].rstrip("/"), os.environ["KEYCLOAK_REALM"]
+        self.client = httpx.Client(base_url=url, timeout=15)
+        self.realm = realm
+        self.creds = {"grant_type": "client_credentials", "client_id": os.environ["KEYCLOAK_OBSERVER_CLIENT_ID"],
+                      "client_secret": os.environ["KEYCLOAK_OBSERVER_CLIENT_SECRET"]}
+
+    def _get(self, path: str, **params: Any) -> Any:
+        token = self.client.post(f"/realms/{self.realm}/protocol/openid-connect/token", data=self.creds)
+        assert token.status_code == 200, token.text
+        response = self.client.get(f"/admin/realms/{self.realm}{path}", params=params,
+                                   headers={"Authorization": f"Bearer {token.json()['access_token']}"})
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    def users(self, search: str = "") -> list[dict[str, Any]]:
+        found = self._get("/users", max=1000, **({"search": search} if search else {}))
+        return [u for u in found if not u["username"].startswith("service-account-")]
+
+
+import os
+import time
+from typing import Any
+
+import httpx
+import pytest
+
+
+def mail_from_address() -> str:
+    value = os.environ["MAIL_FROM"]
+    return value[value.index("<") + 1 : value.index(">")] if "<" in value else value.strip()
+
+
+class Mailpit:
+    def __init__(self) -> None:
+        self.client = httpx.Client(base_url=os.environ["MAILPIT_URL"].rstrip("/"), timeout=15)
+
+    def clear(self) -> None:
+        assert self.client.delete("/api/v1/messages").status_code == 200
+
+    def messages(self, expected: int = 0, settle: float = 1.5) -> list[dict[str, Any]]:
+        deadline = time.monotonic() + 15
+        while len(summaries := self.client.get("/api/v1/messages", params={"limit": 200}).json()["messages"]) < expected:
+            if time.monotonic() > deadline:
+                break
+            time.sleep(0.25)
+        time.sleep(settle)
+        summaries = self.client.get("/api/v1/messages", params={"limit": 200}).json()["messages"]
+        return [self.client.get(f"/api/v1/message/{item['ID']}").json() for item in summaries]
+
+
+def addresses(field: Any) -> list[str]:
+    items = field if isinstance(field, list) else [field] if field else []
+    return [item["Address"].lower() for item in items]
+
+
+def text(message: dict[str, Any]) -> str:
+    return message["Text"].replace("\r\n", "\n")
+
+
+@pytest.fixture
+def mail() -> Mailpit:
+    mailpit = Mailpit()
+    mailpit.clear()
+    return mailpit
