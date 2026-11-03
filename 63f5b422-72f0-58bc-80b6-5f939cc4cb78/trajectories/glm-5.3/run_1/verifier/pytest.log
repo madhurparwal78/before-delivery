@@ -1,0 +1,2434 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.15, pytest-8.4.1, pluggy-1.7.0
+rootdir: /tests/grader
+configfile: ../../dev/null
+collected 84 items
+
+test_app.py ........FFFFFFFFFFFFFFFFFFFFFFFFF..FFFFFFFFFFFFFFFFFFFFFFFFF [ 71%]
+.FFF.F.FFFFFFFFFFF.FFF..                                                 [100%]
+
+=================================== FAILURES ===================================
+__________________________ test_accounts_and_sign_in ___________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_accounts_and_sign_in(browser, app_url):
+        person = Person.new("signup")
+        with opened(browser, f"{app_url}/signup") as p:
+            p.set_viewport_size(size(PHONE))
+            layout(p)
+            hit(p, p.get_by_role("button", name="Sign up", exact=True))
+            summary = p.get_by_role("alert").filter(has=p.get_by_role("heading", name="There is a problem"))
+            expect(summary).to_be_visible()
+            for message in ("Enter a name.", "Enter an email address like name@example.org.", "Use 10 or more characters."):
+                expect(summary.get_by_role("link", name=message, exact=True)).to_be_visible()
+            hit(p, summary.get_by_role("link", name="Use 10 or more characters.", exact=True))
+            password = p.get_by_role("textbox", name="Password", exact=True)
+>           expect(password).to_be_focused()
+E           AssertionError: Locator expected to be focused
+E           Actual value: <element(s) not found> 
+E           Call log:
+E             - LocatorAssertions.to_be_focused with timeout 5000ms
+E             -   - waiting for get_by_role("textbox", name="Password", exact=True)
+
+test_app.py:1049: AssertionError
+_________________________ test_single_use_invitations __________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffff80cba0c0>
+
+    def test_single_use_invitations(browser, app_url, mail):
+        w = seed(app_url, roles=("editor",))
+        owner, editor_api = Api(app_url, w.owner), Api(app_url, w.members[0])
+        invitee, stranger, third = (signup(app_url, Person.new(x)) for x in ("invitee", "stranger", "third"))
+        invites = f"/api/workspaces/{w.wid}/invites"
+        refused = editor_api.post(invites, {"email": stranger.email, "role": "editor"})
+        assert refused.status_code == 403 and err(refused) == "forbidden_role"
+        r = owner.post(invites, {"email": invitee.email, "role": "viewer"})
+        assert r.status_code == 201, r.text
+        invite = r.json()
+        assert re.fullmatch(rf"inv_{ID12}", invite["inviteId"]) and invite["status"] == "invited" and invite["role"] == "viewer"
+        [message] = mails_to(mail, invitee.email, 1)
+>       assert message["Subject"] == f"{w.owner.name} invited you to {w.name} as a viewer"
+E       AssertionError: assert 'Ada ca6ea837...bb6 as viewer' == 'Ada ca6ea837...6 as a viewer'
+E         
+E         Skipping 38 identical leading characters in diff, use -v to show
+E         - ab4bb6 as a viewer
+E         ?          --
+E         + ab4bb6 as viewer
+
+test_app.py:1104: AssertionError
+_________________________ test_immediate_role_changes __________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_immediate_role_changes(browser, app_url):
+        w = seed(app_url, roles=("editor",), pages=[("Home", [node("heading", TITLE)])])
+        ed = w.members[0]
+        owner = Api(app_url, w.owner)
+        member_path = f"/api/workspaces/{w.wid}/members/{ed.id}"
+        relay = Relay()
+        with editor(browser, app_url, ed, w.wid, before=relay.attach) as p:
+            joined(p, ed)
+            relay.drop = {"role", "presence"}
+            assert owner.patch(member_path, {"role": "viewer"}).status_code == 200
+            pick(p, row(p, TITLE, "heading"))
+            since = mark(p)
+            press(p, "F2")
+>           fill(p.get_by_role("textbox", name="Name", exact=True), RENAMED)
+
+test_app.py:1154: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+conftest.py:133: in fill
+    click(locator)
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_qmcfjm5q2ftt/edit?page=pg_e2b7zhekqd88'> selector='internal:role=textbox[name="Name"s]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("textbox", name="Name", exact=True)
+
+conftest.py:105: AssertionError
+___________________________ test_workspace_isolation ___________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_workspace_isolation(browser, app_url):
+        mine = seed(app_url, pages=[("Home", [node("heading", TITLE)])])
+        theirs = seed(app_url, pages=[("Home", [node("heading", TITLE)])])
+        me, other = Api(app_url, mine.owner), Api(app_url, theirs.owner)
+        their_node, their_page = theirs.node("Home", TITLE), theirs.page()
+        version = other.post(f"/api/workspaces/{theirs.wid}/versions", {"name": "Theirs"}).json()
+        thread = other.post(f"/api/workspaces/{theirs.wid}/comments", {"pageId": their_page, "nodeId": their_node, "body": "hello"}).json()
+        image = other.upload(theirs.wid, "theirs.png", png()).json()
+        invite = other.post(f"/api/workspaces/{theirs.wid}/invites", {"email": Person.new("iso").email, "role": "viewer"}).json()
+        w2 = theirs.wid
+        probes = [
+            me.get(f"/api/workspaces/{w2}/document"),
+            me.get(f"/api/workspaces/{w2}/operations", params={"since": 0}),
+            me.get(f"/api/workspaces/{w2}/versions"),
+            me.get(f"/api/workspaces/{w2}/comments", params={"pageId": their_page}),
+            me.get(f"/api/workspaces/{mine.wid}/comments", params={"pageId": their_page}),
+            me.get(f"/api/workspaces/{w2}/members"),
+            me.get(f"/api/workspaces/{w2}/images"),
+            me.get(f"/api/workspaces/{w2}/storage"),
+            me.op(w2, "rename_node", base_seq=0, nodeId=their_node, name="Mine"),
+            me.op(mine.wid, "rename_node", nodeId=their_node, name="Mine"),
+            me.op(mine.wid, "insert_node", pageId=mine.page(), parentId=me.doc(mine.wid)["pages"][0]["root"]["id"], index=0,
+                  type="image", props={"imageId": image["id"], "alt": "x", "focalX": 50, "focalY": 50}),
+            me.post(f"/api/workspaces/{mine.wid}/comments", {"pageId": their_page, "nodeId": their_node, "body": "hi"}),
+            me.post(f"/api/workspaces/{mine.wid}/comments", {"pageId": mine.page(), "nodeId": their_node, "body": "hi"}),
+            me.get(f"/api/pages/{their_page}/publish"),
+            me.publish(their_page),
+            me.post(f"/api/pages/{their_page}/unpublish"),
+            me.get(f"/api/versions/{version['id']}"),
+            me.post(f"/api/versions/{version['id']}/restore"),
+            me.post(f"/api/comments/{thread['id']}/replies", {"body": "hi"}),
+            me.post(f"/api/comments/{thread['id']}/resolve"),
+            me.get(f"/api/images/{image['id']}"),
+            me.patch(f"/api/workspaces/{w2}/members/{theirs.owner.id}", {"role": "viewer"}),
+            me.delete(f"/api/invites/{invite['inviteId']}"),
+            me.get(f"/api/workspaces/w_{'0' * 12}/document"),
+        ]
+        for r in probes:
+>           assert r.status_code == 404 and r.json() == NOT_FOUND, (r.request.method, r.request.url, r.status_code, r.text)
+E           AssertionError: ('GET', URL('http://127.0.0.1:4173/api/workspaces/w_bjaota0k50o0/comments?pageId=pg_odfb06tekq3k'), 200, '{"threads":[]}')
+E           assert (200 == 404)
+E            +  where 200 = <Response [200 OK]>.status_code
+
+test_app.py:1224: AssertionError
+_____________________________ test_add_menu_insert _____________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_add_menu_insert(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("section", HERO, [node("text", INTRO)]), node("nav", LINKS, [node("button", GO)])])])
+        api = Api(app_url, w.members[0])
+        hero = w.node("Home", HERO)
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            pick(p, row(p, HERO, "section"))
+            since = mark(p)
+            press(p, "a")
+>           expect(menu(p)).to_be_visible()
+E           AssertionError: Locator expected to be visible
+E           Actual value: <element(s) not found> 
+E           Call log:
+E             - LocatorAssertions.to_be_visible with timeout 5000ms
+E             -   - waiting for get_by_role("menu", name="Add component")
+
+test_app.py:1245: AssertionError
+_______________________ test_palette_drag_drop_indicator _______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_palette_drag_drop_indicator(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("section", HERO, [node("text", INTRO), node("text", OUTRO)])])])
+        api = Api(app_url, w.members[0])
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            before = {n["id"] for n, _ in walk(page_of(api.doc(w.wid), w.page())["root"])}
+            hit(p, top(p, "Add"))
+>           parent, index = drag(p, menu(p).get_by_role("menuitem", name="Heading", exact=True), node_el(p, w.node("Home", OUTRO), "desktop"))
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:1288: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:834: in drag
+    sx, sy = center(source)
+             ^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_3g2bn8jjl596/edit?page=pg_hy4j5z9pwxlq'> selector='internal:role=menu[name="Add component"i] >> internal:role=menuitem[name="Heading"s]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+        expect(locator).to_be_visible()
+        expect(locator).to_be_enabled()
+        locator.evaluate("e => e.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'})")
+        box = locator.bounding_box()
+        assert box is not None
+        point = {"x": box["x"] + box["width"] / 2, "y": box["y"] + box["height"] / 2}
+>       assert locator.evaluate(
+            "(e,p) => {const hit=document.elementFromPoint(p.x,p.y);return hit===e||e.contains(hit)}",
+            point,
+        ), "control is obscured at the actual pointer target"
+E       AssertionError: control is obscured at the actual pointer target
+E       assert False
+E        +  where False = evaluate('(e,p) => {const hit=document.elementFromPoint(p.x,p.y);return hit===e||e.contains(hit)}', {'x': 90.0, 'y': 892.5})
+E        +    where evaluate = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_3g2bn8jjl596/edit?page=pg_hy4j5z9pwxlq'> selector='internal:role=menu[name="Add component"i] >> internal:role=menuitem[name="Heading"s]'>.evaluate
+
+conftest.py:111: AssertionError
+____________________________ test_keyboard_reorder _____________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_keyboard_reorder(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("section", "A", [node("text", "a1"), node("text", "a2")]), node("section", "B"),
+                                            node("nav", LINKS, [node("button", GO)]), node("text", LOOSE)])])
+        api = Api(app_url, w.members[0])
+        a, b = w.node("Home", "A"), w.node("Home", "B")
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            hit(p, row(p, "a2", "text"))
+            since = mark(p)
+            press(p, "Alt+ArrowUp")
+>           heard(p, "Moved a2 to position 1 of 2 in A.", since)
+
+test_app.py:1315: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:642: in heard
+    until(p, "([t, s]) => window.__plinthNotices.slice(s).includes(t)", [notice, since], seconds=seconds)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+page = <Page url='http://127.0.0.1:4173/w/w_6jde360xvr07/edit?page=pg_srihm3pxs1h8'>
+script = '([t, s]) => window.__plinthNotices.slice(s).includes(t)'
+arg = ['Moved a2 to position 1 of 2 in A.', 0], seconds = 20
+
+    def until(page: Page, script: str, arg: Any = None, seconds: float = 30) -> None:
+        deadline = time.monotonic() + seconds
+        while not page.evaluate(script, arg):
+            if time.monotonic() > deadline:
+>               raise AssertionError(f"condition never held: {script}")
+E               AssertionError: condition never held: ([t, s]) => window.__plinthNotices.slice(s).includes(t)
+
+conftest.py:100: AssertionError
+________________________ test_navigator_tree_semantics _________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_navigator_tree_semantics(browser, app_url):
+        w = seed(app_url,
+                 components=[(COMPONENT, node("section", "Footer root", [node("text", FOOTER_TEXT)]))],
+                 fields=[("title", "text")], entries=[{"title": "First"}],
+                 pages=[("Home", [node("section", HERO, [node("heading", TITLE), node("text", INTRO)]),
+                                  node("section", FOOTER, shared={"component": COMPONENT}),
+                                  node("collection_list", POSTS, [node("stack", CARD, [node("heading", POST_TITLE, bind={"text": "title"})])])])])
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            expect(tree(p)).to_be_visible()
+            expect(row(p, FOOTER, "section", "shared")).to_be_visible()
+>           expect(row(p, POST_TITLE, "heading", "bound")).to_be_visible()
+E           AssertionError: Locator expected to be visible
+E           Actual value: <element(s) not found> 
+E           Call log:
+E             - LocatorAssertions.to_be_visible with timeout 5000ms
+E             -   - waiting for get_by_role("tree", name="Navigator").get_by_role("treeitem", name="Post title, heading, bound", exact=True)
+
+test_app.py:1366: AssertionError
+_________________________ test_rename_duplicate_delete _________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_rename_duplicate_delete(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("section", HERO, [node("text", INTRO), node("text", OUTRO)]),
+                                            node("section", INFO, [node("text", NOTE)])])])
+        api = Api(app_url, w.members[0])
+        hero, info = w.node("Home", HERO), w.node("Home", INFO)
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            hit(p, row(p, INTRO, "text"))
+            press(p, "F2")
+            name_box = p.get_by_role("textbox", name="Name", exact=True)
+>           expect(name_box).to_be_focused()
+E           AssertionError: Locator expected to be focused
+E           Actual value: <element(s) not found> 
+E           Call log:
+E             - LocatorAssertions.to_be_focused with timeout 5000ms
+E             -   - waiting for get_by_role("textbox", name="Name", exact=True)
+
+test_app.py:1412: AssertionError
+______________________ test_keyboard_scope_and_tab_order _______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_keyboard_scope_and_tab_order(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("heading", TITLE, styles={"desktop": {"font-size": "48px"}})])])
+        api = Api(app_url, w.members[0])
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            pick(p, row(p, TITLE, "heading"))
+            p.evaluate(FIRST_TOP_BAR_CONTROL_JS)
+            names = []
+            for _ in range(TAB_PRESSES):
+                press(p, "Tab")
+                names.append(p.evaluate(TAB_STOP_JS))
+            assert "canvas" in names, names
+            at = names.index("canvas")
+            stops = [i for i, n in enumerate(names[:at]) if n == "row"]
+            assert len(stops) == 1, names
+            assert len(names[stops[0] + 1:at]) <= 1 and "top" not in names[stops[0] + 1:at], names
+            assert names[:stops[0]].count("top") >= 2, names
+            canvas_of(p).focus()
+            press(p, "Tab")
+            assert focus_inside(style_panel(p))
+            box = value_box(p, "font-size")
+            box.focus()
+            seq = api.doc(w.wid)["seq"]
+            for keys in ("a", "Control+z", "Alt+2", "f"):
+                press(p, keys)
+            expect(menu(p)).to_have_count(0)
+            assert parse_qs(urlparse(p.url).query).get("bp", ["desktop"]) == ["desktop"]
+>           assert fan(p)[0] == "closed"
+E           AssertionError: assert None == 'closed'
+
+test_app.py:1500: AssertionError
+____________________________ test_navigator_drawer _____________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_navigator_drawer(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("section", HERO, [node("text", INTRO)])])])
+        with editor(browser, app_url, w.members[0], w.wid, dims=TABLET) as p:
+            toggle = p.get_by_role("button", name="Navigator", exact=True)
+            expect(toggle).to_have_attribute("aria-expanded", "false")
+            expect(p.get_by_role("tree", name="Navigator")).to_have_count(0)
+            state = p.get_by_role("treeitem", include_hidden=True).evaluate_all(
+                "els => els.map(e => { e.focus(); return {focused: document.activeElement === e, inert: !!e.closest('[inert]')}; })")
+            assert all(not s["focused"] and s["inert"] for s in state), state
+            names = tab_order(p, TAB_PRESSES)
+            assert not {f"{HERO}, section", f"{INTRO}, text", "Home, page"} & set(names)
+            layout(p)
+            hit(p, node_el(p, w.node("Home", INTRO)))
+            canvas = canvas_of(p)
+            canvas.focus()
+            since = mark(p)
+            press(p, "a")
+            press(p, "Enter")
+            heard(p, "Added Section 2.", since)
+            expect(canvas).to_be_focused()
+            expect(toggle).to_have_attribute("aria-expanded", "false")
+            activate(p, toggle)
+            expect(toggle).to_have_attribute("aria-expanded", "true")
+            expect(tree(p)).to_be_visible()
+            press(p, "Escape")
+>           expect(toggle).to_have_attribute("aria-expanded", "false")
+E           AssertionError: Locator expected to have attribute 'false'
+E           Actual value: true 
+E           Call log:
+E             - LocatorAssertions.to_have_attribute with timeout 5000ms
+E             -   - waiting for get_by_role("button", name="Navigator", exact=True)
+E             -     9 × locator resolved to <button id="btn-navigator" aria-expanded="true" aria-controls="navigator">Navigator</button>
+E             -       - unexpected value "true"
+
+test_app.py:1546: AssertionError
+_________________________ test_breakpoint_inheritance __________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_breakpoint_inheritance(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("heading", TITLE, styles={"desktop": {"font-size": "48px", "color": {"token": "brand"}},
+                                                                         "tablet": {"font-size": "28px"}, "phone": {"color": "white"}}),
+                                            node("text", INTRO, styles={"desktop": {"padding": {"token": "space-md"}}})])])
+        api = Api(app_url, w.members[0])
+        title, intro = w.node("Home", TITLE), w.node("Home", INTRO)
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            pick(p, row(p, TITLE, "heading"))
+>           open_fan(p)
+
+test_app.py:1564: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+p = <Page url='http://127.0.0.1:4173/w/w_mobaxrodcb7g/edit?page=pg_wdor4u0z8qn2'>
+
+    def open_fan(p: Page) -> None:
+        press(p, "f", FAN_MS + STEP_MS)
+>       expect(canvas_of(p)).to_have_attribute("data-fan", "open")
+E       AssertionError: Locator expected to have attribute 'open'
+E       Actual value: None 
+E       Call log:
+E         - LocatorAssertions.to_have_attribute with timeout 5000ms
+E         -   - waiting for get_by_role("region", name="Canvas", exact=True)
+E         -     9 × locator resolved to <div id="canvas" tabindex="0" role="region" aria-label="Canvas">…</div>
+E         -       - unexpected value "null"
+
+test_app.py:626: AssertionError
+____________________ test_breakpoint_control_and_style_rows ____________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_breakpoint_control_and_style_rows(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("heading", TITLE, styles={"desktop": {"font-size": "48px"}})])])
+        api = Api(app_url, w.members[0])
+        title = w.node("Home", TITLE)
+        clear = lambda p: clear_button(p, "font-size")
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            pick(p, row(p, TITLE, "heading"))
+>           expect(group(p, "font-size")).to_have_attribute("data-source", "set")
+E           AssertionError: Locator expected to have attribute 'set'
+E           Actual value: unset 
+E           Call log:
+E             - LocatorAssertions.to_have_attribute with timeout 5000ms
+E             -   - waiting for get_by_role("complementary", name="Style", exact=True, include_hidden=True).get_by_role("group", name="font-size", exact=True)
+E             -     9 × locator resolved to <div role="group" data-source="unset" data-prop="font-size" aria-label="font-size">…</div>
+E             -       - unexpected value "unset"
+
+test_app.py:1585: AssertionError
+__________________________ test_cascade_fan_sequence ___________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_cascade_fan_sequence(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("heading", TITLE)])])
+        title = w.node("Home", TITLE)
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            expect(top(p, "Fan")).to_be_disabled()
+            pick(p, row(p, TITLE, "heading"))
+>           expect(top(p, "Fan")).to_be_enabled()
+E           AssertionError: Locator expected to be enabled
+E           Actual value: False 
+E           Call log:
+E             - LocatorAssertions.to_be_enabled with timeout 5000ms
+E             -   - waiting for get_by_role("banner").get_by_role("button", name="Fan", exact=True)
+E             -     9 × locator resolved to <button disabled id="btn-fan">Fan</button>
+E             -       - unexpected value "disabled"
+
+test_app.py:1613: AssertionError
+____________________________ test_cascade_fan_pips _____________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_cascade_fan_pips(browser, app_url):
+        w = seed(app_url, roles=("editor", "editor"),
+                 pages=[("Home", [node("heading", TITLE, styles={"desktop": {"font-size": "48px", "color": {"token": "brand"}},
+                                                                 "tablet": {"font-size": "28px"}})])])
+        other = Api(app_url, w.members[1])
+        title = w.node("Home", TITLE)
+    
+        def pips(p: Page, prop: str, expected: dict[str, tuple[str, str]], timeout: float = LIVE_MS) -> None:
+            for bp, (state, name) in expected.items():
+                expect(pip(p, prop, bp)).to_have_attribute("data-state", state, timeout=timeout)
+                expect(group(p, prop).get_by_role("img", name=name, exact=True)).to_have_count(1, timeout=timeout)
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            joined(p, w.members[0])
+            pick(p, row(p, TITLE, "heading"))
+>           open_fan(p)
+
+test_app.py:1680: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+p = <Page url='http://127.0.0.1:4173/w/w_uhbzybsqrfui/edit?page=pg_zx0gbnlwwgk2'>
+
+    def open_fan(p: Page) -> None:
+        press(p, "f", FAN_MS + STEP_MS)
+>       expect(canvas_of(p)).to_have_attribute("data-fan", "open")
+E       AssertionError: Locator expected to have attribute 'open'
+E       Actual value: None 
+E       Call log:
+E         - LocatorAssertions.to_have_attribute with timeout 5000ms
+E         -   - waiting for get_by_role("region", name="Canvas", exact=True)
+E         -     9 × locator resolved to <div id="canvas" tabindex="0" role="region" aria-label="Canvas">…</div>
+E         -       - unexpected value "null"
+
+test_app.py:626: AssertionError
+_____________________________ test_cascade_ripple ______________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_cascade_ripple(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("heading", TITLE, styles={"desktop": {"font-size": "48px"}})])])
+        title = w.node("Home", TITLE)
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            pick(p, row(p, TITLE, "heading"))
+>           open_fan(p)
+
+test_app.py:1697: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+p = <Page url='http://127.0.0.1:4173/w/w_51n8tt1jpa9x/edit?page=pg_y73qc0vbjf9a'>
+
+    def open_fan(p: Page) -> None:
+        press(p, "f", FAN_MS + STEP_MS)
+>       expect(canvas_of(p)).to_have_attribute("data-fan", "open")
+E       AssertionError: Locator expected to have attribute 'open'
+E       Actual value: None 
+E       Call log:
+E         - LocatorAssertions.to_have_attribute with timeout 5000ms
+E         -   - waiting for get_by_role("region", name="Canvas", exact=True)
+E         -     9 × locator resolved to <div id="canvas" tabindex="0" role="region" aria-label="Canvas">…</div>
+E         -       - unexpected value "null"
+
+test_app.py:626: AssertionError
+___________________________ test_reduced_motion_fan ____________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_reduced_motion_fan(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("heading", TITLE, styles={"desktop": {"font-size": "48px"}, "tablet": {"font-size": "28px"}})])])
+        title = w.node("Home", TITLE)
+        with editor(browser, app_url, w.members[0], w.wid, reduced=True) as p:
+            pick(p, row(p, TITLE, "heading"))
+            p.evaluate(FX_JS)
+            press(p, "f")
+>           assert fan(p) == ("open", 1.0)
+E           AssertionError: assert (None, nan) == ('open', 1.0)
+E             
+E             At index 0 diff: None != 'open'
+E             Use -v to get more diff
+
+test_app.py:1737: AssertionError
+_____________________ test_published_breakpoint_boundaries _____________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_published_breakpoint_boundaries(browser, app_url):
+        w = seed(app_url, published=("Home",), pages=[("Home", [node("section", HERO, [node("heading", TITLE, styles={
+            "desktop": {"font-size": "48px", "color": "navy", "text-align": "center", "padding": {"token": "space-md"}},
+            "tablet": {"font-size": "28px", "text-align": "left"}, "phone": {"font-size": "1.5rem", "color": "white", "display": "block"}})],
+            styles={"desktop": {"display": "flex", "flex-direction": "row", "gap": {"token": "space-md"}, "background-color": "white"},
+                    "phone": {"flex-direction": "column"}})])])
+        status = Api(app_url, w.owner).status(w.page())
+        hero, title = w.node("Home", HERO), w.node("Home", TITLE)
+        expected = {DESKTOP[0]: "48px", TABLET_LAST: "28px", TABLET[0]: "28px", PHONE_LAST: px("1.5rem"), PHONE[0]: px("1.5rem"),
+                    NARROW_WIDTH: px("1.5rem")}
+        published: dict[int, dict[str, dict[str, str]]] = {}
+        with visitor(browser, public_url(app_url, status["url"]), DESKTOP[0]) as p:
+            for width, font in expected.items():
+                p.set_viewport_size({"width": width, "height": DESKTOP[1]})
+                published[width] = {i: pub_css(p, i, *STYLE_KEYS) for i in (hero, title)}
+                assert published[width][title]["font-size"] == font, width
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            pick(p, row(p, TITLE, "heading"))
+>           open_fan(p)
+
+test_app.py:1779: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+p = <Page url='http://127.0.0.1:4173/w/w_69ik1i83sf0i/edit?page=pg_5g29jn0f9kfz'>
+
+    def open_fan(p: Page) -> None:
+        press(p, "f", FAN_MS + STEP_MS)
+>       expect(canvas_of(p)).to_have_attribute("data-fan", "open")
+E       AssertionError: Locator expected to have attribute 'open'
+E       Actual value: None 
+E       Call log:
+E         - LocatorAssertions.to_have_attribute with timeout 5000ms
+E         -   - waiting for get_by_role("region", name="Canvas", exact=True)
+E         -     9 × locator resolved to <div id="canvas" tabindex="0" role="region" aria-label="Canvas">…</div>
+E         -       - unexpected value "null"
+
+test_app.py:626: AssertionError
+____________________________ test_tokens_and_units _____________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_tokens_and_units(browser, app_url):
+        pad = {"desktop": {"padding": {"token": "space-md"}}}
+        w = seed(app_url, components=[(COMPONENT, node("section", "Footer root", styles=pad))],
+                 pages=[("Home", [node("text", INTRO, styles=pad), node("heading", TITLE, styles={"desktop": {"font-size": {"token": "size-xl"}}}),
+                                  node("section", FOOTER, shared={"component": COMPONENT})]),
+                        (CONTACT, [node("text", NOTE, styles=pad), node("section", FOOTER, shared={"component": COMPONENT})])])
+        api = Api(app_url, w.members[0])
+        token = lambda d, n: next((t for t in d["tokens"] if t["name"] == n), None)
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            hit(p, top(p, "Tokens"))
+            tokens = p.get_by_role("region", name="Tokens")
+            expect(tokens.get_by_role("table", name="Tokens")).to_be_visible()
+            xl, md = DEFAULT_TOKENS[3]["name"], DEFAULT_TOKENS[2]["name"]
+            select(tokens.get_by_role("combobox", name=f"{xl} unit"), "rem")
+            advance(p, STEP_MS)
+            eventually(lambda: token(api.doc(w.wid), xl) == {"name": xl, "kind": "size", "value": SIZE_XL_PX / ROOT_PX, "unit": "rem"}, p,
+                       what="unit conversion stored")
+>           expect(tokens.get_by_role("textbox", name=f"{xl} value")).to_have_value(f"{SIZE_XL_PX / ROOT_PX:g}")
+E           AssertionError: Locator expected to have Value '2.5'
+E           Actual value: 40 
+E           Call log:
+E             - LocatorAssertions.to_have_value with timeout 5000ms
+E             -   - waiting for get_by_role("region", name="Tokens").get_by_role("textbox", name="size-xl value")
+E             -     9 × locator resolved to <input value="40" type="text" aria-label="size-xl value"/>
+E             -       - unexpected value "40"
+
+test_app.py:1802: AssertionError
+_________________________ test_live_token_propagation __________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_live_token_propagation(browser, app_url):
+        brand = {"desktop": {"color": {"token": "brand"}}}
+        w = seed(app_url, roles=("editor", "editor"), published=("Home",),
+                 pages=[("Home", [node("heading", TITLE, styles=brand)]), (CONTACT, [node("text", NOTE, styles=brand)])])
+        a, b = w.members
+        title, note = w.node("Home", TITLE), w.node(CONTACT, NOTE)
+        status = Api(app_url, a).status(w.page())
+        with editor(browser, app_url, a, w.wid) as pa, editor(browser, app_url, b, w.wid) as pb, \
+                editor(browser, app_url, b, w.wid, query=f"?page={w.page(CONTACT)}") as pc:
+            joined(pa, b)
+            joined(pb, a)
+            joined(pc, a)
+            pick(pb, row(pb, TITLE, "heading"))
+>           open_fan(pb)
+
+test_app.py:1846: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+p = <Page url='http://127.0.0.1:4173/w/w_npjd0izjijkw/edit?page=pg_xl9i207g47p2'>
+
+    def open_fan(p: Page) -> None:
+        press(p, "f", FAN_MS + STEP_MS)
+>       expect(canvas_of(p)).to_have_attribute("data-fan", "open")
+E       AssertionError: Locator expected to have attribute 'open'
+E       Actual value: None 
+E       Call log:
+E         - LocatorAssertions.to_have_attribute with timeout 5000ms
+E         -   - waiting for get_by_role("region", name="Canvas", exact=True)
+E         -     9 × locator resolved to <div id="canvas" tabindex="0" role="region" aria-label="Canvas">…</div>
+E         -       - unexpected value "null"
+
+test_app.py:626: AssertionError
+___________________ test_create_and_insert_shared_component ____________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_create_and_insert_shared_component(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("section", FOOTER, [node("text", FOOTER_TEXT)])]), (CONTACT, [node("section", INFO)])])
+        api = Api(app_url, w.members[0])
+        footer = w.node("Home", FOOTER)
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            pick(p, row(p, FOOTER, "section"))
+            press(p, "Control+Alt+k")
+            dialog = p.get_by_role("dialog", name="Create shared component")
+>           fill(dialog.get_by_role("textbox", name="Component name"), COMPONENT)
+
+test_app.py:1885: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+conftest.py:133: in fill
+    click(locator)
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_h9nz87og3jol/edit?page=pg_5f1enqq8eyio'> selector='internal:role=dialog[name="Create shared component"i] >> internal:role=textbox[name="Component name"i]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("dialog", name="Create shared component").get_by_role("textbox", name="Component name")
+
+conftest.py:105: AssertionError
+____________________ test_shared_edits_reach_every_instance ____________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_shared_edits_reach_every_instance(browser, app_url):
+        w = footer_world(app_url)
+        a, b = w.members
+        api = Api(app_url, a)
+        doc = api.doc(w.wid)
+        home_text, contact_text = instance(doc, w.page())["children"][0]["id"], instance(doc, w.page(CONTACT))["children"][0]["id"]
+        shared = f"Updated {len(w.pages)} instances of {COMPONENT}."
+        with editor(browser, app_url, a, w.wid) as pa, editor(browser, app_url, b, w.wid, query=f"?page={w.page(CONTACT)}") as pb:
+            joined(pb, a)
+            pick(pa, row(pa, FOOTER_TEXT, "text"))
+            seq = api.doc(w.wid)["seq"]
+            since = mark(pa)
+>           enter_text(pa, pa.get_by_role("textbox", name="Text", exact=True), PLINTH_FOOTER)
+
+test_app.py:1919: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:569: in enter_text
+    fill(locator, value)
+conftest.py:133: in fill
+    click(locator)
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_y5czscspgbo4/edit?page=pg_5wghcxblxj36'> selector='internal:role=textbox[name="Text"s]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("textbox", name="Text", exact=True)
+
+conftest.py:105: AssertionError
+______________________ test_detach_and_component_deletion ______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_detach_and_component_deletion(browser, app_url):
+        w = footer_world(app_url, roles=("editor",))
+        api = Api(app_url, w.members[0])
+        before = instance(api.doc(w.wid), w.page())
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            pick(p, row(p, FOOTER_TEXT, "text"))
+            expect(p.get_by_role("button", name="Detach instance")).to_have_count(0)
+            pick(p, row(p, FOOTER, "section", "shared"))
+>           hit(p, p.get_by_role("button", name="Detach instance"))
+
+test_app.py:1958: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:559: in hit
+    click(locator)
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_2ax8aet5xow5/edit?page=pg_u91w50h1pqi9'> selector='internal:role=button[name="Detach instance"i]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("button", name="Detach instance")
+
+conftest.py:105: AssertionError
+______________________ test_collection_fields_and_entries ______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_collection_fields_and_entries(browser, app_url):
+        w = seed(app_url)
+        api = Api(app_url, w.members[0])
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            hit(p, top(p, "Collection"))
+            region = p.get_by_role("region", name="Collection")
+            for name, kind in (("title", "Text"), ("body", "Rich text"), ("photo", "Image")):
+                fill(region.get_by_role("textbox", name="Field name"), name)
+                select(region.get_by_role("combobox", name="Field kind"), kind)
+                hit(p, region.get_by_role("button", name="Add field"))
+            eventually(lambda: api.doc(w.wid)["collection"]["fields"] == [{"name": "title", "kind": "text"}, {"name": "body", "kind": "rich_text"},
+                                                                        {"name": "photo", "kind": "image"}], p, what="fields stored")
+            for number, title in enumerate(("First", SECOND), 1):
+>               open_new_entry(p, region, number)
+
+test_app.py:1989: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+p = <Page url='http://127.0.0.1:4173/w/w_i46koh84zju1/edit?page=pg_gydidq74f4fa&panel=collection'>
+region = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_i46koh84zju1/edit?page=pg_gydidq74f4fa&panel=collection'> selector='internal:role=region[name="Collection"i]'>
+number = 1
+
+    def open_new_entry(p: Page, region: Locator, number: int) -> None:
+        hit(p, region.get_by_role("button", name="Add entry"))
+        box = p.get_by_role("textbox", name="title", exact=True)
+        edit = region.get_by_role("button", name=f"Edit entry {number}", exact=True)
+>       expect(box.or_(edit).first).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("textbox", name="title", exact=True).or_(get_by_role("region", name="Collection").get_by_role("button", name="Edit entry 1", exact=True)).first
+
+test_app.py:901: AssertionError
+_________________________ test_bound_collection_lists __________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_bound_collection_lists(browser, app_url):
+        w = list_world(app_url, [{"title": "First", "body": "<p>Hello</p>"}, {"title": "Second", "body": "<p>Hello</p>"}])
+        api, other = Api(app_url, w.members[0]), Api(app_url, w.members[1])
+        status = api.status(w.page())
+        heading, body_node = w.node("Home", POST_TITLE), w.node("Home", POST_BODY)
+        e1, e2 = [e["id"] for e in sorted(api.doc(w.wid)["collection"]["entries"], key=lambda e: e["order"])]
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            joined(p, w.members[0])
+            eventually(lambda: [r[0] for r in collection_rows(p)] == [e1, e2], p, what="rows in entry order")
+            for entry, title in ((e1, "First"), (e2, SECOND)):
+                assert row_cell(p, entry, heading) == [entry, title]
+>           pick(p, row(p, POST_BODY, "text"))
+
+test_app.py:2029: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:583: in pick
+    hit(p, locator)
+test_app.py:559: in hit
+    click(locator)
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_hbgghyjmenry/edit?page=pg_zft3bap3hdbq'> selector='internal:role=tree[name="Navigator"i] >> internal:role=treeitem[name="Post body, text"s]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("tree", name="Navigator").get_by_role("treeitem", name="Post body, text", exact=True)
+
+conftest.py:105: AssertionError
+____________________ test_progress_and_result_announcements ____________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_progress_and_result_announcements(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("heading", TITLE)])])
+        api = Api(app_url, w.members[0])
+        version = api.post(f"/api/workspaces/{w.wid}/versions", {"name": DRAFT_ONE}).json()
+    
+        def one_result(p: Page, since: int, progress: str, results: tuple[str, ...]) -> None:
+            after = said(p, since)
+            assert progress in after
+            tail = after[after.index(progress) + 1:]
+            assert len([n for n in tail if n in results or n.startswith(results)]) == 1, after
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            hit(p, top(p, "Images"))
+            since = mark(p)
+            with hold(p, "**/api/workspaces/*/images") as h:
+                p.get_by_label("Image file").set_input_files({"name": PHOTO, "mimeType": "image/png", "buffer": png()})
+                heard(p, f"Uploading {PHOTO}.", since)
+                h.release()
+            heard(p, f"Uploaded {PHOTO}.", since)
+            advance(p, STEP_MS)
+            one_result(p, since, f"Uploading {PHOTO}.", (f"Uploaded {PHOTO}.", f"Couldn't upload {PHOTO}.", "Only PNG", "That image is over"))
+            expect(p.get_by_role("list", name="Images")).to_contain_text(PHOTO)
+            since = mark(p)
+            with hold(p, "**/api/pages/*/publish") as h:
+                hit(p, top(p, "Publish"))
+                hit(p, p.get_by_role("dialog", name="Publish page").get_by_role("button", name="Publish now", exact=True))
+                heard(p, f"Publishing {HOME}.", since)
+                h.release()
+>           heard(p, f"Published {HOME} at {api.status(w.page())['url']}.", since)
+
+test_app.py:2159: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:642: in heard
+    until(p, "([t, s]) => window.__plinthNotices.slice(s).includes(t)", [notice, since], seconds=seconds)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+page = <Page url='http://127.0.0.1:4173/w/w_eu5cysvdi90a/edit?page=pg_lzvrx3wk1ius&panel=publish'>
+script = '([t, s]) => window.__plinthNotices.slice(s).includes(t)'
+arg = ['Published Home at None.', 2], seconds = 20
+
+    def until(page: Page, script: str, arg: Any = None, seconds: float = 30) -> None:
+        deadline = time.monotonic() + seconds
+        while not page.evaluate(script, arg):
+            if time.monotonic() > deadline:
+>               raise AssertionError(f"condition never held: {script}")
+E               AssertionError: condition never held: ([t, s]) => window.__plinthNotices.slice(s).includes(t)
+
+conftest.py:100: AssertionError
+_____________________ test_image_placement_and_focal_point _____________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_image_placement_and_focal_point(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("section", HERO)])])
+        api = Api(app_url, w.members[0])
+        image = api.upload(w.wid, "photo.png", png()).json()["id"]
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            pick(p, row(p, HERO, "section"))
+            press(p, "a")
+>           hit(p, menu(p).get_by_role("menuitem", name="Image", exact=True))
+
+test_app.py:2182: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:559: in hit
+    click(locator)
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_376kuwar58is/edit?page=pg_hl22tlrua1pw'> selector='internal:role=menu[name="Add component"i] >> internal:role=menuitem[name="Image"s]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("menu", name="Add component").get_by_role("menuitem", name="Image", exact=True)
+
+conftest.py:105: AssertionError
+______________________ test_publish_states_and_unpublish _______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_publish_states_and_unpublish(browser, app_url):
+        w = seed(app_url, roles=("editor",), pages=[("Home", [node("heading", TITLE, styles={"desktop": {"color": {"token": "brand"}}})]),
+                                                    (CONTACT, [node("text", NOTE)])])
+        owner, ed = Api(app_url, w.owner), Api(app_url, w.members[0])
+        image = ed.upload(w.wid, "photo.png", png()).json()["id"]
+        root = page_of(ed.doc(w.wid), w.page())["root"]["id"]
+        ed.ok(w.wid, "insert_node", pageId=w.page(), parentId=root, index=1, type="image",
+              props={"imageId": image, "alt": "Harbour", "focalX": 50, "focalY": 50})
+        assert ed.status(w.page()) == {"state": "not_published", "publishId": None, "publishedSeq": None, "url": None}
+        with editor(browser, app_url, w.owner, w.wid, query="?panel=publish") as p:
+            expect(p.get_by_role("region", name="Publish")).to_be_visible()
+            await_state(p, "Not published")
+            r = ed.publish(w.page())
+            assert r.status_code == 201, r.text
+            live = r.json()
+            assert live["state"] == "live" and re.fullmatch(rf"pub_{ID12}", live["publishId"]) and live["publishedSeq"] == ed.doc(w.wid)["seq"]
+            assert live["url"].endswith(f"/p/{w.slug}/home")
+            reload(p)
+>           await_state(p, "Live")
+
+test_app.py:2237: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:699: in await_state
+    until(p, STATE_JS, expected, seconds=seconds)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+page = <Page url='http://127.0.0.1:4173/w/w_717fc41duee2/edit?page=pg_ztfqmvhjx13y'>
+script = "(t) => { const s = document.getElementById('publish-state'); return !!s && s.textContent.trim() === t; }"
+arg = 'Live', seconds = 20
+
+    def until(page: Page, script: str, arg: Any = None, seconds: float = 30) -> None:
+        deadline = time.monotonic() + seconds
+        while not page.evaluate(script, arg):
+            if time.monotonic() > deadline:
+>               raise AssertionError(f"condition never held: {script}")
+E               AssertionError: condition never held: (t) => { const s = document.getElementById('publish-state'); return !!s && s.textContent.trim() === t; }
+
+conftest.py:100: AssertionError
+________________________ test_fixed_published_snapshots ________________________
+
+app_url = 'http://127.0.0.1:4173'
+
+    def test_fixed_published_snapshots(app_url):
+        w = seed(app_url, pages=[("Home", [node("heading", TITLE)]), (CONTACT, [node("text", NOTE)])])
+        api = Api(app_url, w.members[0])
+        data = png()
+        image = api.upload(w.wid, "photo.png", data).json()["id"]
+        root = page_of(api.doc(w.wid), w.page())["root"]["id"]
+        api.ok(w.wid, "insert_node", pageId=w.page(), parentId=root, index=1, type="image",
+               props={"imageId": image, "alt": "Harbour", "focalX": 50, "focalY": 50})
+        store, prefix = S3(), f"snapshots/{w.page()}/"
+        key = uuid.uuid4().hex
+        first = api.publish(w.page(), key)
+        assert first.status_code == 201, first.text
+        pub = first.json()["publishId"]
+        snapshot = store.get(f"{prefix}{pub}.html")
+        assert store.get(f"{prefix}{pub}/assets/{image}") == data
+        page_url = public_url(app_url, first.json()["url"])
+        served = httpx.get(page_url, timeout=HTTP_TIMEOUT_S)
+        assert served.content == snapshot and "HTML" in served.headers["content-type"].upper()
+        asset = httpx.get(f"{page_url}/assets/{image}", timeout=HTTP_TIMEOUT_S)
+        assert asset.content == data and "PNG" in asset.headers["content-type"].upper()
+        count = len(store.keys(prefix))
+        replay = api.publish(w.page(), key)
+        assert replay.status_code == 201 and replay.json()["publishId"] == pub and len(store.keys(prefix)) == count
+        reused = api.publish(w.page(CONTACT), key)
+>       assert reused.status_code == 422 and err(reused) == "idempotency_key_reused"
+E       AssertionError: assert (422 == 422 and 'invalid' == 'idempotency_key_reused'
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+E         
+E         - idempotency_key_reused
+E         + invalid)
+
+test_app.py:2292: AssertionError
+_____________________________ test_storage_outage ______________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_storage_outage(browser, app_url):
+        w = seed(app_url, published=("Home",), pages=[("Home", [node("heading", TITLE)])])
+        api = Api(app_url, w.members[0])
+        live = api.status(w.page())
+        page_url = public_url(app_url, live["url"])
+        before = httpx.get(page_url, timeout=HTTP_TIMEOUT_S).content
+        api.ok(w.wid, "rename_node", nodeId=w.node("Home", TITLE), name=BEFORE_OUTAGE)
+        with editor(browser, app_url, w.members[0], w.wid, query=f"?page={w.page()}&panel=publish") as p:
+            region = p.get_by_role("region", name="Publish")
+            expect(region).to_be_visible()
+            await_state(p, "Live, with unpublished changes")
+            assert post_json(app_url, "/api/grading/storage-outage", {"workspaceId": w.wid, "ms": OUTAGE_MS}).status_code == 200
+            since = mark(p)
+            hit(p, region.get_by_role("button", name="Publish", exact=True))
+>           hit(p, p.get_by_role("dialog", name="Publish page").get_by_role("button", name="Publish now", exact=True))
+
+test_app.py:2325: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:559: in hit
+    click(locator)
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_l5nhgpmp7vgn/edit?page=pg_spis0viqj27v'> selector='internal:role=dialog[name="Publish page"i] >> internal:role=button[name="Publish now"s]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("dialog", name="Publish page").get_by_role("button", name="Publish now", exact=True)
+
+conftest.py:105: AssertionError
+__________________________ test_presence_and_cursors ___________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_presence_and_cursors(browser, app_url):
+        w = seed(app_url, roles=("editor", "editor", "viewer"), pages=[("Home", [node("heading", TITLE)]), (CONTACT, [])])
+        a, b, viewer = w.members
+        with editor(browser, app_url, a, w.wid) as pa:
+            joined(pa, a)
+            since = mark(pa)
+            with editor(browser, app_url, b, w.wid) as pb:
+                joined(pa, b)
+                heard(pa, f"{b.name} joined.", since)
+                first = pa.get_by_role("button", name=re.compile(r", (editing|viewing)$")).first
+                expect(first).to_have_accessible_name(f"{a.name}, editing")
+                with editor(browser, app_url, viewer, w.wid):
+                    joined(pa, viewer, "viewing")
+                box = canvas_of(pb).bounding_box()
+                pb.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 3)
+                advance(pb, STEP_MS)
+                pb.mouse.move(box["x"] + box["width"] / 2 + 8, box["y"] + box["height"] / 3)
+                advance(pb, STEP_MS)
+>               shown = poll(lambda: (c := cursor_of(pa, b.id)) is not None and b.name in c["text"] and c, LIVE_MS / 1000, "pointer shown")
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2384: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+fn = <function test_presence_and_cursors.<locals>.<lambda> at 0xffff7f1c0b80>
+seconds = 1.0, what = 'pointer shown'
+
+    def poll(fn: Callable[[], Any], seconds: float = POLL_S, what: str = "condition") -> Any:
+        deadline = monotonic() + seconds
+        result = None
+        while monotonic() <= deadline:
+            result = fn()
+            if result:
+                return result
+            threading.Event().wait(POLL_INTERVAL_S)
+>       raise AssertionError(f"{what} did not hold within {seconds}s (last: {result!r})")
+E       AssertionError: pointer shown did not hold within 1.0s (last: False)
+
+test_app.py:181: AssertionError
+________________________ test_server_ordered_operations ________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_server_ordered_operations(browser, app_url):
+        w = seed(app_url, roles=("editor", "editor"), pages=[("Home", [node("heading", TITLE)])])
+        a, b = Api(app_url, w.members[0]), Api(app_url, w.members[1])
+        root = page_of(a.doc(w.wid), w.page())["root"]["id"]
+        with editor(browser, app_url, w.members[1], w.wid) as pb:
+            joined(pb, w.members[1])
+            seq0 = a.doc(w.wid)["seq"]
+            body = {"opId": uuid.uuid4().hex, "baseSeq": seq0, "kind": "insert_node", "pageId": w.page(), "parentId": root, "index": 1,
+                    "type": "text", "props": {"text": "Live"}, "name": "Live"}
+            first = a.post(f"/api/workspaces/{w.wid}/operations", body)
+            assert first.status_code == 200, first.text
+            ack = first.json()
+            assert ack["seq"] == seq0 + 1 and re.fullmatch(rf"n_{ID12}", ack["created"]["nodeId"])
+            expect(node_el(pb, "Live")).to_have_attribute("data-node-id", ack["created"]["nodeId"], timeout=LIVE_MS)
+            again = a.post(f"/api/workspaces/{w.wid}/operations", body)
+            assert again.status_code == 200 and again.json()["seq"] == ack["seq"] and again.json()["created"] == ack["created"]
+            assert kids(a.doc(w.wid), root) == [TITLE, "Live"]
+        renamed = b.ok(w.wid, "rename_node", nodeId=w.node("Home", TITLE), name="Renamed")
+        assert renamed["seq"] == seq0 + 2
+        log = a.log(w.wid, seq0)
+        assert [(e["seq"], e["kind"], e["author"]["id"]) for e in log] == [(seq0 + 1, "insert_node", w.members[0].id),
+                                                                           (seq0 + 2, "rename_node", w.members[1].id)]
+        assert log[0]["opId"] == body["opId"] and log[0]["author"]["name"] == w.members[0].name and log[0]["at"]
+>       assert all("baseSeq" not in e for e in log) and log[0]["parentId"] == root and log[0]["type"] == "text"
+                                                        ^^^^^^^^^^^^^^^^^^
+E       KeyError: 'parentId'
+
+test_app.py:2416: KeyError
+_________________________ test_same_property_conflict __________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_same_property_conflict(browser, app_url):
+        w = seed(app_url, roles=("editor", "editor"), pages=[("Home", [node("heading", TITLE)])])
+        a, b = w.members
+        api_b = Api(app_url, b)
+        title = w.node("Home", TITLE)
+        stored = lambda: find(api_b.doc(w.wid), title)[0]["styles"]["desktop"]
+        with editor(browser, app_url, a, w.wid) as pa, editor(browser, app_url, b, w.wid) as pb:
+            joined(pa, b)
+            pick(pa, row(pa, TITLE, "heading"))
+            base = api_b.doc(w.wid)["seq"]
+            since = mark(pa)
+            enter_text(pa, value_box(pa, "color"), "navy")
+            poll(lambda: api_b.doc(w.wid)["seq"] > base, what="A's write accepted")
+            assert api_b.op(w.wid, "set_style", base_seq=base, nodeId=title, breakpoint="desktop", property="color", value="white").status_code == 200
+>           heard(pa, f"{b.name} set color to white at the same time. Their value was kept.", since)
+
+test_app.py:2449: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:642: in heard
+    until(p, "([t, s]) => window.__plinthNotices.slice(s).includes(t)", [notice, since], seconds=seconds)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+page = <Page url='http://127.0.0.1:4173/w/w_1j4hu8u5rzg0/edit?page=pg_op4r3ooiuvch'>
+script = '([t, s]) => window.__plinthNotices.slice(s).includes(t)'
+arg = ['Ada fb87f83e4c set color to white at the same time. Their value was kept.', 1]
+seconds = 20
+
+    def until(page: Page, script: str, arg: Any = None, seconds: float = 30) -> None:
+        deadline = time.monotonic() + seconds
+        while not page.evaluate(script, arg):
+            if time.monotonic() > deadline:
+>               raise AssertionError(f"condition never held: {script}")
+E               AssertionError: condition never held: ([t, s]) => window.__plinthNotices.slice(s).includes(t)
+
+conftest.py:100: AssertionError
+_____________________ test_remote_changes_keep_local_state _____________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_remote_changes_keep_local_state(browser, app_url):
+        w = seed(app_url, roles=("editor", "editor"), pages=[("Home", [node("heading", TITLE, styles={"desktop": {"font-size": "48px"}})])])
+        a, b = w.members
+        other = Api(app_url, b)
+        title = w.node("Home", TITLE)
+        with editor(browser, app_url, a, w.wid) as p:
+            joined(p, a)
+            pick(p, row(p, TITLE, "heading"))
+>           open_fan(p)
+
+test_app.py:2474: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+p = <Page url='http://127.0.0.1:4173/w/w_zjq5z2795gtp/edit?page=pg_i7sggflmjtd1'>
+
+    def open_fan(p: Page) -> None:
+        press(p, "f", FAN_MS + STEP_MS)
+>       expect(canvas_of(p)).to_have_attribute("data-fan", "open")
+E       AssertionError: Locator expected to have attribute 'open'
+E       Actual value: None 
+E       Call log:
+E         - LocatorAssertions.to_have_attribute with timeout 5000ms
+E         -   - waiting for get_by_role("region", name="Canvas", exact=True)
+E         -     9 × locator resolved to <div id="canvas" tabindex="0" role="region" aria-label="Canvas">…</div>
+E         -       - unexpected value "null"
+
+test_app.py:626: AssertionError
+_________________________ test_edits_to_deleted_nodes __________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_edits_to_deleted_nodes(browser, app_url):
+        w = seed(app_url, roles=("editor", "editor"), pages=[("Home", [node("section", HERO, [node("text", INTRO), node("text", OUTRO)])])])
+        a, b = w.members
+        api_a, api_b = Api(app_url, a), Api(app_url, b)
+        relay = Relay()
+        with editor(browser, app_url, a, w.wid, before=relay.attach) as p:
+            joined(p, a)
+            relay.drop = {"op"}
+            api_b.ok(w.wid, "delete_node", nodeId=w.node("Home", INTRO))
+            pick(p, row(p, INTRO, "text"))
+            since = mark(p)
+            press(p, "F2")
+>           fill(p.get_by_role("textbox", name="Name", exact=True), LEAD)
+
+test_app.py:2528: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+conftest.py:133: in fill
+    click(locator)
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_hy1uavmws04g/edit?page=pg_elpedy0991zi'> selector='internal:role=textbox[name="Name"s]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("textbox", name="Name", exact=True)
+
+conftest.py:105: AssertionError
+___________________________ test_personal_undo_redo ____________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_personal_undo_redo(browser, app_url):
+        w = seed(app_url, roles=("editor", "editor"), pages=[("Home", [node("section", HERO, [node("text", INTRO)]), node("heading", TITLE),
+                                                                        node("text", NOTE)])])
+        a, b = Api(app_url, w.members[0]), Api(app_url, w.members[1])
+        root = page_of(a.doc(w.wid), w.page())["root"]["id"]
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            since = mark(p)
+            hit(p, row(p, NOTE, "text"))
+            press(p, "Control+z")
+>           heard(p, "Nothing to undo.", since)
+
+test_app.py:2552: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:642: in heard
+    until(p, "([t, s]) => window.__plinthNotices.slice(s).includes(t)", [notice, since], seconds=seconds)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+page = <Page url='http://127.0.0.1:4173/w/w_j6h8gyl12oth/edit?page=pg_deui7tq5vuy2'>
+script = '([t, s]) => window.__plinthNotices.slice(s).includes(t)'
+arg = ['Nothing to undo.', 0], seconds = 20
+
+    def until(page: Page, script: str, arg: Any = None, seconds: float = 30) -> None:
+        deadline = time.monotonic() + seconds
+        while not page.evaluate(script, arg):
+            if time.monotonic() > deadline:
+>               raise AssertionError(f"condition never held: {script}")
+E               AssertionError: condition never held: ([t, s]) => window.__plinthNotices.slice(s).includes(t)
+
+conftest.py:100: AssertionError
+_______________________ test_version_history_and_preview _______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_version_history_and_preview(browser, app_url):
+        w = seed(app_url, roles=("editor", "viewer"), pages=[("Home", [node("heading", TITLE)])])
+        ed, viewer = w.members
+        api = Api(app_url, ed)
+        first = api.post(f"/api/workspaces/{w.wid}/versions", {"name": FIRST_DRAFT})
+        assert first.status_code == 201
+        api.ok(w.wid, "rename_node", nodeId=w.node("Home", TITLE), name=HEADLINE)
+        second = 2
+        assert api.post(f"/api/workspaces/{w.wid}/versions", {}).json()["name"] == f"Version {second}"
+        versions = api.get(f"/api/workspaces/{w.wid}/versions").json()["versions"]
+        assert [v["name"] for v in versions[:2]] == [f"Version {second}", FIRST_DRAFT]
+        target = versions[1]
+        with editor(browser, app_url, ed, w.wid) as p:
+            top(p, "History").focus()
+            press(p, "Control+Alt+h")
+            items = p.get_by_role("region", name="History").get_by_role("list", name="Versions").get_by_role("link")
+            expect(items).to_have_count(len(versions))
+            assert [re.sub(r"\s+", " ", t).strip() for t in items.all_inner_texts()] == [version_line(v) for v in versions]
+>           hit(p, items.nth(1))
+
+test_app.py:2612: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:559: in hit
+    click(locator)
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_zcngo7qxk4l9/edit?page=pg_uysldf6m3cxr&panel=history'> selector='internal:role=region[name="History"i] >> internal:role=list[name="Versions"i] >> internal:role=link >> nth=1'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+        expect(locator).to_be_visible()
+        expect(locator).to_be_enabled()
+        locator.evaluate("e => e.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'})")
+        box = locator.bounding_box()
+        assert box is not None
+        point = {"x": box["x"] + box["width"] / 2, "y": box["y"] + box["height"] / 2}
+>       assert locator.evaluate(
+            "(e,p) => {const hit=document.elementFromPoint(p.x,p.y);return hit===e||e.contains(hit)}",
+            point,
+        ), "control is obscured at the actual pointer target"
+E       AssertionError: control is obscured at the actual pointer target
+E       assert False
+E        +  where False = evaluate('(e,p) => {const hit=document.elementFromPoint(p.x,p.y);return hit===e||e.contains(hit)}', {'x': 1084.5, 'y': 178.0})
+E        +    where evaluate = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_zcngo7qxk4l9/edit?page=pg_uysldf6m3cxr&panel=history'> selector='internal:role=region[name="History"i] >> internal:role=list[name="Versions"i] >> internal:role=link >> nth=1'>.evaluate
+
+conftest.py:111: AssertionError
+______________________________ test_exact_restore ______________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_exact_restore(browser, app_url):
+        w = seed(app_url, roles=("editor", "editor", "viewer"), fields=[("title", "text")], entries=[{"title": "First"}],
+                 pages=[("Home", [node("heading", TITLE, styles={"tablet": {"font-size": "28px"}}),
+                                  node("collection_list", POSTS, [node("heading", POST_TITLE, bind={"text": "title"})])])])
+        a, b, viewer = w.members
+        api, other = Api(app_url, a), Api(app_url, b)
+        saved = api.post(f"/api/workspaces/{w.wid}/versions", {"name": BASELINE}).json()
+        root = page_of(api.doc(w.wid), w.page())["root"]["id"]
+        added = api.ok(w.wid, "insert_node", pageId=w.page(), parentId=root, index=0, type="text", name=LATER)["created"]["nodeId"]
+        set_token_value(browser, app_url, a, w.wid, "brand", "white")
+        api.ok(w.wid, "clear_style", nodeId=w.node("Home", TITLE), breakpoint="tablet", property="font-size")
+        api.ok(w.wid, "bind_prop", nodeId=w.node("Home", POST_TITLE), prop="text", field=None)
+        thread = other.post(f"/api/workspaces/{w.wid}/comments", {"pageId": w.page(), "nodeId": added, "body": "Keep me"}).json()
+        before = api.doc(w.wid)
+        denied = Api(app_url, viewer).post(f"/api/versions/{saved['id']}/restore")
+        assert denied.status_code == 403 and err(denied) == "forbidden_role"
+        with editor(browser, app_url, b, w.wid) as pb:
+            joined(pb, b)
+            since = mark(pb)
+            r = api.post(f"/api/versions/{saved['id']}/restore")
+            assert r.status_code == 201, r.text
+            heard(pb, f"{a.name} restored {BASELINE}.", since, seconds=LIVE_MS / 1000)
+            expect(node_el(pb, added)).to_have_count(0, timeout=LIVE_MS)
+        restored = api.doc(w.wid)
+        version_doc = api.get(f"/api/versions/{saved['id']}").json()["document"]
+        assert without_seq(restored) == without_seq(version_doc)
+        assert r.json()["seq"] == restored["seq"] and r.json()["version"]["name"] == f"Restored {BASELINE}"
+        assert api.get(f"/api/workspaces/{w.wid}/versions").json()["versions"][0]["name"] == f"Restored {BASELINE}"
+        entry = log_entry(api, w.wid, restored["seq"])
+>       assert entry["kind"] == "restore" and entry["opId"] is None and entry["versionId"] == saved["id"] and entry["versionName"] == BASELINE
+                                                                        ^^^^^^^^^^^^^^^^^^
+E       KeyError: 'versionId'
+
+test_app.py:2660: KeyError
+_________________________ test_pinned_comment_threads __________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_pinned_comment_threads(browser, app_url):
+        w = seed(app_url, roles=("editor", "viewer"), pages=[("Home", [node("section", HERO, [node("text", INTRO)]), node("section", INFO)])])
+        ed, viewer = w.members
+        api, vapi = Api(app_url, ed), Api(app_url, viewer)
+        theirs = seed(app_url, pages=[("Home", [node("text", NOTE)])])
+        intro = w.node("Home", INTRO)
+    
+        def near_corner(pin: Locator, target: Locator) -> bool:
+            pb, nb = pin.bounding_box(), target.bounding_box()
+            cx, cy = pb["x"] + pb["width"] / 2, pb["y"] + pb["height"] / 2
+            return abs(cx - (nb["x"] + nb["width"])) <= pb["width"] and abs(cy - nb["y"]) <= pb["height"]
+        with editor(browser, app_url, viewer, w.wid) as pv, editor(browser, app_url, ed, w.wid) as pe:
+            joined(pv, ed)
+            pick(pv, row(pv, INTRO, "text"))
+            press(pv, "m")
+            composer = pv.get_by_role("region", name="Comments").get_by_role("textbox", name="Comment", exact=True)
+>           expect(composer).to_be_focused()
+E           AssertionError: Locator expected to be focused
+E           Actual value: <element(s) not found> 
+E           Call log:
+E             - LocatorAssertions.to_be_focused with timeout 5000ms
+E             -   - waiting for get_by_role("region", name="Comments").get_by_role("textbox", name="Comment", exact=True)
+
+test_app.py:2684: AssertionError
+______________________________ test_mention_mail _______________________________
+
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffff80ea7890>
+
+    def test_mention_mail(app_url, mail):
+        w = seed(app_url, roles=("editor", "viewer"), pages=[("Home", [node("text", INTRO)])])
+        ed, viewer = w.members
+        vapi = Api(app_url, viewer)
+        outsider = Person.new("outsider")
+        body = f"@{ed.email} {PLEASE_CHECK}, also @{viewer.email} and @{outsider.email}"
+        r = vapi.post(f"/api/workspaces/{w.wid}/comments", {"pageId": w.page(), "nodeId": w.node("Home", INTRO), "body": body})
+        assert r.status_code == 201, r.text
+        [message] = mails_to(mail, ed.email, 1)
+        assert message["Subject"] == f"{viewer.name} mentioned you on Home"
+        content = text(message)
+        assert INTRO in content and PLEASE_CHECK in content
+>       assert re.search(rf"\S+/w/{w.wid}/edit\S*", content)
+E       assert None
+E        +  where None = <function search at 0xffff843037e0>('\\S+/w/w_0cdwigane8cy/edit\\S*', 'Ada a5fb123c6c mentioned you on the node Intro:\n\n"@editor.d7a9f63056@example.com please check, also @viewer.a5fb123c6c@example.com and @outsider.10f9e82590@example.com"\n\nhttp://127.0.0.1:4173/w//edit?page=\n\n')
+E        +    where <function search at 0xffff843037e0> = re.search
+
+test_app.py:2734: AssertionError
+________________________ test_published_page_structure _________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_published_page_structure(browser, app_url):
+        w = seed(app_url, published=("Home",), fields=[("title", "text")], entries=[{"title": "First"}, {"title": SECOND}],
+                 pages=[("Home", [node("nav", LINKS, [node("button", FIRST_LINK), node("button", SECOND_LINK)]),
+                                  node("section", HERO, [node("heading", TITLE), node("heading", SUB, props={"text": SUB, "level": SUB_LEVEL}),
+                                                         node("text", INTRO), node("stack", CARD, [node("button", GO, props={"text": GO, "href": EXTERNAL})])]),
+                                  node("collection_list", POSTS, [node("text", POST_TITLE, bind={"text": "title"})])])])
+        api = Api(app_url, w.owner)
+        entries = [e["id"] for e in sorted(api.doc(w.wid)["collection"]["entries"], key=lambda e: e["order"])]
+        tags = {LINKS: "nav", HERO: "section", TITLE: "h1", SUB: f"h{SUB_LEVEL}", INTRO: "p", CARD: "div", GO: "a", POSTS: "ul"}
+        with visitor(browser, public_url(app_url, api.status(w.page())["url"]), PHONE[0], PHONE[1]) as p:
+            expect(p).to_have_title(f"Home · {w.name}")
+            assert p.evaluate("() => document.documentElement.lang") == "en"
+            expect(p.get_by_role("main")).to_have_count(1)
+            for name, tag in tags.items():
+                found = pub_el(p, w.node("Home", name))
+                assert found is not None and found["tag"] == tag, name
+            assert pub_el(p, w.node("Home", GO))["href"] == EXTERNAL
+            assert pub_el(p, w.node("Home", LINKS))["label"] == "Site"
+            assert pub_el(p, w.node("Home", POSTS))["rows"] == entries
+            for entry in entries:
+                assert pub_el(p, f"{w.node('Home', POST_TITLE)}-{entry}") is not None, entry
+            assert p.evaluate("() => document.scripts.length") <= 1
+            expect(p.get_by_role("region", name="Canvas")).to_have_count(0)
+            press(p, "Tab")
+            skip = p.get_by_role("link", name="Skip to content")
+            expect(skip).to_be_focused()
+            box = skip.bounding_box()
+            assert box and box["width"] > 0 and box["x"] >= 0 and box["y"] >= 0
+            assert skip.get_attribute("href") == "#" + p.get_by_role("main").get_attribute("id")
+            toggle = p.get_by_role("button", name="Menu")
+            expect(toggle).to_have_attribute("aria-expanded", "false")
+            expect(p.get_by_role("link", name=FIRST_LINK)).to_have_count(0)
+            assert FIRST_LINK not in tab_order(p, 6)
+            for width in (NARROW_WIDTH, PHONE[0]):
+                p.set_viewport_size({"width": width, "height": PHONE[1]})
+                layout(p)
+>               assert all(b["width"] >= TAP_PX and b["height"] >= TAP_PX for b in link_targets(p))
+E               assert False
+E                +  where False = all(<generator object test_published_page_structure.<locals>.<genexpr> at 0xffff7fd79220>)
+
+test_app.py:2776: AssertionError
+_________________________ test_reversing_panel_motion __________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_reversing_panel_motion(browser, app_url):
+        w = seed(app_url, published=("Home",), pages=[("Home", [node("nav", LINKS, [node("button", GO)]), node("heading", TITLE)])])
+        url = public_url(app_url, Api(app_url, w.owner).status(w.page())["url"])
+        panel = "style-panel"
+    
+        def reverse(p: Page, button: Locator, target: str, closing_first: bool) -> None:
+            first, then = ("closing", "opening") if closing_first else ("opening", "closing")
+            activate(p, button, PANEL_MS / 2)
+            motion, mid = motion_of(p, target)
+            assert motion == first and 0 < mid < 1
+            press(p, "Enter")
+            motion, back = motion_of(p, target)
+            assert motion == then
+            assert (mid < back <= mid + 2 * STEP_MS / PANEL_MS) if closing_first else (mid - 2 * STEP_MS / PANEL_MS <= back < mid)
+            remaining = (1 - back) if closing_first else back
+            advance(p, remaining * PANEL_MS + STEP_MS)
+            assert motion_of(p, target) == (("open", 1.0) if closing_first else ("closed", 0.0))
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            button = top(p, "Style panel")
+            if button.get_attribute("aria-expanded") != "true":
+                activate(p, button, PANEL_MS + STEP_MS)
+            expect(button).to_have_attribute("aria-expanded", "true")
+            reverse(p, button, panel, closing_first=True)
+            activate(p, button, PANEL_MS + STEP_MS)
+            assert motion_of(p, panel) == ("closed", 0.0) and is_inert(p, panel)
+        with editor(browser, app_url, w.members[0], w.wid, reduced=True) as p:
+            button = top(p, "Style panel")
+            p.evaluate(FX_JS)
+            start = button.get_attribute("aria-expanded") == "true"
+            activate(p, button)
+            assert motion_of(p, panel) == (("closed", 0.0) if start else ("open", 1.0))
+>           assert set(fx(p).get("data-progress", [])) <= {"0.00", "1.00"}
+E           AssertionError: assert {'0.00', '1'} <= {'0.00', '1.00'}
+E             
+E             Extra items in the left set:
+E             '1'
+
+test_app.py:2823: AssertionError
+__________________________ test_editor_layout_widths ___________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_editor_layout_widths(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("heading", TITLE)]), (CONTACT, [])])
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            layout(p)
+            tree_box, canvas_box = tree(p).bounding_box(), canvas_of(p).bounding_box()
+            panel_box = style_panel(p).bounding_box()
+            assert abs(panel_box["width"] - STYLE_PANEL_WIDTH) <= 1 and abs(panel_box["x"] + panel_box["width"] - DESKTOP[0]) <= 1
+            assert tree_box["x"] + tree_box["width"] <= NAVIGATOR_WIDTH + 1 and canvas_box["x"] >= NAVIGATOR_WIDTH - 1
+            assert canvas_box["x"] + canvas_box["width"] <= panel_box["x"] + 1
+            activate(p, top(p, "Style panel"), PANEL_MS + STEP_MS)
+>           assert canvas_of(p).bounding_box()["width"] > canvas_box["width"]
+E           assert 712 > 712
+
+test_app.py:2843: AssertionError
+_________________________ test_wf_place_reorder_happy __________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_place_reorder_happy(browser, app_url):
+        owner = signup(app_url, Person.new("builder"))
+        api = Api(app_url, owner)
+        name = label("Harbour Club")
+        made = api.post("/api/workspaces", {"name": name})
+        assert made.status_code == 201, made.text
+        ws = made.json()
+        assert ws["slug"] == slugify(name) and [(pg["name"], pg["slug"]) for pg in ws["pages"]] == [("Home", "home")]
+        assert api.post("/api/workspaces", {"name": name}).json()["slug"] == f"{slugify(name)}-2"
+        doc = api.doc(ws["id"])
+        assert doc["seq"] == 0 and doc["tokens"] == DEFAULT_TOKENS
+        assert doc["collection"] == {"name": "Entries", "fields": [], "entries": []}
+        home = doc["pages"][0]
+        assert home["root"]["type"] == "page" and home["root"]["name"] == "Home" and home["root"]["children"] == []
+        with editor(browser, app_url, owner, ws["id"]) as p:
+            section_1, heading_1, text_1 = default_name("Section", 1), default_name("Heading", 1), default_name("Text", 1)
+            pick(p, row(p, "Home", "page"))
+            press(p, "a")
+            press(p, "Enter")
+>           expect(row(p, section_1, "section")).to_be_focused()
+E           AssertionError: Locator expected to be focused
+E           Actual value: <element(s) not found> 
+E           Call log:
+E             - LocatorAssertions.to_be_focused with timeout 5000ms
+E             -   - waiting for get_by_role("tree", name="Navigator").get_by_role("treeitem", name="Section 1, section", exact=True)
+
+test_app.py:2890: AssertionError
+________________________ test_wf_place_reorder_refused _________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_place_reorder_refused(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("nav", LINKS, [node("button", GO)]), node("text", LOOSE), node("text", NOTE)])])
+        api = Api(app_url, w.members[0])
+        root = page_of(api.doc(w.wid), w.page())["root"]["id"]
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            hit(p, row(p, LOOSE, "text"))
+            seq = api.doc(w.wid)["seq"]
+            since = mark(p)
+            press(p, "Alt+ArrowRight")
+>           heard(p, f"Can't move {LOOSE} there.", since)
+
+test_app.py:2931: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:642: in heard
+    until(p, "([t, s]) => window.__plinthNotices.slice(s).includes(t)", [notice, since], seconds=seconds)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+page = <Page url='http://127.0.0.1:4173/w/w_j24b5t84pko3/edit?page=pg_pgg9bx3azrfy'>
+script = '([t, s]) => window.__plinthNotices.slice(s).includes(t)'
+arg = ["Can't move Loose there.", 0], seconds = 20
+
+    def until(page: Page, script: str, arg: Any = None, seconds: float = 30) -> None:
+        deadline = time.monotonic() + seconds
+        while not page.evaluate(script, arg):
+            if time.monotonic() > deadline:
+>               raise AssertionError(f"condition never held: {script}")
+E               AssertionError: condition never held: ([t, s]) => window.__plinthNotices.slice(s).includes(t)
+
+conftest.py:100: AssertionError
+______________________ test_wf_keyboard_page_build_happy _______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_keyboard_page_build_happy(browser, app_url):
+        w = seed(app_url)
+        api = Api(app_url, w.members[0])
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            p.evaluate("() => document.activeElement && document.activeElement.blur()")
+            tab_until(p, "() => document.activeElement && document.activeElement.getAttribute('role') === 'treeitem'")
+            press(p, "Enter")
+            section_1, stack_1, text_1 = default_name("Section", 1), default_name("Stack", 1), default_name("Text", 1)
+            for downs, label_, kind in ((0, section_1, "section"), (1, stack_1, "stack"), (2, default_name("Heading", 1), "heading")):
+                press(p, "a")
+                for _ in range(downs):
+                    press(p, "ArrowDown")
+                press(p, "Enter")
+>               expect(row(p, label_, kind)).to_be_focused()
+E               AssertionError: Locator expected to be focused
+E               Actual value: <element(s) not found> 
+E               Call log:
+E                 - LocatorAssertions.to_be_focused with timeout 5000ms
+E                 -   - waiting for get_by_role("tree", name="Navigator").get_by_role("treeitem", name="Section 1, section", exact=True)
+
+test_app.py:2955: AssertionError
+______________________ test_wf_keyboard_page_build_tablet ______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_keyboard_page_build_tablet(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("section", HERO, [node("text", INTRO)])])])
+        api = Api(app_url, w.members[0])
+        with editor(browser, app_url, w.members[0], w.wid, dims=TABLET) as p:
+            canvas = canvas_of(p)
+            tab_until(p, "() => document.activeElement === document.querySelector('#canvas')")
+            intro = node_el(p, w.node("Home", INTRO))
+            for _ in range(4):
+                if intro.get_attribute("data-selected") == "true":
+                    break
+                press(p, "ArrowDown")
+>           expect(intro).to_have_attribute("data-selected", "true")
+E           AssertionError: Locator expected to have attribute 'true'
+E           Actual value: None 
+E           Call log:
+E             - LocatorAssertions.to_have_attribute with timeout 5000ms
+E             -   - waiting for get_by_role("region", name="Canvas", exact=True).get_by_label("Desktop 1280 frame", exact=True).get_by_role("group", name="Intro", exact=True).first
+E             -     9 × locator resolved to <div role="group" aria-label="Intro" data-node-type="text" aria-roledescription="text" data-node-id="n_j5rbr8ooqwew">Intro</div>
+E             -       - unexpected value "null"
+
+test_app.py:3016: AssertionError
+_______________________ test_wf_breakpoint_cascade_happy _______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_breakpoint_cascade_happy(browser, app_url):
+>       cascade_journey(browser, app_url, reduced=False)
+
+test_app.py:3076: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:3046: in cascade_journey
+    open_fan(p)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+p = <Page url='http://127.0.0.1:4173/w/w_s1mcxr2atji3/edit?page=pg_iwzlhdwb8cz5'>
+
+    def open_fan(p: Page) -> None:
+        press(p, "f", FAN_MS + STEP_MS)
+>       expect(canvas_of(p)).to_have_attribute("data-fan", "open")
+E       AssertionError: Locator expected to have attribute 'open'
+E       Actual value: None 
+E       Call log:
+E         - LocatorAssertions.to_have_attribute with timeout 5000ms
+E         -   - waiting for get_by_role("region", name="Canvas", exact=True)
+E         -     9 × locator resolved to <div id="canvas" tabindex="0" role="region" aria-label="Canvas">…</div>
+E         -       - unexpected value "null"
+
+test_app.py:626: AssertionError
+__________________ test_wf_breakpoint_cascade_reduced_motion ___________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_breakpoint_cascade_reduced_motion(browser, app_url):
+>       cascade_journey(browser, app_url, reduced=True)
+
+test_app.py:3080: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:3046: in cascade_journey
+    open_fan(p)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+p = <Page url='http://127.0.0.1:4173/w/w_swxlkstmtejb/edit?page=pg_p1bhxu9nk6qr'>
+
+    def open_fan(p: Page) -> None:
+        press(p, "f", FAN_MS + STEP_MS)
+>       expect(canvas_of(p)).to_have_attribute("data-fan", "open")
+E       AssertionError: Locator expected to have attribute 'open'
+E       Actual value: None 
+E       Call log:
+E         - LocatorAssertions.to_have_attribute with timeout 5000ms
+E         -   - waiting for get_by_role("region", name="Canvas", exact=True)
+E         -     9 × locator resolved to <div id="canvas" tabindex="0" role="region" aria-label="Canvas">…</div>
+E         -       - unexpected value "null"
+
+test_app.py:626: AssertionError
+_______________________ test_wf_token_propagation_happy ________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_token_propagation_happy(browser, app_url):
+        brand = {"desktop": {"color": {"token": "brand"}, "padding": {"token": "space-md"}}}
+        w = seed(app_url, roles=("editor", "editor"), pages=[("Home", [node("heading", TITLE, styles=brand)]), (CONTACT, [node("text", NOTE, styles=brand)])])
+        a, b = w.members
+        api = Api(app_url, a)
+        with editor(browser, app_url, a, w.wid) as pa, editor(browser, app_url, b, w.wid) as pb, \
+                editor(browser, app_url, b, w.wid, query=f"?page={w.page(CONTACT)}") as pc:
+            joined(pb, a)
+            joined(pc, a)
+            top(pa, "Comments").focus()
+            press(pa, "Control+Alt+h")
+            activate(pa, top(pa, "Tokens"))
+            tokens = pa.get_by_role("region", name="Tokens")
+            box = tokens.get_by_role("textbox", name=f"{BRAND['name']} value")
+            box.focus()
+            pa.keyboard.press("Control+a")
+            pa.keyboard.type("white")
+            since = mark(pa)
+            press(pa, "Enter")
+            white = colour(pb, "white")
+            expect(node_el(pb, w.node("Home", TITLE))).to_have_css("color", white, timeout=TOKEN_ROLE_MS)
+            expect(node_el(pc, w.node(CONTACT, NOTE))).to_have_css("color", white, timeout=TOKEN_ROLE_MS)
+            brand, md = BRAND["name"], DEFAULT_TOKENS[2]["name"]
+            heard(pa, f"Token {brand} is now white. {2} uses updated.", since)
+            select(tokens.get_by_role("combobox", name=f"{md} unit"), "rem")
+            advance(pa, STEP_MS)
+>           expect(tokens.get_by_role("textbox", name=f"{md} value")).to_have_value("1")
+E           AssertionError: Locator expected to have Value '1'
+E           Actual value: 16 
+E           Call log:
+E             - LocatorAssertions.to_have_value with timeout 5000ms
+E             -   - waiting for get_by_role("region", name="Tokens").get_by_role("textbox", name="space-md value")
+E             -     9 × locator resolved to <input value="16" type="text" aria-label="space-md value"/>
+E             -       - unexpected value "16"
+
+test_app.py:3109: AssertionError
+_______________________ test_wf_shared_components_happy ________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_shared_components_happy(browser, app_url):
+        w = seed(app_url, roles=("editor", "editor"), pages=[("Home", [node("section", FOOTER, [node("text", FOOTER_TEXT)])]), (CONTACT, [node("section", INFO)])])
+        a, b = w.members
+        api = Api(app_url, a)
+        with editor(browser, app_url, a, w.wid) as pa:
+            pick(pa, row(pa, FOOTER, "section"))
+>           hit(pa, pa.get_by_role("button", name="Create shared component"))
+
+test_app.py:3146: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:559: in hit
+    click(locator)
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_cu4df1kanpip/edit?page=pg_ka9fbhtmmjme'> selector='internal:role=button[name="Create shared component"i]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("button", name="Create shared component")
+
+conftest.py:105: AssertionError
+______________________ test_wf_shared_components_refused _______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_shared_components_refused(browser, app_url):
+        w = footer_world(app_url, roles=("editor",))
+        api = Api(app_url, w.members[0])
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            pick(p, row(p, FOOTER_TEXT, "text"))
+            press(p, "Control+Alt+k")
+>           expect(p.get_by_role("dialog", name="Create shared component")).to_be_visible()
+E           AssertionError: Locator expected to be visible
+E           Actual value: <element(s) not found> 
+E           Call log:
+E             - LocatorAssertions.to_be_visible with timeout 5000ms
+E             -   - waiting for get_by_role("dialog", name="Create shared component")
+
+test_app.py:3183: AssertionError
+_______________________ test_wf_collection_binding_happy _______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_collection_binding_happy(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("collection_list", POSTS, [node("stack", CARD, [node("heading", POST_TITLE), node("text", POST_BODY)])])])])
+        api = Api(app_url, w.members[0])
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            hit(p, top(p, "Collection"))
+            region = p.get_by_role("region", name="Collection")
+            for name, kind in (("title", "Text"), ("body", "Rich text")):
+                fill(region.get_by_role("textbox", name="Field name"), name)
+                select(region.get_by_role("combobox", name="Field kind"), kind)
+                hit(p, region.get_by_role("button", name="Add field"))
+            for number, (title, body) in enumerate((("First", f"<p>Hello</p><script>{XSS_FLAG}=1</script>"), (SECOND, "<p>Hello</p>")), 1):
+>               open_new_entry(p, region, number)
+
+test_app.py:3205: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+p = <Page url='http://127.0.0.1:4173/w/w_5qo190anjqvs/edit?page=pg_p05vprtpdv6y&panel=collection'>
+region = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_5qo190anjqvs/edit?page=pg_p05vprtpdv6y&panel=collection'> selector='internal:role=region[name="Collection"i]'>
+number = 1
+
+    def open_new_entry(p: Page, region: Locator, number: int) -> None:
+        hit(p, region.get_by_role("button", name="Add entry"))
+        box = p.get_by_role("textbox", name="title", exact=True)
+        edit = region.get_by_role("button", name=f"Edit entry {number}", exact=True)
+>       expect(box.or_(edit).first).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("textbox", name="title", exact=True).or_(get_by_role("region", name="Collection").get_by_role("button", name="Edit entry 1", exact=True)).first
+
+test_app.py:901: AssertionError
+__________________________ test_wf_image_focal_happy ___________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_image_focal_happy(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("section", HERO)])])
+        api = Api(app_url, w.members[0])
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            hit(p, top(p, "Images"))
+            since = mark(p)
+            p.get_by_label("Image file").set_input_files({"name": PHOTO, "mimeType": "image/png", "buffer": png()})
+            heard(p, f"Uploaded {PHOTO}.", since)
+            assert said(p, since).index(f"Uploading {PHOTO}.") < said(p, since).index(f"Uploaded {PHOTO}.")
+            pick(p, row(p, HERO, "section"))
+            press(p, "a")
+>           hit(p, menu(p).get_by_role("menuitem", name="Image", exact=True))
+
+test_app.py:3263: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:559: in hit
+    click(locator)
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_mf7ffl3oclc2/edit?page=pg_2yrfcdqmqu78&panel=images'> selector='internal:role=menu[name="Add component"i] >> internal:role=menuitem[name="Image"s]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("menu", name="Add component").get_by_role("menuitem", name="Image", exact=True)
+
+conftest.py:105: AssertionError
+_________________________ test_wf_publish_outage_happy _________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_publish_outage_happy(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("heading", TITLE)])])
+        api = Api(app_url, w.members[0])
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            row(p, TITLE, "heading").focus()
+            press(p, "Control+Alt+p")
+            region = p.get_by_role("region", name="Publish")
+            expect(region).to_be_visible()
+            await_state(p, "Not published")
+            activate(p, region.get_by_role("button", name="Publish", exact=True))
+            dialog = p.get_by_role("dialog", name="Publish page")
+            since = mark(p)
+>           activate(p, dialog.get_by_role("button", name="Publish now", exact=True))
+
+test_app.py:3317: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:564: in activate
+    locator.focus()
+/usr/local/lib/python3.12/site-packages/playwright/sync_api/_generated.py:16584: in focus
+    self._sync(self._impl_obj.focus(timeout=timeout))
+/usr/local/lib/python3.12/site-packages/playwright/_impl/_locator.py:369: in focus
+    return await self._frame.focus(self._selector, strict=True, **params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/site-packages/playwright/_impl/_frame.py:608: in focus
+    await self._channel.send("focus", locals_to_params(locals()))
+/usr/local/lib/python3.12/site-packages/playwright/_impl/_connection.py:61: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <playwright._impl._connection.Connection object at 0xffff80dc2e70>
+cb = <function Channel.send.<locals>.<lambda> at 0xffff7f19ca40>
+is_internal = False
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False
+    ) -> Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        st: List[inspect.FrameInfo] = getattr(task, "__pw_stack__", inspect.stack())
+        parsed_st = _extract_stack_trace_information_from_stack(st, is_internal)
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+>           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.focus: Timeout 5000ms exceeded.
+E           Call log:
+E             - waiting for get_by_role("dialog", name="Publish page").get_by_role("button", name="Publish now", exact=True)
+
+/usr/local/lib/python3.12/site-packages/playwright/_impl/_connection.py:528: TimeoutError
+_______________________ test_wf_publish_outage_instance ________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_publish_outage_instance(browser, app_url):
+        w = seed(app_url, published=("Home",), pages=[("Home", [node("heading", TITLE)])])
+        down = os.environ["APP_MINIO_DOWN_URL"].rstrip("/")
+        api, api_down = Api(app_url, w.members[0]), Api(down, w.members[0])
+        live = api.status(w.page())
+        assert api_down.get(f"/api/workspaces/{w.wid}/storage").json() == {"status": "unavailable"}
+        with editor(browser, app_url, w.members[0], w.wid, query=f"?page={w.page()}&panel=publish", base=down) as p:
+            expect(p.get_by_role("alert").filter(has_text=STORAGE_BANNER)).to_have_count(1)
+            since = mark(p)
+            hit(p, p.get_by_role("region", name="Publish").get_by_role("button", name="Publish", exact=True))
+>           hit(p, p.get_by_role("dialog", name="Publish page").get_by_role("button", name="Publish now", exact=True))
+
+test_app.py:3362: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:559: in hit
+    click(locator)
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4174/w/w_l3r2c0tdanbs/edit?page=pg_lxo7w9zmdyus'> selector='internal:role=dialog[name="Publish page"i] >> internal:role=button[name="Publish now"s]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("dialog", name="Publish page").get_by_role("button", name="Publish now", exact=True)
+
+conftest.py:105: AssertionError
+______________________ test_wf_live_coedit_conflict_happy ______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_live_coedit_conflict_happy(browser, app_url):
+        w = seed(app_url, roles=("editor", "editor"), pages=[("Home", [node("heading", TITLE)])])
+        a, b = w.members
+        api = Api(app_url, a)
+        title = w.node("Home", TITLE)
+        relay = Relay()
+        with editor(browser, app_url, a, w.wid) as pa, editor(browser, app_url, b, w.wid, before=relay.attach) as pb:
+            joined(pa, b)
+            joined(pb, a)
+            box = canvas_of(pb).bounding_box()
+            pb.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+            advance(pb, STEP_MS)
+            pb.mouse.move(box["x"] + box["width"] / 2 + 8, box["y"] + box["height"] / 2)
+            advance(pb, STEP_MS)
+>           poll(lambda: (c := cursor_of(pa, b.id)) is not None and b.name in c["text"], LIVE_MS / 1000, "pointer shown")
+
+test_app.py:3387: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+fn = <function test_wf_live_coedit_conflict_happy.<locals>.<lambda> at 0xffff7f19f1a0>
+seconds = 1.0, what = 'pointer shown'
+
+    def poll(fn: Callable[[], Any], seconds: float = POLL_S, what: str = "condition") -> Any:
+        deadline = monotonic() + seconds
+        result = None
+        while monotonic() <= deadline:
+            result = fn()
+            if result:
+                return result
+            threading.Event().wait(POLL_INTERVAL_S)
+>       raise AssertionError(f"{what} did not hold within {seconds}s (last: {result!r})")
+E       AssertionError: pointer shown did not hold within 1.0s (last: False)
+
+test_app.py:181: AssertionError
+_____________________ test_wf_live_coedit_conflict_deleted _____________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_live_coedit_conflict_deleted(browser, app_url):
+        w = seed(app_url, roles=("editor", "editor"), pages=[("Home", [node("section", HERO, [node("text", INTRO)])])])
+        a, b = w.members
+        api = Api(app_url, a)
+        with editor(browser, app_url, a, w.wid) as pa, editor(browser, app_url, b, w.wid) as pb:
+            joined(pa, b)
+            pick(pa, row(pa, INTRO, "text"))
+            pick(pb, row(pb, INTRO, "text"))
+            press(pb, "Delete")
+>           hit(pb, pb.get_by_role("dialog", name=f"Delete {INTRO}?").get_by_role("button", name="Delete", exact=True))
+
+test_app.py:3421: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:559: in hit
+    click(locator)
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_fbxklc16ja0i/edit?page=pg_a586lkj8v2eo'> selector='internal:role=dialog[name="Delete Intro?"i] >> internal:role=button[name="Delete"s]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("dialog", name="Delete Intro?").get_by_role("button", name="Delete", exact=True)
+
+conftest.py:105: AssertionError
+__________________________ test_wf_undo_restore_happy __________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_undo_restore_happy(browser, app_url):
+        w = seed(app_url, roles=("editor", "editor"), pages=[("Home", [node("heading", TITLE), node("text", NOTE)])])
+        a, b = w.members
+        api, other = Api(app_url, a), Api(app_url, b)
+        title = w.node("Home", TITLE)
+        version = api.post(f"/api/workspaces/{w.wid}/versions", {"name": BASELINE}).json()
+        with editor(browser, app_url, a, w.wid) as pa, editor(browser, app_url, b, w.wid) as pb:
+            joined(pa, b)
+            pick(pa, row(pa, TITLE, "heading"))
+            enter_text(pa, value_box(pa, "color"), "navy")
+>           eventually(lambda: find(api.doc(w.wid), title)[0]["styles"]["desktop"].get("color") == "navy", pa, what="A's style")
+
+test_app.py:3438: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:189: in eventually
+    return poll(probe, seconds, what)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+fn = <function eventually.<locals>.probe at 0xffff7ef4f2e0>, seconds = 15
+what = "A's style"
+
+    def poll(fn: Callable[[], Any], seconds: float = POLL_S, what: str = "condition") -> Any:
+        deadline = monotonic() + seconds
+        result = None
+        while monotonic() <= deadline:
+            result = fn()
+            if result:
+                return result
+            threading.Event().wait(POLL_INTERVAL_S)
+>       raise AssertionError(f"{what} did not hold within {seconds}s (last: {result!r})")
+E       AssertionError: A's style did not hold within 15s (last: False)
+
+test_app.py:181: AssertionError
+_________________________ test_wf_undo_restore_nothing _________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_undo_restore_nothing(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("heading", TITLE)])])
+        api = Api(app_url, w.members[0])
+        seq = api.doc(w.wid)["seq"]
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            hit(p, row(p, TITLE, "heading"))
+            since = mark(p)
+            press(p, "Control+z")
+>           heard(p, "Nothing to undo.", since)
+
+test_app.py:3474: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:642: in heard
+    until(p, "([t, s]) => window.__plinthNotices.slice(s).includes(t)", [notice, since], seconds=seconds)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+page = <Page url='http://127.0.0.1:4173/w/w_xmvujj032ica/edit?page=pg_wyai3cgpu75i'>
+script = '([t, s]) => window.__plinthNotices.slice(s).includes(t)'
+arg = ['Nothing to undo.', 0], seconds = 20
+
+    def until(page: Page, script: str, arg: Any = None, seconds: float = 30) -> None:
+        deadline = time.monotonic() + seconds
+        while not page.evaluate(script, arg):
+            if time.monotonic() > deadline:
+>               raise AssertionError(f"condition never held: {script}")
+E               AssertionError: condition never held: ([t, s]) => window.__plinthNotices.slice(s).includes(t)
+
+conftest.py:100: AssertionError
+________________________ test_wf_comments_threads_happy ________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffff80cb1d00>
+
+    def test_wf_comments_threads_happy(browser, app_url, mail):
+        w = seed(app_url, roles=("editor", "viewer"), pages=[("Home", [node("text", INTRO)])])
+        ed, viewer = w.members
+        with editor(browser, app_url, viewer, w.wid) as pv, editor(browser, app_url, ed, w.wid) as pe:
+            joined(pe, viewer, "viewing")
+            pick(pv, row(pv, INTRO, "text"))
+            press(pv, "m")
+            pv.keyboard.type(f"@{ed.email} have a look")
+            since = mark(pv)
+>           hit(pv, pv.get_by_role("button", name="Post comment"))
+
+test_app.py:3490: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:559: in hit
+    click(locator)
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_b2z9rqeyxyli/edit?page=pg_pxuaryu1wn54'> selector='internal:role=button[name="Post comment"i]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("button", name="Post comment")
+
+conftest.py:105: AssertionError
+________________________ test_wf_comments_threads_phone ________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_comments_threads_phone(browser, app_url):
+        w = seed(app_url, roles=("viewer",), pages=[("Home", [node("text", INTRO)])])
+        viewer = w.members[0]
+        with editor(browser, app_url, viewer, w.wid, dims=PHONE) as p:
+>           tap(node_el(p, w.node("Home", INTRO), "phone"))
+
+test_app.py:3509: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+conftest.py:129: in tap
+    locator.page.touchscreen.tap(*center(locator))
+                                  ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_4het187anebc/edit?page=pg_w53j0h9ndnqy'> selector='internal:role=region[name="Canvas"s] >> internal:label="Phone 375 frame"s >> internal:role=group[name="Intro"s] >> nth=0'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("region", name="Canvas", exact=True).get_by_label("Phone 375 frame", exact=True).get_by_role("group", name="Intro", exact=True).first
+
+conftest.py:105: AssertionError
+_________________________ test_wf_roles_invites_happy __________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffff80cb4c80>
+
+    def test_wf_roles_invites_happy(browser, app_url, mail):
+        owner = Person.new("founder")
+        ed_guest, viewer = Person.new("guest-editor"), signup(app_url, Person.new("guest-viewer"))
+        ws_name = label("Rowing Club")
+        with opened(browser, f"{app_url}/signup") as p:
+            p.set_viewport_size(size(DESKTOP))
+            fill(p.get_by_role("textbox", name="Name", exact=True), owner.name)
+            fill(p.get_by_role("textbox", name="Email", exact=True), owner.email)
+            fill(p.get_by_role("textbox", name="Password", exact=True), owner.password)
+            hit(p, p.get_by_role("button", name="Sign up", exact=True))
+            fill(p.get_by_role("textbox", name="Workspace name"), ws_name)
+            hit(p, p.get_by_role("button", name="Create workspace"))
+            expect(p).to_have_url(re.compile(rf"/w/w_{ID12}/edit"))
+            wid = re.search(rf"/w/(w_{ID12})/edit", p.url).group(1)
+            until(p, "() => !!document.querySelector('#announcer')")
+            watch(p)
+            share = top(p, "Share")
+            activate(p, share)
+            dialog = p.get_by_role("dialog", name=f"Share {ws_name}")
+            for person, role in ((ed_guest, "Editor"), (viewer, "Viewer")):
+                dialog.get_by_role("textbox", name="Email", exact=True).focus()
+                p.keyboard.press("Control+a")
+                p.keyboard.type(person.email)
+                select(dialog.get_by_role("combobox", name="Role", exact=True), role)
+                since = mark(p)
+                activate(p, dialog.get_by_role("button", name="Send invite"))
+                heard(p, f"Invitation sent to {person.email}.", since)
+            members = dialog.get_by_role("list", name="Members")
+            for person in (ed_guest, viewer):
+                expect(members.get_by_role("listitem").filter(has_text=person.email)).to_contain_text("Invited")
+            press(p, "Escape")
+            expect(share).to_be_focused()
+        for person in (ed_guest, viewer):
+            assert len(mails_to(mail, person.email, 1)) == 1
+        token = re.search(rf"^\s*\S+/invites/({INVITE_TOKEN})\s*$", text(mails_to(mail, viewer.email, 1)[0]), re.M).group(1)
+        first_page = Api(app_url, owner).doc(wid)["pages"][0]["id"]
+        with opened(browser, f"{app_url}/signin") as p:
+            signed_in(p, app_url, viewer)
+            p.goto(f"{app_url}/invites/{token}")
+            expect(p).to_have_url(re.compile(rf"/w/{wid}/edit\?page={first_page}$"))
+            until(p, "() => !!document.querySelector('#canvas')")
+>           expect(mode_banner(p, owner.name)).to_be_visible()
+E           AssertionError: Locator expected to be visible
+E           Actual value: <element(s) not found> 
+E           Call log:
+E             - LocatorAssertions.to_be_visible with timeout 5000ms
+E             -   - waiting for get_by_text("Comment mode. Ask Ada b4d8a11f0a for edit access.").first
+
+test_app.py:3571: AssertionError
+_______________________ test_wf_roles_invites_downgrade ________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_roles_invites_downgrade(browser, app_url):
+        w = seed(app_url, roles=("editor",), pages=[("Home", [node("heading", TITLE)])])
+        ed = w.members[0]
+        with editor(browser, app_url, ed, w.wid) as pe, editor(browser, app_url, w.owner, w.wid) as po:
+            joined(pe, ed)
+            expect(top(pe, "Add")).to_be_visible()
+            share = top(po, "Share")
+            activate(po, share)
+            select(po.get_by_role("dialog", name=f"Share {w.name}").get_by_role("combobox", name=f"Role for {ed.email}"), "Viewer")
+            expect(top(pe, "Add")).to_have_count(0, timeout=TOKEN_ROLE_MS)
+>           expect(mode_banner(pe, w.owner.name)).to_be_visible()
+E           AssertionError: Locator expected to be visible
+E           Actual value: <element(s) not found> 
+E           Call log:
+E             - LocatorAssertions.to_be_visible with timeout 5000ms
+E             -   - waiting for get_by_text("Comment mode. Ask Ada 9905a8c0f3 for edit access.").first
+
+test_app.py:3591: AssertionError
+________________________ test_token_applied_by_keyboard ________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_token_applied_by_keyboard(browser, app_url):
+        w = seed(app_url, pages=[("Home", [node("heading", TITLE)])])
+        api = Api(app_url, w.members[0])
+        title = w.node("Home", TITLE)
+        with editor(browser, app_url, w.members[0], w.wid) as p:
+            activate(p, top(p, "Tokens"))
+            tokens = p.get_by_role("region", name="Tokens")
+            tokens.get_by_role("textbox", name="New token name").focus()
+            p.keyboard.type(ACCENT)
+            advance(p, STEP_MS)
+            select(tokens.get_by_role("combobox", name="New token kind"), "Color")
+            advance(p, STEP_MS)
+            activate(p, tokens.get_by_role("button", name="Add token", exact=True))
+            eventually(lambda: {"name": ACCENT, "kind": "color", "value": "black"} in api.doc(w.wid)["tokens"], p, what="token added")
+>           enter_text(p, tokens.get_by_role("textbox", name=f"{ACCENT} value"), "tomato")
+
+test_app.py:3612: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:569: in enter_text
+    fill(locator, value)
+conftest.py:133: in fill
+    click(locator)
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/w/w_obc2l34whet7/edit?page=pg_h5jvk9k3w8g7&panel=tokens'> selector='internal:role=region[name="Tokens"i] >> internal:role=textbox[name="accent value"i]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("region", name="Tokens").get_by_role("textbox", name="accent value")
+
+conftest.py:105: AssertionError
+_______________________ test_publish_status_phone_sheet ________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_publish_status_phone_sheet(browser, app_url):
+        w = seed(app_url, roles=("editor", "viewer"), published=("Home",), pages=[("Home", [node("heading", TITLE)])])
+        ed, viewer = w.members
+        api = Api(app_url, ed)
+        live = api.status(w.page())["url"]
+        for person in (ed, viewer):
+            with editor(browser, app_url, person, w.wid, dims=PHONE) as p:
+                layout(p)
+                opener = p.get_by_role("toolbar", name="Preview tools").get_by_role("button", name="Publish status", exact=True)
+                activate(p, opener)
+                expect(p.get_by_text("Live", exact=True).first).to_be_visible()
+                address = p.get_by_role("link", name=live, exact=True)
+                expect(address).to_be_visible()
+                box = address.bounding_box()
+                assert box["x"] >= 0 and box["x"] + box["width"] <= PHONE[0] + 1
+                for name in ("Publish", "Publish now", "Unpublish"):
+                    expect(p.get_by_role("button", name=name, exact=True)).to_have_count(0)
+                press(p, "Escape")
+>               expect(opener).to_be_focused()
+E               AssertionError: Locator expected to be focused
+E               Actual value: False 
+E               Call log:
+E                 - LocatorAssertions.to_be_focused with timeout 5000ms
+E                 -   - waiting for get_by_role("toolbar", name="Preview tools").get_by_role("button", name="Publish status", exact=True)
+E                 -     9 × locator resolved to <button id="pt-publish">Publish status</button>
+E                 -       - unexpected value "not focused"
+
+test_app.py:3677: AssertionError
+______________________ test_comment_composer_keeps_typing ______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_comment_composer_keeps_typing(browser, app_url):
+        w = seed(app_url, roles=("viewer",), pages=[("Home", [node("text", INTRO)])])
+        viewer = w.members[0]
+        typed = "a fan m"
+        with editor(browser, app_url, viewer, w.wid) as p:
+            row(p, INTRO, "text").focus()
+            press(p, "Enter")
+            press(p, "m")
+            composer = p.get_by_role("region", name="Comments").get_by_role("textbox", name="Comment", exact=True)
+>           expect(composer).to_be_focused()
+E           AssertionError: Locator expected to be focused
+E           Actual value: <element(s) not found> 
+E           Call log:
+E             - LocatorAssertions.to_be_focused with timeout 5000ms
+E             -   - waiting for get_by_role("region", name="Comments").get_by_role("textbox", name="Comment", exact=True)
+
+test_app.py:3693: AssertionError
+____________________ test_wf_comments_threads_phone_resolve ____________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_comments_threads_phone_resolve(browser, app_url):
+        w = seed(app_url, roles=("editor", "viewer"), pages=[("Home", [node("text", INTRO)])])
+        ed, viewer = w.members
+        created = Api(app_url, viewer).post(f"/api/workspaces/{w.wid}/comments", {"pageId": w.page(), "nodeId": w.node("Home", INTRO), "body": LOOKS_GOOD})
+        assert created.status_code == 201
+        name = f"Comment by {viewer.name} on {INTRO}"
+        with editor(browser, app_url, ed, w.wid) as pe, editor(browser, app_url, viewer, w.wid, dims=PHONE) as pv:
+            pin = pe.get_by_role("button", name=name, exact=True)
+            expect(pin).to_have_count(1)
+            tap(pv.get_by_role("toolbar", name="Preview tools").get_by_role("button", name="Comments", exact=True))
+            advance(pv, STEP_MS)
+            sheet = pv.get_by_role("dialog", name="Comments")
+            thread = sheet.get_by_role("article", name=name)
+            expect(thread).to_contain_text(LOOKS_GOOD)
+            resolve = thread.get_by_role("button", name="Resolve")
+            box = resolve.bounding_box()
+            assert box["width"] >= TAP_PX and box["height"] >= TAP_PX
+            tap(resolve)
+            advance(pv, STEP_MS)
+>           expect(sheet.get_by_role("heading", name=f"Resolved ({1})")).to_be_visible()
+E           AssertionError: Locator expected to be visible
+E           Actual value: <element(s) not found> 
+E           Call log:
+E             - LocatorAssertions.to_be_visible with timeout 5000ms
+E             -   - waiting for get_by_role("dialog", name="Comments").get_by_role("heading", name="Resolved (1)")
+
+test_app.py:3729: AssertionError
+=========================== short test summary info ============================
+FAILED test_app.py::test_accounts_and_sign_in - AssertionError: Locator expec...
+FAILED test_app.py::test_single_use_invitations - AssertionError: assert 'Ada...
+FAILED test_app.py::test_immediate_role_changes - AssertionError: Locator exp...
+FAILED test_app.py::test_workspace_isolation - AssertionError: ('GET', URL('h...
+FAILED test_app.py::test_add_menu_insert - AssertionError: Locator expected t...
+FAILED test_app.py::test_palette_drag_drop_indicator - AssertionError: contro...
+FAILED test_app.py::test_keyboard_reorder - AssertionError: condition never h...
+FAILED test_app.py::test_navigator_tree_semantics - AssertionError: Locator e...
+FAILED test_app.py::test_rename_duplicate_delete - AssertionError: Locator ex...
+FAILED test_app.py::test_keyboard_scope_and_tab_order - AssertionError: asser...
+FAILED test_app.py::test_navigator_drawer - AssertionError: Locator expected ...
+FAILED test_app.py::test_breakpoint_inheritance - AssertionError: Locator exp...
+FAILED test_app.py::test_breakpoint_control_and_style_rows - AssertionError: ...
+FAILED test_app.py::test_cascade_fan_sequence - AssertionError: Locator expec...
+FAILED test_app.py::test_cascade_fan_pips - AssertionError: Locator expected ...
+FAILED test_app.py::test_cascade_ripple - AssertionError: Locator expected to...
+FAILED test_app.py::test_reduced_motion_fan - AssertionError: assert (None, n...
+FAILED test_app.py::test_published_breakpoint_boundaries - AssertionError: Lo...
+FAILED test_app.py::test_tokens_and_units - AssertionError: Locator expected ...
+FAILED test_app.py::test_live_token_propagation - AssertionError: Locator exp...
+FAILED test_app.py::test_create_and_insert_shared_component - AssertionError:...
+FAILED test_app.py::test_shared_edits_reach_every_instance - AssertionError: ...
+FAILED test_app.py::test_detach_and_component_deletion - AssertionError: Loca...
+FAILED test_app.py::test_collection_fields_and_entries - AssertionError: Loca...
+FAILED test_app.py::test_bound_collection_lists - AssertionError: Locator exp...
+FAILED test_app.py::test_progress_and_result_announcements - AssertionError: ...
+FAILED test_app.py::test_image_placement_and_focal_point - AssertionError: Lo...
+FAILED test_app.py::test_publish_states_and_unpublish - AssertionError: condi...
+FAILED test_app.py::test_fixed_published_snapshots - AssertionError: assert (...
+FAILED test_app.py::test_storage_outage - AssertionError: Locator expected to...
+FAILED test_app.py::test_presence_and_cursors - AssertionError: pointer shown...
+FAILED test_app.py::test_server_ordered_operations - KeyError: 'parentId'
+FAILED test_app.py::test_same_property_conflict - AssertionError: condition n...
+FAILED test_app.py::test_remote_changes_keep_local_state - AssertionError: Lo...
+FAILED test_app.py::test_edits_to_deleted_nodes - AssertionError: Locator exp...
+FAILED test_app.py::test_personal_undo_redo - AssertionError: condition never...
+FAILED test_app.py::test_version_history_and_preview - AssertionError: contro...
+FAILED test_app.py::test_exact_restore - KeyError: 'versionId'
+FAILED test_app.py::test_pinned_comment_threads - AssertionError: Locator exp...
+FAILED test_app.py::test_mention_mail - assert None
+FAILED test_app.py::test_published_page_structure - assert False
+FAILED test_app.py::test_reversing_panel_motion - AssertionError: assert {'0....
+FAILED test_app.py::test_editor_layout_widths - assert 712 > 712
+FAILED test_app.py::test_wf_place_reorder_happy - AssertionError: Locator exp...
+FAILED test_app.py::test_wf_place_reorder_refused - AssertionError: condition...
+FAILED test_app.py::test_wf_keyboard_page_build_happy - AssertionError: Locat...
+FAILED test_app.py::test_wf_keyboard_page_build_tablet - AssertionError: Loca...
+FAILED test_app.py::test_wf_breakpoint_cascade_happy - AssertionError: Locato...
+FAILED test_app.py::test_wf_breakpoint_cascade_reduced_motion - AssertionErro...
+FAILED test_app.py::test_wf_token_propagation_happy - AssertionError: Locator...
+FAILED test_app.py::test_wf_shared_components_happy - AssertionError: Locator...
+FAILED test_app.py::test_wf_shared_components_refused - AssertionError: Locat...
+FAILED test_app.py::test_wf_collection_binding_happy - AssertionError: Locato...
+FAILED test_app.py::test_wf_image_focal_happy - AssertionError: Locator expec...
+FAILED test_app.py::test_wf_publish_outage_happy - playwright._impl._errors.T...
+FAILED test_app.py::test_wf_publish_outage_instance - AssertionError: Locator...
+FAILED test_app.py::test_wf_live_coedit_conflict_happy - AssertionError: poin...
+FAILED test_app.py::test_wf_live_coedit_conflict_deleted - AssertionError: Lo...
+FAILED test_app.py::test_wf_undo_restore_happy - AssertionError: A's style di...
+FAILED test_app.py::test_wf_undo_restore_nothing - AssertionError: condition ...
+FAILED test_app.py::test_wf_comments_threads_happy - AssertionError: Locator ...
+FAILED test_app.py::test_wf_comments_threads_phone - AssertionError: Locator ...
+FAILED test_app.py::test_wf_roles_invites_happy - AssertionError: Locator exp...
+FAILED test_app.py::test_wf_roles_invites_downgrade - AssertionError: Locator...
+FAILED test_app.py::test_token_applied_by_keyboard - AssertionError: Locator ...
+FAILED test_app.py::test_publish_status_phone_sheet - AssertionError: Locator...
+FAILED test_app.py::test_comment_composer_keeps_typing - AssertionError: Loca...
+FAILED test_app.py::test_wf_comments_threads_phone_resolve - AssertionError: ...
+================== 68 failed, 16 passed in 454.44s (0:07:34) ===================
