@@ -1,0 +1,1221 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "upload-queue",
+    "queue-recovery",
+    "catalogue-browse",
+    "model-viewer",
+    "licence-checkout",
+    "staff-refunds",
+    "limited-edition",
+    "visibility-sharing",
+    "plan-change",
+    "contributor-review",
+    "collections-export",
+    "read-api",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 88
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "killbill", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Turnstone Studio <studio@ashgrove.test>" } },
+    { name = "meilisearch", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 5
+B11 = 3
+B12 = 5
+B13 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "search-down"
+port = 4174
+url_env = "APP_SEARCH_DOWN_URL"
+
+[outages.env]
+MEILISEARCH_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_searchdown"
+S3_BUCKET = "${S3_BUCKET}-searchdown"
+STUDIO_INSTANCE = "searchdown"
+QUEUE_RETRY_SECONDS = "2,4,6"
+
+[[outages]]
+id = "storage-down"
+port = 4175
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_storagedown"
+MEILISEARCH_INDEX = "models_storagedown"
+STUDIO_INSTANCE = "storagedown"
+QUEUE_RETRY_SECONDS = "2,4,6"
+
+[[outages]]
+id = "killbill-down"
+port = 4176
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_billingdown"
+S3_BUCKET = "${S3_BUCKET}-billingdown"
+MEILISEARCH_INDEX = "models_billingdown"
+STUDIO_INSTANCE = "billingdown"
+QUEUE_RETRY_SECONDS = "2,4,6"
+
+[[requirements]]
+id = "DP-01"
+title = "Plan-checked package limits."
+text = "The server refuses a package over the author's plan size limit, or of a type the plan doesn't accept, before any queue work starts, as qualified in API and Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "upload-queue"
+tests = [
+    "test_app.py::test_upload_plan_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Package type judged by content."
+text = "The server identifies a package by its bytes, not its file name, refuses a .glb that isn't a glTF binary with the published refusal, and refuses packages whose entries escape their folder."
+kind = "behavior"
+primary = "pytest"
+workflow = "upload-queue"
+tests = [
+    "test_app.py::test_wf_upload_queue_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Original stored byte for byte."
+text = "Every accepted package is stored in object storage under its content checksum exactly as uploaded, and downloading the original returns the same bytes and checksum whatever its derivatives went through."
+kind = "behavior"
+primary = "pytest"
+workflow = "upload-queue"
+tests = [
+    "test_app.py::test_original_stored_byte_for_byte",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Ordered publishing queue."
+text = "Each upload passes validate, transcode, preview, index and publish in that order, each stage pending, running, confirmed or failed, and nothing a stage produces is served before that stage confirms."
+kind = "behavior"
+primary = "pytest"
+workflow = "upload-queue"
+tests = [
+    "test_app.py::test_queue_stage_order",
+    "test_app.py::test_queue_holds_until_confirmed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Unit-scaled derivatives."
+text = "The transcode stage writes a GLB in metres and a binary STL in millimetres, scaled from the declared source unit by the published factors."
+kind = "behavior"
+primary = "pytest"
+workflow = "upload-queue"
+tests = [
+    "test_app.py::test_unit_scaled_derivatives",
+]
+criteria = []
+parameter_cases = [
+    "mm",
+    "cm",
+    "m",
+    "in",
+]
+
+[[requirements]]
+id = "DP-06"
+title = "Rebuilds never serve stale files."
+text = "Replacing a model's source invalidates its GLB, STL and preview at once so no outdated file is served again, and until the new revision's publish stage confirms every public and buyer route that would serve them answers the published rebuilding response, as qualified in API for studio sessions."
+kind = "behavior"
+primary = "pytest"
+workflow = "upload-queue"
+tests = [
+    "test_app.py::test_rebuild_never_serves_stale",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Upload lands on its queue page."
+text = "After an upload from the studio the address bar shows that model's queue page, each stage confirmation is announced in the queue live region, and reloading the address shows the same queue."
+kind = "behavior"
+primary = "workflow"
+workflow = "upload-queue"
+tests = [
+    "test_app.py::test_wf_upload_queue_publish",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Published retry schedule."
+text = "A queue stage that fails on a dependency is retried on the published schedule, then marked failed, and the author can requeue a failed upload."
+kind = "behavior"
+primary = "pytest"
+workflow = "queue-recovery"
+tests = [
+    "test_app.py::test_queue_retry_schedule",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Storage and search outages."
+text = "When object storage or search is unreachable the studio shows the published outage banner, the affected endpoints answer the published 503 responses, and queue work waits on the retry schedule and resumes without a restart when the service returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "queue-recovery"
+tests = [
+    "test_app.py::test_wf_queue_recovery_outages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Requeue a failed upload."
+text = "The author sees a failed stage on the queue page, presses Requeue and watches the stages run again with each change announced."
+kind = "behavior"
+primary = "workflow"
+workflow = "queue-recovery"
+tests = [
+    "test_app.py::test_wf_queue_recovery_requeue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Faceted public catalogue."
+text = "The catalogue searches only indexed public models with category, licence and format facets, three sort orders and eight results per page, and returns facet counts for the current result set."
+kind = "behavior"
+primary = "pytest"
+workflow = "catalogue-browse"
+tests = [
+    "test_app.py::test_catalogue_facets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Catalogue state lives in the address."
+text = "Search text, facets, sort and page are kept in the address, Back and Forward restore them, and a cold load of the same address shows the same results."
+kind = "behavior"
+primary = "pytest"
+workflow = "catalogue-browse"
+tests = [
+    "test_app.py::test_wf_catalogue_browse_address_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Facet changes update in place."
+text = "Changing a facet, the sort or the search updates the result grid and facet counts without a page reload and announces the published result-count copy in the catalogue live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "catalogue-browse"
+tests = [
+    "test_app.py::test_wf_catalogue_browse_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Catalogue breakpoints."
+text = "The catalogue and model page switch layout exactly at 768 and 1280 pixels wide as described in Screens and layout, with no horizontal overflow."
+kind = "behavior"
+primary = "pytest"
+workflow = "catalogue-browse"
+tests = [
+    "test_app.py::test_catalogue_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "767x1024",
+    "768x1024",
+    "1279x800",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-15"
+title = "Browse to a model and back."
+text = "A visitor filters, sorts and pages through the catalogue, opens a model, returns with Back to the same page of results, and finds the model reachable at its deep link."
+kind = "behavior"
+primary = "workflow"
+workflow = "catalogue-browse"
+tests = [
+    "test_app.py::test_wf_catalogue_browse_to_model",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Survey Ring camera readout."
+text = "The viewer root publishes the camera's distance, field of view, tilt and azimuth computed and clamped by the published viewer geometry, and the ring's numerals and index mark show the same values."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-viewer"
+tests = [
+    "test_app.py::test_viewer_camera_readout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Keyboard and touch viewer controls."
+text = "The published keys, drags, wheel and pinch move the camera in the published steps, the keys work whichever viewer control has focus, and a visible focus ring follows the published tab order."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-viewer"
+tests = [
+    "test_app.py::test_wf_model_viewer_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Hotspots and caliper line."
+text = "Stepping between hotspots turns the camera to each hotspot, publishes its projected screen point, draws the caliper line to it and announces it in the viewer live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-viewer"
+tests = [
+    "test_app.py::test_viewer_hotspots",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "First-person heading mode."
+text = "First-person mode replaces the ring with a heading strip, places the eye at the published scaled eye height, leaves the heading unclamped and clamps the pitch."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-viewer"
+tests = [
+    "test_app.py::test_viewer_first_person",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Viewer motion and reduced motion."
+text = "Camera steps tween for about a fifth of a second and hotspot moves and resets for about a third, and under reduced motion every camera change, numeral and caliper snaps to its end value with identical attributes and announcements."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-viewer"
+tests = [
+    "test_app.py::test_wf_model_viewer_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "No-acceleration fallback."
+text = "When the browser can't create a hardware-accelerated 3D context the viewer shows the rendered preview image and the published fallback sentence, and the ring still shows the default camera's values."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-viewer"
+tests = [
+    "test_app.py::test_viewer_no_webgl_fallback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Survey Ring craft."
+text = "The Survey Ring reads as a calibrated measuring instrument: hairline ticks, mono numerals with units, and vermilion only on the index mark, the caliper line and the active hotspot."
+kind = "visual"
+primary = "rubric"
+workflow = "model-viewer"
+tests = []
+criteria = [
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Author sets the default view."
+text = "The author orbits a model in the studio viewer, saves the default view, places and labels hotspots, saves them, and the public model page opens on that view with those hotspots."
+kind = "behavior"
+primary = "workflow"
+workflow = "model-viewer"
+tests = [
+    "test_app.py::test_wf_model_viewer_default_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "One money computation."
+text = "Every amount is computed once in integer euro cents with half-up rounding at the published step, displayed in the viewer's locale format, and identical on screen, in Kill Bill, on the invoice PDF and in email."
+kind = "behavior"
+primary = "pytest"
+workflow = "licence-checkout"
+tests = [
+    "test_app.py::test_money_one_computation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Licence purchase recorded in Kill Bill."
+text = "A checkout records one external charge and one successful PURCHASE payment for the exact amount on the buyer's Kill Bill account before the receipt exists."
+kind = "behavior"
+primary = "pytest"
+workflow = "licence-checkout"
+tests = [
+    "test_app.py::test_checkout_recorded_in_killbill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Idempotent checkout."
+text = "Repeating a checkout with the same Idempotency-Key and body returns the identical status and body with exactly one Kill Bill charge, and reusing the key with a different body answers the published 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "licence-checkout"
+tests = [
+    "test_app.py::test_wf_licence_checkout_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Receipt email and invoice agree."
+text = "After Kill Bill confirms, the buyer receives one receipt email in their checkout locale, and the receipt's invoice PDF repeats the same amount."
+kind = "behavior"
+primary = "pytest"
+workflow = "licence-checkout"
+tests = [
+    "test_app.py::test_receipt_email_and_invoice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Licence upgrade charges the difference."
+text = "A buyer upgrades a personal or commercial licence from its receipt and is charged the target licence's current price minus what the earlier order paid net of refunds."
+kind = "behavior"
+primary = "pytest"
+workflow = "licence-checkout"
+tests = [
+    "test_app.py::test_licence_upgrade",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Keyboard checkout to the receipt page."
+text = "A visitor using only the keyboard opens checkout from the licence table, completes the dialog in the published tab order, and lands on the receipt page with focus on its heading."
+kind = "behavior"
+primary = "workflow"
+workflow = "licence-checkout"
+tests = [
+    "test_app.py::test_wf_licence_checkout_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Staff order lookup and health."
+text = "Staff find orders by buyer email or order reference and see each service's up or down status and the queue counts, with no credential, provider URL or internal identifier in any response."
+kind = "behavior"
+primary = "pytest"
+workflow = "staff-refunds"
+tests = [
+    "test_app.py::test_staff_lookup_and_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Full and seat-prorated refunds."
+text = "Staff refund a whole order or, for a studio licence, some of its seats at the published proration; each refund is recorded as a Kill Bill REFUND, is idempotent, and sends one refund email after Kill Bill confirms."
+kind = "behavior"
+primary = "pytest"
+workflow = "staff-refunds"
+tests = [
+    "test_app.py::test_wf_staff_refunds_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Refund a buyer."
+text = "Staff look up a buyer's order, refund one seat and then the rest, and the order screen announces each refunded amount and shows the matching status."
+kind = "behavior"
+primary = "workflow"
+workflow = "staff-refunds"
+tests = [
+    "test_app.py::test_wf_staff_refunds_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "One winner for the last copy."
+text = "When several checkouts claim the last copy of a limited edition at the same moment, exactly one gets it and every other answers the published sold-out refusal."
+kind = "behavior"
+primary = "pytest"
+workflow = "limited-edition"
+tests = [
+    "test_app.py::test_wf_limited_edition_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Live edition availability."
+text = "The edition counter on the model page updates within two seconds of any sale without a reload, and an open checkout dialog for a sold-out edition shows the sold-out refusal live."
+kind = "behavior"
+primary = "pytest"
+workflow = "limited-edition"
+tests = [
+    "test_app.py::test_edition_live_availability",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Buy a numbered copy."
+text = "A visitor buys an edition copy and lands on a receipt naming the copy number and edition size."
+kind = "behavior"
+primary = "workflow"
+workflow = "limited-edition"
+tests = [
+    "test_app.py::test_wf_limited_edition_buy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Visibility holds on every derived surface."
+text = "Private, unlisted, password-protected, withdrawn and over-limit models never appear in the search index, results, facet counts, recommendations, catalogue export or read API."
+kind = "behavior"
+primary = "pytest"
+workflow = "visibility-sharing"
+tests = [
+    "test_app.py::test_visibility_derived_surfaces",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Unlisted share links."
+text = "An unlisted model is reachable only through its share link, and regenerating the link makes the old one answer not found at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "visibility-sharing"
+tests = [
+    "test_app.py::test_wf_visibility_sharing_share_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Password-protected models."
+text = "A password-protected model reveals its page, files and checkout only after the correct password, and changing the password, withdrawing the model or making it read-only ends every earlier unlock."
+kind = "behavior"
+primary = "pytest"
+workflow = "visibility-sharing"
+tests = [
+    "test_app.py::test_password_models",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Embeds follow entitlement."
+text = "An embed shows its model only while the model is published, public or unlisted, within plan, and the active plan includes embeds; otherwise it shows the published unavailable page."
+kind = "behavior"
+primary = "pytest"
+workflow = "visibility-sharing"
+tests = [
+    "test_app.py::test_embeds_follow_entitlement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Change a model's visibility."
+text = "The author switches a model between public, unlisted, private and password-protected in the studio, and the catalogue counts and share controls reflect each change."
+kind = "behavior"
+primary = "workflow"
+workflow = "visibility-sharing"
+tests = [
+    "test_app.py::test_wf_visibility_sharing_studio",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Plan comes from Kill Bill."
+text = "The plan the studio shows and enforces is the plan Kill Bill reports as active, and a change made in Kill Bill takes effect in the app within twenty seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "plan-change"
+tests = [
+    "test_app.py::test_plan_from_killbill",
+    "test_app.py::test_plan_follows_killbill_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Upgrades apply at once with proration."
+text = "An upgrade takes effect immediately, and the prorated amount Kill Bill invoiced is shown and emailed to the author."
+kind = "behavior"
+primary = "pytest"
+workflow = "plan-change"
+tests = [
+    "test_app.py::test_plan_upgrade",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Downgrades wait for the confirmed date."
+text = "A downgrade changes no quota, read-only state or embed until the effective date Kill Bill confirmed, and on that date over-limit models become read-only and capabilities above the new plan stop everywhere."
+kind = "behavior"
+primary = "pytest"
+workflow = "plan-change"
+tests = [
+    "test_app.py::test_wf_plan_change_downgrade_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Publish quota per billing cycle."
+text = "Each move to published uses one publish from the plan's quota for the current billing cycle, and the quota badge shows the count and the reset date taken from Kill Bill."
+kind = "behavior"
+primary = "pytest"
+workflow = "plan-change"
+tests = [
+    "test_app.py::test_publish_quota",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Change plan from the plan page."
+text = "The author changes plan in a confirmation dialog, stays on /studio/plan, and sees the published notice for that change."
+kind = "behavior"
+primary = "workflow"
+workflow = "plan-change"
+tests = [
+    "test_app.py::test_wf_plan_change_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Model state machine."
+text = "Models move only along the published legal edges by the published roles, every illegal move answers the published refusal, and studio controls are enabled only in states that allow them."
+kind = "behavior"
+primary = "pytest"
+workflow = "contributor-review"
+tests = [
+    "test_app.py::test_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Contributors reach only their own drafts."
+text = "A contributor who names any model other than their own, in a route or in a request body, gets the published not-found response."
+kind = "behavior"
+primary = "pytest"
+workflow = "contributor-review"
+tests = [
+    "test_app.py::test_wf_contributor_review_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Texture set submissions."
+text = "A contributor attaches a ZIP of PNG and JPEG images to their own draft, checked entry by entry by content and stored byte for byte."
+kind = "behavior"
+primary = "pytest"
+workflow = "contributor-review"
+tests = [
+    "test_app.py::test_texture_sets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Review a contributor draft."
+text = "A contributor submits a draft for review, the editor publishes it or returns it to draft, and a stale control shows the exact illegal-move refusal."
+kind = "behavior"
+primary = "workflow"
+workflow = "contributor-review"
+tests = [
+    "test_app.py::test_wf_contributor_review_stale",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Counters agree with their rows."
+text = "Collection item counts, catalogue totals and the quota badge equal a recount of the underlying records after every create, move, delete, state change and failed queue job."
+kind = "behavior"
+primary = "pytest"
+workflow = "collections-export"
+tests = [
+    "test_app.py::test_counters_agree",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Public catalogue export."
+text = "The author downloads a CSV of exactly the models the public catalogue shows, with spreadsheet formula characters neutralised by the published rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "collections-export"
+tests = [
+    "test_app.py::test_wf_collections_export_csv",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Curate collections."
+text = "The author or editor creates a collection, adds models, moves one to another collection and deletes one, and every count on screen updates after each action."
+kind = "behavior"
+primary = "workflow"
+workflow = "collections-export"
+tests = [
+    "test_app.py::test_wf_collections_export_curate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Read API published surface."
+text = "The read API exposes only its two published routes and published fields, refuses unknown query parameters, and answers 404, 405 and 415 outside its surface."
+kind = "behavior"
+primary = "pytest"
+workflow = "read-api"
+tests = [
+    "test_app.py::test_wf_read_api_surface",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Read API keys and rate limits."
+text = "Read API keys are issued and revoked by the author, limited per plan, and rate-limited per key with a Retry-After hint."
+kind = "behavior"
+primary = "pytest"
+workflow = "read-api"
+tests = [
+    "test_app.py::test_wf_read_api_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Sign-in and role landing routes."
+text = "Signing in lands each role on its published route, and every studio, contributor and staff route refuses other roles."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+criteria = []
+parameter_cases = [
+    "author",
+    "editor",
+    "contributor",
+    "staff",
+]
+
+[[requirements]]
+id = "DP-56"
+title = "Two locales."
+text = "Every screen, amount and date renders in English or German in the published formats, switching keeps the reading position, and the address carries the choice so a cold load reads in the same locale."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_locales",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Studio dashboard breakpoints."
+text = "The studio dashboard switches layout exactly at 768 and 1280 pixels wide as described in Screens and layout, with no horizontal overflow."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_studio_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "767x1024",
+    "768x1024",
+    "1279x800",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-58"
+title = "Server boundary."
+text = "The server applies the published request limits, accepts state changes only from its own origin, serves no source, configuration or credential files, and starts and recovers with any provider unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Drafting-table visual identity."
+text = "Every screen uses the bone ground, ink text, hairline rules, teal actions, the 12-column drafting grid and mono numerals with units described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Credentials stay on the server."
+text = "Every provider URL and credential is read from the environment at start, used only on the server, and never written into code, pages, scripts or responses."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\", and nothing else is needed to install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) with name, version and licence, plus every bundled font."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (same definition as IF-02) and bundled font is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, MPL-2.0 or the SIL Open Font License 1.1."
+tests = [
+    "test_app.py::test_if_licence_allowlist",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastore beyond PostgreSQL, MinIO, Kill Bill, Mailpit and Meilisearch: no SQLite, no other key-value store, and no model or order data on local disk."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided development service definitions (compose files and their seed jobs) are left unchanged."
+tests = [
+    "test_app.py::test_if_compose_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "All application source is TypeScript compiled with strict enabled."
+tests = [
+    "test_app.py::test_if_typescript_strict",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Fonts are served from the app itself and no page loads a script, style or font from another origin."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "upload-queue"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+]
+critical = [
+    "test_app.py::test_wf_upload_queue_publish",
+    "test_app.py::test_wf_upload_queue_refusals",
+    "test_app.py::test_upload_plan_limits",
+    "test_app.py::test_original_stored_byte_for_byte",
+]
+
+[[workflows]]
+id = "queue-recovery"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_queue_recovery_outages",
+    "test_app.py::test_wf_queue_recovery_requeue",
+    "test_app.py::test_queue_retry_schedule",
+]
+
+[[workflows]]
+id = "catalogue-browse"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_catalogue_browse_address_state",
+    "test_app.py::test_wf_catalogue_browse_in_place",
+    "test_app.py::test_wf_catalogue_browse_to_model",
+    "test_app.py::test_catalogue_breakpoints",
+    "test_app.py::test_catalogue_facets",
+]
+checkpoints = [
+    "B6",
+    "B7",
+    "B8",
+]
+critical_checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "model-viewer"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_wf_model_viewer_keyboard",
+    "test_app.py::test_wf_model_viewer_reduced_motion",
+    "test_app.py::test_wf_model_viewer_default_view",
+    "test_app.py::test_viewer_no_webgl_fallback",
+    "test_app.py::test_viewer_hotspots",
+]
+checkpoints = [
+    "B10",
+    "B11",
+    "B12",
+]
+critical_checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "licence-checkout"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_licence_checkout_keyboard",
+    "test_app.py::test_wf_licence_checkout_replay",
+    "test_app.py::test_money_one_computation",
+]
+
+[[workflows]]
+id = "staff-refunds"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_staff_refunds_api",
+    "test_app.py::test_wf_staff_refunds_ui",
+]
+
+[[workflows]]
+id = "limited-edition"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_limited_edition_race",
+    "test_app.py::test_wf_limited_edition_buy",
+    "test_app.py::test_edition_live_availability",
+]
+
+[[workflows]]
+id = "visibility-sharing"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+]
+critical = [
+    "test_app.py::test_wf_visibility_sharing_share_link",
+    "test_app.py::test_wf_visibility_sharing_studio",
+    "test_app.py::test_visibility_derived_surfaces",
+]
+
+[[workflows]]
+id = "plan-change"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_plan_change_downgrade_api",
+    "test_app.py::test_wf_plan_change_page",
+    "test_app.py::test_publish_quota",
+]
+
+[[workflows]]
+id = "contributor-review"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_wf_contributor_review_isolation",
+    "test_app.py::test_wf_contributor_review_stale",
+    "test_app.py::test_state_machine",
+    "test_app.py::test_texture_sets",
+]
+
+[[workflows]]
+id = "collections-export"
+requirements = [
+    "DP-50",
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_collections_export_csv",
+    "test_app.py::test_wf_collections_export_curate",
+    "test_app.py::test_counters_agree",
+]
+
+[[workflows]]
+id = "read-api"
+requirements = [
+    "DP-53",
+    "DP-54",
+]
+critical = [
+    "test_app.py::test_wf_read_api_surface",
+    "test_app.py::test_wf_read_api_keys",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_sign_in",
+    "test_app.py::test_wf_cross_cutting_locales",
+]
+checkpoints = [
+    "B1",
+    "B3",
+    "B5",
+]
+critical_checkpoints = [
+    "B1",
+]

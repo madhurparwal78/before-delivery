@@ -1,0 +1,1657 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 86
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "setup",
+    "member-pledge",
+    "pledge-keyboard",
+    "withdraw",
+    "top-up",
+    "cutoff",
+    "sealing",
+    "documents",
+    "short-shipments",
+    "breakdown",
+    "close",
+    "ledger-receipts",
+    "cycle-lifecycle",
+    "crate-state",
+    "crate-effects",
+    "crate-input",
+    "crate-fallback",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 85
+solo_criteria = []
+services = [
+    { name = "killbill", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Tare & Tally <pickup@tare-and-tally.example>" } },
+    { name = "minio", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 5
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 3
+B13 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "minio-down"
+port = 4176
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Sign in with an access code"
+text = "A person signs in with their seeded access code and lands on the address published for their role, as qualified in Screens and layout, and a wrong code is refused with the published sign-in error."
+kind = "behavior"
+primary = "pytest"
+workflow = "setup"
+tests = [
+    "test_app.py::test_wf_setup_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Role and household boundaries"
+text = "Every endpoint enforces who may call it, so members reach only their own household's pledges, credit and top-ups, and volunteers reach only breakdown bags."
+kind = "behavior"
+primary = "pytest"
+workflow = "setup"
+tests = [
+    "test_app.py::test_role_and_household_boundaries",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Draft a cycle from the case list"
+text = "The coordinator drafts a cycle by naming it, setting its club-time cutoff and pickup, and ticking cases from the distributor's case list, then opens it from the draft's own screen."
+kind = "behavior"
+primary = "workflow"
+workflow = "setup"
+tests = [
+    "test_app.py::test_wf_setup_draft_and_open",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Times entered in club time"
+text = "Cutoff and pickup are entered as club-local wall-clock times to the second and stored as the matching instants, with times that do not exist in club time rejected and repeated times taking their earlier instant."
+kind = "behavior"
+primary = "pytest"
+workflow = "cycle-lifecycle"
+tests = [
+    "test_app.py::test_times_entered_in_club_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Opening a cycle"
+text = "A draft opens only with a valid name, at least one case, a cutoff in the future and a pickup window that starts after cutoff and lasts no more than 12 elapsed hours, and is otherwise refused with every failing field listed at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "cycle-lifecycle"
+tests = [
+    "test_app.py::test_opening_rules_report_every_field",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "No open cycle state"
+text = "When no cycle is open, a member household sees the published empty-cycle message instead of case blocks."
+kind = "behavior"
+primary = "pytest"
+workflow = "setup"
+tests = [
+    "test_app.py::test_no_open_cycle_message",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Pledge units on a split case"
+text = "A member household sets how many units it wants on a split case, and the case block, its crate, its credit and the server all show that one pledge, with nothing in the block or crate changing until the server confirms."
+kind = "behavior"
+primary = "workflow"
+workflow = "member-pledge"
+tests = [
+    "test_app.py::test_wf_member_pledge_confirmed_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "One pledge per tap or retry"
+text = "Repeated taps and retried requests for a pledge produce a single pledge of the chosen units, with replays returning the original response even after cutoff has passed."
+kind = "behavior"
+primary = "pytest"
+workflow = "member-pledge"
+tests = [
+    "test_app.py::test_one_pledge_per_tap_or_retry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Units to go from the server"
+text = "Every case shows units-to-go equal to the pack minus the units the server holds as pledged, and cells and crate units in the server's pledge order, after every pledge, reduction and withdrawal."
+kind = "behavior"
+primary = "pytest"
+workflow = "member-pledge"
+tests = [
+    "test_app.py::test_units_to_go_follow_server_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Last units go to one household"
+text = "When households race for a case's last units, from any server process, exactly one pledge succeeds and the others are refused without changing anything."
+kind = "behavior"
+primary = "pytest"
+workflow = "member-pledge"
+tests = [
+    "test_app.py::test_last_units_race_across_processes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Keyboard pledging"
+text = "A member household can step pledge units and submit a pledge with the keyboard alone, every crate and control in a block is named uniquely for its own case, and Tab never reaches a control in the hidden tab panel."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-keyboard"
+tests = [
+    "test_app.py::test_wf_pledge_keyboard_stepping",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Announced pledge results"
+text = "Every pledge, reduction, withdrawal and refusal by the household itself is announced in the pledge live region with the case name, in the published copy for that result."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-keyboard"
+tests = [
+    "test_app.py::test_wf_pledge_keyboard_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Withdraw until cutoff"
+text = "A member household can withdraw its pledge up to cutoff, which releases its credit hold, and is refused after cutoff."
+kind = "behavior"
+primary = "workflow"
+workflow = "withdraw"
+tests = [
+    "test_app.py::test_wf_withdraw_releases_hold",
+    "test_app.py::test_wf_withdraw_after_cutoff",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Withdraw dialog"
+text = "Withdrawing goes through a confirmation dialog that keeps keyboard focus inside, closes on Escape and returns focus as stated in Interactions, and reopening it during its exit keeps it open with no stale timer hiding it."
+kind = "behavior"
+primary = "pytest"
+workflow = "withdraw"
+tests = [
+    "test_app.py::test_withdraw_dialog_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Top-ups confirmed by Kill Bill"
+text = "A credit top-up adds spendable credit only after Kill Bill confirms a successful PURCHASE on the household's account, a payment that already landed for the same top-up is confirmed once without a second purchase, and a top-up Kill Bill does not confirm adds nothing."
+kind = "behavior"
+primary = "workflow"
+workflow = "top-up"
+tests = [
+    "test_app.py::test_wf_top_up_confirmed",
+    "test_app.py::test_wf_top_up_bad_amount_recovery",
+    "test_app.py::test_landed_payment_confirmed_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Spendable credit and holds"
+text = "Spendable credit equals the household's balance minus its pledge holds, a pledge that would push it below zero is refused even when one household pledges on several cases at once through different server processes, and the credit panel shows balance, held and spendable."
+kind = "behavior"
+primary = "pytest"
+workflow = "top-up"
+tests = [
+    "test_app.py::test_spendable_credit_and_holds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Payments paused"
+text = "While Kill Bill is unreachable, top-ups are refused with a 503 and members see the published payments-paused banner, while pledges against existing credit keep working."
+kind = "behavior"
+primary = "pytest"
+workflow = "top-up"
+tests = [
+    "test_app.py::test_wf_top_up_payments_paused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Server decides cutoff"
+text = "Whether a cycle is accepting pledges comes only from the server's clock against the club-time cutoff to the second, and every fresh pledge change at or after cutoff is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "cutoff"
+tests = [
+    "test_app.py::test_server_decides_cutoff",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Sealed state after cutoff"
+text = "A member page left open past cutoff shows the cutoff banner and the sealed state within 12 seconds or on the next pledge attempt, whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "cutoff"
+tests = [
+    "test_app.py::test_wf_cutoff_page_left_open",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Club time on every device"
+text = "Cutoff and pickup read identically for every user in every device time zone, printed in the club's time zone with its abbreviation."
+kind = "behavior"
+primary = "pytest"
+workflow = "cutoff"
+tests = [
+    "test_app.py::test_club_time_on_every_device",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Resolve unfilled cases"
+text = "At cutoff, the coordinator sees which cases sealed and drops or takes up each unfilled case, and dropping releases its pledges' holds."
+kind = "behavior"
+primary = "workflow"
+workflow = "sealing"
+tests = [
+    "test_app.py::test_wf_sealing_resolve_cases",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Exact unit shares"
+text = "A sealed case's unit shares sum exactly to its price in cents, and the leftover cents go to the earliest pledged units."
+kind = "behavior"
+primary = "pytest"
+workflow = "sealing"
+tests = [
+    "test_app.py::test_exact_unit_shares",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Place the order"
+text = "The coordinator can place the order only once every case is sealed, taken up or dropped, with at least one case still ordered."
+kind = "behavior"
+primary = "pytest"
+workflow = "sealing"
+tests = [
+    "test_app.py::test_wf_sealing_place_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Invoice and packing slip storage"
+text = "The invoice PDF and packing-slip photo are stored in MinIO byte-for-byte under the cycle, and the app reports an upload only after storage confirms it."
+kind = "behavior"
+primary = "workflow"
+workflow = "documents"
+tests = [
+    "test_app.py::test_wf_documents_upload_and_replace",
+    "test_app.py::test_wf_documents_refuses_false_files",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "File storage outage"
+text = "While MinIO is unreachable, uploads are refused with a 503 and the published storage copy, and nothing is recorded as uploaded."
+kind = "behavior"
+primary = "pytest"
+workflow = "documents"
+tests = [
+    "test_app.py::test_wf_documents_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Record a short shipment"
+text = "The coordinator records short units on a case, which are assigned to the latest pledged units first while every pledge and units-to-go stay unchanged, and each short unit is credited its own share to exactly one household once."
+kind = "behavior"
+primary = "workflow"
+workflow = "short-shipments"
+tests = [
+    "test_app.py::test_wf_short_shipments_record",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Short-shipment notices"
+text = "Recording a short queues an email to each affected household at once, and a member page showing that cycle shows the published short-shipment notice in the affected block within 12 seconds, without an announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "short-shipments"
+tests = [
+    "test_app.py::test_short_notice_mail_and_block",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Bag checklist"
+text = "In breakdown, a volunteer opens each household's bag and ticks every item by keyboard or touch until the bag reads as packed, with PACKED shown only after the server confirms and a refused tick reverting only its own box."
+kind = "behavior"
+primary = "workflow"
+workflow = "breakdown"
+tests = [
+    "test_app.py::test_wf_breakdown_pack_by_keyboard",
+    "test_app.py::test_wf_breakdown_refused_tick",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Flag short from a bag"
+text = "A volunteer flags missing units on a bag item through a dialog that returns focus to that item's row, and the coordinator sees the flag."
+kind = "behavior"
+primary = "pytest"
+workflow = "breakdown"
+tests = [
+    "test_app.py::test_flag_short_from_bag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Pickup window in club time"
+text = "Bag packing is accepted only from 12 hours before pickup starts until pickup ends, measured on the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "breakdown"
+tests = [
+    "test_app.py::test_pickup_window_on_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Close a cycle"
+text = "The coordinator closes a cycle in breakdown and sees it closed with the number of receipts queued."
+kind = "behavior"
+primary = "workflow"
+workflow = "close"
+tests = [
+    "test_app.py::test_wf_close_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Charges posted to Kill Bill"
+text = "Closing posts each household's positive net charge for each case as an external charge on its Kill Bill account, with no item for a zero net charge, never twice across retries, replays or a charge that already landed in Kill Bill."
+kind = "behavior"
+primary = "pytest"
+workflow = "close"
+tests = [
+    "test_app.py::test_charges_posted_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Close stays in closing on failure"
+text = "If Kill Bill fails during close, the cycle stays in closing with no ledger movements or receipts and can be closed again, and a close refused for a missing invoice leaves the cycle where it was."
+kind = "behavior"
+primary = "pytest"
+workflow = "close"
+tests = [
+    "test_app.py::test_wf_close_kill_bill_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Paired credit history"
+text = "Every top-up, pledge charge and short-ship credit is a movement of two legs summing to zero, and a household's credit history sums to the balance shown."
+kind = "behavior"
+primary = "pytest"
+workflow = "ledger-receipts"
+tests = [
+    "test_app.py::test_wf_ledger_receipts_paired_history",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Pickup receipts"
+text = "Closing queues one pickup receipt per pledging household, delivered by email once in the published wording, and while mail is unreachable the receipts stay queued with their failed attempts counted, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "ledger-receipts"
+tests = [
+    "test_app.py::test_wf_ledger_receipts_receipt_mail",
+    "test_app.py::test_wf_ledger_receipts_mail_down",
+    "test_app.py::test_mail_recovers_and_stays_with_owner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Cycle state machine"
+text = "A cycle moves only along its published transitions, the cutoff switch to sealing applies on every read and write, and every other requested move is refused with the illegal-transition error."
+kind = "behavior"
+primary = "pytest"
+workflow = "cycle-lifecycle"
+tests = [
+    "test_app.py::test_cycle_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Pledges by day"
+text = "The coordinator sees units pledged and withdrawn per club-local calendar day, including days that are 23 or 25 hours long."
+kind = "behavior"
+primary = "pytest"
+workflow = "cycle-lifecycle"
+tests = [
+    "test_app.py::test_pledges_by_day",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from its run manifest on the published port and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_manifest_and_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Server boundary"
+text = "The server answers only same-origin requests within the stated size and type limits, never serves source or credentials, never answers 500 because the database is busy, and starts even when a provider is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read from the environment at start and never written in source or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Responsive manifest layout"
+text = "Every screen fits 375, 768 and 1280 pixel-wide viewports, and the member cycle and every dialog fit 812 by 375, with no horizontal scrolling, the sealed rail shows from 768 pixels wide and the Open and Sealed tab bar below that, never both and never neither."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_responsive_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Fill the case"
+text = "The household's own confirmed pledge changes animate the case's unit cells, units-to-go numeral and sealing in the published order and timing, ending on the server's values."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_fill_the_case_sequence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Reduced motion"
+text = "With reduced motion requested, pledge changes, crate units, lid, stamp, seal moves, dialogs and the bag region jump to their final state on the next frame with at most two crate frames drawn per change and the same announcements as with motion on, and a preference change takes effect on the next change without reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "crate-effects"
+tests = [
+    "test_app.py::test_wf_crate_effects_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Kraft-and-ink look"
+text = "Every screen uses the kraft-paper ground, ink rules, caps noun labels, expanded display type and the orange and green signal colours as described."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Case blocks as the hero"
+text = "Each split case reads as a ruled manifest block led by its giant units-to-go numeral, its unit grid and its crate."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B7",
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Other households' changes appear live"
+text = "Other households' pledges, reductions and withdrawals redraw a member's case blocks, crates, numerals and unit maximums within 12 seconds, without reloading, stagger or announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "member-pledge"
+tests = [
+    "test_app.py::test_wf_member_pledge_live_redraw",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Refresh keeps what you're doing"
+text = "The periodic refresh never moves focus, resets a stepped value or typed field, closes a dialog, turns a crate, changes the selected tab or touches the last announcement, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-keyboard"
+tests = [
+    "test_app.py::test_refresh_keeps_what_youre_doing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Cutoff edges"
+text = "At and after cutoff, replays of earlier pledges return their stored response, fresh attempts are refused, and a cutoff that has passed can no longer be moved even before any read has recorded the sealing state."
+kind = "behavior"
+primary = "pytest"
+workflow = "cutoff"
+tests = [
+    "test_app.py::test_cutoff_edges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "One resolution per unfilled case"
+text = "Each unfilled case is dropped or taken up exactly once, and every other attempt is refused with the already-resolved error and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "sealing"
+tests = [
+    "test_app.py::test_one_resolution_per_case",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Close is idempotent"
+text = "A close carries an idempotency key, so replays return the stored close result without posting to Kill Bill again, and a close that failed with a 503 can be retried with the same key."
+kind = "behavior"
+primary = "pytest"
+workflow = "close"
+tests = [
+    "test_app.py::test_close_is_idempotent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Paged credit history"
+text = "A household's credit history pages newest first with a stable order that never repeats or skips a movement, even while new movements arrive, and always reports the whole-history balance."
+kind = "behavior"
+primary = "pytest"
+workflow = "ledger-receipts"
+tests = [
+    "test_app.py::test_paged_credit_history",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Pickup windows across clock changes"
+text = "The 12-hour pickup limit is measured in elapsed time across daylight-saving changes, and the pickup display names each end's zone when they differ."
+kind = "behavior"
+primary = "pytest"
+workflow = "cycle-lifecycle"
+tests = [
+    "test_app.py::test_pickup_limit_across_clock_changes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Landing on the right address"
+text = "A signed-out visitor signs in on the page they opened and stays there when their role may see it, otherwise lands on their role's home, sign-out leaves no data reachable by Back, and a newly saved draft lives at its own address."
+kind = "behavior"
+primary = "workflow"
+workflow = "setup"
+tests = [
+    "test_app.py::test_wf_setup_landing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Newer line versions win"
+text = "Every case line carries a version that rises by exactly 1 per committed change, and the member page never draws a line older than the one it shows in its cells or crate, even when a refresh sent before a pledge answers after it."
+kind = "behavior"
+primary = "pytest"
+workflow = "member-pledge"
+tests = [
+    "test_app.py::test_stale_refresh_never_undoes_pledge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Withdrawing by touch on a phone"
+text = "At phone width a touch withdrawal gets 44-pixel controls and a dialog inside the viewport over a page that does not scroll, and a withdrawal that unseals a case from the Sealed tab keeps that tab selected and moves focus to the Open tab."
+kind = "behavior"
+primary = "pytest"
+workflow = "withdraw"
+tests = [
+    "test_app.py::test_withdraw_by_touch_on_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Typed dollars become exact cents"
+text = "Typed dollar amounts in the published format convert to exact cents, the Kill Bill payment carries exactly that amount, and any other text is refused with the published amount error."
+kind = "behavior"
+primary = "pytest"
+workflow = "top-up"
+tests = [
+    "test_app.py::test_typed_dollars_exact_cents",
+]
+criteria = []
+parameter_cases = [
+    "cents",
+    "one_decimal",
+    "spaces",
+    "whole",
+    "top",
+    "trailing_dot",
+    "exponent",
+    "negative",
+    "bad_group",
+    "three_decimals",
+    "empty",
+    "below",
+    "above",
+    "grouped_above",
+]
+
+[[requirements]]
+id = "DP-57"
+title = "No lost cycle edits"
+text = "Editing a cycle requires its current revision, so of several simultaneous edits exactly one wins, and a screen holding an older revision is told and shown the latest times."
+kind = "behavior"
+primary = "pytest"
+workflow = "cutoff"
+tests = [
+    "test_app.py::test_no_lost_cycle_edits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "State in words and readable contrast"
+text = "Every case state is printed in text as well as colour, every sealed block shows Sealed, and all text and unit cells meet the published contrast against their actual background."
+kind = "behavior"
+primary = "pytest"
+workflow = "sealing"
+tests = [
+    "test_app.py::test_state_words_and_contrast",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "One packing slip per cycle"
+text = "Replacing the packing slip with a photo of another type leaves exactly one packing-slip object in storage, and a replacement storage refuses leaves the old slip in place."
+kind = "behavior"
+primary = "pytest"
+workflow = "documents"
+tests = [
+    "test_app.py::test_one_packing_slip",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Record short dialog always reachable"
+text = "From any row of the lines table at every published viewport, the Record short dialog opens wholly inside the viewport, above everything else, with every control clickable, and keeps its typed value, focus and field error through a refresh that changes that row."
+kind = "behavior"
+primary = "pytest"
+workflow = "short-shipments"
+tests = [
+    "test_app.py::test_record_short_dialog_reachable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Every cycle problem at once"
+text = "A refused cycle save or open lists every failing field in one response, and on screen in a linked problem summary that takes focus and is announced in the exact singular or plural copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "cycle-lifecycle"
+tests = [
+    "test_app.py::test_wf_cycle_lifecycle_problem_summary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Top-up retried without double charging"
+text = "A top-up whose response is lost can be retried from the still-open dialog with the same key until the amount is edited, so Kill Bill holds one payment, the ledger one top-up, and the success is announced once."
+kind = "behavior"
+primary = "pytest"
+workflow = "top-up"
+tests = [
+    "test_app.py::test_top_up_retried_without_double_charge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Coordinator page across cutoff"
+text = "A coordinator cycle page open across cutoff drops the cutoff field and shows the resolve buttons within 12 seconds without reload, keeping typed pickup values, focus and the last announcement, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "cutoff"
+tests = [
+    "test_app.py::test_wf_cutoff_coordinator_across",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Resolutions appear on every screen"
+text = "A drop or take-up shows on every other coordinator screen and every member screen showing that cycle within 12 seconds, as state words, buttons, cells, crate and holds, without reload or announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "sealing"
+tests = [
+    "test_app.py::test_resolutions_appear_on_every_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Uploads checked by their bytes"
+text = "An invoice or packing slip is stored only when its leading bytes match its declared PDF, JPEG or PNG type and it is at most 10,000,000 bytes, and every download comes back as an attachment the browser may not reinterpret."
+kind = "behavior"
+primary = "pytest"
+workflow = "documents"
+tests = [
+    "test_app.py::test_uploads_checked_by_bytes",
+]
+criteria = []
+parameter_cases = [
+    "pdf",
+    "jpeg",
+    "png",
+    "type_case_and_parameter",
+    "exact_limit",
+    "over_limit",
+    "jpeg_sent_as_png",
+    "png_sent_as_jpeg",
+    "short_png_signature",
+    "svg",
+    "text_as_pdf",
+    "empty",
+]
+
+[[requirements]]
+id = "DP-66"
+title = "One short per submission"
+text = "A double tap or retry of Record short records the short once and sends each affected household exactly one notice, and concurrent shorts on one case never exceed its delivered units."
+kind = "behavior"
+primary = "pytest"
+workflow = "short-shipments"
+tests = [
+    "test_app.py::test_wf_short_shipments_lost_reply",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Packing by touch on a phone"
+text = "At phone width upright or sideways a volunteer packs by touch with 44-pixel rows whose whole label toggles the item, and a flag dialog that fits the screen over a page that does not scroll, with instant changes under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "breakdown"
+tests = [
+    "test_app.py::test_wf_breakdown_phone_packing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Cycle names in mail subjects"
+text = "A cycle name of 1 to 60 Unicode code points on one line, with accents or emoji, arrives exactly as typed in every pickup receipt subject, and a name with a line break or other control character is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "ledger-receipts"
+tests = [
+    "test_app.py::test_wf_ledger_receipts_unicode_subject",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Keyboard-complete drafting"
+text = "A coordinator can draft, save, read every problem and fix a refused open by keyboard alone, with each problem link moving focus to its field."
+kind = "behavior"
+primary = "pytest"
+workflow = "cycle-lifecycle"
+tests = [
+    "test_app.py::test_wf_cycle_lifecycle_keyboard_draft",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Rotation keeps your place"
+text = "Crossing 768 pixels wide, including by turning a phone to 812 by 375, keeps focus on every control present at both widths, stepped values, crate turns, open dialogs with their typed values and the last announcement, redraws every crate at its new size, selects the tab that holds the focused case, and moves focus from a removed tab or rail as stated in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "crate-input"
+tests = [
+    "test_app.py::test_wf_crate_input_rotation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Crate in every case block"
+text = "Every member case block carries a named kraft-paper crate whose unit tops, slots, lid, stamp and name always agree with the newest line shown, after own changes, refresh, reload, rotation, reduction, withdrawal and resolution."
+kind = "behavior"
+primary = "pytest"
+workflow = "crate-state"
+tests = [
+    "test_app.py::test_wf_crate_state_agrees",
+    "test_app.py::test_wf_crate_state_live_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Crate fill and seal effect"
+text = "On the household's own confirmed change the crate's units, lid and stamp move in the published order and timing bands and end on the server's state within 2 seconds, and a refused pledge draws nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "crate-effects"
+tests = [
+    "test_app.py::test_wf_crate_effects_fill_and_seal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Crate still when idle"
+text = "A crate has no idle motion and draws only for a published cause, so a refresh with no newer line and a crate in a hidden panel draw nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "crate-state"
+tests = [
+    "test_app.py::test_crate_still_when_idle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Turning the crate"
+text = "A crate turns from -75 to 75 degrees by drag or by its named slider, also with reduced motion, a vertical touch swipe still scrolls the page, and the turn survives everything except a page load or sign-out."
+kind = "behavior"
+primary = "pytest"
+workflow = "crate-input"
+tests = [
+    "test_app.py::test_wf_crate_input_turning",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "One WebGL context per document"
+text = "One document creates at most one WebGL context in its whole life however many cases, moves, rotations or screen changes occur, and creates none until a member cycle shows a crate."
+kind = "behavior"
+primary = "pytest"
+workflow = "crate-state"
+tests = [
+    "test_app.py::test_one_webgl_context",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Crate survives size changes"
+text = "Every crate's bitmap equals its on-screen size times the device pixel ratio capped at 2, and it is redrawn correctly by the next frame after any size change."
+kind = "behavior"
+primary = "pytest"
+workflow = "crate-input"
+tests = [
+    "test_app.py::test_crate_survives_size_changes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Still crate without WebGL"
+text = "Without WebGL each block shows a still crate with the same name, units, lid and stamp following the server, no turn control and no uncaught error, and every other control works."
+kind = "behavior"
+primary = "pytest"
+workflow = "crate-fallback"
+tests = [
+    "test_app.py::test_wf_crate_fallback_no_webgl",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Crate across a lost context"
+text = "While the WebGL context is lost each crate shows that still drawing and follows the server with its turn control paused, and when the context returns the crate redraws from the newest lines with no reload, new context or announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "crate-fallback"
+tests = [
+    "test_app.py::test_wf_crate_fallback_lost_context",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Newest line interrupts an effect"
+text = "A newer line during a running crate sequence cancels it so that no later step runs and the block and crate jump to that line on the next frame, and an older line never touches the crate."
+kind = "behavior"
+primary = "pytest"
+workflow = "crate-effects"
+tests = [
+    "test_app.py::test_wf_crate_effects_interrupted",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Crate look"
+text = "The crate reads at a glance as a kraft-paper box with ink edges on its block's own background, with recognisable jar, bottle, jug and sack units and stamps set in the display type, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Crate effect feel"
+text = "The units' drop, the lid's swing and the stamp's press read as weighted physical moves in the product's shared feel, as described in Motion and effects."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Latest cycle status wins"
+text = "Cycle-level status, times and acceptance from a response apply only when its request was sent after the request behind the values shown, and a past-cutoff refusal outranks any refresh still in flight."
+kind = "behavior"
+primary = "pytest"
+workflow = "cutoff"
+tests = [
+    "test_app.py::test_refusal_outranks_inflight_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Sign-out forgets the page"
+text = "Sign-out clears every line, version, crate turn and stepped value the page remembers, so the next household signing in on that page sees only its own cells, crate units and credit even at unchanged line versions, and the server answers each session with its own data."
+kind = "behavior"
+primary = "pytest"
+workflow = "setup"
+tests = [
+    "test_app.py::test_sign_out_forgets_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "One upload at a time"
+text = "Concurrent uploads of one document kind on one cycle, from any server process, leave one object whose bytes match the stored record, and each concurrent loser is refused with the upload-in-progress error."
+kind = "behavior"
+primary = "pytest"
+workflow = "documents"
+tests = [
+    "test_app.py::test_one_upload_at_a_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Close confirmed by its providers"
+text = "A close first confirms the invoice object in MinIO before touching state or Kill Bill, and every charge it posts sits on a COMMITTED Kill Bill invoice."
+kind = "behavior"
+primary = "pytest"
+workflow = "close"
+tests = [
+    "test_app.py::test_close_confirmed_by_providers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Payments recover without restart"
+text = "When Kill Bill returns, the payments-paused banner clears within 12 seconds without a reload or announcement, and a server process that started during the outage takes top-ups with no restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "top-up"
+tests = [
+    "test_app.py::test_wf_top_up_recovers_without_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve fields and _schema run-manifest-v1, and the app runs only through it."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package and every bundled font with its licence. Shipped packages means the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font uses MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in the SQLite file at TALLY_DB_PATH, Kill Bill, Mailpit and MinIO. It adds no database server, cache server or other datastore."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration files and the seeded dev credentials are left unchanged."
+tests = [
+    "test_app.py::test_if_seeded_credentials_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Application source is TypeScript with strict type checking enabled."
+tests = [
+    "test_app.py::test_if_strict_typescript",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The running app makes no network calls except to the configured Kill Bill, SMTP and MinIO endpoints."
+tests = [
+    "test_app.py::test_if_no_foreign_network",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "The crate is drawn with the npm package three, listed as a production dependency and served from the app's own origin, never from a CDN."
+tests = [
+    "test_app.py::test_if_three_is_shipped",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "setup"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-06",
+    "DP-53",
+    "DP-83",
+]
+critical = [
+    "test_app.py::test_wf_setup_sign_in",
+    "test_app.py::test_wf_setup_draft_and_open",
+    "test_app.py::test_wf_setup_landing",
+    "test_app.py::test_sign_out_forgets_page",
+]
+checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "member-pledge"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-46",
+    "DP-54",
+]
+critical = [
+    "test_app.py::test_wf_member_pledge_confirmed_only",
+    "test_app.py::test_wf_member_pledge_live_redraw",
+    "test_app.py::test_stale_refresh_never_undoes_pledge",
+    "test_app.py::test_units_to_go_follow_server_order",
+    "test_app.py::test_one_pledge_per_tap_or_retry",
+]
+checkpoints = [
+    "B7",
+    "B8",
+]
+critical_checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "pledge-keyboard"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_pledge_keyboard_stepping",
+    "test_app.py::test_wf_pledge_keyboard_announcements",
+    "test_app.py::test_refresh_keeps_what_youre_doing",
+]
+
+[[workflows]]
+id = "withdraw"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_withdraw_releases_hold",
+    "test_app.py::test_wf_withdraw_after_cutoff",
+    "test_app.py::test_withdraw_dialog_focus",
+    "test_app.py::test_withdraw_by_touch_on_phone",
+]
+
+[[workflows]]
+id = "top-up"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-56",
+    "DP-62",
+    "DP-86",
+]
+critical = [
+    "test_app.py::test_wf_top_up_confirmed",
+    "test_app.py::test_wf_top_up_payments_paused",
+    "test_app.py::test_wf_top_up_recovers_without_restart",
+    "test_app.py::test_typed_dollars_exact_cents",
+    "test_app.py::test_top_up_retried_without_double_charge",
+]
+
+[[workflows]]
+id = "cutoff"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-48",
+    "DP-57",
+    "DP-63",
+    "DP-82",
+]
+critical = [
+    "test_app.py::test_wf_cutoff_page_left_open",
+    "test_app.py::test_wf_cutoff_coordinator_across",
+    "test_app.py::test_no_lost_cycle_edits",
+    "test_app.py::test_refusal_outranks_inflight_refresh",
+    "test_app.py::test_cutoff_edges",
+    "test_app.py::test_club_time_on_every_device",
+]
+
+[[workflows]]
+id = "sealing"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-49",
+    "DP-58",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_sealing_resolve_cases",
+    "test_app.py::test_wf_sealing_place_order",
+    "test_app.py::test_state_words_and_contrast",
+    "test_app.py::test_resolutions_appear_on_every_screen",
+    "test_app.py::test_one_resolution_per_case",
+    "test_app.py::test_exact_unit_shares",
+]
+checkpoints = [
+    "B3",
+]
+
+[[workflows]]
+id = "documents"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-59",
+    "DP-65",
+    "DP-84",
+]
+critical = [
+    "test_app.py::test_wf_documents_upload_and_replace",
+    "test_app.py::test_wf_documents_storage_outage",
+    "test_app.py::test_one_packing_slip",
+    "test_app.py::test_uploads_checked_by_bytes",
+    "test_app.py::test_one_upload_at_a_time",
+]
+
+[[workflows]]
+id = "short-shipments"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-60",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_short_shipments_record",
+    "test_app.py::test_wf_short_shipments_lost_reply",
+    "test_app.py::test_record_short_dialog_reachable",
+]
+
+[[workflows]]
+id = "breakdown"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_breakdown_pack_by_keyboard",
+    "test_app.py::test_wf_breakdown_refused_tick",
+    "test_app.py::test_wf_breakdown_phone_packing",
+]
+
+[[workflows]]
+id = "close"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-50",
+    "DP-85",
+]
+critical = [
+    "test_app.py::test_wf_close_happy",
+    "test_app.py::test_wf_close_kill_bill_down",
+    "test_app.py::test_close_is_idempotent",
+]
+
+[[workflows]]
+id = "ledger-receipts"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-51",
+    "DP-68",
+]
+critical = [
+    "test_app.py::test_wf_ledger_receipts_paired_history",
+    "test_app.py::test_wf_ledger_receipts_receipt_mail",
+    "test_app.py::test_wf_ledger_receipts_unicode_subject",
+    "test_app.py::test_paged_credit_history",
+]
+
+[[workflows]]
+id = "cycle-lifecycle"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-36",
+    "DP-37",
+    "DP-52",
+    "DP-61",
+    "DP-69",
+]
+critical = [
+    "test_app.py::test_wf_cycle_lifecycle_problem_summary",
+    "test_app.py::test_wf_cycle_lifecycle_keyboard_draft",
+    "test_app.py::test_pickup_limit_across_clock_changes",
+]
+checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "crate-state"
+requirements = [
+    "DP-71",
+    "DP-73",
+    "DP-75",
+]
+critical = [
+    "test_app.py::test_wf_crate_state_agrees",
+    "test_app.py::test_wf_crate_state_live_refresh",
+]
+checkpoints = [
+    "B9",
+    "B13",
+    "B10",
+]
+critical_checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "crate-effects"
+requirements = [
+    "DP-43",
+    "DP-72",
+    "DP-79",
+]
+critical = [
+    "test_app.py::test_wf_crate_effects_reduced_motion",
+    "test_app.py::test_wf_crate_effects_fill_and_seal",
+    "test_app.py::test_wf_crate_effects_interrupted",
+]
+checkpoints = [
+    "B11",
+    "B12",
+]
+
+[[workflows]]
+id = "crate-input"
+requirements = [
+    "DP-70",
+    "DP-74",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_wf_crate_input_rotation",
+    "test_app.py::test_wf_crate_input_turning",
+]
+
+[[workflows]]
+id = "crate-fallback"
+requirements = [
+    "DP-77",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_crate_fallback_no_webgl",
+    "test_app.py::test_wf_crate_fallback_lost_context",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-44",
+    "DP-45",
+    "DP-80",
+    "DP-81",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_manifest_and_health",
+    "test_app.py::test_wf_cross_cutting_responsive_layout",
+]
+checkpoints = [
+    "B1",
+    "B2",
+]
