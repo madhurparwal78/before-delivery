@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% from "parts.html" import icon, state_chip, review_mark, error_summary %}
+{% block title %}Clearance queue{% endblock %}
+{% block main %}
+{% set filtered = state or mine or needs or q %}
+<div class="queue-layout">
+  <button type="button" class="button filters-toggle" data-filters-toggle
+          aria-expanded="false" aria-controls="queue-filters">{{ icon('caret') }}Filters</button>
+  <aside id="queue-filters" class="sidebar" aria-label="Filters">
+    <h2>States</h2>
+    <ul class="state-list">
+      {% for name in states %}
+      <li>
+        <a href="/?{% if name != state %}state={{ name }}&amp;{% endif %}sort={{ sort }}{% if mine %}&amp;mine=1{% endif %}{% if needs %}&amp;needs=1{% endif %}{% if q %}&amp;q={{ q|urlencode }}{% endif %}"
+           {% if name == state %}aria-current="true" class="on"{% endif %}>
+          <span class="state-name">{{ name }}</span>
+          <span class="count">{{ result.counts[name] }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    <div class="toggles">
+      <label class="toggle"><input type="checkbox" data-toggle="mine" {% if mine %}checked{% endif %}> Only mine</label>
+      <label class="toggle"><input type="checkbox" data-toggle="needs" {% if needs %}checked{% endif %}
+        {% if account.role == 'auditor' %}disabled{% endif %}> Needs my decision</label>
+    </div>
+  </aside>
+
+  <section class="queue-main">
+    <header class="queue-header">
+      <h1>Clearance queue</h1>
+      <div class="queue-tools">
+        <label for="sort">Sort by</label>
+        <select id="sort" data-sort>
+          {% for key, label in sorts %}
+          <option value="{{ key }}" {% if key == sort %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <button type="button" class="button button-quiet" data-clear-filters>Clear filters</button>
+        {% if account.role == 'maker' %}
+        <button type="button" class="button button-primary" data-new-piece>New piece</button>
+        {% endif %}
+      </div>
+      <p class="result-line" data-result-line>{{ result.rows|length }} of {{ visible_total }} pieces</p>
+    </header>
+
+    {% if account.role == 'maker' %}
+    <section class="panel new-piece" data-new-piece-panel hidden aria-label="New piece">
+      <h2>New piece</h2>
+      {{ error_summary() }}
+      <div class="field">
+        <label for="new-title">Title</label>
+        <input type="text" id="new-title" name="title">
+      </div>
+      <div class="field">
+        <label for="new-summary">Summary</label>
+        <textarea id="new-summary" name="summary" rows="3"></textarea>
+      </div>
+      <div class="field">
+        <label for="new-fee">Fee in dollars</label>
+        <input type="text" id="new-fee" name="fee" inputmode="decimal" value="0.00">
+      </div>
+      <button type="button" class="button button-primary" data-save-new>Save draft</button>
+    </section>
+    {% endif %}
+
+    <div data-list="queue">
+      {% if result.rows %}
+      <table class="queue-table">
+        <caption class="visually-hidden">Pieces this account may see</caption>
+        <thead>
+          <tr>
+            <th scope="col">Title</th>
+            <th scope="col">Maker</th>
+            <th scope="col">State</th>
+            <th scope="col">Licence review</th>
+            <th scope="col">Accessibility review</th>
+            <th scope="col" class="wide-only">Fee</th>
+            <th scope="col" class="wide-only">Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for piece in result.rows %}
+          <tr>
+            <td data-label="Title"><a href="/pieces/{{ piece.id }}">{{ piece.title }}</a></td>
+            <td data-label="Maker">{{ piece.owner.name }}</td>
+            <td data-label="State">{{ state_chip(piece.state) }}</td>
+            <td data-label="Licence review">{{ review_mark(piece.licence_review) }}</td>
+            <td data-label="Accessibility review">{{ review_mark(piece.accessibility_review) }}</td>
+            <td data-label="Fee" class="wide-only figure">{{ piece.fee_cents|money }}</td>
+            <td data-label="Updated" class="wide-only figure">{{ piece.updated_at|when }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty">{% if filtered %}No pieces match that search{% else %}Nothing is waiting. Submitted pieces appear here{% endif %}</p>
+      {% endif %}
+    </div>
+
+    <nav class="pager" aria-label="Pages">
+      {% set page = result.page %}
+      {% set pages = (result.total // result.rows_per_page) + (1 if result.total % result.rows_per_page else 0) %}
+      {% if page > 1 %}
+      <a href="/?{% if state %}state={{ state }}&amp;{% endif %}sort={{ sort }}{% if mine %}&amp;mine=1{% endif %}{% if needs %}&amp;needs=1{% endif %}{% if q %}&amp;q={{ q|urlencode }}&amp;{% endif %}page={{ page - 1 }}">Previous page</a>
+      {% else %}<span class="pager-off">Previous page</span>{% endif %}
+      <span class="pager-line">Page {{ page }} of {{ [pages, 1]|max }}</span>
+      {% if page < pages %}
+      <a href="/?{% if state %}state={{ state }}&amp;{% endif %}sort={{ sort }}{% if mine %}&amp;mine=1{% endif %}{% if needs %}&amp;needs=1{% endif %}{% if q %}&amp;q={{ q|urlencode }}&amp;{% endif %}page={{ page + 1 }}">Next page</a>
+      {% else %}<span class="pager-off">Next page</span>{% endif %}
+    </nav>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cairn</title>
+<link rel="stylesheet" href="/assets/app.css">
+<link rel="icon" href="data:,">
+</head>
+<body>
+<div id="app">
+
+  <main id="notebook-page" hidden>
+    <div class="topbar">
+      <span class="serif" style="font-size:1.15rem">Cairn</span>
+      <button id="files-btn" class="icon-btn files-btn" type="button">Files</button>
+      <button id="context-btn" class="icon-btn context-btn" type="button">Context</button>
+      <span class="grow"></span>
+      <status id="sync-status" role="status" aria-label="Sync status">Local only — not syncing</status>
+      <button id="sync-now" type="button">Sync now</button>
+      <button id="account-btn" type="button">Account</button>
+    </div>
+    <div class="notebook-body">
+
+      <div id="rail-drawer" class="rail-drawer" hidden>
+        <div class="rail-head">
+          <button id="drawer-close" class="icon-btn" type="button">Close</button>
+        </div>
+        <div id="drawer-body"></div>
+      </div>
+
+      <nav class="rail static" id="rail" aria-label="Case files">
+        <div class="rail-head">
+          <label for="notebook-select">Notebook</label>
+          <select id="notebook-select" role="combobox" aria-label="Notebook"></select>
+          <button id="new-note-btn" type="button">New note</button>
+          <button id="sample-btn" type="button">Load sample case</button>
+        </div>
+        <ul id="notes-tree" class="tree" role="tree" aria-label="Notes"></ul>
+      </nav>
+
+      <section class="note-col" aria-label="Note">
+        <div class="note-col-inner">
+          <div class="note-head">
+            <input id="note-title" type="text" aria-label="Note title" placeholder="Untitled">
+            <span class="grow"></span>
+            <status id="note-sync-status" role="status" aria-label="Note sync status" class="badge">local only</status>
+          </div>
+          <p id="reject-note" class="reject-note" hidden></p>
+          <div id="conflict-region" class="conflict-region" role="region" aria-label="Conflict" hidden>
+            <p>Another device saved this note first. Your version is kept as a conflict copy.</p>
+            <a id="open-conflict-copy" href="#">Open conflict copy</a>
+            <button id="dismiss-conflict" type="button">Dismiss</button>
+          </div>
+          <div class="note-head">
+            <button id="read-btn" class="icon-btn" type="button">Read</button>
+            <button id="pin-btn" class="icon-btn" type="button" aria-pressed="false">Private</button>
+          </div>
+          <div id="body-wrap"></div>
+          <textarea id="note-body" class="body-view" aria-label="Note body" style="display:none"></textarea>
+        </div>
+      </section>
+
+      <aside class="context-pane hidden-mobile" id="context-pane" aria-label="Context" role="complementary">
+        <div class="tablist" role="tablist" aria-label="Context">
+          <button id="tab-backlinks" type="button" role="tab" aria-selected="true">Backlinks</button>
+          <button id="tab-history" type="button" role="tab" aria-selected="false">History</button>
+          <button id="tab-graph" type="button" role="tab" aria-selected="false">Graph</button>
+          <button id="tab-publish" type="button" role="tab" aria-selected="false">Publish</button>
+        </div>
+        <div class="tab-body">
+          <div id="backlinks-panel">
+            <ul id="backlinks" class="backlinks" aria-label="Backlinks"></ul>
+          </div>
+          <div id="history-panel" hidden>
+            <p id="history-status" class="status"></p>
+            <ul id="revisions" class="history-list" aria-label="Revisions"></ul>
+          </div>
+          <div id="graph-panel" hidden>
+            <canvas id="graph-canvas" class="ring-canvas" width="340" height="320" role="img" aria-label="Graph"></canvas>
+          </div>
+          <div id="publish-panel" hidden>
+            <div class="workbench">
+              <div class="wb-row">
+                <input id="dossier-address" type="text" aria-label="Dossier address" placeholder="dossier-address">
+                <button id="create-dossier-btn" type="button">Create dossier</button>
+                <button id="start-dossier-btn" type="button" hidden>Start a dossier</button>
+              </div>
+              <status id="dossier-state" role="status" aria-label="Dossier state">Draft</status>
+
+              <div id="workbench-main" hidden>
+                <div class="ring-canvas-wrap">
+                  <canvas id="ring-canvas" class="ring-canvas" width="340" height="340"></canvas>
+                </div>
+                <div class="slide-row" role="group" aria-label="Exposure Ring">
+                  <input id="ring-slider" type="range" min="0" max="4" step="1" value="2"
+                         aria-label="Publish boundary" aria-valuetext="Hop 2">
+                  <span id="slider-value" class="num">Hop 2</span>
+                </div>
+                <div class="radios" role="radiogroup" aria-label="Hop">
+                  <label><input type="radio" name="hop" value="0"> Hop 0</label>
+                  <label><input type="radio" name="hop" value="1"> Hop 1</label>
+                  <label><input type="radio" name="hop" value="2" checked> Hop 2</label>
+                  <label><input type="radio" name="hop" value="3"> Hop 3</label>
+                  <label><input type="radio" name="hop" value="4"> Hop 4</label>
+                </div>
+                <div id="exposure-counts" class="counts" role="group" aria-label="Exposure counts">notes public 0 · links severed 0</div>
+                <status id="boundary-announcement" role="status" aria-live="polite" class="status"></status>
+                <status id="boundary-check" role="status" aria-label="Boundary check" class="check-line">Checking boundary…</status>
+                <div id="live-preview" class="preview-frame" role="region" aria-label="Live preview"></div>
+                <div class="wb-row">
+                  <button id="publish-btn" type="button" disabled>Publish dossier</button>
+                  <button id="create-preview-btn" type="button">Create preview link</button>
+                  <button id="revoke-preview-btn" type="button" hidden>Revoke preview link</button>
+                  <button id="takedown-btn" type="button" hidden>Take down dossier</button>
+                  <button id="reopen-btn" type="button" hidden>Reopen as draft</button>
+                </div>
+                <div class="wb-row">
+                  <input id="preview-link" type="text" aria-label="Preview link" readonly>
+                  <button id="copy-link-btn" type="button">Copy link</button>
+                </div>
+                <status id="preview-link-status" role="status" aria-label="Preview link status" class="status"></status>
+              </div>
+              <status id="publish-status" role="status" aria-label="Publish status" class="status"></status>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <main id="ops-page" hidden>
+    <div class="topbar">
+      <span class="serif" style="font-size:1.15rem">Cairn</span>
+      <span class="grow"></span>
+      <status id="billing-source" role="status" aria-label="Billing source" class="status"></status>
+      <button id="run-sweep" type="button">Run lapse check now</button>
+    </div>
+    <div class="center-col">
+      <h1>Operator console</h1>
+      <div class="ops-scroll">
+        <table id="ops-table" class="ops-table" aria-label="Accounts"></table>
+      </div>
+      <div id="ops-cards"></div>
+      <status id="lapse-check" role="status" aria-label="Lapse check" class="status"></status>
+      <p class="status">Every stored revision passed the encrypted-envelope check on upload.</p>
+    </div>
+  </main>
+
+  <main id="approve-page" hidden>
+    <div class="center-col">
+      <h1>Approve a device</h1>
+      <button id="approve-device-btn" type="button">Approve this device</button>
+      <status id="device-approval-status" role="status" aria-label="Device approval status"></status>
+    </div>
+  </main>
+
+  <main id="invite-page" hidden>
+    <div class="center-col">
+      <h1>Vault invite</h1>
+      <button id="accept-invite-btn" type="button">Accept invite</button>
+      <status id="vault-status" role="status" aria-label="Vault status"></status>
+    </div>
+  </main>
+
+  <div class="bottom-sheet" id="bottom-sheet" hidden>
+    <div class="wb-row"><span class="grow">Context</span><button id="sheet-close" type="button">✕</button></div>
+    <div id="sheet-body"></div>
+  </div>
+
+  <div class="dialog-back" id="account-dialog" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-label="Account">
+      <h2>Account</h2>
+      <status id="account-status" role="status" aria-label="Account status"></status>
+      <div id="account-alert" class="alert" role="alert" hidden></div>
+      <div id="signed-out">
+        <form id="signin-form">
+          <h3>Sign in</h3>
+          <label for="signin-email">Email</label>
+          <input id="signin-email" name="email" type="email" autocomplete="email">
+          <label for="signin-password">Password</label>
+          <input id="signin-password" name="password" type="password" autocomplete="current-password">
+          <label for="signin-device-name">Device name</label>
+          <input id="signin-device-name" name="device_name" type="text">
+          <div class="dialog-actions"><button type="submit">Sign in</button></div>
+        </form>
+        <form id="signup-form">
+          <h3>Create account</h3>
+          <label for="signup-email">Email</label>
+          <input id="signup-email" name="email" type="email" autocomplete="email">
+          <label for="signup-password">Password</label>
+          <input id="signup-password" name="password" type="password" autocomplete="new-password">
+          <label for="signup-display-name">Display name</label>
+          <input id="signup-display-name" name="display_name" type="text">
+          <label for="signup-device-name">Device name</label>
+          <input id="signup-device-name" name="device_name" type="text">
+          <div class="dialog-actions"><button type="submit">Create account</button></div>
+        </form>
+      </div>
+      <div id="signed-in" hidden>
+        <div role="region" aria-label="Plans">
+          <h3>Plans</h3>
+          <status id="plan-status" role="status" aria-label="Plan status"></status>
+          <div class="wb-row">
+            <button id="add-sync" type="button">Add Sync</button>
+            <button id="cancel-sync" type="button">Cancel Sync</button>
+            <button id="add-publish" type="button">Add Publish</button>
+            <button id="cancel-publish" type="button">Cancel Publish</button>
+          </div>
+        </div>
+        <div role="region" aria-label="Devices">
+          <h3>Devices</h3>
+          <ul id="devices-list" aria-label="Devices"></ul>
+        </div>
+        <div role="region" aria-label="Vault">
+          <h3>Vault</h3>
+          <button id="enable-sync-btn" type="button">Enable sync for this notebook</button>
+          <button id="invite-btn" type="button">Invite partner</button>
+        </div>
+        <div class="dialog-actions"><button id="signout-btn" type="button">Sign out</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-back" id="vault-dialog" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-label="Set vault passphrase">
+      <h2>Set vault passphrase</h2>
+      <label for="vault-name">Vault name</label>
+      <input id="vault-name" type="text" value="Case vault">
+      <label for="vault-pass">Vault passphrase</label>
+      <input id="vault-pass" type="password" autocomplete="new-password">
+      <label for="vault-pass-confirm">Confirm passphrase</label>
+      <input id="vault-pass-confirm" type="password" autocomplete="new-password">
+      <div class="dialog-actions">
+        <button id="create-vault-btn" type="button">Create vault</button>
+        <button id="vault-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-back" id="unlock-dialog" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-label="Unlock vault">
+      <h2>Unlock vault</h2>
+      <p id="unlock-vault-name" class="status"></p>
+      <label for="unlock-passphrase">Vault passphrase</label>
+      <input id="unlock-passphrase" type="password" autocomplete="current-password">
+      <div class="dialog-actions">
+        <button id="unlock-btn" type="button">Unlock</button>
+        <button id="unlock-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-back" id="invite-dialog" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-label="Invite partner">
+      <h2>Invite partner</h2>
+      <label for="partner-email">Partner email</label>
+      <input id="partner-email" type="email">
+      <div class="dialog-actions">
+        <button id="send-invite-btn" type="button">Send invite</button>
+        <button id="invite-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-back" id="restore-dialog" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-label="Restore revision">
+      <h2>Restore revision</h2>
+      <p id="restore-copy">Restore r1 as a new revision?</p>
+      <status id="restore-status" role="status" aria-label="Restore status"></status>
+      <div class="dialog-actions">
+        <button id="restore-btn" type="button">Restore</button>
+        <button id="restore-cancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-back" id="publish-dialog" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-label="Publish dossier">
+      <h2>Publish dossier</h2>
+      <p id="publish-copy">Publish 0 notes and cut 0 links?</p>
+      <div class="dialog-actions">
+        <button id="publish-now-btn" type="button">Publish now</button>
+        <button id="publish-cancel-btn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-back" id="takedown-dialog" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-label="Take down dossier">
+      <h2>Take down dossier</h2>
+      <p>Take the dossier offline and delete every published page?</p>
+      <div class="dialog-actions">
+        <button id="take-down-btn" type="button">Take down</button>
+        <button id="takedown-cancel-btn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-back" id="revoke-dialog" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-label="Revoke preview link">
+      <h2>Revoke preview link</h2>
+      <p>Anyone with the link will see the ended-link page.</p>
+      <div class="dialog-actions">
+        <button id="revoke-btn" type="button">Revoke</button>
+        <button id="revoke-cancel-btn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script type="module" src="/assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "_ui.html" import pill with context %}
+{% block title %}Manage {{ event.name }} · Mela{% endblock %}
+{% set labels = {"approved": "Going", "pending": "Pending", "waitlisted": "Waitlist", "declined": "Declined"} %}
+{% set pills = {"approved": "going", "pending": "pending", "waitlisted": "waitlist", "declined": "declined"} %}
+{% block main %}
+<div class="page" x-data="manage" data-slug="{{ event.slug }}">
+  <header class="manage-head" data-live="summary">
+    <p class="eyebrow">Manage Event</p>
+    <h1 class="page-title"><a class="title-link" href="/{{ event.slug }}">{{ event.name }}</a></h1>
+    <dl class="tally">
+      {% for key in ("approved", "pending", "waitlisted", "declined") %}
+      <div><dt>{{ labels[key] }}</dt><dd>{{ tally[key] }}</dd></div>
+      {% endfor %}
+      <div><dt>Capacity</dt><dd>{{ event.capacity if event.capacity is not none else "Unlimited" }}</dd></div>
+    </dl>
+    <p class="registration-state">
+      {% if event.registration_status == "closed" %}
+      <span class="pill pill-declined">Registration closed</span>
+      <button type="button" class="pill-button quiet small" data-registration="{{ reopen }}">Reopen Registration</button>
+      {% else %}
+      <span class="pill pill-going">{{ "Access code only" if event.registration_status == "code_only" else "Registration open" }}</span>
+      <button type="button" class="pill-button quiet small" data-registration="closed">Close Registration</button>
+      {% endif %}
+      <span class="field-error" data-registration-error hidden></span>
+    </p>
+  </header>
+
+  <div class="manage-grid">
+    <section class="guests" aria-labelledby="guests-title">
+      <div class="band-head">
+        <h2 class="section-title" id="guests-title">Guests</h2>
+        <div class="field compact inline">
+          <label for="status-filter">Status</label>
+          <select id="status-filter" x-model="filter" @change="apply()">
+            {% for value, label in filters %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div data-live="guests">
+        {% if guests %}
+        <table class="guest-table">
+          <thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Requested</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody>
+            {% for guest in guests %}
+            <tr data-status="{{ guest.status }}">
+              <th scope="row" class="guest-name">{{ guest.name }}</th>
+              <td class="guest-email">{{ guest.email }}</td>
+              <td class="guest-time">{{ fmt.requested(guest.requested_at, event.timezone) }}</td>
+              <td class="guest-status">{{ pill(pills[guest.status]) }}{% if guest.waitlist_position %} <span class="queue">{{ fmt.ordinal(guest.waitlist_position) }} in line</span>{% endif %}</td>
+              <td class="guest-actions">
+                {% if guest.status in ("pending", "waitlisted") %}
+                <button type="button" class="pill-button strong small" data-decide="approve" data-guest="{{ guest.id }}" aria-label="Approve {{ guest.name }}">Approve</button>
+                <button type="button" class="pill-button quiet small" data-decide="decline" data-guest="{{ guest.id }}" aria-label="Decline {{ guest.name }}">Decline</button>
+                {% elif guest.status == "approved" %}
+                <button type="button" class="pill-button quiet small" data-decide="remove" data-guest="{{ guest.id }}" aria-label="Remove {{ guest.name }}">Remove</button>
+                {% endif %}
+                <span class="field-error" data-row-error hidden></span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+        <div class="empty compact" data-no-guests {% if guests %}hidden{% endif %}>
+          <p class="empty-title">No guests with this status</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="edit" aria-labelledby="edit-title">
+      <h2 class="section-title" id="edit-title">Edit Event</h2>
+      {% with mode = "edit" %}{% include "_event_form.html" %}{% endwith %}
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,1699 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 89
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "place-work",
+    "keyboard-nudge",
+    "remove-undo",
+    "claim-race",
+    "install-signoff",
+    "condition-photos",
+    "object-records",
+    "light-budget",
+    "eye-line-views",
+    "tablet-touch",
+    "preview-schedule",
+    "preview-publish",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 86
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+S4 = 5
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Ashgrove Museum previews <previews@ashgrove-museum.example>"
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_IMAGE_STORE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_imgdown"
+PREVIEW_PUBLISH_DELAY_SECONDS = "20"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAIL_RELAY_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+DATABASE_URL = "${DATABASE_URL}_maildown"
+S3_BUCKET = "${S3_BUCKET}-maildown"
+PREVIEW_PUBLISH_DELAY_SECONDS = "20"
+
+[[outages]]
+id = "postgres-down"
+port = 4176
+url_env = "APP_DATABASE_DOWN_URL"
+
+[outages.env]
+DATABASE_URL = "postgresql://gf_app:unreachable@127.0.0.1:9/hangline"
+
+[[outages]]
+id = "fast-publish"
+port = 4177
+url_env = "APP_FAST_PUBLISH_URL"
+
+[outages.env]
+PREVIEW_PUBLISH_DELAY_SECONDS = "30"
+DATABASE_URL = "${DATABASE_URL}_fastpub"
+S3_BUCKET = "${S3_BUCKET}-fastpub"
+
+[[requirements]]
+id = "DP-01"
+title = "Place a work on a wall"
+text = "A curator places an unplaced object on a wall with `POST /api/placements` and gets `201` with the stored placement in millimetres, its planned lux, planned lux-hours and lux status, as defined in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-work"
+tests = [
+    "test_app.py::test_place_work_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Hang geometry rules"
+text = "A placement or move is saved only when it passes the hang rules in Business rules (whole work on the wall, on the centre line or marked as an exception, clear of neighbours), and each rejection returns its published reason."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-work"
+tests = [
+    "test_app.py::test_hang_rules",
+]
+criteria = []
+parameter_cases = [
+    "off_wall",
+    "off_centre_line",
+    "too_close",
+    "gap_exactly_200",
+    "exception_off_line",
+    "move_off_wall",
+]
+
+[[requirements]]
+id = "DP-03"
+title = "Light limit gates placement"
+text = "A curator cannot place or move a work onto a wall lit above the work's lux limit; the server rejects it with the too-bright reason."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-work"
+tests = [
+    "test_app.py::test_light_limit_gates_placement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Place from the object rail"
+text = "A curator places a work by keyboard alone from its rail card through the \"Place work\" dialog and its Wall combobox (at 375 px from inside the opened Objects sheet). Focus lands on the new work's handle, the placed sentence is announced, and other open workspaces show the work within the live-update delay with its team update."
+kind = "behavior"
+primary = "workflow"
+workflow = "place-work"
+tests = [
+    "test_app.py::test_wf_place_work_keyboard_desk",
+    "test_app.py::test_wf_place_work_phone_sheet",
+    "test_app.py::test_own_placement_not_announced",
+    "test_app.py::test_place_save_ignores_repeat_press",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Placement rejections in the dialog"
+text = "A rejected placement keeps the \"Place work\" dialog open and moves focus to its error summary, whose link moves focus to the field concerned. The published reason is announced."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-work"
+tests = [
+    "test_app.py::test_place_dialog_rejection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Work settles onto the hang line"
+text = "A newly placed work settles onto its saved position within the timing in Motion and effects. With reduced motion it appears there at once, both on screen and in its scene marker's state."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-work"
+tests = [
+    "test_app.py::test_work_settles_onto_hang_line",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Keyboard nudges along the wall"
+text = "With a work's handle focused in the Scene ledger in Plan or Wall view, the arrow keys move the work along its wall by 1 cm (10 cm with Shift), and the move is saved once the keys rest, as described in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-nudge"
+tests = [
+    "test_app.py::test_keyboard_nudges",
+    "test_app.py::test_own_nudge_not_announced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Placement details dialog"
+text = "Enter on a handle in Plan or Wall view opens the \"Placement details\" dialog. Tab and Shift+Tab stay inside it, Escape closes it, and focus returns to the same handle."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-nudge"
+tests = [
+    "test_app.py::test_placement_details_dialog",
+    "test_app.py::test_details_save_ignores_repeat_press",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Rejected nudges snap back"
+text = "When the server rejects a nudge, the work returns to its last saved position in the scene and ledger, and the published reason is announced."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-nudge"
+tests = [
+    "test_app.py::test_rejected_nudge_snaps_back",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Stale moves show the latest position"
+text = "When a move is refused with `412`, the scene and ledger switch to the position the server returned and the stale-version sentence is announced."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-nudge"
+tests = [
+    "test_app.py::test_stale_move_shows_latest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Nudge from the keyboard"
+text = "A curator tabs to a work's handle, nudges it and sets an exact offset in Placement details by keyboard alone, at 1280 px and in the phone ledger at 375 px. The saved offset shows in the ledger, in the API and in other open workspaces within the live-update delay."
+kind = "behavior"
+primary = "workflow"
+workflow = "keyboard-nudge"
+tests = [
+    "test_app.py::test_wf_keyboard_nudge_desk",
+    "test_app.py::test_wf_keyboard_nudge_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Remove with a server-timed undo"
+text = "Removing a proposed work returns an undo window that the server decides. Undo inside the window restores the work, and Undo after it is refused, as set out in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "remove-undo"
+tests = [
+    "test_app.py::test_remove_with_server_undo",
+    "test_app.py::test_own_removal_not_announced",
+    "test_app.py::test_undo_refused_by_hang_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Undo a move"
+text = "Every move also returns an undo window. Undoing restores the previous position, unless the placement has changed since, in which case the undo is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "remove-undo"
+tests = [
+    "test_app.py::test_undo_move",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Undo toast survives the workspace"
+text = "The undo toast keeps counting down from the server's remaining time, without resetting or closing early, through view changes, panel and dialog opens and closes, and data refreshes. Only a newer removal or move replaces it."
+kind = "behavior"
+primary = "pytest"
+workflow = "remove-undo"
+tests = [
+    "test_app.py::test_undo_toast_survives",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Undo by keyboard"
+text = "Undo is reachable by Tab and by the published undo shortcut. Focus lands on the published target after Remove, after Undo and when the toast closes, as set out in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "remove-undo"
+tests = [
+    "test_app.py::test_undo_by_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Removal and undo seen by others"
+text = "A curator's removal and its undo each show in other open workspaces within the live-update delay with their team updates, at 768 px as at 1280 px."
+kind = "behavior"
+primary = "workflow"
+workflow = "remove-undo"
+tests = [
+    "test_app.py::test_wf_remove_undo_desk",
+    "test_app.py::test_wf_remove_undo_tablet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "One claim wins"
+text = "When several preparators claim the same proposed work at once, exactly one claim succeeds and every other gets `409` naming the winner."
+kind = "behavior"
+primary = "pytest"
+workflow = "claim-race"
+tests = [
+    "test_app.py::test_one_claim_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "No lost updates"
+text = "Claims never change a work's position, and a move sent with an out-of-date version is refused with `412` instead of overwriting the newer position."
+kind = "behavior"
+primary = "pytest"
+workflow = "claim-race"
+tests = [
+    "test_app.py::test_no_lost_updates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Lost claim updates in place"
+text = "When a preparator's claim loses, that work's card changes in place to the winner's name, the published lost-claim sentence is announced, and focus moves to that card's title heading."
+kind = "behavior"
+primary = "pytest"
+workflow = "claim-race"
+tests = [
+    "test_app.py::test_lost_claim_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "One request per claim press"
+text = "While a claim is pending, further presses on that Claim button send nothing, so one press, or a rapid double press, yields exactly one claim request."
+kind = "behavior"
+primary = "pytest"
+workflow = "claim-race"
+tests = [
+    "test_app.py::test_one_request_per_claim_press",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Claims reach every open session"
+text = "A won claim shows within the live-update delay, with its team update, in every other open workspace, including the winner's own other sessions. At 375 px the Claim control is reached inside the opened Objects sheet."
+kind = "behavior"
+primary = "workflow"
+workflow = "claim-race"
+tests = [
+    "test_app.py::test_wf_claim_race_two_phones",
+    "test_app.py::test_wf_claim_race_own_sessions",
+    "test_app.py::test_own_claim_not_announced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Placement lifecycle"
+text = "Placements move only along proposed, claimed, hung and signed off, plus release back to proposed and removal of proposed works. Every other transition is refused with `409`."
+kind = "behavior"
+primary = "pytest"
+workflow = "install-signoff"
+tests = [
+    "test_app.py::test_placement_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Role permissions"
+text = "Each action is open only to the role Business rules gives it, and anyone else gets `403`."
+kind = "behavior"
+primary = "pytest"
+workflow = "install-signoff"
+tests = [
+    "test_app.py::test_role_permissions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Sign-off guards"
+text = "A registrar can sign off a hung work only when it has a recorded condition photo and is within its light budget, and each refusal has its published sentence."
+kind = "behavior"
+primary = "pytest"
+workflow = "install-signoff"
+tests = [
+    "test_app.py::test_sign_off_guards",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Install day from the rail"
+text = "By keyboard alone, at 1280 px and from the Objects drawer at 768 px, a preparator claims a work and marks it hung, then a registrar signs it off. After each step the card and ledger show the new status, focus is on the published target, and other open workspaces update within the live-update delay."
+kind = "behavior"
+primary = "workflow"
+workflow = "install-signoff"
+tests = [
+    "test_app.py::test_wf_install_signoff_desk",
+    "test_app.py::test_wf_install_signoff_tablet",
+    "test_app.py::test_own_hang_not_announced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Condition photo upload"
+text = "A registrar attaches JPEG or PNG condition photos to an object. The server answers `201` only after the image store confirms the stored object, within the size and type limits in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "condition-photos"
+tests = [
+    "test_app.py::test_condition_photo_upload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Photos kept as uploaded"
+text = "Every stored condition photo, and the bytes served back for it, are identical to the bytes uploaded."
+kind = "behavior"
+primary = "pytest"
+workflow = "condition-photos"
+tests = [
+    "test_app.py::test_photos_kept_as_uploaded",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Photo upload replay"
+text = "Repeating a photo upload with the same idempotency key returns the original response and stores no second photo. Reusing the key for a different upload is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "condition-photos"
+tests = [
+    "test_app.py::test_photo_upload_replay",
+    "test_app.py::test_photo_key_reuse_on_missing_object",
+    "test_app.py::test_photo_unknown_staff_before_key_format",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Image store outage"
+text = "While the image store is unreachable, photo uploads answer `503` and record nothing. The workspace shows the image store banner, and every other action keeps working."
+kind = "behavior"
+primary = "pytest"
+workflow = "condition-photos"
+tests = [
+    "test_app.py::test_wf_condition_photos_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Attached only after confirmation"
+text = "A card shows the uploading message while it waits, shows a condition photo as attached only after the server's `201`, and never shows a failed upload as attached."
+kind = "behavior"
+primary = "pytest"
+workflow = "condition-photos"
+tests = [
+    "test_app.py::test_attached_only_after_confirmation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Record condition from the rail"
+text = "A registrar attaches a photo by keyboard from a rail card (at 375 px inside the opened Objects sheet). The attached sentence is announced, and the new photo count shows in other open workspaces within the live-update delay."
+kind = "behavior"
+primary = "workflow"
+workflow = "condition-photos"
+tests = [
+    "test_app.py::test_wf_condition_photos_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Register an object"
+text = "A registrar registers a work with its lender, dimensions, lux limit, lux-hour budget, insurance value and note, and gets `201` with the stored record."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-records"
+tests = [
+    "test_app.py::test_register_object",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Dimensions in cm or inches"
+text = "Dimensions entered in centimetres or inches are stored once as whole millimetres by the conversion rule in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-records"
+tests = [
+    "test_app.py::test_dimension_units",
+]
+criteria = []
+parameter_cases = [
+    "cm_one_decimal",
+    "in_whole",
+    "in_half_up",
+    "in_two_decimals",
+    "cm_20_metres",
+    "cm_two_decimals",
+    "in_three_decimals",
+    "zero",
+    "over_20_metres",
+    "bad_unit",
+]
+
+[[requirements]]
+id = "DP-34"
+title = "Unit toggle without drift"
+text = "The Units toggle redisplays every length from the stored millimetres, so a 30 in work always reads 76.2 cm and 30.0 in however often it is switched."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-records"
+tests = [
+    "test_app.py::test_unit_toggle_no_drift",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Object field errors"
+text = "An invalid object form returns `422` with per-field messages. The form shows each message beside its field and moves focus to an error summary whose links move focus to each field."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-records"
+tests = [
+    "test_app.py::test_object_field_errors",
+    "test_app.py::test_wf_object_records_invalid_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Loan register in the address"
+text = "The Loan register's search, lender filter, sort and order live in its URL, so a reload or Back restores the same list in the same order, as set out in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-records"
+tests = [
+    "test_app.py::test_register_url_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Loan register layouts"
+text = "At 1280 px the Loan register is a table with the published columns. Below 1024 px, including 768 px and 375 px, it is the published card list, with no horizontal overflow."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-records"
+tests = [
+    "test_app.py::test_register_layouts",
+    "test_app.py::test_register_record_link_tappable",
+]
+criteria = []
+parameter_cases = [
+    "desk",
+    "tablet",
+    "phone",
+]
+
+[[requirements]]
+id = "DP-38"
+title = "Search shows the latest query"
+text = "Typing in the Loan register search shows only the results of the latest query, never an earlier query's results arriving late."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-records"
+tests = [
+    "test_app.py::test_search_latest_query",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Add an object by keyboard"
+text = "A registrar adds an object by keyboard alone from the Loan register and lands on the new record's URL with focus on its heading. Other open workspaces show the new card within the live-update delay."
+kind = "behavior"
+primary = "workflow"
+workflow = "object-records"
+tests = [
+    "test_app.py::test_wf_object_records_add_by_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Tighter limits re-flag placements"
+text = "Lowering an object's lux limit or lux-hour budget below its planned values keeps the placement but marks it over budget in the API, scene and ledger."
+kind = "behavior"
+primary = "pytest"
+workflow = "light-budget"
+tests = [
+    "test_app.py::test_tighter_limits_reflag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Planned lux-hours on the server"
+text = "The server computes each placement's planned lux-hours once, from its wall's lux and the exhibition's open hours, and returns it with the lux status."
+kind = "behavior"
+primary = "pytest"
+workflow = "light-budget"
+tests = [
+    "test_app.py::test_planned_lux_hours",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Wall lighting changes"
+text = "When a curator changes a wall's lux, every placement on that wall is recomputed in the same response. A level above a placed work's limit is accepted but flags that work over budget."
+kind = "behavior"
+primary = "pytest"
+workflow = "light-budget"
+tests = [
+    "test_app.py::test_wall_lighting_changes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Light view status"
+text = "In Light view, works within budget are outlined in ink and works over budget are outlined in deep red with a hatched fill, so status never depends on colour alone. Each work's scene marker reports the same status and overlay."
+kind = "behavior"
+primary = "pytest"
+workflow = "light-budget"
+tests = [
+    "test_app.py::test_light_view_status",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "One over-budget count"
+text = "After a placement or limit change, the scene, the Scene ledger's lux status column and the over-budget count all show the same server values."
+kind = "behavior"
+primary = "pytest"
+workflow = "light-budget"
+tests = [
+    "test_app.py::test_one_over_budget_count",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Light view by keyboard"
+text = "In Light view the arrow keys move focus between work handles, and Enter opens the \"Lux details\" dialog. The dialog keeps Tab inside, closes with Escape and returns focus to the same handle."
+kind = "behavior"
+primary = "pytest"
+workflow = "light-budget"
+tests = [
+    "test_app.py::test_light_view_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Lux legend disclosure"
+text = "In Light view the lux legend shows in full at 1280 px. Below 1024 px it collapses behind the \"Lux legend\" button and is hidden and unreachable while collapsed."
+kind = "behavior"
+primary = "pytest"
+workflow = "light-budget"
+tests = [
+    "test_app.py::test_lux_legend",
+]
+criteria = []
+parameter_cases = [
+    "desk",
+    "tablet",
+    "phone",
+]
+
+[[requirements]]
+id = "DP-47"
+title = "Last lux entry wins"
+text = "When a curator saves a wall's lux several times in quick succession, the wall ends at the last value saved, on the server and on screen. No earlier save's result is shown or announced after it."
+kind = "behavior"
+primary = "pytest"
+workflow = "light-budget"
+tests = [
+    "test_app.py::test_wf_light_budget_last_lux_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Limit changes reach the Light view"
+text = "A registrar's change to an object's limits shows in a curator's open Light view within the live-update delay, in the scene marker, ledger and count, with its team update."
+kind = "behavior"
+primary = "workflow"
+workflow = "light-budget"
+tests = [
+    "test_app.py::test_wf_light_budget_limit_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "View switch and shortcuts"
+text = "The View group's Plan, Wall and Light buttons show which view is pressed. The keys 1, 2 and 3 switch views from any workspace control except text fields, and each settled change announces its view sentence."
+kind = "behavior"
+primary = "pytest"
+workflow = "eye-line-views"
+tests = [
+    "test_app.py::test_view_switch_shortcuts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Eye-line drop"
+text = "Choosing Wall from Plan dissolves between the views while the camera falls to eye height facing the selected wall, then the hang line fades in, within the timing in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "eye-line-views"
+tests = [
+    "test_app.py::test_eye_line_drop",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Light cross-fade"
+text = "Choosing Light cross-fades the current view into the lux map within the timing in Motion and effects, and the camera stays where it was."
+kind = "behavior"
+primary = "pytest"
+workflow = "eye-line-views"
+tests = [
+    "test_app.py::test_light_cross_fade",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Reduced-motion cuts"
+text = "With reduced motion requested, every view change is an instant cut to the same final camera, hang line and overlay, and nudges move with no tween."
+kind = "behavior"
+primary = "pytest"
+workflow = "eye-line-views"
+tests = [
+    "test_app.py::test_reduced_motion_cuts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Flat drawing without WebGL"
+text = "Without WebGL, the scene region shows a still flat drawing of the current view with the published notice, and the ledger, views and nudges still work."
+kind = "behavior"
+primary = "pytest"
+workflow = "eye-line-views"
+tests = [
+    "test_app.py::test_flat_drawing_without_webgl",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "View and selection in the address"
+text = "The workspace URL carries the current view and selected work, and loading it restores both at once with no transition, as set out in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "eye-line-views"
+tests = [
+    "test_app.py::test_view_and_selection_in_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Walk the eye line"
+text = "A curator moves through Plan, Wall and Light by keyboard at 1280 px and at 375 px, where the View group sits above the scene. Each settled view matches the scene state table."
+kind = "behavior"
+primary = "workflow"
+workflow = "eye-line-views"
+tests = [
+    "test_app.py::test_wf_eye_line_views_desk",
+    "test_app.py::test_wf_eye_line_views_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Touch drag"
+text = "On a touch screen, dragging a work with one finger moves it along its wall in 1 cm steps, and lifting the finger saves it as one move."
+kind = "behavior"
+primary = "pytest"
+workflow = "tablet-touch"
+tests = [
+    "test_app.py::test_touch_drag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Two-finger orbit"
+text = "Dragging with two fingers orbits the camera within the limits in Interactions, also with reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "tablet-touch"
+tests = [
+    "test_app.py::test_two_finger_orbit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Tablet two-pane layout"
+text = "At 768x1024 the scene and inspector sit side by side. The object rail opens only from the Objects button, as a drawer that is hidden and unreachable while closed."
+kind = "behavior"
+primary = "pytest"
+workflow = "tablet-touch"
+tests = [
+    "test_app.py::test_wf_tablet_touch_drawer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Phone bottom sheet"
+text = "At 375x812 the scene takes the full width. The object rail is a bottom sheet whose contents cannot be seen, focused or reached by Tab until the Objects button opens it."
+kind = "behavior"
+primary = "pytest"
+workflow = "tablet-touch"
+tests = [
+    "test_app.py::test_phone_bottom_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Adjust on the tablet"
+text = "At 768 px with touch, a preparator opens the Objects drawer, claims a work, closes the drawer, drags the work 3 cm and marks it hung. Each saved step is announced and shows in other open workspaces within the live-update delay."
+kind = "behavior"
+primary = "workflow"
+workflow = "tablet-touch"
+tests = [
+    "test_app.py::test_wf_tablet_touch_adjust",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Schedule the lender preview"
+text = "A curator schedules the preview for a date. The server fixes the publish time at 09:00 museum time on that date and refuses dates that are too soon, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "preview-schedule"
+tests = [
+    "test_app.py::test_schedule_lender_preview",
+    "test_app.py::test_wf_preview_schedule_refused",
+    "test_app.py::test_own_schedule_not_announced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Preview schedule transitions"
+text = "The preview moves only along draft, scheduled, published and withdrawn, plus cancelling back to draft and rescheduling after withdrawal. Every other transition is refused with `409`."
+kind = "behavior"
+primary = "pytest"
+workflow = "preview-schedule"
+tests = [
+    "test_app.py::test_preview_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Preview status from the server"
+text = "The preview status, publish time and countdown shown come only from the server's response, and they are correct even when the device clock is wrong."
+kind = "behavior"
+primary = "pytest"
+workflow = "preview-schedule"
+tests = [
+    "test_app.py::test_preview_status_from_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Publish countdown keeps time"
+text = "The publish countdown continues from the server's remaining time through re-renders, view changes, panel opens and a tab switch, and never restarts, as set out in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "preview-schedule"
+tests = [
+    "test_app.py::test_publish_countdown_keeps_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Status goes Live in place"
+text = "When the server publishes the preview, the open workspace's preview status changes from Scheduled to Live in place, with no reload, within the delay in Business rules, and the publish sentence is announced."
+kind = "behavior"
+primary = "pytest"
+workflow = "preview-schedule"
+tests = [
+    "test_app.py::test_status_goes_live_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Preview sheet on the phone"
+text = "At 375x812 the Lender preview panel is a bottom sheet opened by the Lender preview button. It keeps Tab inside while open and is hidden and unreachable while closed."
+kind = "behavior"
+primary = "pytest"
+workflow = "preview-schedule"
+tests = [
+    "test_app.py::test_preview_sheet_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Preview panel in the address"
+text = "Scheduling, cancelling or withdrawing the preview leaves the workspace on the published preview URL with focus on the Lender preview heading, and loading that URL opens the panel again."
+kind = "behavior"
+primary = "workflow"
+workflow = "preview-schedule"
+tests = [
+    "test_app.py::test_wf_preview_schedule_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Publish on time"
+text = "When the publish time passes, the server itself flips the preview to published, freezes one snapshot per lender with placed works, and sends each such lender one email."
+kind = "behavior"
+primary = "pytest"
+workflow = "preview-publish"
+tests = [
+    "test_app.py::test_publish_on_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Lender preview email"
+text = "Each lender receives one preview email from the published sender with the published subject, naming only their own works and carrying their own preview link."
+kind = "behavior"
+primary = "pytest"
+workflow = "preview-publish"
+tests = [
+    "test_app.py::test_lender_preview_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Lender preview page"
+text = "A lender who follows the link sees a read-only page with the exhibition title, their own name, and only their own works in place, in the published layouts at each viewport, with a keyboard-operable view switch kept in the URL."
+kind = "behavior"
+primary = "workflow"
+workflow = "preview-publish"
+tests = [
+    "test_app.py::test_wf_preview_publish_lender_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Nothing private reaches lenders"
+text = "No preview email, page, preview API response or snapshot contains an insurance value, a registrar note, or any other lender's name or works."
+kind = "behavior"
+primary = "pytest"
+workflow = "preview-publish"
+tests = [
+    "test_app.py::test_nothing_private_reaches_lenders",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Snapshots kept as frozen"
+text = "Each lender's snapshot JSON and PNG are stored at publish time and served back byte for byte, unchanged by later edits."
+kind = "behavior"
+primary = "pytest"
+workflow = "preview-publish"
+tests = [
+    "test_app.py::test_snapshots_frozen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Capability links"
+text = "Each preview link is unguessable, scoped to one lender and read-only (`405` for any write). Rescheduling after withdrawal replaces it with a new link."
+kind = "behavior"
+primary = "pytest"
+workflow = "preview-publish"
+tests = [
+    "test_app.py::test_capability_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Withdraw the preview"
+text = "Withdrawing a published preview makes every link answer `410` at once and sends a withdrawal notice to each lender who received the preview."
+kind = "behavior"
+primary = "pytest"
+workflow = "preview-publish"
+tests = [
+    "test_app.py::test_wf_preview_publish_withdraw",
+    "test_app.py::test_own_withdrawal_not_announced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Mail relay outage"
+text = "While the mail relay is unreachable, the preview still publishes on time, each recipient's email waits as queued, and the Recipients list and the mail banner show it, as set out in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "preview-publish"
+tests = [
+    "test_app.py::test_wf_preview_publish_mail_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Recipients update in place"
+text = "The Recipients list follows each email's delivery state from the server and updates in place without a reload, within the delay in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "preview-publish"
+tests = [
+    "test_app.py::test_recipients_update_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Health and run manifest"
+text = "The app installs, builds and serves from `/app/run.json` and answers its health check, as set out in Deployment."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_manifest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Database outage"
+text = "While the database is unreachable, the app starts and stays up, answers its health check, and answers data requests with `503`."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_database_outage_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Database banner holds the page"
+text = "While the database reads down, every staff page shows the database banner, moves focus to its Try again button and keeps the rest of the page unreachable. On recovery it releases the page and moves focus to the page's main heading."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_database_banner",
+    "test_app.py::test_wf_cross_cutting_database_recovers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Services recover without reload"
+text = "The workspace learns service state only from the server's status, which re-probes every service on the interval in Services. Each banner shows exactly while its service reads down, without a page reload or a server restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Team updates"
+text = "Every state change made in another session is announced in the Team updates region with its published sentence. Changes made in the same browser tab are never announced there."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_team_updates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Desk three-column layout"
+text = "At 1280x800 the object rail, the scene with its ledger, and the inspector sit in three columns divided by thin ink rules, with no horizontal overflow at any published viewport."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_workspace_layouts",
+]
+criteria = []
+parameter_cases = [
+    "desk",
+    "tablet",
+    "phone",
+]
+
+[[requirements]]
+id = "DP-83"
+title = "Skip link first"
+text = "On every page the first Tab stop is the \"Skip to main content\" link, which moves focus to the main landmark."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_skip_link_first",
+]
+criteria = []
+parameter_cases = [
+    "workspace",
+    "register",
+    "record",
+    "lender_error",
+]
+
+[[requirements]]
+id = "DP-84"
+title = "Reduced motion everywhere"
+text = "With reduced motion requested, no animation or transition on any page lasts longer than the reduced limit in Motion and effects, and nothing repeats."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion_everywhere",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Published copy verbatim"
+text = "Every string this brief prints in backticks renders and is announced character for character."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_published_copy_verbatim",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Server boundary"
+text = "The server is same-origin only, enforces the request size limits, and never serves source files or credentials, as set out in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-87"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read from the environment at start and is never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-88"
+title = "Hushed exhibition look"
+text = "The staff pages and lender page follow Visual design: a warm plaster ground, ink text, no surface shadows, serif type only for the exhibition and gallery titles and the Loan register heading, and tabular figures with units."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-89"
+title = "Gallery scene craft"
+text = "The 3D gallery is built from procedural geometry, with lit walls, works shown at their true proportions, and the accent hang line in Wall view."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with exactly the string keys `_schema` (value `run-manifest-v1`), `install`, `build` and `serve`."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` names every shipped package and font with its licence. Shipped packages means the production dependency tree from `npm ls --omit=dev --all --json`."
+tests = [
+    "test_app.py::test_if_notices_name_packages",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package uses MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0, and the fonts use OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastore other than the provided Postgres, MinIO and Mailpit: no SQLite, no Redis, and no files used as a database."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service definitions and seeded development credentials are left unchanged."
+tests = [
+    "test_app.py::test_if_services_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Fonts and icons ship inside the app and are served from its own origin, with no runtime requests to font or script CDNs."
+tests = [
+    "test_app.py::test_if_fonts_same_origin",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The npm lockfile is committed and `install` uses it."
+tests = [
+    "test_app.py::test_if_lockfile_used",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "place-work"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+]
+critical = [
+    "test_app.py::test_wf_place_work_keyboard_desk",
+    "test_app.py::test_wf_place_work_phone_sheet",
+    "test_app.py::test_work_settles_onto_hang_line",
+    "test_app.py::test_place_dialog_rejection",
+    "test_app.py::test_own_placement_not_announced",
+    "test_app.py::test_place_save_ignores_repeat_press",
+]
+
+[[workflows]]
+id = "keyboard-nudge"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_wf_keyboard_nudge_desk",
+    "test_app.py::test_wf_keyboard_nudge_phone",
+    "test_app.py::test_placement_details_dialog",
+    "test_app.py::test_rejected_nudge_snaps_back",
+    "test_app.py::test_stale_move_shows_latest",
+    "test_app.py::test_own_nudge_not_announced",
+    "test_app.py::test_details_save_ignores_repeat_press",
+]
+
+[[workflows]]
+id = "remove-undo"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_wf_remove_undo_desk",
+    "test_app.py::test_wf_remove_undo_tablet",
+    "test_app.py::test_undo_toast_survives",
+    "test_app.py::test_remove_with_server_undo",
+    "test_app.py::test_undo_by_keyboard",
+    "test_app.py::test_own_removal_not_announced",
+    "test_app.py::test_undo_refused_by_hang_rules",
+]
+
+[[workflows]]
+id = "claim-race"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_claim_race_two_phones",
+    "test_app.py::test_wf_claim_race_own_sessions",
+    "test_app.py::test_one_claim_wins",
+    "test_app.py::test_lost_claim_in_place",
+    "test_app.py::test_own_claim_not_announced",
+]
+
+[[workflows]]
+id = "install-signoff"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_install_signoff_desk",
+    "test_app.py::test_wf_install_signoff_tablet",
+    "test_app.py::test_sign_off_guards",
+    "test_app.py::test_own_hang_not_announced",
+]
+
+[[workflows]]
+id = "condition-photos"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_condition_photos_phone",
+    "test_app.py::test_wf_condition_photos_outage",
+    "test_app.py::test_attached_only_after_confirmation",
+    "test_app.py::test_photos_kept_as_uploaded",
+    "test_app.py::test_photo_key_reuse_on_missing_object",
+    "test_app.py::test_photo_unknown_staff_before_key_format",
+]
+
+[[workflows]]
+id = "object-records"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_object_records_add_by_keyboard",
+    "test_app.py::test_wf_object_records_invalid_recovery",
+    "test_app.py::test_register_layouts",
+    "test_app.py::test_object_field_errors",
+    "test_app.py::test_register_record_link_tappable",
+]
+
+[[workflows]]
+id = "light-budget"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_light_budget_limit_change",
+    "test_app.py::test_wf_light_budget_last_lux_wins",
+    "test_app.py::test_light_view_keyboard",
+    "test_app.py::test_lux_legend",
+    "test_app.py::test_one_over_budget_count",
+]
+checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "eye-line-views"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_eye_line_views_desk",
+    "test_app.py::test_wf_eye_line_views_phone",
+    "test_app.py::test_reduced_motion_cuts",
+    "test_app.py::test_view_switch_shortcuts",
+    "test_app.py::test_flat_drawing_without_webgl",
+    "test_app.py::test_light_cross_fade",
+]
+checkpoints = [
+    "B8",
+    "B9",
+]
+
+[[workflows]]
+id = "tablet-touch"
+requirements = [
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_tablet_touch_adjust",
+    "test_app.py::test_wf_tablet_touch_drawer",
+    "test_app.py::test_two_finger_orbit",
+    "test_app.py::test_phone_bottom_sheet",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "preview-schedule"
+requirements = [
+    "DP-61",
+    "DP-62",
+    "DP-63",
+    "DP-64",
+    "DP-65",
+    "DP-66",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_preview_schedule_phone",
+    "test_app.py::test_wf_preview_schedule_refused",
+    "test_app.py::test_preview_status_from_server",
+    "test_app.py::test_publish_countdown_keeps_time",
+    "test_app.py::test_preview_sheet_phone",
+    "test_app.py::test_status_goes_live_in_place",
+    "test_app.py::test_own_schedule_not_announced",
+]
+
+[[workflows]]
+id = "preview-publish"
+requirements = [
+    "DP-68",
+    "DP-69",
+    "DP-70",
+    "DP-71",
+    "DP-72",
+    "DP-73",
+    "DP-74",
+    "DP-75",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_wf_preview_publish_lender_page",
+    "test_app.py::test_wf_preview_publish_withdraw",
+    "test_app.py::test_wf_preview_publish_mail_outage",
+    "test_app.py::test_publish_on_time",
+    "test_app.py::test_nothing_private_reaches_lenders",
+    "test_app.py::test_snapshots_frozen",
+    "test_app.py::test_capability_links",
+    "test_app.py::test_recipients_update_in_place",
+    "test_app.py::test_own_withdrawal_not_announced",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-77",
+    "DP-78",
+    "DP-79",
+    "DP-80",
+    "DP-81",
+    "DP-82",
+    "DP-83",
+    "DP-84",
+    "DP-85",
+    "DP-86",
+    "DP-87",
+    "DP-88",
+    "DP-89",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_database_banner",
+    "test_app.py::test_wf_cross_cutting_database_recovers",
+    "test_app.py::test_wf_cross_cutting_recovery",
+    "test_app.py::test_workspace_layouts",
+    "test_app.py::test_reduced_motion_everywhere",
+    "test_app.py::test_published_copy_verbatim",
+    "test_app.py::test_skip_link_first",
+    "test_app.py::test_server_boundary",
+]
+checkpoints = [
+    "B1",
+    "B12",
+    "B2",
+]

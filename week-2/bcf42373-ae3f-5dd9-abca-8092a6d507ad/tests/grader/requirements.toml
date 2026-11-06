@@ -1,0 +1,1354 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 77
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "owner-signs-in",
+    "studio-access",
+    "draft-denied",
+    "owner-publishes",
+    "invalid-case-input",
+    "visitor-browses",
+    "visitor-reads-journal",
+    "visitor-sends-inquiry",
+    "inquiry-inbox",
+    "home-page",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 80
+services = [
+    { name = "postgres", env = {} },
+]
+outages = []
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+B13 = 3
+S1 = 3
+S2 = 5
+S3 = 3
+S4 = 5
+Q1 = 3
+Q2 = 3
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[requirements]]
+id = "DP-01"
+title = "Owner sign-in"
+text = "POST /api/auth/login with the seeded owner email and password answers a bearer token of at least 16 characters that opens every studio endpoint."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-signs-in"
+tests = [
+    "test_app.py::test_owner_sign_in_opens_studio",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "One refusal for any wrong sign-in"
+text = "A wrong password and an unknown email get the same status and a byte-identical body, carry no token and create no sessions row."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-signs-in"
+tests = [
+    "test_app.py::test_login_refusal_identical",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Hashed password"
+text = "The owner's accounts row holds a salted password hash, never the plain password."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-signs-in"
+tests = [
+    "test_app.py::test_owner_password_hashed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Sign-in lockout"
+text = "Five refused sign-ins for one email inside the lockout window lock that email, whether or not it has an account. Every later attempt, even with the correct password, then gets the lockout answer with no token, counted from PostgreSQL across all workers."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-signs-in"
+tests = [
+    "test_app.py::test_lockout_any_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Lockout lifts with time"
+text = "An email unlocks on its own once fewer than five refusals since its latest successful sign-in fall inside the lockout window, and the correct password then signs in."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-signs-in"
+tests = [
+    "test_app.py::test_owner_lockout_and_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Sign-out ends the token"
+text = "After POST /api/auth/logout the same token is refused on every studio read and write, and its sessions row keeps revoked_at set."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-signs-in"
+tests = [
+    "test_app.py::test_sign_out_ends_token",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Studio sign-in page"
+text = "Signing in at /studio/login reaches /studio with its Case studies and Inquiries panes, and a reload keeps the owner there. Sign out returns to /studio/login. A refused or locked sign-in stays on the page with the email kept and its reason from Feedback states shown."
+kind = "behavior"
+primary = "workflow"
+workflow = "owner-signs-in"
+tests = [
+    "test_app.py::test_wf_owner_signs_in_happy",
+    "test_app.py::test_wf_owner_signs_in_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Server-side studio authorization"
+text = "Every /api/studio/ endpoint, reads included, refuses a missing, forged, revoked or expired token before reading or changing any record, and a body claiming a role grants nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "studio-access"
+tests = [
+    "test_app.py::test_studio_endpoints_refuse_visitors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Session lifetime"
+text = "A token stops working once the database clock reaches its expires_at, on every studio endpoint and on sign-out. expires_at is set at sign-in to the session lifetime after created_at and is never moved by use."
+kind = "behavior"
+primary = "pytest"
+workflow = "studio-access"
+tests = [
+    "test_app.py::test_session_lifetime",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Studio page gate"
+text = "Opening /studio with no session, a signed-out session or an expired one lands on /studio/login, and the delivered /studio HTML carries no case study or inquiry data."
+kind = "behavior"
+primary = "workflow"
+workflow = "studio-access"
+tests = [
+    "test_app.py::test_wf_studio_access_gate",
+    "test_app.py::test_wf_studio_access_expired",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Draft absent from public reads"
+text = "The draft red-meridian is absent from GET /api/cases, every discipline filter, /work and the home page."
+kind = "behavior"
+primary = "pytest"
+workflow = "draft-denied"
+tests = [
+    "test_app.py::test_draft_absent_from_public_reads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Identical not-found answers"
+text = "A draft or not-yet-live slug and an unknown slug get the same status and a byte-identical body at GET /api/cases/{slug}, /work/{slug}, GET /api/journal/{slug} and /journal/{slug}. No not-found body echoes the requested path."
+kind = "behavior"
+primary = "pytest"
+workflow = "draft-denied"
+tests = [
+    "test_app.py::test_not_found_identical",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "No widening query parameters"
+text = "Query parameters other than discipline never change what a public read returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "draft-denied"
+tests = [
+    "test_app.py::test_no_widening_query_parameters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Canonical addresses only"
+text = "Case study and journal addresses match only the exact stored slug, so uppercase, trailing-slash, encoded and numeric-id forms answer not found with no redirect."
+kind = "behavior"
+primary = "pytest"
+workflow = "draft-denied"
+tests = [
+    "test_app.py::test_canonical_addresses_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Only the published surface"
+text = "An /api address outside the API table answers not found in the JSON refusal shape, and a listed address called with an unlisted method gets the wrong-method answer with its Allow header. /api/auth/signup, /cart, /checkout, /newsletter and /search answer not found."
+kind = "behavior"
+primary = "pytest"
+workflow = "draft-denied"
+tests = [
+    "test_app.py::test_published_surface_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Not-found page"
+text = "An unknown address shows the site's own not-found page, which keeps the site chrome and offers a link back to /."
+kind = "behavior"
+primary = "workflow"
+workflow = "draft-denied"
+tests = [
+    "test_app.py::test_wf_draft_denied_shared_link",
+    "test_app.py::test_wf_draft_denied_not_found_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "New case study is a draft"
+text = "A case study created with POST /api/studio/cases is stored with published false and published_at null, appears in the studio list and stays out of every public read."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-publishes"
+tests = [
+    "test_app.py::test_new_case_is_draft",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Publish and unpublish"
+text = "Publishing stamps published_at and lists the case study on every public read, on the home page too when featured. Unpublishing clears published_at and removes the case study from every public read, every total and every neighbour link at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-publishes"
+tests = [
+    "test_app.py::test_publish_and_unpublish",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Guarded publish transitions"
+text = "Publishing a published case study or unpublishing a draft gets its conflict answer and leaves published_at unchanged, and of four simultaneous publishes of one draft exactly one succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-publishes"
+tests = [
+    "test_app.py::test_guarded_publish_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Publishing needs a summary and an outcome"
+text = "Publishing a case study whose summary or outcome is empty or only whitespace, or blanking either field on a published case study, is refused naming that field, and the case study is unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-publishes"
+tests = [
+    "test_app.py::test_publish_needs_summary_and_outcome",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Delete"
+text = "Deleting a case study removes its row, its studio entry and every public read of it."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-publishes"
+tests = [
+    "test_app.py::test_delete_case",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Studio curation in the browser"
+text = "Signed in at /studio, the owner works only through the studio's own controls: creates a draft with Create draft, sees it marked Draft and absent from /work; publishes it, so it shows Published and lists on /work with the next ordinal; unpublishes it, edits its title, and deletes it."
+kind = "behavior"
+primary = "workflow"
+workflow = "owner-publishes"
+tests = [
+    "test_app.py::test_wf_owner_publishes_curate",
+    "test_app.py::test_wf_owner_publishes_featured_home",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Seed lands once"
+text = "On a fresh database, the multi-worker server stores the seed exactly once: one owner account, six case studies, four journal entries, three recognitions and three figures."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-publishes"
+tests = [
+    "test_app.py::test_seed_lands_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Owner changes survive a restart"
+text = "After the owner deletes low-tide-radio, retitles hollow-signal and unpublishes vanta-atelier, a restart of serve against the same database keeps all three changes and duplicates no seeded row."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-publishes"
+tests = [
+    "test_app.py::test_owner_changes_survive_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "PostgreSQL is the store"
+text = "Every record lives in PostgreSQL behind DATABASE_URL, in exactly the eight tables of the data model, with no in-memory or file stand-in."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-publishes"
+tests = [
+    "test_app.py::test_postgres_is_the_store",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Case study limits and types"
+text = "On create and edit, every over-limit, out-of-range, missing or wrongly typed field is refused in one validation answer that names each failing field. Nothing is written, and lengths count Unicode characters after trimming."
+kind = "behavior"
+primary = "pytest"
+workflow = "invalid-case-input"
+tests = [
+    "test_app.py::test_case_limits_and_types",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Slug shape and discipline"
+text = "A slug that breaks the slug shape, or a discipline outside the three allowed values, is refused naming that field, and nothing is written."
+kind = "behavior"
+primary = "pytest"
+workflow = "invalid-case-input"
+tests = [
+    "test_app.py::test_slug_shape_and_discipline",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Editable fields only"
+text = "A create or edit carrying any key outside the editable fields, or carrying slug on an edit, is refused naming each such key, and nothing changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "invalid-case-input"
+tests = [
+    "test_app.py::test_editable_fields_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Slug conflict"
+text = "Creating a case study at a slug already in use, drafts included, gets the slug conflict answer, and the slug keeps exactly one row."
+kind = "behavior"
+primary = "pytest"
+workflow = "invalid-case-input"
+tests = [
+    "test_app.py::test_slug_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Simultaneous creates"
+text = "Four simultaneous creates carrying one new slug store exactly one row: one succeeds and three get the slug conflict answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "invalid-case-input"
+tests = [
+    "test_app.py::test_simultaneous_creates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Limits on the studio form"
+text = "The studio form shows each field's published limit as hint text and shows the slug as read-only text when editing. A refused save marks every failing field in words and keeps every typed value."
+kind = "behavior"
+primary = "workflow"
+workflow = "invalid-case-input"
+tests = [
+    "test_app.py::test_wf_invalid_case_input_form_limits",
+    "test_app.py::test_wf_invalid_case_input_slug_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Published catalogue order"
+text = "GET /api/cases answers the five published case studies in catalogue order with ordinals 01 to 05, including when positions tie, and every public list follows that same order."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-browses"
+tests = [
+    "test_app.py::test_published_catalogue_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Contiguous ordinals"
+text = "Unpublishing or deleting a published case study leaves the rest numbered contiguously from 01, in the same order."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-browses"
+tests = [
+    "test_app.py::test_contiguous_ordinals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Place and wrapping neighbours"
+text = "GET /api/cases/{slug} carries challenge, approach, outcome, stack, ordinal, total, and the wrapping previous and next neighbours, all derived at read time from the one catalogue order."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-browses"
+tests = [
+    "test_app.py::test_place_and_neighbours",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Discipline filter on the API"
+text = "GET /api/cases?discipline=<value> answers only that discipline's published case studies, each keeping its ordinal from the full set, and an unknown value is refused naming discipline."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-browses"
+tests = [
+    "test_app.py::test_discipline_filter_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Case study page"
+text = "/work/hollow-signal shows its place as NN / TT, its Next link opens /work/ember-ledger, and it links back to /work. The home VIEW link opens /work."
+kind = "behavior"
+primary = "workflow"
+workflow = "visitor-browses"
+tests = [
+    "test_app.py::test_wf_visitor_browses_case_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Discipline filter in the address"
+text = "On /work, choosing a discipline in Discipline filter lists only that discipline's case studies, marks the choice current, puts it in the address and survives a reload; browser Back and Forward restore each earlier list, address and marker; and an unknown value in the address redirects to /work."
+kind = "behavior"
+primary = "workflow"
+workflow = "visitor-browses"
+tests = [
+    "test_app.py::test_wf_visitor_browses_filter_history",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Empty discipline"
+text = "A discipline with no published case study shows the empty state from Feedback states, with a link to all work."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-browses"
+tests = [
+    "test_app.py::test_empty_discipline",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Journal reads"
+text = "GET /api/journal answers the public entries newest first with excerpts, GET /api/journal/{slug} answers one entry with its body, and the unpublished unfinished-light is not found."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-reads-journal"
+tests = [
+    "test_app.py::test_journal_reads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Journal goes live on the studio's day"
+text = "A published journal entry becomes public on its published_on date in the studio's business time zone, and it appears on the API, /journal, its own page and the home chapter alike."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-reads-journal"
+tests = [
+    "test_app.py::test_journal_business_day",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Journal pages"
+text = "/journal links each public entry. Following Motion Beyond Animation opens its page, which shows its title, its stored calendar date, its body and a link back to /journal."
+kind = "behavior"
+primary = "workflow"
+workflow = "visitor-reads-journal"
+tests = [
+    "test_app.py::test_wf_visitor_reads_journal_index",
+    "test_app.py::test_wf_visitor_reads_journal_from_home",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Inquiry stored"
+text = "POST /api/inquiries stores a valid inquiry with status new and a received_at time, and answers its id and status."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-sends-inquiry"
+tests = [
+    "test_app.py::test_inquiry_stored",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Inquiry validation"
+text = "A bad, missing or unlisted inquiry field, or a supplied project_type outside the four allowed values, is refused naming every failing field, and nothing is stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-sends-inquiry"
+tests = [
+    "test_app.py::test_inquiry_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Malformed requests refused in one shape"
+text = "An oversized body, invalid JSON, a JSON value that is not an object, and a non-JSON content type each get their own status in the one JSON refusal shape, never an HTML page or a server error."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-sends-inquiry"
+tests = [
+    "test_app.py::test_malformed_requests",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Bounded email check"
+text = "A 20,000-character hostile email address is refused naming email within 2 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-sends-inquiry"
+tests = [
+    "test_app.py::test_bounded_email_check",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Inquiry from the contact page"
+text = "A valid inquiry sent from /contact posts only to the app's own origin and is stored once. Its thanks message replaces the form inside the form's status region and takes keyboard focus."
+kind = "behavior"
+primary = "workflow"
+workflow = "visitor-sends-inquiry"
+tests = [
+    "test_app.py::test_wf_visitor_sends_inquiry_contact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Rejected form keeps input"
+text = "A refused submission from /contact or the Let's Connect panel keeps what was typed, marks each wrong field in words, lists the wrong fields in an error summary that links to each one, and stores nothing."
+kind = "behavior"
+primary = "workflow"
+workflow = "visitor-sends-inquiry"
+tests = [
+    "test_app.py::test_wf_visitor_sends_inquiry_rejected",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Messages stay private"
+text = "A visitor's message never appears in any public API read or public page."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-sends-inquiry"
+tests = [
+    "test_app.py::test_messages_stay_private",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Duplicate inquiry window"
+text = "The same email and message received again inside the duplicate window, even four at once, is stored once, and every answer carries the original id. A different message from that email is a new inquiry."
+kind = "behavior"
+primary = "pytest"
+workflow = "inquiry-inbox"
+tests = [
+    "test_app.py::test_duplicate_inquiry_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Guarded resolve"
+text = "The owner lists every inquiry newest first. Resolving a new inquiry stamps resolved_at once. Resolving one that is already resolved gets the resolve conflict answer, and so do three of four simultaneous presses."
+kind = "behavior"
+primary = "pytest"
+workflow = "inquiry-inbox"
+tests = [
+    "test_app.py::test_guarded_resolve",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Inbox in the studio"
+text = "In the studio, the owner marks the newest inquiry resolved with its Mark resolved button. Pressing it on an inquiry already resolved in another tab shows the refusal and the row's Resolved state."
+kind = "behavior"
+primary = "workflow"
+workflow = "inquiry-inbox"
+tests = [
+    "test_app.py::test_wf_inquiry_inbox_resolve",
+    "test_app.py::test_wf_inquiry_inbox_stale_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Server-rendered home"
+text = "The HTML delivered for / carries the eight chapter anchors, the hero statement, the figures and links to exactly the featured published case studies, all readable with scripting off."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-page"
+tests = [
+    "test_app.py::test_server_rendered_home",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Home chapters"
+text = "The home page shows its eight chapters in the order given in Screens and layout, with the stored figures, the 3D WEB skills, the four process steps, the three newest public journal entries and the three recognitions."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-page"
+tests = [
+    "test_app.py::test_home_chapters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Site chrome"
+text = "Every public page carries the mark, the six navigation links, ONLINE, Let's Connect, the Motion button and the bottom rail."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-page"
+tests = [
+    "test_app.py::test_site_chrome",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Document metadata"
+text = "/, /work, /journal, /contact and /work/hollow-signal carry their pinned titles, the en language, the pinned viewport and the pinned description."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-page"
+tests = [
+    "test_app.py::test_document_metadata",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Intro cover once"
+text = "The first page of a browsing session opens under a full-viewport intro cover that is gone within three seconds, and the next page of that visit has no cover."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-page"
+tests = [
+    "test_app.py::test_wf_home_page_first_look",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Let's Connect panel"
+text = "Let's Connect opens the Let's Connect dialog, and Tab stays inside it. A valid inquiry shows the thanks in the dialog's status region with focus on it. Escape returns focus to Let's Connect, and reopening shows an empty form."
+kind = "behavior"
+primary = "workflow"
+workflow = "home-page"
+tests = [
+    "test_app.py::test_wf_home_page_panel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Reduced motion"
+text = "With reduced motion requested, no endless animation runs, and the hero statement and every chapter heading rest at their final readable state, whatever the Motion button's state."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-page"
+tests = [
+    "test_app.py::test_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Motion toggle"
+text = "The Motion button starts pressed. Pressing it stops every endless animation and settles every reveal, and that choice survives a reload and a new tab."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-page"
+tests = [
+    "test_app.py::test_motion_toggle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Split heading reveal"
+text = "Chapter headings rise word by word out of a soft blur as they scroll into view and finish within about a second, and each keeps the whole heading as its accessible name."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-page"
+tests = [
+    "test_app.py::test_split_heading_reveal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Hero statement follows scroll"
+text = "With motion on, the hero statement slides left as the hero scrolls away and returns step by step when scrolled back, as described in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-page"
+tests = [
+    "test_app.py::test_hero_statement_follows_scroll",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Living chrome"
+text = "With motion on, exactly five endless loops run: the live dot pulses, the equaliser bars bounce at different speeds, the plus markers and process rings turn, the hero glows and smoky blot drift slowly, and a faint grain jitters over the hero. No other endless animation runs."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-page"
+tests = [
+    "test_app.py::test_living_chrome_loops",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Cinematic hero"
+text = "The home page opens on a near-black field where the thin uppercase manifesto statement spans the full width, partly erased by a dark smoky blot."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Near-black and blood red"
+text = "The home page, the case study pages and the journal use a near-black ground with one deep blood red accent and near-white body copy."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B3",
+    "B4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Thin headlines and script accents"
+text = "Giant headline lines are a thin uppercase sans. The JOURNAL title, the figures and the closing words Digital Experience. are set in a handwritten script face."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B5",
+    "B6",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Stage grid and generated visuals"
+text = "Behind the selected work, a web of fine deep red hairlines frames a centred generated visual, and each case study card on /work carries a generated cover visibly different from its neighbours."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B7",
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Case study composition"
+text = "A case study page sets a centred visual between a smaller visual above and below, with its name at the left and a short paragraph at the right, over a blurred enlargement of the same visual."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B9",
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Figures band and footer glow"
+text = "The figures band fills the width in deep red, with near-white script figures in ruled rows. The footer glows from bright red at its bottom edge into near-black, tilted slightly off level."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B11",
+    "B12",
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Phone layout"
+text = "At 375 CSS pixels wide, the hero statement shrinks to roughly a third of its desktop size, and the figures band and the service cards stack in one column."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "WCAG 2.2 AA"
+text = "/, /work, /work/hollow-signal, /journal, /journal/motion-beyond-animation, /contact and /studio/login pass an automated WCAG 2.2 AA audit."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wcag_audit",
+]
+criteria = []
+parameter_cases = [
+    "home",
+    "work",
+    "case-study",
+    "journal",
+    "journal-entry",
+    "contact",
+    "studio-login",
+]
+
+[[requirements]]
+id = "DP-71"
+title = "No sideways scrolling"
+text = "/, /work, /work/hollow-signal, /contact and /studio never scroll sideways at 320, 375, 768 and 1280 CSS pixels wide."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_no_sideways_scrolling",
+]
+criteria = []
+parameter_cases = [
+    "home",
+    "work",
+    "case-study",
+    "contact",
+    "studio",
+]
+
+[[requirements]]
+id = "DP-72"
+title = "Visible focus and menu"
+text = "Every control the Tab key reaches shows a visible focus ring, and below the navigation breakpoint the Menu button reveals the folded navigation."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Journal cover brightens"
+text = "A journal cover on the home page rests dimmed and brightens on hover and on keyboard focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_journal_cover_brightens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Same-origin runtime"
+text = "Every request made by the public pages and by /studio goes to the app's own origin."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_same_origin_runtime",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Health"
+text = "GET /api/health answers its ready body on the public origin once the app and its database are ready."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Domain rules decided once"
+text = "Each of these rules is decided in exactly one place in the source: the publish rule; the catalogue order with its ordinals, totals and neighbours; the editable-field list; the sign-in lockout; the journal's business-day rule; the duplicate-inquiry window."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Credentials from the environment"
+text = "The database URL is read from the environment at start, and is never written into the source or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json has _schema run-manifest-v1 and string install, build and serve commands; install brings in the app's dependencies from its requirements file; serve starts a production server binding 0.0.0.0 in the command itself, with at least two workers set by --workers/-w or WEB_CONCURRENCY in that same command; no command runs a development server."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/USER_README.md names owner@example.com and the password deku-demo-pw-2026."
+tests = [
+    "test_app.py::test_if_user_readme",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "/app ships no font, image, audio, video or 3D model file; every visual is generated by the app."
+tests = [
+    "test_app.py::test_if_no_media_files",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package (the production dependency tree that install brings in from the requirements file) with its licence, each MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC, PSF-2.0, MPL-2.0 or LGPL."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "PostgreSQL is the only datastore: no SQLite or other database file, no cache server, no queue and no files written for records."
+tests = [
+    "test_app.py::test_if_postgres_only",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "owner-signs-in"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+]
+critical = [
+    "test_app.py::test_wf_owner_signs_in_happy",
+    "test_app.py::test_wf_owner_signs_in_refused",
+    "test_app.py::test_login_refusal_identical",
+    "test_app.py::test_lockout_any_email",
+    "test_app.py::test_owner_lockout_and_release",
+]
+
+[[workflows]]
+id = "studio-access"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_studio_access_gate",
+    "test_app.py::test_wf_studio_access_expired",
+    "test_app.py::test_studio_endpoints_refuse_visitors",
+    "test_app.py::test_session_lifetime",
+]
+
+[[workflows]]
+id = "draft-denied"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_wf_draft_denied_shared_link",
+    "test_app.py::test_wf_draft_denied_not_found_page",
+    "test_app.py::test_not_found_identical",
+    "test_app.py::test_published_surface_only",
+]
+
+[[workflows]]
+id = "owner-publishes"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_owner_publishes_curate",
+    "test_app.py::test_wf_owner_publishes_featured_home",
+    "test_app.py::test_publish_and_unpublish",
+    "test_app.py::test_guarded_publish_transitions",
+    "test_app.py::test_owner_changes_survive_restart",
+]
+
+[[workflows]]
+id = "invalid-case-input"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_invalid_case_input_form_limits",
+    "test_app.py::test_wf_invalid_case_input_slug_conflict",
+    "test_app.py::test_case_limits_and_types",
+    "test_app.py::test_editable_fields_only",
+    "test_app.py::test_simultaneous_creates",
+]
+
+[[workflows]]
+id = "visitor-browses"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_visitor_browses_case_page",
+    "test_app.py::test_wf_visitor_browses_filter_history",
+    "test_app.py::test_place_and_neighbours",
+]
+
+[[workflows]]
+id = "visitor-reads-journal"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_visitor_reads_journal_index",
+    "test_app.py::test_wf_visitor_reads_journal_from_home",
+    "test_app.py::test_journal_business_day",
+    "test_app.py::test_journal_reads",
+]
+
+[[workflows]]
+id = "visitor-sends-inquiry"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_visitor_sends_inquiry_contact",
+    "test_app.py::test_wf_visitor_sends_inquiry_rejected",
+    "test_app.py::test_bounded_email_check",
+]
+
+[[workflows]]
+id = "inquiry-inbox"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_inquiry_inbox_resolve",
+    "test_app.py::test_wf_inquiry_inbox_stale_tab",
+    "test_app.py::test_duplicate_inquiry_window",
+    "test_app.py::test_guarded_resolve",
+]
+
+[[workflows]]
+id = "home-page"
+requirements = [
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-61",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_home_page_first_look",
+    "test_app.py::test_wf_home_page_panel",
+    "test_app.py::test_reduced_motion",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-63",
+    "DP-64",
+    "DP-65",
+    "DP-66",
+    "DP-67",
+    "DP-68",
+    "DP-69",
+    "DP-70",
+    "DP-71",
+    "DP-72",
+    "DP-73",
+    "DP-74",
+    "DP-75",
+    "DP-76",
+    "DP-77",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_phone",
+    "test_app.py::test_wf_cross_cutting_keyboard",
+]

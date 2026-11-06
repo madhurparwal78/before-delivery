@@ -1,0 +1,197 @@
+{# The create form, reused as the host's Edit Event form. #}
+<div class="event-form" x-data="eventForm" data-mode="{{ mode }}"
+     data-slug="{{ form.slug or '' }}" data-form='{{ form | tojson }}'>
+
+  <div class="form-preview">
+    <div class="preview-cover" :data-theme="theme" data-theme="{{ form.theme }}">
+      <span class="preview-cover-text" x-text="name || 'Your event'">{{ form.name
+        or 'Your event' }}</span>
+    </div>
+    <div class="field">
+      <label class="field-label" for="f-theme">Theme</label>
+      <select id="f-theme" x-model="theme" @change="mark('theme')">
+        {% for item in themes %}
+        <option value="{{ item }}" {% if item == form.theme %}selected{% endif
+          %}>{{ item | capitalize }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="button" class="quiet-button" @click="shuffleTheme()">Shuffle
+      Theme</button>
+  </div>
+
+  <form class="form-fields" @submit.prevent="submit()" novalidate>
+    <div class="field">
+      <label class="field-label" for="f-calendar">Calendar</label>
+      <select id="f-calendar" x-model="calendar" @change="mark('calendar')">
+        <option value="">Personal Calendar</option>
+        {% for item in calendars %}
+        <option value="{{ item.slug }}" {% if item.slug == form.calendar
+          %}selected{% endif %}>{{ item.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="f-visibility">Visibility</label>
+      <select id="f-visibility" x-model="visibility" @change="mark('visibility')">
+        <option value="public" {% if form.visibility == 'public' %}selected{% endif
+          %}>Public</option>
+        <option value="private" {% if form.visibility == 'private' %}selected{% endif
+          %}>Private</option>
+      </select>
+    </div>
+
+    <div class="field field-big">
+      <label class="field-label" for="f-name">Event Name</label>
+      <input id="f-name" type="text" class="input-big" x-model="name"
+             @input="mark('name')" value="{{ form.name }}"
+             aria-describedby="err-name">
+      <span class="field-error" id="err-name" role="alert" x-text="errors.name"
+            :hidden="!errors.name" hidden></span>
+    </div>
+
+    <div class="row-pair">
+      <div class="field">
+        <label class="field-label" for="f-start-date">Start date</label>
+        <input id="f-start-date" type="text" x-model="startDate"
+               @input="mark('start_at')" placeholder="YYYY-MM-DD"
+               value="{{ form.start_date }}" aria-describedby="err-start">
+      </div>
+      <div class="field">
+        <label class="field-label" for="f-start-time">Start time</label>
+        <input id="f-start-time" type="text" x-model="startTime"
+               @input="mark('start_at')" placeholder="HH:MM"
+               value="{{ form.start_time }}">
+      </div>
+    </div>
+    <span class="field-error" id="err-start" role="alert" x-text="errors.start_at"
+          :hidden="!errors.start_at" hidden></span>
+
+    <div class="row-pair">
+      <div class="field">
+        <label class="field-label" for="f-end-date">End date</label>
+        <input id="f-end-date" type="text" x-model="endDate"
+               @input="mark('end_at')" placeholder="YYYY-MM-DD"
+               value="{{ form.end_date }}" aria-describedby="err-end">
+      </div>
+      <div class="field">
+        <label class="field-label" for="f-end-time">End time</label>
+        <input id="f-end-time" type="text" x-model="endTime"
+               @input="mark('end_at')" placeholder="HH:MM"
+               value="{{ form.end_time }}">
+      </div>
+    </div>
+    <span class="field-error" id="err-end" role="alert" x-text="errors.end_at"
+          :hidden="!errors.end_at" hidden></span>
+
+    <div class="field zone-tile">
+      <label class="field-label" for="f-timezone">Time zone</label>
+      <select id="f-timezone" x-model="timezone" @change="mark('timezone')">
+        {% for value, label in timezones %}
+        <option value="{{ value }}" {% if value == form.timezone %}selected{% endif
+          %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <fieldset class="field-group">
+      <legend>Add Event Location</legend>
+      <div class="field">
+        <label class="field-label" for="f-location-type">Location type</label>
+        <select id="f-location-type" x-model="locationType"
+                @change="mark('location_type')">
+          <option value="offline" {% if form.location_type == 'offline'
+            %}selected{% endif %}>Offline</option>
+          <option value="virtual" {% if form.location_type == 'virtual'
+            %}selected{% endif %}>Virtual</option>
+        </select>
+      </div>
+      <div :hidden="locationType !== 'offline'"
+           {% if form.location_type != 'offline' %}hidden{% endif %}>
+        <div class="field">
+          <label class="field-label" for="f-venue">Venue name</label>
+          <input id="f-venue" type="text" x-model="venueName"
+                 @input="mark('venue_name')" value="{{ form.venue_name }}">
+        </div>
+        <div class="field">
+          <label class="field-label" for="f-street">Street address</label>
+          <input id="f-street" type="text" x-model="streetAddress"
+                 @input="mark('street_address')" value="{{ form.street_address }}">
+        </div>
+        <div class="field">
+          <label class="field-label" for="f-city">City</label>
+          <input id="f-city" type="text" x-model="city" @input="mark('city')"
+                 value="{{ form.city }}" aria-describedby="err-city">
+          <span class="field-error" id="err-city" role="alert" x-text="errors.city"
+                :hidden="!errors.city" hidden></span>
+        </div>
+      </div>
+      <div :hidden="locationType !== 'virtual'"
+           {% if form.location_type != 'virtual' %}hidden{% endif %}>
+        <div class="field">
+          <label class="field-label" for="f-virtual">Virtual link</label>
+          <input id="f-virtual" type="text" x-model="virtualLink"
+                 @input="mark('virtual_link')" value="{{ form.virtual_link }}"
+                 aria-describedby="err-virtual">
+          <span class="field-error" id="err-virtual" role="alert"
+                x-text="errors.virtual_link" :hidden="!errors.virtual_link"
+                hidden></span>
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="field">
+      <label class="field-label" for="f-description">Add Description</label>
+      <textarea id="f-description" x-model="description"
+                @input="mark('description')" rows="4">{{ form.description }}</textarea>
+    </div>
+
+    <fieldset class="field-group">
+      <legend>Event Options</legend>
+      <p class="option-row"><span class="field-label">Ticket Price</span>
+        <span class="fixed-value">Free</span></p>
+      <p class="option-row">
+        <span class="field-label" id="label-approval">Require Approval</span>
+        <button type="button" role="switch" class="switch"
+                aria-labelledby="label-approval"
+                aria-checked="{{ 'true' if form.require_approval else 'false' }}"
+                :aria-checked="requireApproval ? 'true' : 'false'"
+                @click="requireApproval = !requireApproval; mark('require_approval')"
+                ><span class="switch-knob" aria-hidden="true"></span></button>
+      </p>
+      <div class="field">
+        <label class="field-label" for="f-capacity">Capacity</label>
+        <input id="f-capacity" type="text" x-model="capacity"
+               @input="mark('capacity')" placeholder="Unlimited"
+               value="{{ form.capacity }}" aria-describedby="err-capacity">
+        <span class="field-error" id="err-capacity" role="alert"
+              x-text="errors.capacity" :hidden="!errors.capacity" hidden></span>
+      </div>
+      <p class="option-row">
+        <span class="field-label" id="label-waitlist">Waitlist Enabled</span>
+        <button type="button" role="switch" class="switch"
+                aria-labelledby="label-waitlist"
+                aria-checked="{{ 'true' if form.waitlist else 'false' }}"
+                :aria-checked="waitlist ? 'true' : 'false'"
+                @click="waitlist = !waitlist; mark('waitlist')"
+                ><span class="switch-knob" aria-hidden="true"></span></button>
+      </p>
+    </fieldset>
+
+    <p class="form-alert" role="alert" x-text="formError" :hidden="!formError"
+       hidden></p>
+
+    <div class="form-actions">
+      <button type="submit" class="pill-dark" :disabled="busy">{{ 'Save Changes'
+        if mode == 'edit' else 'Create Event' }}</button>
+      {% if mode == 'edit' %}
+      <button type="button" class="quiet-button" :disabled="busy"
+              @click="toggleRegistration()"
+              x-text="registrationStatus === 'closed' ? 'Reopen Registration'
+                : 'Close Registration'">{{ 'Reopen Registration'
+        if form.registration_status == 'closed' else 'Close Registration' }}</button>
+      {% endif %}
+    </div>
+  </form>
+</div>

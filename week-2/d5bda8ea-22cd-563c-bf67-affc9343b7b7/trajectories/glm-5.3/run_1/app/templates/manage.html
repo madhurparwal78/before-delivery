@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}Manage {{ event.name }} — Mela{% endblock %}
+{% block theme %}{{ event.theme }}{% endblock %}
+{% block main_class %}manage-main theme-{{ event.theme }}{% endblock %}
+{% block main %}
+<div class="page-head">
+  <h1 class="page-title"><a class="themed-link" href="/{{ event.slug }}">{{ event.name }}</a></h1>
+  <p class="manage-counts">
+    <span data-count-going>{{ counts.going }}</span> Going ·
+    <span data-count-pending>{{ counts.pending }}</span> Pending ·
+    <span data-count-waitlist>{{ counts.waitlist }}</span> Waitlist ·
+    <span data-count-declined>{{ counts.declined }}</span> Declined ·
+    {% if event.capacity %}Capacity {{ event.capacity }}{% else %}Unlimited{% endif %}
+  </p>
+</div>
+
+<div class="manage-layout" x-data='managePage({ slug: {{ event.slug | tojson }}, registrationStatus: {{ event.registration_status | tojson }}, initial: {{ initial | tojson }}, followed: {{ followed | tojson }} })' x-init="init()">
+  <section class="guest-section" aria-labelledby="guest-heading">
+    <h2 class="section-title" id="guest-heading">Guest list</h2>
+    <label class="field-label" for="status-filter">Status</label>
+    <select class="text-input" id="status-filter" x-model="filter" @change="applyFilter()">
+      <option value="">All</option>
+      <option value="pending">Pending</option>
+      <option value="approved">Going</option>
+      <option value="waitlisted">Waitlist</option>
+      <option value="declined">Declined</option>
+    </select>
+
+    <div class="guest-table-wrap">
+      <table class="guest-table" data-guest-table>
+        <thead>
+          <tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Requested</th>
+              <th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
+        </thead>
+        <tbody>
+          <template x-for="guest in guests" :key="guest.id">
+            <tr>
+              <td x-text="guest.name"></td>
+              <td class="email-cell" x-text="guest.email"></td>
+              <td x-text="guest.requested"></td>
+              <td><span class="pill" :class="'pill-' + pillFor(guest.status)" x-text="labelFor(guest.status)"></span>
+                  <span class="in-line" x-show="guest.status === 'waitlisted'" x-text="ordinal(guest.waitlist_position) + ' in line'"></span></td>
+              <td class="actions-cell">
+                <button class="quiet-btn small-btn" type="button" x-show="guest.status === 'pending' || guest.status === 'waitlisted'"
+                        :disabled="busyId === guest.id" @click="decide(guest.id, 'approve')"
+                        :data-approve-name="guest.name">Approve <span class="visually-hidden" x-text="guest.name"></span></button>
+                <button class="quiet-btn small-btn" type="button" x-show="guest.status === 'pending' || guest.status === 'waitlisted'"
+                        :disabled="busyId === guest.id" @click="decide(guest.id, 'decline')"
+                        :data-decline-name="guest.name">Decline <span class="visually-hidden" x-text="guest.name"></span></button>
+                <button class="quiet-btn small-btn" type="button" x-show="guest.status === 'approved'"
+                        :disabled="busyId === guest.id" @click="decide(guest.id, 'remove')"
+                        :data-remove-name="guest.name">Remove <span class="visually-hidden" x-text="guest.name"></span></button>
+                <span class="field-error" role="alert" x-show="errorFor(guest.id)" x-text="errorFor(guest.id)"></span>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      <p class="empty-line" x-show="guests.length === 0" x-cloak>No guests with this status</p>
+      <div class="guest-cards" data-guest-cards aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <section class="edit-section" aria-labelledby="edit-heading">
+    <h2 class="section-title" id="edit-heading">Edit Event</h2>
+    <form class="create-form" @submit.prevent="save()" novalidate data-alert-holder>
+      <div class="theme-row">
+        <div>
+          <label class="field-label" for="theme">Theme</label>
+          <select class="text-input" id="theme" x-model="theme" @change="touch('theme')">
+            <option value="amber">Amber</option>
+            <option value="harbor">Harbor</option>
+            <option value="moss">Moss</option>
+            <option value="plum">Plum</option>
+            <option value="ember">Ember</option>
+            <option value="night">Night</option>
+          </select>
+        </div>
+        <button class="quiet-btn" type="button" @click="shuffleTheme()">Shuffle Theme</button>
+      </div>
+
+      <label class="field-label" for="calendar">Calendar</label>
+      <select class="text-input" id="calendar" x-model="calendar" @change="touch('calendar')">
+        <option value="">Personal Calendar</option>
+        <template x-for="c in followed" :key="c.slug">
+          <option :value="c.slug" x-text="c.name" :selected="calendar === c.slug"></option>
+        </template>
+      </select>
+      <p class="field-error" x-show="errors.calendar" x-text="errors.calendar" x-cloak></p>
+
+      <label class="field-label" for="visibility">Visibility</label>
+      <select class="text-input" id="visibility" x-model="visibility" @change="touch('visibility')">
+        <option value="public">Public</option>
+        <option value="private">Private</option>
+      </select>
+
+      <label class="field-label" for="name">Event Name</label>
+      <input class="text-input" id="name" type="text" x-model="name" @input="touch('name')">
+      <p class="field-error" x-show="errors.name" x-text="errors.name" x-cloak></p>
+
+      <div class="date-row">
+        <div>
+          <label class="field-label" for="start-date">Start date</label>
+          <input class="text-input" id="start-date" type="date" x-model="startDate" @change="touch('start_at')">
+        </div>
+        <div>
+          <label class="field-label" for="start-time">Start time</label>
+          <input class="text-input" id="start-time" type="time" x-model="startTime" @change="touch('start_at')">
+        </div>
+      </div>
+      <p class="field-error" x-show="errors.start_at" x-text="errors.start_at" x-cloak></p>
+
+      <div class="date-row">
+        <div>
+          <label class="field-label" for="end-date">End date</label>
+          <input class="text-input" id="end-date" type="date" x-model="endDate" @change="touch('end_at')">
+        </div>
+        <div>
+          <label class="field-label" for="end-time">End time</label>
+          <input class="text-input" id="end-time" type="time" x-model="endTime" @change="touch('end_at')">
+        </div>
+      </div>
+      <p class="field-error" x-show="errors.end_at" x-text="errors.end_at" x-cloak></p>
+
+      <label class="field-label" for="timezone">Time zone</label>
+      <select class="text-input" id="timezone" x-model="timezone" @change="touch('timezone')">
+        <option value="Asia/Kolkata">GMT+05:30 Kolkata</option>
+        <option value="Asia/Tokyo">GMT+09:00 Tokyo</option>
+      </select>
+
+      <label class="field-label" for="location-type">Location type</label>
+      <select class="text-input" id="location-type" x-model="locationType" @change="touch('location_type')">
+        <option value="offline">Offline</option>
+        <option value="virtual">Virtual</option>
+      </select>
+
+      <div x-show="locationType === 'offline'">
+        <label class="field-label" for="venue-name">Venue name</label>
+        <input class="text-input" id="venue-name" type="text" x-model="venueName" @input="touch('venue_name')">
+        <label class="field-label" for="street-address">Street address</label>
+        <input class="text-input" id="street-address" type="text" x-model="streetAddress" @input="touch('street_address')">
+        <label class="field-label" for="city">City</label>
+        <select class="text-input" id="city" x-model="city" @change="touch('city')">
+          <option value="">Choose a city</option>
+          <option value="New Delhi">New Delhi</option>
+          <option value="Gurugram">Gurugram</option>
+          <option value="Noida">Noida</option>
+          <option value="Bengaluru">Bengaluru</option>
+          <option value="Mumbai">Mumbai</option>
+          <option value="Tokyo">Tokyo</option>
+        </select>
+        <p class="field-error" x-show="errors.city" x-text="errors.city" x-cloak></p>
+      </div>
+
+      <div x-show="locationType === 'virtual'" x-cloak>
+        <label class="field-label" for="virtual-link">Virtual link</label>
+        <input class="text-input" id="virtual-link" type="url" x-model="virtualLink" @input="touch('virtual_link')">
+        <p class="field-error" x-show="errors.virtual_link" x-text="errors.virtual_link" x-cloak></p>
+      </div>
+
+      <label class="field-label" for="description">Description</label>
+      <textarea class="text-input" id="description" rows="4" x-model="description" @input="touch('description')"></textarea>
+
+      <fieldset class="options">
+        <legend>Event Options</legend>
+        <p class="meta-label">Ticket Price <span class="fixed-free">Free</span></p>
+        <label class="switch-row" for="require-approval">
+          <input id="require-approval" type="checkbox" x-model="requireApproval" role="switch" @change="touch('require_approval')">
+          <span>Require Approval</span>
+        </label>
+        <label class="field-label" for="capacity">Capacity</label>
+        <input class="text-input" id="capacity" type="number" min="1" max="10000"
+               x-model="capacity" placeholder="Unlimited" @input="touch('capacity')">
+        <p class="field-error" x-show="errors.capacity" x-text="errors.capacity" x-cloak></p>
+        <label class="switch-row" for="waitlist">
+          <input id="waitlist" type="checkbox" x-model="waitlist" role="switch" @change="touch('waitlist')">
+          <span>Waitlist Enabled</span>
+        </label>
+      </fieldset>
+
+      <button class="dark-btn" type="submit" :disabled="busy">Save Changes</button>
+      <button class="quiet-btn" type="button" @click="toggleRegistration()"
+              x-text="registrationStatus === 'closed' ? 'Reopen Registration' : 'Close Registration'"
+              :disabled="busy">Close Registration</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

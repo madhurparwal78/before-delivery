@@ -1,0 +1,1214 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "workspace-access",
+    "public-directory",
+    "jurisdiction-rules",
+    "counterparties",
+    "outgoing-transfers",
+    "incoming-messages",
+    "case-review",
+    "data-requests",
+    "usage-invoicing",
+    "examiner-files",
+    "retention",
+    "partner-access",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 87
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "killbill", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Lanternline Desk <desk@lanternline.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 5
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 5
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_killbill_down"
+S3_BUCKET = "${S3_BUCKET}-killbill-down"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_minio_down"
+
+[[outages]]
+id = "short-timer"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+ANSWER_WINDOW_SECONDS = "20"
+REVIEW_CLAIM_SECONDS = "20"
+DATA_REQUEST_PAGE_SECONDS = "30"
+RETENTION_SECONDS = "20"
+PARTNER_RATE_WINDOW_SECONDS = "30"
+REGULATOR_FILE_RATE_WINDOW_SECONDS = "30"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[outages]]
+id = "short-session"
+port = 4177
+url_env = "APP_SHORT_SESSION_URL"
+
+[outages.env]
+SESSION_SECONDS = "20"
+DATABASE_URL = "${DATABASE_URL}_session"
+S3_BUCKET = "${S3_BUCKET}-session"
+
+[[requirements]]
+id = "DP-01"
+title = "Staff sign-in without account hints."
+text = "Staff sign in with email and password and sign out through the API, and a wrong password and an unknown email get the identical refusal status and body."
+kind = "behavior"
+primary = "pytest"
+workflow = "workspace-access"
+tests = [
+    "test_app.py::test_session_sign_in_and_out",
+    "test_app.py::test_wf_workspace_access_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Members managed by the compliance officer."
+text = "The compliance officer lists members, adds a member with a starting password and a role who can then sign in, changes that member's role and removes them, after which they can no longer sign in, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "workspace-access"
+tests = [
+    "test_app.py::test_members_lifecycle",
+    "test_app.py::test_wf_workspace_access_members",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Member records fenced by workspace and role."
+text = "A member id of the other workspace answers not found exactly like an unknown id and leaves that member unchanged, and every role other than compliance officer is refused on the member endpoints."
+kind = "behavior"
+primary = "pytest"
+workflow = "workspace-access"
+tests = [
+    "test_app.py::test_member_records_fenced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Jurisdiction directory and pages."
+text = "The public jurisdiction directory and each jurisdiction page show the rule status, the threshold in the jurisdiction's own currency, the date the rule took or takes effect and any announced change."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-directory"
+tests = [
+    "test_app.py::test_jurisdiction_directory",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Exchange search held in the address."
+text = "Region, status and search live in the address with one history entry per committed change, and the exchange list always shows the results of the latest input even when an earlier request answers later."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-directory"
+tests = [
+    "test_app.py::test_exchange_search_in_address",
+    "test_app.py::test_wf_public_directory_direct_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Withdrawn listings answer gone."
+text = "A compliance officer withdraws their workspace's listing, which then answers 410 with the published gone copy and leaves the directory, search and the sitemap until it is listed again."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-directory"
+tests = [
+    "test_app.py::test_withdrawn_listing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Public layout, menus and motion."
+text = "The public directory is two columns from 1120 px wide and one column with a bottom filter sheet below, header menus are keyboard menus, and the network band and stats band follow the motion rules including reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-directory"
+tests = [
+    "test_app.py::test_public_layout_menus_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Public directory journey."
+text = "A public visitor filters, searches and moves Back and Forward through the directory, opens a jurisdiction and an exchange, and uses the filter sheet at 375x812 by keyboard and touch; its screen meets the journey checks."
+kind = "behavior"
+primary = "workflow"
+workflow = "public-directory"
+tests = [
+    "test_app.py::test_wf_public_directory_filters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Threshold changes on a chosen business date."
+text = "The compliance officer announces a threshold change that takes effect at 00:00 business time on a chosen date, today or later, as qualified in Business rules, and an earlier date or a second change for the same jurisdiction and date is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "jurisdiction-rules"
+tests = [
+    "test_app.py::test_threshold_changes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Cases keep the rule they were decided under."
+text = "A case keeps the threshold rule, rate and counterparty name it was decided under on its page, its track, the daily report and the regulator's monthly file after any later change."
+kind = "behavior"
+primary = "pytest"
+workflow = "jurisdiction-rules"
+tests = [
+    "test_app.py::test_cases_keep_rule_decided_under",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Daily report per business day."
+text = "The daily report covers one business day from local midnight to the next and shows its start and end instants and its length in hours, 23 and 25 on the Vilnius changeover days."
+kind = "behavior"
+primary = "pytest"
+workflow = "jurisdiction-rules"
+tests = [
+    "test_app.py::test_daily_report_business_days",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Announce change journey."
+text = "The compliance officer announces a change through the Announce change dialog by keyboard alone, sees a refusal in the dialog's Problems summary with everything kept, and lands on the jurisdiction's rules route; its screen meets the journey checks."
+kind = "behavior"
+primary = "workflow"
+workflow = "jurisdiction-rules"
+tests = [
+    "test_app.py::test_wf_jurisdiction_rules_announce",
+    "test_app.py::test_wf_jurisdiction_rules_duplicate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Counterparty records with checked LEI and notes limit."
+text = "Adding a counterparty checks the LEI's check digits and stores it upper case, editing never changes the LEI, and adding or editing holds notes to 2,000 Unicode code points, with 2,000 accepted and 2,001 refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "counterparties"
+tests = [
+    "test_app.py::test_counterparty_lei_and_notes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Renames show everywhere and keep history."
+text = "A renamed counterparty shows its new name wherever the counterparty itself is shown at once, every record of data already sent keeps the name as sent, and its page lists previous names with their business dates."
+kind = "behavior"
+primary = "pytest"
+workflow = "counterparties"
+tests = [
+    "test_app.py::test_counterparty_rename",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Spreadsheet import with preview and matching."
+text = "A spreadsheet import previews each row as matched by LEI, matched by normalised legal name, new or refused with its row number and reason before saving, and saving the same file twice changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "counterparties"
+tests = [
+    "test_app.py::test_spreadsheet_import",
+    "test_app.py::test_wf_counterparties_import",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Counterparty sheet journey."
+text = "An analyst adds a counterparty in the sheet and lands on its route, the sheet stays open when reopened during its exit, and the saved message survives the next repaint; its screen meets the journey checks."
+kind = "behavior"
+primary = "workflow"
+workflow = "counterparties"
+tests = [
+    "test_app.py::test_wf_counterparties_add",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Withdrawal case creation."
+text = "A compliance analyst creates a withdrawal case through the Create case dialog, the destination address finds its counterparty through the address registry or marks the wallet self-hosted, and the address bar shows the case's route."
+kind = "behavior"
+primary = "pytest"
+workflow = "outgoing-transfers"
+tests = [
+    "test_app.py::test_case_creation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Exact amounts and fiat value."
+text = "Amounts are kept exactly in each asset's precision and the fiat value is the exact product with the rate in force, rounded half up to the cent."
+kind = "behavior"
+primary = "pytest"
+workflow = "outgoing-transfers"
+tests = [
+    "test_app.py::test_exact_amounts_and_fiat",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Case path decided at creation."
+text = "Each case follows exactly one published path, decided from the counterparty's due diligence, the thresholds and limits in force and the counterparty's jurisdiction rule, and a Blocked counterparty refuses the case."
+kind = "behavior"
+primary = "pytest"
+workflow = "outgoing-transfers"
+tests = [
+    "test_app.py::test_case_paths",
+    "test_app.py::test_wf_outgoing_transfers_blocked",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Answer window edge and No response."
+text = "An answer arriving at or after the end of the answer period is too late and the case reads No response from that instant on."
+kind = "behavior"
+primary = "pytest"
+workflow = "outgoing-transfers"
+tests = [
+    "test_app.py::test_answer_window_edge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Release and return guarded by the server."
+text = "The operations lead releases a case only in the published releasable states, including No response with the compliance officer's recorded reason, and may return any open case."
+kind = "behavior"
+primary = "pytest"
+workflow = "outgoing-transfers"
+tests = [
+    "test_app.py::test_release_and_return",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Self-hosted ownership confirmation."
+text = "A self-hosted case worth more than the confirmation limit waits at Ownership until an analyst records the customer's confirmation with its business date, and one at or under the limit needs none."
+kind = "behavior"
+primary = "pytest"
+workflow = "outgoing-transfers"
+tests = [
+    "test_app.py::test_self_hosted_ownership",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Handshake track states."
+text = "The Handshake track shows five stations whose label, data-state, data-at and visible text follow the published table for every case path, taken from the server's record."
+kind = "behavior"
+primary = "pytest"
+workflow = "outgoing-transfers"
+tests = [
+    "test_app.py::test_handshake_track_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Handshake track keyboard and detail sheet."
+text = "The track is one keyboard composite with a single Tab stop moved by arrows, Home and End, and Enter opens the station's detail sheet that keeps Tab inside, closes on Escape and returns focus to the station."
+kind = "behavior"
+primary = "pytest"
+workflow = "outgoing-transfers"
+tests = [
+    "test_app.py::test_track_keyboard_and_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Handshake track motion, touch and pointer."
+text = "On each server step the token glides, the reached ring fills and the stamp fades in at the same moment with the published durations, all shown at once under reduced motion, and a mouse shows the tooltip while a tap opens the sheet."
+kind = "behavior"
+primary = "pytest"
+workflow = "outgoing-transfers"
+tests = [
+    "test_app.py::test_track_motion_touch_pointer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Withdrawal follow-through journey."
+text = "The operations lead follows a case to release with every state and countdown from the server even with the device clock hours off, and the No response copy stays on the page and in the live region after the next poll; its screen meets the journey checks."
+kind = "behavior"
+primary = "workflow"
+workflow = "outgoing-transfers"
+tests = [
+    "test_app.py::test_wf_outgoing_transfers_follow_through",
+    "test_app.py::test_wf_outgoing_transfers_no_response",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Signed messages from counterparty exchanges."
+text = "The message endpoint takes in a counterparty exchange's message only when its signature over the timestamp, a dot and the exact raw bytes matches within 300 seconds either way."
+kind = "behavior"
+primary = "pytest"
+workflow = "incoming-messages"
+tests = [
+    "test_app.py::test_signed_messages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Originals kept byte for byte."
+text = "Each accepted message is stored byte for byte before the desk answers, and Download original gives exactly the received bytes while the desk works from a separate working copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "incoming-messages"
+tests = [
+    "test_app.py::test_originals_byte_for_byte",
+    "test_app.py::test_wf_incoming_messages_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Repeated message ids."
+text = "The same message id with the same bytes answers the first result and stores nothing new, and with different bytes is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "incoming-messages"
+tests = [
+    "test_app.py::test_repeated_message_ids",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Beneficiary name check."
+text = "An incoming transfer's beneficiary name is compared with the receiving customer's name by the published normalisation and shows Match, Partial or No match."
+kind = "behavior"
+primary = "pytest"
+workflow = "incoming-messages"
+tests = [
+    "test_app.py::test_beneficiary_name_check",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Incoming message journey."
+text = "An analyst opens the incoming list and a message page by keyboard alone and downloads the original, and at 1024x768 and below the page is one column with its facts in a sheet that is hidden and inert when closed; its screen meets the journey checks."
+kind = "behavior"
+primary = "workflow"
+workflow = "incoming-messages"
+tests = [
+    "test_app.py::test_wf_incoming_messages_open",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "One winner per review claim."
+text = "Of two analysts claiming one review case at the same moment exactly one wins, the other is refused naming who claimed and when, and the claim lapses at its published end."
+kind = "behavior"
+primary = "pytest"
+workflow = "case-review"
+tests = [
+    "test_app.py::test_review_claim_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Review decisions and stale decisions."
+text = "An analyst holding the claim decides Accept or Reject with a reason, and a decision on a case already decided is refused naming who decided and when."
+kind = "behavior"
+primary = "pytest"
+workflow = "case-review"
+tests = [
+    "test_app.py::test_review_decisions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Personal data masked for support agents."
+text = "A support agent gets name initials, the last four characters of the identity number and no date of birth in every API response and on every screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "case-review"
+tests = [
+    "test_app.py::test_support_masking",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Review queue journey."
+text = "An analyst claims and decides from the review queue by keyboard alone, and losing a claim or deciding stale shows the published copy on the page and in the live region with the typed reason kept, still shown after the next poll; its screen meets the journey checks."
+kind = "behavior"
+primary = "workflow"
+workflow = "case-review"
+tests = [
+    "test_app.py::test_wf_case_review_claim_decide",
+    "test_app.py::test_wf_case_review_lost_claim",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Private data request pages by mail."
+text = "A case to an off-network counterparty mails its compliance contact a private data request page address, and the page shows only the case reference, asset, amount, masked addresses and the requesting exchange's name."
+kind = "behavior"
+primary = "pytest"
+workflow = "data-requests"
+tests = [
+    "test_app.py::test_request_page_mail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Data request page endings."
+text = "A data request page ends at its end time, when a new one is sent for the case or when staff end it, and then answers 410 with the published ended copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "data-requests"
+tests = [
+    "test_app.py::test_request_page_endings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Licence certificate checks."
+text = "A licence certificate is accepted only as PNG, JPEG or WebP judged by content, at most 5,000,000 bytes, stored with location data removed and orientation kept, and refused with nothing stored while storage is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "data-requests"
+tests = [
+    "test_app.py::test_licence_certificates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Data request answer journey."
+text = "A compliance contact answers by touch at 375x812 with a sticky Send answer bar that never covers the focused control, sees live or ended as the server says with the clock hours off, and the case's Answered station follows; its screen meets the journey checks."
+kind = "behavior"
+primary = "workflow"
+workflow = "data-requests"
+tests = [
+    "test_app.py::test_wf_data_requests_answer",
+    "test_app.py::test_wf_data_requests_ended",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Fee lines per business month."
+text = "Each business month's fee lines count its messages sent and received per published tier and price each tier in integer cents rounded half up per line."
+kind = "behavior"
+primary = "pytest"
+workflow = "usage-invoicing"
+tests = [
+    "test_app.py::test_fee_lines",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Month close all together or not at all."
+text = "Closing an ended month records its fee lines, one invoice with one item per tier and one mail to the finance lead together, closes once when pressed twice, and records nothing while invoicing is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "usage-invoicing"
+tests = [
+    "test_app.py::test_month_close",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Month close journey."
+text = "The finance lead closes a month through the Close month dialog by keyboard, sees Invoiced only after the invoice returns, lands on the month's route, and keeps the outage copy on screen after every repaint; its screen meets the journey checks."
+kind = "behavior"
+primary = "workflow"
+workflow = "usage-invoicing"
+tests = [
+    "test_app.py::test_wf_usage_invoicing_close",
+    "test_app.py::test_wf_usage_invoicing_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Regulator's monthly file format."
+text = "The regulator's monthly file is UTF-8 CSV with every field quoted, CRLF lines and a header row, neutralises cells beginning with the published characters, and carries the rule and counterparty name each case was decided under."
+kind = "behavior"
+primary = "pytest"
+workflow = "examiner-files"
+tests = [
+    "test_app.py::test_regulator_file_format",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Regulator's file masking and download limit."
+text = "A support agent's file carries masked values only, and a member's sixth download within the window answers 429 with Retry-After in whole seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "examiner-files"
+tests = [
+    "test_app.py::test_regulator_file_masking_and_limit",
+    "test_app.py::test_wf_examiner_files_rate_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Regulator's files journey."
+text = "The files screen shows the published copy for each state and at 1024x768 and below is one column with its month picker in a sheet that is hidden and inert when closed; its screen meets the journey checks."
+kind = "behavior"
+primary = "workflow"
+workflow = "examiner-files"
+tests = [
+    "test_app.py::test_wf_examiner_files_download",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Erasure after the retention time."
+text = "A closed case's personal data is erased from the database, the stored certificates and the stored messages after the retention time, only SHA-256 digests remain, and when the case reads Erased none of its stored objects remains in storage."
+kind = "behavior"
+primary = "pytest"
+workflow = "retention"
+tests = [
+    "test_app.py::test_erasure_after_retention",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Archive and bring back exactly."
+text = "The compliance officer archives a closed case and brings it back exactly as it was, with the same Handshake track history."
+kind = "behavior"
+primary = "pytest"
+workflow = "retention"
+tests = [
+    "test_app.py::test_archive_and_bring_back",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Retention journey."
+text = "The compliance officer sees scheduled, erased and archived states with their published copy as the server reports them, even with the device clock hours off; its screen meets the journey checks."
+kind = "behavior"
+primary = "workflow"
+workflow = "retention"
+tests = [
+    "test_app.py::test_wf_retention_states",
+    "test_app.py::test_wf_retention_erased",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Partner case creation with request keys."
+text = "The exchange backend creates cases with a partner key, a repeated request key answers the first response and creates nothing, the same key with a different body is refused, and amounts come back exactly."
+kind = "behavior"
+primary = "pytest"
+workflow = "partner-access"
+tests = [
+    "test_app.py::test_partner_cases_with_request_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Partner rate limit."
+text = "A partner key's 31st case request within the rate window answers 429 with Retry-After in whole seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "partner-access"
+tests = [
+    "test_app.py::test_partner_rate_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Partner keys journey."
+text = "The compliance officer creates a key shown once, sees each key's last use in business time and revokes a key through a confirmation dialog, after which it answers 401 at once; its screen meets the journey checks."
+kind = "behavior"
+primary = "workflow"
+workflow = "partner-access"
+tests = [
+    "test_app.py::test_wf_partner_access_keys",
+    "test_app.py::test_wf_partner_access_cancel_revoke",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Role landing routes and reloadable addresses."
+text = "Sign-in lands each role on its published home route and every published route shows the same screen when reloaded or opened directly."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_role_landing_and_reload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "One API contract."
+text = "Every API path follows the one error-precedence ladder, the published conventions for keys, enums, amounts, money and instants, 405 with Allow, 415, 404 for unpublished paths, and 404 for another workspace's records."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_api_contract",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Exact starting data."
+text = "A fresh copy on its own empty database and bucket starts with exactly the published seed records and nothing else."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_exact_starting_data",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Sessions ending mid-work."
+text = "A session ends after the session time and the next request answers the published session-ended body while the screen keeps what was typed and puts it back after signing in again, and a removed member's next action is refused with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_session_end_api",
+    "test_app.py::test_wf_cross_cutting_session_resume",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Published layouts at every viewport."
+text = "Every screen shows its published layout at 375x812, 768x1024, 1024x768 and 1280x800 with no sideways overflow, no covered control and controls at least 44 px in both directions."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_layouts_at_every_viewport",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Accessible and keyboard-complete screens."
+text = "Every staff journey works by keyboard, dialogs and sheets manage focus as published, closed ones are hidden and inert, and an automated WCAG 2.2 AA check passes on every screen, and with each of its dialogs, menus and sheets open at the viewports where that one exists."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_accessible_screens",
+    "test_app.py::test_wf_cross_cutting_sections_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "One motion system."
+text = "Every motion uses exactly 160, 320 or 640 ms as browser-run transitions or animations, stops or ends at once under reduced motion, and follows each event's pointer type."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_one_motion_system",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Nocturnal, exact visual design."
+text = "Every screen sits on the near-black blue ground with amber only on cases waiting for an answer and every amount, LEI and instant in tabular mono numerals."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Real services wired from configuration."
+text = "The source reads every service credential and URL from the environment and records cases, objects, invoices and mail in the real services rather than in app-side stand-ins."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with exactly the string keys install, build and serve plus \"_schema\":\"run-manifest-v1\"."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package and every bundled font with its licence; shipped packages are the production dependency tree (npm ls --omit=dev --all --json, or the lockfile's non-dev packages)."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font uses one of MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in PostgreSQL, MinIO, Kill Bill and Mailpit: no SQLite, Redis, in-memory store standing in for a service, or file written under /app at runtime."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "/app contains a committed npm lockfile and no .env file or credential values."
+tests = [
+    "test_app.py::test_if_lockfile_and_secrets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "No page loads scripts, styles or fonts from another origin."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "workspace-access"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+]
+critical = [
+    "test_app.py::test_wf_workspace_access_sign_in",
+    "test_app.py::test_wf_workspace_access_members",
+    "test_app.py::test_session_sign_in_and_out",
+    "test_app.py::test_member_records_fenced",
+]
+
+[[workflows]]
+id = "public-directory"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_wf_public_directory_filters",
+    "test_app.py::test_wf_public_directory_direct_address",
+    "test_app.py::test_public_layout_menus_motion",
+]
+checkpoints = [
+    "B2",
+]
+
+[[workflows]]
+id = "jurisdiction-rules"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_jurisdiction_rules_announce",
+    "test_app.py::test_wf_jurisdiction_rules_duplicate",
+    "test_app.py::test_cases_keep_rule_decided_under",
+    "test_app.py::test_daily_report_business_days",
+]
+
+[[workflows]]
+id = "counterparties"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_wf_counterparties_add",
+    "test_app.py::test_wf_counterparties_import",
+    "test_app.py::test_spreadsheet_import",
+    "test_app.py::test_counterparty_rename",
+    "test_app.py::test_counterparty_lei_and_notes",
+]
+
+[[workflows]]
+id = "outgoing-transfers"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_outgoing_transfers_follow_through",
+    "test_app.py::test_wf_outgoing_transfers_no_response",
+    "test_app.py::test_exact_amounts_and_fiat",
+    "test_app.py::test_answer_window_edge",
+    "test_app.py::test_track_keyboard_and_sheet",
+    "test_app.py::test_track_motion_touch_pointer",
+]
+checkpoints = [
+    "B5",
+    "B6",
+    "B10",
+]
+critical_checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "incoming-messages"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_incoming_messages_open",
+    "test_app.py::test_signed_messages",
+    "test_app.py::test_originals_byte_for_byte",
+    "test_app.py::test_repeated_message_ids",
+    "test_app.py::test_beneficiary_name_check",
+]
+
+[[workflows]]
+id = "case-review"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_case_review_claim_decide",
+    "test_app.py::test_wf_case_review_lost_claim",
+    "test_app.py::test_review_claim_race",
+    "test_app.py::test_support_masking",
+]
+
+[[workflows]]
+id = "data-requests"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_data_requests_answer",
+    "test_app.py::test_wf_data_requests_ended",
+    "test_app.py::test_request_page_endings",
+    "test_app.py::test_licence_certificates",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "usage-invoicing"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_usage_invoicing_close",
+    "test_app.py::test_wf_usage_invoicing_outage",
+    "test_app.py::test_month_close",
+]
+
+[[workflows]]
+id = "examiner-files"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_examiner_files_download",
+    "test_app.py::test_wf_examiner_files_rate_limit",
+    "test_app.py::test_regulator_file_format",
+    "test_app.py::test_regulator_file_masking_and_limit",
+]
+
+[[workflows]]
+id = "retention"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_retention_states",
+    "test_app.py::test_wf_retention_erased",
+    "test_app.py::test_erasure_after_retention",
+    "test_app.py::test_archive_and_bring_back",
+]
+
+[[workflows]]
+id = "partner-access"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_partner_access_keys",
+    "test_app.py::test_partner_cases_with_request_keys",
+    "test_app.py::test_partner_rate_limit",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_session_resume",
+    "test_app.py::test_wf_cross_cutting_sections_sheet",
+    "test_app.py::test_exact_starting_data",
+]
+checkpoints = [
+    "B1",
+    "B7",
+    "B11",
+]

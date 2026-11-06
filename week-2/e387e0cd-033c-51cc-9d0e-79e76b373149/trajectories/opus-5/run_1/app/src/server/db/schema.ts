@@ -1,0 +1,306 @@
+import { query } from './pool';
+
+const STATEMENTS: readonly string[] = [
+  `CREATE TABLE IF NOT EXISTS deployment (
+     id integer PRIMARY KEY,
+     started_at timestamptz NOT NULL,
+     first_business_date_neris text NOT NULL,
+     first_business_date_kallang text NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS workspaces (
+     slug text PRIMARY KEY,
+     name text NOT NULL,
+     legal_name text NOT NULL,
+     lei text NOT NULL,
+     jurisdiction_code text NOT NULL,
+     time_zone text NOT NULL,
+     city text NOT NULL,
+     currency text NOT NULL,
+     confirmation_limit_cents bigint NOT NULL,
+     case_prefix text NOT NULL,
+     sending_address text NOT NULL,
+     case_counter integer NOT NULL DEFAULT 0
+   )`,
+  `CREATE TABLE IF NOT EXISTS members (
+     id text PRIMARY KEY,
+     workspace_slug text NOT NULL REFERENCES workspaces(slug),
+     name text NOT NULL,
+     email text NOT NULL UNIQUE,
+     role text NOT NULL,
+     password_hash text NOT NULL,
+     created_at timestamptz NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS sessions (
+     id text PRIMARY KEY,
+     member_id text NOT NULL,
+     workspace_slug text NOT NULL,
+     created_at timestamptz NOT NULL,
+     expires_at timestamptz NOT NULL,
+     ended_reason text
+   )`,
+  `CREATE TABLE IF NOT EXISTS jurisdictions (
+     code text PRIMARY KEY,
+     name text NOT NULL,
+     region text NOT NULL,
+     currency text NOT NULL,
+     reference_status text NOT NULL,
+     reference_threshold_cents bigint,
+     reference_in_force_since text,
+     reference_change_threshold_cents bigint,
+     reference_change_takes_effect_on text,
+     sort_order integer NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS listings (
+     slug text PRIMARY KEY,
+     name text NOT NULL,
+     jurisdiction_code text NOT NULL,
+     on_network boolean NOT NULL,
+     workspace_slug text,
+     listed boolean NOT NULL DEFAULT true,
+     sort_order integer NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS threshold_changes (
+     id text PRIMARY KEY,
+     workspace_slug text NOT NULL,
+     jurisdiction_code text NOT NULL,
+     threshold_cents bigint NOT NULL,
+     takes_effect_on text NOT NULL,
+     takes_effect_at timestamptz NOT NULL,
+     announced_by text,
+     announced_at timestamptz NOT NULL,
+     UNIQUE (workspace_slug, jurisdiction_code, takes_effect_on)
+   )`,
+  `CREATE TABLE IF NOT EXISTS rates (
+     workspace_slug text NOT NULL,
+     asset text NOT NULL,
+     currency text NOT NULL,
+     rate_cents bigint NOT NULL,
+     in_force_since text NOT NULL,
+     PRIMARY KEY (workspace_slug, asset)
+   )`,
+  `CREATE TABLE IF NOT EXISTS customers (
+     id text PRIMARY KEY,
+     workspace_slug text NOT NULL,
+     name text NOT NULL,
+     identity_number text NOT NULL,
+     date_of_birth text NOT NULL,
+     deposit_address text NOT NULL,
+     sort_order integer NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS counterparties (
+     id text PRIMARY KEY,
+     workspace_slug text NOT NULL,
+     legal_name text NOT NULL,
+     normalised_name text NOT NULL,
+     name_from text NOT NULL,
+     lei text NOT NULL,
+     jurisdiction_code text NOT NULL,
+     licence_number text NOT NULL,
+     due_diligence text NOT NULL,
+     network text NOT NULL,
+     contact_email text NOT NULL,
+     notes text NOT NULL,
+     signing_value text,
+     created_at timestamptz NOT NULL,
+     updated_at timestamptz NOT NULL,
+     UNIQUE (workspace_slug, lei),
+     UNIQUE (workspace_slug, normalised_name)
+   )`,
+  `CREATE TABLE IF NOT EXISTS counterparty_previous_names (
+     id text PRIMARY KEY,
+     counterparty_id text NOT NULL REFERENCES counterparties(id) ON DELETE CASCADE,
+     name text NOT NULL,
+     from_date text NOT NULL,
+     until_date text NOT NULL,
+     recorded_at timestamptz NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS address_registry (
+     workspace_slug text NOT NULL,
+     address text NOT NULL,
+     counterparty_id text NOT NULL REFERENCES counterparties(id) ON DELETE CASCADE,
+     PRIMARY KEY (workspace_slug, address)
+   )`,
+  `CREATE TABLE IF NOT EXISTS cases (
+     id text PRIMARY KEY,
+     workspace_slug text NOT NULL,
+     reference text NOT NULL UNIQUE,
+     created_at timestamptz NOT NULL,
+     created_by_kind text NOT NULL,
+     created_by_name text NOT NULL,
+     asset text NOT NULL,
+     amount text NOT NULL,
+     destination_address text NOT NULL,
+     sending_address text NOT NULL,
+     wallet text NOT NULL,
+     counterparty_id text,
+     originator_customer_id text NOT NULL,
+     originator_name text,
+     originator_identity_number text,
+     originator_date_of_birth text,
+     beneficiary_name text,
+     fiat_value_cents bigint NOT NULL,
+     currency text NOT NULL,
+     du_jurisdiction_code text,
+     du_threshold_cents bigint NOT NULL,
+     du_threshold_currency text NOT NULL,
+     du_rule_in_force_since text,
+     du_rate_cents bigint NOT NULL,
+     du_confirmation_limit_cents bigint NOT NULL,
+     du_counterparty_name text,
+     du_counterparty_rule text,
+     path text NOT NULL,
+     status text NOT NULL,
+     counterparty_at timestamptz,
+     review_rejected_at timestamptz,
+     data_sent_channel text,
+     data_sent_at timestamptz,
+     data_sent_name text,
+     answer_decision text,
+     answer_at timestamptz,
+     answer_late boolean NOT NULL DEFAULT false,
+     answer_via text,
+     answer_due_at timestamptz,
+     ownership_required boolean NOT NULL DEFAULT false,
+     ownership_confirmed_on text,
+     ownership_recorded_at timestamptz,
+     ownership_recorded_by text,
+     release_reason_text text,
+     release_reason_by text,
+     release_reason_at timestamptz,
+     outcome text,
+     closed_at timestamptz,
+     erasure_status text NOT NULL DEFAULT 'not_due',
+     erasure_due_at timestamptz,
+     erased_at timestamptz,
+     archived boolean NOT NULL DEFAULT false,
+     archived_at timestamptz
+   )`,
+  `CREATE INDEX IF NOT EXISTS cases_workspace_created ON cases(workspace_slug, created_at)`,
+  `CREATE TABLE IF NOT EXISTS review_claims (
+     case_id text PRIMARY KEY REFERENCES cases(id) ON DELETE CASCADE,
+     member_id text NOT NULL,
+     member_name text NOT NULL,
+     claimed_at timestamptz NOT NULL,
+     ends_at timestamptz NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS review_decisions (
+     case_id text PRIMARY KEY REFERENCES cases(id) ON DELETE CASCADE,
+     decision text NOT NULL,
+     reason text NOT NULL,
+     decided_by_id text NOT NULL,
+     decided_by_name text NOT NULL,
+     decided_at timestamptz NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS request_pages (
+     id text PRIMARY KEY,
+     case_id text NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+     workspace_slug text NOT NULL,
+     token text NOT NULL UNIQUE,
+     contact_email text NOT NULL,
+     sent_at timestamptz NOT NULL,
+     ends_at timestamptz NOT NULL,
+     ended_at timestamptz,
+     answered_at timestamptz,
+     answer_decision text,
+     certificate_id text,
+     current boolean NOT NULL DEFAULT true
+   )`,
+  `CREATE TABLE IF NOT EXISTS messages (
+     id text PRIMARY KEY,
+     workspace_slug text NOT NULL,
+     message_id text NOT NULL,
+     counterparty_id text NOT NULL,
+     type text NOT NULL,
+     received_at timestamptz NOT NULL,
+     sha256 text NOT NULL,
+     size_bytes integer NOT NULL,
+     object_key text NOT NULL,
+     object_deleted boolean NOT NULL DEFAULT false,
+     outcome text NOT NULL,
+     working jsonb NOT NULL,
+     case_id text,
+     customer_id text,
+     name_check text,
+     response_status integer NOT NULL,
+     response_body text NOT NULL,
+     UNIQUE (workspace_slug, counterparty_id, message_id)
+   )`,
+  `CREATE TABLE IF NOT EXISTS certificates (
+     id text PRIMARY KEY,
+     workspace_slug text NOT NULL,
+     case_id text NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+     content_type text NOT NULL,
+     size_bytes integer NOT NULL,
+     sha256 text NOT NULL,
+     object_key text NOT NULL,
+     object_deleted boolean NOT NULL DEFAULT false,
+     stored_at timestamptz NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS metered_messages (
+     id text PRIMARY KEY,
+     workspace_slug text NOT NULL,
+     direction text NOT NULL,
+     sent_at timestamptz NOT NULL,
+     business_month text NOT NULL,
+     case_id text,
+     message_id text
+   )`,
+  `CREATE INDEX IF NOT EXISTS metered_month ON metered_messages(workspace_slug, business_month)`,
+  `CREATE TABLE IF NOT EXISTS business_months (
+     workspace_slug text NOT NULL,
+     month text NOT NULL,
+     status text NOT NULL,
+     invoice_id text,
+     closed_at timestamptz,
+     message_count integer,
+     total_cents bigint,
+     PRIMARY KEY (workspace_slug, month)
+   )`,
+  `CREATE TABLE IF NOT EXISTS fee_lines (
+     id text PRIMARY KEY,
+     workspace_slug text NOT NULL,
+     month text NOT NULL,
+     tier integer NOT NULL,
+     label text NOT NULL,
+     message_count integer NOT NULL,
+     unit_price text NOT NULL,
+     amount_cents bigint NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS partner_keys (
+     id text PRIMARY KEY,
+     workspace_slug text NOT NULL,
+     label text NOT NULL,
+     starts_with text NOT NULL,
+     key_hash text NOT NULL,
+     created_at timestamptz NOT NULL,
+     last_used_at timestamptz,
+     revoked_at timestamptz
+   )`,
+  `CREATE TABLE IF NOT EXISTS partner_request_keys (
+     partner_key_id text NOT NULL,
+     request_key text NOT NULL,
+     body_sha256 text NOT NULL,
+     response_status integer NOT NULL,
+     response_body text NOT NULL,
+     created_at timestamptz NOT NULL,
+     PRIMARY KEY (partner_key_id, request_key)
+   )`,
+  `CREATE TABLE IF NOT EXISTS partner_requests (
+     id bigserial PRIMARY KEY,
+     partner_key_id text NOT NULL,
+     at timestamptz NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS partner_requests_key ON partner_requests(partner_key_id, at)`,
+  `CREATE TABLE IF NOT EXISTS file_downloads (
+     id bigserial PRIMARY KEY,
+     member_id text NOT NULL,
+     at timestamptz NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS file_downloads_member ON file_downloads(member_id, at)`,
+];
+
+export async function applySchema(): Promise<void> {
+  for (const statement of STATEMENTS) {
+    await query(statement);
+  }
+}

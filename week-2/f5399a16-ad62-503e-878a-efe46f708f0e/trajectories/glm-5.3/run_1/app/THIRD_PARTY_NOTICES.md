@@ -1,0 +1,86 @@
+# Third-party notices
+
+Every shipped package (the production dependency tree of `npm ls --omit=dev --all --json`)
+and both shipped fonts, with its licence.
+
+- @aws-crypto/crc32 5.2.0 — Apache-2.0
+- @aws-crypto/crc32c 5.2.0 — Apache-2.0
+- @aws-crypto/sha1-browser 5.2.0 — Apache-2.0
+- @aws-crypto/sha256-browser 5.2.0 — Apache-2.0
+- @aws-crypto/sha256-js 5.2.0 — Apache-2.0
+- @aws-crypto/supports-web-crypto 5.2.0 — Apache-2.0
+- @aws-crypto/util 5.2.0 — Apache-2.0
+- @aws-sdk/client-s3 3.637.0 — Apache-2.0
+- @aws-sdk/client-sso-oidc 3.637.0 — Apache-2.0
+- @aws-sdk/client-sts 3.637.0 — Apache-2.0
+- @aws-sdk/core 3.635.0 — Apache-2.0
+- @aws-sdk/credential-provider-node 3.637.0 — Apache-2.0
+- @aws-sdk/middleware-bucket-endpoint 3.620.0 — Apache-2.0
+- @aws-sdk/middleware-expect-continue 3.620.0 — Apache-2.0
+- @aws-sdk/middleware-flexible-checksums 3.620.0 — Apache-2.0
+- @aws-sdk/middleware-host-header 3.620.0 — Apache-2.0
+- @aws-sdk/middleware-location-constraint 3.609.0 — Apache-2.0
+- @aws-sdk/middleware-logger 3.609.0 — Apache-2.0
+- @aws-sdk/middleware-recursion-detection 3.620.0 — Apache-2.0
+- @aws-sdk/middleware-sdk-s3 3.635.0 — Apache-2.0
+- @aws-sdk/middleware-ssec 3.609.0 — Apache-2.0
+- @aws-sdk/middleware-user-agent 3.637.0 — Apache-2.0
+- @aws-sdk/region-config-resolver 3.614.0 — Apache-2.0
+- @aws-sdk/signature-v4-multi-region 3.635.0 — Apache-2.0
+- @aws-sdk/types 3.609.0 — Apache-2.0
+- @aws-sdk/util-arn-parser 3.568.0 — Apache-2.0
+- @aws-sdk/util-endpoints 3.637.0 — Apache-2.0
+- @aws-sdk/util-locate-window 3.965.10 — Apache-2.0
+- @aws-sdk/util-user-agent-browser 3.609.0 — Apache-2.0
+- @aws-sdk/util-user-agent-node 3.614.0 — Apache-2.0
+- @aws-sdk/xml-builder 3.609.0 — Apache-2.0
+- @smithy/abort-controller 3.1.9 — Apache-2.0
+- @smithy/chunked-blob-reader 4.0.0 — Apache-2.0
+- @smithy/chunked-blob-reader-native 3.0.1 — Apache-2.0
+- @smithy/config-resolver 3.0.13 — Apache-2.0
+- @smithy/core 2.5.7 — Apache-2.0
+- @smithy/eventstream-codec 3.1.10 — Apache-2.0
+- @smithy/eventstream-serde-browser 3.0.14 — Apache-2.0
+- @smithy/eventstream-serde-config-resolver 3.0.11 — Apache-2.0
+- @smithy/eventstream-serde-node 3.0.13 — Apache-2.0
+- @smithy/eventstream-serde-universal 3.0.13 — Apache-2.0
+- @smithy/fetch-http-handler 3.2.9 — Apache-2.0
+- @smithy/hash-blob-browser 3.1.10 — Apache-2.0
+- @smithy/hash-node 3.0.11 — Apache-2.0
+- @smithy/hash-stream-node 3.1.10 — Apache-2.0
+- @smithy/invalid-dependency 3.0.11 — Apache-2.0
+- @smithy/is-array-buffer 3.0.0 — Apache-2.0
+- @smithy/md5-js 3.0.11 — Apache-2.0
+- @smithy/middleware-content-length 3.0.13 — Apache-2.0
+- @smithy/middleware-endpoint 3.2.8 — Apache-2.0
+- @smithy/middleware-retry 3.0.34 — Apache-2.0
+- @smithy/middleware-serde 3.0.11 — Apache-2.0
+- @smithy/middleware-stack 3.0.11 — Apache-2.0
+- @smithy/node-config-provider 3.1.12 — Apache-2.0
+- @smithy/node-http-handler 3.3.3 — Apache-2.0
+- @smithy/protocol-http 4.1.8 — Apache-2.0
+- @smithy/signature-v4 4.2.4 — Apache-2.0
+- @smithy/smithy-client 3.7.0 — Apache-2.0
+- @smithy/types 3.7.2 — Apache-2.0
+- @smithy/url-parser 3.0.11 — Apache-2.0
+- @smithy/util-base64 3.0.0 — Apache-2.0
+- @smithy/util-body-length-browser 3.0.0 — Apache-2.0
+- @smithy/util-body-length-node 3.0.0 — Apache-2.0
+- @smithy/util-buffer-from 3.0.0 — Apache-2.0
+- @smithy/util-config-provider 3.0.0 — Apache-2.0
+- @smithy/util-defaults-mode-browser 3.0.34 — Apache-2.0
+- @smithy/util-defaults-mode-node 3.0.34 — Apache-2.0
+- @smithy/util-endpoints 2.1.7 — Apache-2.0
+- @smithy/util-hex-encoding 3.0.0 — Apache-2.0
+- @smithy/util-middleware 3.0.11 — Apache-2.0
+- @smithy/util-retry 3.0.11 — Apache-2.0
+- @smithy/util-stream 3.3.4 — Apache-2.0
+- @smithy/util-utf8 3.0.0 — Apache-2.0
+- @smithy/util-waiter 3.2.0 — Apache-2.0
+- nodemailer 6.9.14 — MIT-0
+- tslib 2.9.1 — 0BSD
+
+## Fonts
+
+- Libre Franklin (static instances 400 and 700, subset WOFF2) — OFL-1.1
+- Source Serif 4 (static instances 400, 600 and 700, subset WOFF2) — OFL-1.1

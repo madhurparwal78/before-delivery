@@ -1,0 +1,1445 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 66
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "sign-in-session",
+    "diagram-access",
+    "share-invite",
+    "role-change",
+    "keyboard-redraw",
+    "boundary-tally",
+    "import-legacy",
+    "export-set",
+    "storage-outage",
+    "mail-outage",
+    "tablet-review",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 79
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Scopewright <no-reply@scopewright.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 5
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 1
+B11 = 3
+B12 = 1
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+MAILPIT_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-timer"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+SESSION_IDLE_SECONDS = "5"
+SESSION_ABSOLUTE_SECONDS = "60"
+SIGNIN_WINDOW_SECONDS = "60"
+SIGNIN_LOCK_SECONDS = "10"
+INVITE_TTL_SECONDS = "15"
+INVITE_RATE_WINDOW_SECONDS = "30"
+INVITE_LOOKUP_WINDOW_SECONDS = "30"
+IDEMPOTENCY_KEY_SECONDS = "30"
+DOWNLOAD_LINK_SECONDS = "5"
+
+[[requirements]]
+id = "DP-01"
+title = "Sign-in and session cookie"
+text = "Signing in with a seeded email and password creates a new session with a new CSRF token, carried in the session cookie with the published name and attributes, and deletes any session the request already carried."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-session"
+tests = [
+    "test_app.py::test_dp01_signin_session_cookie",
+]
+criteria = []
+parameter_cases = [
+    "http public URL cookie sw_session",
+    "fixation: pre-existing cookie value answers 401 after sign-in",
+]
+
+[[requirements]]
+id = "DP-02"
+title = "Sign-in lockout and enumeration"
+text = "Failed sign-ins lock an email and IP pair, and separately an IP, after the published thresholds within the published window, answering 429 with Retry-After, with identical answers and the same timing class whether or not the email exists, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-session"
+tests = [
+    "test_app.py::test_dp02_signin_lockout",
+]
+criteria = []
+parameter_cases = [
+    "pair lock after 5",
+    "ip lock after 20 across emails",
+    "unknown email identical body and headers",
+    "median timing within 100 ms",
+    "correct password during lock answers 429",
+]
+
+[[requirements]]
+id = "DP-03"
+title = "Idle and absolute session expiry"
+text = "A session idle longer than the idle limit, or older than the absolute limit, is refused with the session-expired error on its next request."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-session"
+tests = [
+    "test_app.py::test_dp03_session_expiry",
+]
+criteria = []
+parameter_cases = [
+    "idle",
+    "absolute despite activity",
+]
+
+[[requirements]]
+id = "DP-04"
+title = "Sign in to continue resends the request"
+text = "When any editor request meets an expired session, the Sign in to continue dialog appears, and after sign-in that exact request is resent once with the new session's CSRF token, byte-identical file contents for an import and the original idempotency key for an export, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-session"
+tests = [
+    "test_app.py::test_dp04_sign_in_to_continue_resends",
+]
+criteria = []
+parameter_cases = [
+    "page save",
+    "create export",
+    "import file",
+    "share action",
+]
+
+[[requirements]]
+id = "DP-05"
+title = "Diagram list and creation"
+text = "A signed-in person sees exactly the diagrams they own or hold an active share on, each with their role, and can create a new diagram that they then own."
+kind = "behavior"
+primary = "pytest"
+workflow = "diagram-access"
+tests = [
+    "test_app.py::test_dp05_diagram_list_and_creation",
+    "test_app.py::test_wf_diagram_access_create",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Access checked on every object id"
+text = "Every diagram, page, shape, zone, connector, share, export, import, original, download and audit endpoint checks the caller's live role on that exact diagram, including nested ids and ids inside request bodies, answers not-found for anything the caller cannot see, and changes nothing when any item of a batch fails."
+kind = "behavior"
+primary = "pytest"
+workflow = "diagram-access"
+tests = [
+    "test_app.py::test_dp06_object_level_access",
+]
+criteria = []
+parameter_cases = [
+    "page of diagram A under diagram B",
+    "share id of another diagram",
+    "export pageIds with a foreign page",
+    "PUT body id differs from path",
+    "viewer forbidden on PUT",
+    "editor forbidden on audit",
+]
+
+[[requirements]]
+id = "DP-07"
+title = "Diagram not-found page"
+text = "Opening a diagram address the person cannot see returns the not-found page with HTTP status 404 and the published copy, character for character."
+kind = "behavior"
+primary = "pytest"
+workflow = "diagram-access"
+tests = [
+    "test_app.py::test_dp07_diagram_not_found_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Assessor opens a shared diagram"
+text = "A viewer opens a shared diagram, sees its pages, zones, tallies and crossing markers read-only, inspects a zone's members and entering and leaving flows, and cannot change anything."
+kind = "behavior"
+primary = "workflow"
+workflow = "diagram-access"
+tests = [
+    "test_app.py::test_wf_diagram_access_viewer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Share invitation email"
+text = "Inviting an email as editor or viewer creates a pending share and delivers the published invitation email through Mailpit, with an accept link built only from the configured public address."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-invite"
+tests = [
+    "test_app.py::test_dp09_invitation_email",
+]
+criteria = []
+parameter_cases = [
+    "spoofed Host header",
+]
+
+[[requirements]]
+id = "DP-10"
+title = "Accepting an invitation before it expires"
+text = "An invitation link grants its role only to its addressee and only before its expiry, and an expired link shows the published expiry page and grants nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-invite"
+tests = [
+    "test_app.py::test_dp10_accept_only_addressee_before_expiry",
+    "test_app.py::test_wf_share_invite_signin_to_accept",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Cross-site requests refused"
+text = "Every state-changing request must pass the published Origin rule and, where the API requires it, carry the session's own CSRF token, so a forged cross-site request, a missing token or another session's token changes nothing and answers its published error, and no response allows cross-origin reads."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-invite"
+tests = [
+    "test_app.py::test_dp11_cross_site_refused",
+]
+criteria = []
+parameter_cases = [
+    "foreign Origin",
+    "Origin null",
+    "Sec-Fetch-Site cross-site without Origin",
+    "cross-site form post",
+    "missing token",
+    "token of another session",
+    "OPTIONS preflight",
+]
+
+[[requirements]]
+id = "DP-12"
+title = "Compliance lead shares a diagram"
+text = "From the Share dialog, the owner invites people, sees each person's role and delivery state, changes roles and removes access, all by pointer or keyboard."
+kind = "behavior"
+primary = "workflow"
+workflow = "share-invite"
+tests = [
+    "test_app.py::test_wf_share_invite_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Share state machine"
+text = "Shares move only along the published transitions (invited, expired, active editor or viewer, downgraded, revoked, withdrawn, replaced), and each illegal transition is refused with its published error."
+kind = "behavior"
+primary = "pytest"
+workflow = "role-change"
+tests = [
+    "test_app.py::test_dp13_share_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Role changes apply on the next request"
+text = "A downgrade or revocation takes effect on the affected person's very next request, even inside a session that started earlier."
+kind = "behavior"
+primary = "pytest"
+workflow = "role-change"
+tests = [
+    "test_app.py::test_dp14_role_change_applies_next_request",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Access-changed notice"
+text = "A downgrade or revocation delivers the published access-changed email to the affected person through Mailpit."
+kind = "behavior"
+primary = "pytest"
+workflow = "role-change"
+tests = [
+    "test_app.py::test_dp15_access_changed_notice",
+    "test_app.py::test_wf_role_change_remove",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Downgraded editor tab turns read-only"
+text = "An editor downgraded while their tab is open has their next save refused, sees the published downgrade banner, and the canvas becomes read-only."
+kind = "behavior"
+primary = "workflow"
+workflow = "role-change"
+tests = [
+    "test_app.py::test_wf_role_change_downgrade",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Page save and version conflicts"
+text = "A page saves as one document guarded by its version number, and of two saves against the same version exactly one succeeds while the other gets the version-conflict error."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-redraw"
+tests = [
+    "test_app.py::test_dp17_version_conflict",
+    "test_app.py::test_wf_keyboard_redraw_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Connectors never dangle"
+text = "Connectors stay attached to their shapes' ports through move, resize, group, align, duplicate, layer change, zone carry, delete, undo and redo, and the server refuses any page whose connector does not start and end on its shapes' ports."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-redraw"
+tests = [
+    "test_app.py::test_dp18_server_refuses_dangling_connectors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Shape library and empty search"
+text = "The shape library offers every published system kind and zone kind, filters by search, and shows the published empty-search copy when nothing matches."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-redraw"
+tests = [
+    "test_app.py::test_dp19_library_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Keyboard placement and nudging"
+text = "From the keyboard alone, an engineer places a library shape centred in the canvas pane and snapped to the grid, as qualified in Interactions, and moves the selection by the published arrow-key steps."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-redraw"
+tests = [
+    "test_app.py::test_dp20_keyboard_place_and_nudge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Keyboard connectors, labels, grouping, alignment, duplication and undo"
+text = "From the keyboard alone, an engineer starts and attaches a connector, edits a label, groups and ungroups, aligns with each group kept rigid, duplicates, changes layer order, deletes, and undoes and redoes, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-redraw"
+tests = [
+    "test_app.py::test_dp21_keyboard_edit_suite",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Label formatting by the stack rule"
+text = "Shape labels, connector labels and zone notes are stored exactly as submitted, and only bold, italic and line-break tags that the published stack rule matches act as formatting, while everything else shows as literal inert text wherever the label appears."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-redraw"
+tests = [
+    "test_app.py::test_dp22_label_stack_rule",
+]
+criteria = []
+parameter_cases = [
+    "<b>a<i>b</b>c</i>",
+    "<i><b>x</b></i>",
+    "</b>y<b>",
+    "<b><b>z</b></b>",
+    "<img src=x onerror=alert(1)>",
+]
+
+[[requirements]]
+id = "DP-23"
+title = "Engineer redraws with the keyboard"
+text = "An engineer completes Journey 1 with the keyboard only, focus stays visible throughout, and the saved result reloads unchanged."
+kind = "behavior"
+primary = "workflow"
+workflow = "keyboard-redraw"
+tests = [
+    "test_app.py::test_wf_keyboard_redraw_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Server-derived membership, crossings and direction"
+text = "Zone membership, system counts, crossing points with their entering or leaving direction, and crossing counts are derived by the server from the saved geometry in the same transaction as the save, following the published edge cases, and every reader sees the same values."
+kind = "behavior"
+primary = "pytest"
+workflow = "boundary-tally"
+tests = [
+    "test_app.py::test_dp24_server_derived_values",
+]
+criteria = []
+parameter_cases = [
+    "ends on a port on the edge",
+    "runs along an edge then leaves",
+    "passes through a corner",
+    "half-unit centre on an edge",
+    "touches and returns",
+    "enters and leaves counts twice",
+]
+
+[[requirements]]
+id = "DP-25"
+title = "Boundary tally sequence and undo"
+text = "An edit that changes any zone's members or crossing count plays the three-step boundary tally (connector morph, staggered crossing markers, rolling tallies) in order and within the published timings, and undo plays it in reverse."
+kind = "behavior"
+primary = "pytest"
+workflow = "boundary-tally"
+tests = [
+    "test_app.py::test_dp25_boundary_tally_and_undo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Boundary tally under reduced motion"
+text = "With reduced motion set, the boundary tally reaches its end state at once, with no morph, stagger or roll, and the published announcement sentence still appears."
+kind = "behavior"
+primary = "pytest"
+workflow = "boundary-tally"
+tests = [
+    "test_app.py::test_dp26_reduced_motion_tally",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Engineer moves a system across the scope boundary"
+text = "An engineer drags a system into a zone, sees the tally update and save, and an assessor reloading the page sees the same membership, markers, directions and totals."
+kind = "behavior"
+primary = "workflow"
+workflow = "boundary-tally"
+tests = [
+    "test_app.py::test_wf_boundary_tally_drag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Import type and unsafe content"
+text = "An import is accepted only as diagram XML or SVG judged by content, and a file whose parsed and decoded document holds a DOCTYPE, script, event handler, foreign object, external reference, link-rewriting animation, unsafe link or style url or import is rejected before anything is stored or reaches the canvas."
+kind = "behavior"
+primary = "pytest"
+workflow = "import-legacy"
+tests = [
+    "test_app.py::test_dp28_import_type_and_unsafe_content",
+]
+criteria = []
+parameter_cases = [
+    "DOCTYPE external entity",
+    "billion laughs",
+    "svg:script prefix",
+    "SCRIPT upper case",
+    "onload attribute",
+    "&#x6A;avascript: href",
+    "java&#9;script: href",
+    "use href to another document",
+    "foreignObject",
+    "set attributeName=href",
+    "animate values data:",
+    "style url(javascript:)",
+    "style @import",
+    "png bytes named .svg",
+    "benign href=#local accepted",
+]
+
+[[requirements]]
+id = "DP-29"
+title = "Imported original kept as evidence"
+text = "Every accepted import keeps the uploaded bytes unchanged in object storage beside its sanitized model, and any member can download them and check the published checksum."
+kind = "behavior"
+primary = "pytest"
+workflow = "import-legacy"
+tests = [
+    "test_app.py::test_dp29_original_kept_as_evidence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Engineer imports a legacy diagram"
+text = "An engineer imports a legacy file from the Import dialog and hears the published progress and result announcements, landing on the new page tab on success or on the file input with the linked error on rejection."
+kind = "behavior"
+primary = "workflow"
+workflow = "import-legacy"
+tests = [
+    "test_app.py::test_wf_import_legacy_success",
+    "test_app.py::test_wf_import_legacy_rejected",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Export set confirmed by storage and round-trippable"
+text = "An export is listed as ready, with each file's size and checksum, only after storage confirms all three objects, its PNG is a real raster matching the SVG geometry, and a one-page export's SVG imports back to the same zones, systems, connectors and derived crossings, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "export-set"
+tests = [
+    "test_app.py::test_dp31_export_confirmed_and_round_trip",
+]
+criteria = []
+parameter_cases = [
+    "png size equals svg size",
+    "png pixel colours",
+    "svg round trip with connectors",
+    "escaped title A <b>x</b> & \"y\"",
+]
+
+[[requirements]]
+id = "DP-32"
+title = "Export replay by idempotency key"
+text = "Repeating an export request with the same idempotency key from the same person returns the original export marked as a replay and creates no new objects, and simultaneous requests with one key create exactly one export."
+kind = "behavior"
+primary = "pytest"
+workflow = "export-set"
+tests = [
+    "test_app.py::test_dp32_export_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Compliance lead exports a dated set"
+text = "The owner creates an export from the Files dialog, watches it go from preparing to ready, and downloads the three dated files."
+kind = "behavior"
+primary = "workflow"
+workflow = "export-set"
+tests = [
+    "test_app.py::test_wf_export_set_create",
+    "test_app.py::test_wf_export_set_download_files",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "File storage outage"
+text = "When file storage is unreachable, diagram edits still save, imports and exports answer the storage-unavailable error, and the editor shows the published storage outage banner."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_dp34_storage_outage_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Engineer works through a storage outage"
+text = "On an instance with storage down, an engineer edits and saves, sees the outage banner, and sees an attempted export listed as failed with no download links."
+kind = "behavior"
+primary = "workflow"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_wf_storage_outage_banner_save",
+    "test_app.py::test_wf_storage_outage_export_failed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Queued invitation delivery"
+text = "An invitation or notice created while mail is unreachable is stored as not yet delivered, and any running instance delivers it within 30 seconds of mail returning, exactly once."
+kind = "behavior"
+primary = "pytest"
+workflow = "mail-outage"
+tests = [
+    "test_app.py::test_dp36_queued_delivery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Invitation during a mail outage"
+text = "The owner invites someone while mail is down, sees the published success copy and the not yet delivered state, and later sees the state change to invited once the email has gone out."
+kind = "behavior"
+primary = "workflow"
+workflow = "mail-outage"
+tests = [
+    "test_app.py::test_wf_mail_outage_delivery_in_place",
+    "test_app.py::test_wf_mail_outage_double_send",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Published layouts"
+text = "At 375 by 812, 768 by 1024 and 1280 by 800 the editor shows exactly its published layout for that size, with no horizontal overflow."
+kind = "behavior"
+primary = "pytest"
+workflow = "tablet-review"
+tests = [
+    "test_app.py::test_dp38_published_layouts",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-39"
+title = "Touch pan, pinch zoom and pinch cancel"
+text = "On a touch screen one finger pans the canvas (or moves a shape for an editor), two fingers pinch-zoom about their midpoint within the published zoom range, and a second finger landing during a one-finger move cancels that move with no edit."
+kind = "behavior"
+primary = "pytest"
+workflow = "tablet-review"
+tests = [
+    "test_app.py::test_dp39_touch_pan_pinch_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Assessor reviews on a tablet"
+text = "An assessor completes Journey 4 on a 768 by 1024 touch screen with read-only access throughout."
+kind = "behavior"
+primary = "workflow"
+workflow = "tablet-review"
+tests = [
+    "test_app.py::test_wf_tablet_review_journey",
+    "test_app.py::test_wf_tablet_review_files",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Health and run manifest"
+text = "The app installs, builds and serves from the published run manifest and answers the health check while storage or mail is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp41_health_and_status",
+    "test_app.py::test_wf_cross_cutting_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Security headers and content policy"
+text = "Every response carries the published security headers, every HTML response carries the published nonce-based Content-Security-Policy, every API response forbids caching, and no response carries a cross-origin header."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp42_security_headers",
+]
+criteria = []
+parameter_cases = [
+    "nonce differs per response",
+    "every script carries the nonce",
+    "no unsafe-inline or unsafe-eval",
+]
+
+[[requirements]]
+id = "DP-43"
+title = "Focus visibility and dialogs"
+text = "Every focused control shows a visible focus ring, Tab and Shift+Tab wrap inside every open dialog, sheet and drawer, Escape closes it and focus returns to its opener, and focus is never trapped in the desktop inspector."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp43_focus_ring_and_dialogs",
+    "test_app.py::test_wf_cross_cutting_new_diagram_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Credentials and password hashing"
+text = "Every service credential and URL is read from the environment at start and never reaches the browser, and passwords are stored only as memory-hard hashes."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Drafting-paper look"
+text = "The editor looks like a drafted plan on warm paper: hairline rules, a visible dot grid, condensed headings, tabular mono numerals, and a single saturated red reserved for the cardholder zone and its crossings."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Autosave never races itself"
+text = "At most one save per page is in flight, edits made during a save are sent next with the version that save returned, and the editor never meets a version conflict from its own saves, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-redraw"
+tests = [
+    "test_app.py::test_dp46_autosave_single_flight",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Zones carry their systems and never overlap"
+text = "Moving a zone carries its member shapes and their connectors, resizing a zone moves no shapes, and a zone move or resize that would overlap or touch another zone is refused whole with the published announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "boundary-tally"
+tests = [
+    "test_app.py::test_dp47_zone_carry_resize_overlap",
+    "test_app.py::test_wf_boundary_tally_zone_nudge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Published landing routes"
+text = "Sign-in returns only to a same-origin path given in next, and creating a diagram, opening a diagram, switching pages, accepting an invitation and signing out each land on their published address."
+kind = "behavior"
+primary = "pytest"
+workflow = "diagram-access"
+tests = [
+    "test_app.py::test_dp48_next_and_landing_routes",
+]
+criteria = []
+parameter_cases = [
+    "protocol-relative",
+    "slash backslash",
+    "absolute https",
+    "javascript scheme",
+]
+
+[[requirements]]
+id = "DP-49"
+title = "Share dialog and downgrade banner survive refreshes"
+text = "The Share dialog's periodic refresh never resets typed input, chosen role, field errors, an open confirm or focus, and a downgraded editor's tab keeps its banner through every timer and sends no further saves."
+kind = "behavior"
+primary = "pytest"
+workflow = "role-change"
+tests = [
+    "test_app.py::test_dp49_share_refresh_and_banner_survive_timers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "No optimistic success and no silent exit"
+text = "An export row never shows Ready or a download link, a failed import never adds a page tab, the save state never shows Saved before the server confirms the save, and leaving the editor waits for the pending save and stays on the page if it fails."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_dp50_no_optimistic_success_no_silent_exit",
+]
+criteria = []
+parameter_cases = [
+    "All diagrams link",
+    "page tab",
+    "browser Back",
+    "beforeunload prompt",
+]
+
+[[requirements]]
+id = "DP-51"
+title = "Concurrent share changes resolve once"
+text = "Simultaneous invitations for one email, simultaneous identical role changes and simultaneous removals each produce exactly one state change and exactly one queued email per real transition."
+kind = "behavior"
+primary = "pytest"
+workflow = "mail-outage"
+tests = [
+    "test_app.py::test_dp51_concurrent_share_changes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Invitation links are capabilities"
+text = "Invitation tokens are long random values stored only as hashes, served with no referrer and no caching, accepted exactly once even under simultaneous clicks, dead once replaced, limited to the published number of new invitations per diagram per hour, and guarded by the published limit on failed lookups per IP."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-invite"
+tests = [
+    "test_app.py::test_dp52_capability_tokens",
+    "test_app.py::test_dp52_replaced_token_dies",
+    "test_app.py::test_dp52_invite_and_lookup_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Closed panels are unavailable"
+text = "A closed inspector drawer or library sheet is absent from the accessibility tree and unreachable by Tab, an open one makes the rest of the page inert, and widening the window turns an open drawer into the desktop pane with the same selection."
+kind = "behavior"
+primary = "pytest"
+workflow = "tablet-review"
+tests = [
+    "test_app.py::test_dp53_closed_panels_unavailable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Sign in to continue survives its timers"
+text = "While Sign in to continue is open, no timer closes it, clears the typed password, moves focus out of it, removes its alert or sends another save, and a lockout inside it keeps every kept request for after the lock."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-session"
+tests = [
+    "test_app.py::test_wf_sign_in_session_timers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Share dialog by keyboard"
+text = "The owner changes roles and removes or withdraws people in the Share dialog by keyboard alone, with the published tab order, a Remove access confirm that opens on Cancel and wraps Tab, and the published focus move after each change."
+kind = "behavior"
+primary = "pytest"
+workflow = "role-change"
+tests = [
+    "test_app.py::test_dp55_share_dialog_by_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Bounded import parsing"
+text = "An import exceeding the published depth, element, attribute or text-length limits answers the invalid-model error within 2 seconds, before any unsafe-content check, and health checks keep answering while it is parsed."
+kind = "behavior"
+primary = "pytest"
+workflow = "import-legacy"
+tests = [
+    "test_app.py::test_dp56_bounded_import_parsing",
+]
+criteria = []
+parameter_cases = [
+    "depth 64 accepted",
+    "depth 65 refused",
+    "20000 elements accepted",
+    "20001 elements refused",
+    "65 attributes refused",
+    "10001-character text refused",
+    "depth 65 with script answers invalid_model",
+    "1.9 MB nested g within 2 s",
+]
+
+[[requirements]]
+id = "DP-57"
+title = "Delivery and expiry updated in place"
+text = "An open Share dialog updates a row that becomes delivered or expired in place, keeping its element and focus, and announces the published sentence exactly once per transition."
+kind = "behavior"
+primary = "pytest"
+workflow = "mail-outage"
+tests = [
+    "test_app.py::test_dp57_expiry_updated_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Crossing markers show direction without colour"
+text = "Each crossing marker shows an inner chevron pointing into or out of its zone and has an accessible name ending in entering or leaving, matching the server's derived direction."
+kind = "behavior"
+primary = "pytest"
+workflow = "boundary-tally"
+tests = [
+    "test_app.py::test_dp58_marker_direction_without_colour",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Layer order announced"
+text = "Bringing forward or sending backward from the keyboard or inspector announces the published layer sentence, records no edit when nothing can move, and keeps focus on the item."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-redraw"
+tests = [
+    "test_app.py::test_dp59_layer_order_announced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Deleting a diagram removes everything"
+text = "Deleting a diagram withdraws its pending invitations, cancels its queued mail and makes every route, download and earlier-captured link of it answer not-found in one step, and open tabs land on the not-found page."
+kind = "behavior"
+primary = "pytest"
+workflow = "diagram-access"
+tests = [
+    "test_app.py::test_dp60_delete_removes_everything",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Download links bound and short-lived"
+text = "Export and original downloads go through links bound to one person and one diagram that expire after the published time and are refused once that person's access ends."
+kind = "behavior"
+primary = "pytest"
+workflow = "export-set"
+tests = [
+    "test_app.py::test_dp61_download_links_bound",
+]
+criteria = []
+parameter_cases = [
+    "another person's session",
+    "after expiry 410",
+    "after revocation 404",
+    "signed out 401",
+]
+
+[[requirements]]
+id = "DP-62"
+title = "Sessions end everywhere"
+text = "Signing out or changing the password ends every session of that person on every instance at once, and a password change issues a fresh session to the tab that made it."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-session"
+tests = [
+    "test_app.py::test_dp62_sessions_end_everywhere",
+    "test_app.py::test_wf_sign_in_session_ui",
+]
+criteria = []
+parameter_cases = [
+    "sign-out on one instance, other instance refuses",
+    "password change",
+]
+
+[[requirements]]
+id = "DP-63"
+title = "Downloads cannot run script"
+text = "Every download carries the published Content-Disposition with an ASCII filename and an RFC 5987 filename*, nosniff and the published sandboxing policy, and no exported or imported file is ever served inline."
+kind = "behavior"
+primary = "pytest"
+workflow = "export-set"
+tests = [
+    "test_app.py::test_dp63_downloads_cannot_run_script",
+]
+criteria = []
+parameter_cases = [
+    "quoted name with semicolon and accent",
+    "accented svg name",
+    "export svg",
+]
+
+[[requirements]]
+id = "DP-64"
+title = "Mail headers carry no user text"
+text = "Invitation and notice emails use fixed subjects, carry inviter names and diagram titles only in the encoded body, and never let a user-supplied value add or change a header."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-invite"
+tests = [
+    "test_app.py::test_dp64_mail_headers_carry_no_user_text",
+]
+criteria = []
+parameter_cases = [
+    "email with CRLF refused",
+    "title with non-ASCII in body only",
+]
+
+[[requirements]]
+id = "DP-65"
+title = "No secrets or internals leak"
+text = "No password, session id, CSRF token, invitation or download token or service credential appears in server output or in any response beyond its published place, and unexpected errors answer the published internal error with no stack trace or SQL text."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp65_no_secrets_or_internals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Audit trail"
+text = "Share changes, sign-in failures and lockouts, password changes, exports and imports write append-only audit events that the owner reads through the published endpoints and that no editor or viewer can read or change."
+kind = "behavior"
+primary = "pytest"
+workflow = "role-change"
+tests = [
+    "test_app.py::test_dp66_audit_trail",
+]
+criteria = []
+parameter_cases = [
+    "editor 403",
+    "non-member 404",
+    "PATCH 405",
+    "replay writes no event",
+]
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists, is valid JSON with string install, build and serve and \"_schema\":\"run-manifest-v1\", and the app is started only through it."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package with its version and licence, plus every bundled font and icon set; shipped packages are the production dependency tree as reported by npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package, font and icon set is licensed under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0, Zlib or SIL OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The only datastores are the provided PostgreSQL database and MinIO bucket; no SQLite, Redis, embedded database or on-disk file persists application state."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and its seeded credentials are left untouched; the app adapts to them through the environment."
+tests = [
+    "test_app.py::test_if_services_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The app source is TypeScript compiled with strict enabled in its TypeScript configuration."
+tests = [
+    "test_app.py::test_if_typescript_strict",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Served HTML and bundles reference no third-party origin (no CDN fonts, scripts or styles)."
+tests = [
+    "test_app.py::test_if_no_third_party_origin",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "sign-in-session"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-54",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_sign_in_session_ui",
+    "test_app.py::test_wf_sign_in_session_timers",
+    "test_app.py::test_dp01_signin_session_cookie",
+    "test_app.py::test_dp02_signin_lockout",
+    "test_app.py::test_dp04_sign_in_to_continue_resends",
+]
+
+[[workflows]]
+id = "diagram-access"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-48",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_diagram_access_viewer",
+    "test_app.py::test_dp06_object_level_access",
+    "test_app.py::test_dp48_next_and_landing_routes",
+    "test_app.py::test_dp60_delete_removes_everything",
+]
+checkpoints = [
+    "B1",
+    "B4",
+]
+critical_checkpoints = [
+    "B1",
+]
+
+[[workflows]]
+id = "share-invite"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-52",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_share_invite_dialog",
+    "test_app.py::test_dp52_capability_tokens",
+    "test_app.py::test_dp52_invite_and_lookup_limits",
+    "test_app.py::test_dp64_mail_headers_carry_no_user_text",
+    "test_app.py::test_dp11_cross_site_refused",
+]
+checkpoints = [
+    "B10",
+]
+critical_checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "role-change"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-49",
+    "DP-55",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_role_change_downgrade",
+    "test_app.py::test_dp14_role_change_applies_next_request",
+    "test_app.py::test_dp55_share_dialog_by_keyboard",
+    "test_app.py::test_dp49_share_refresh_and_banner_survive_timers",
+]
+checkpoints = [
+    "B10",
+]
+critical_checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "keyboard-redraw"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-46",
+    "DP-59",
+]
+critical = [
+    "test_app.py::test_wf_keyboard_redraw_journey",
+    "test_app.py::test_dp21_keyboard_edit_suite",
+    "test_app.py::test_dp59_layer_order_announced",
+    "test_app.py::test_dp22_label_stack_rule",
+]
+checkpoints = [
+    "B6",
+]
+critical_checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "boundary-tally"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-47",
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_wf_boundary_tally_drag",
+    "test_app.py::test_dp58_marker_direction_without_colour",
+    "test_app.py::test_dp26_reduced_motion_tally",
+]
+checkpoints = [
+    "B9",
+    "B4",
+]
+critical_checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "import-legacy"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_import_legacy_success",
+    "test_app.py::test_dp28_import_type_and_unsafe_content",
+    "test_app.py::test_dp56_bounded_import_parsing",
+    "test_app.py::test_dp29_original_kept_as_evidence",
+]
+checkpoints = [
+    "B12",
+]
+critical_checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "export-set"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-61",
+    "DP-63",
+]
+critical = [
+    "test_app.py::test_wf_export_set_create",
+    "test_app.py::test_dp63_downloads_cannot_run_script",
+    "test_app.py::test_dp61_download_links_bound",
+]
+checkpoints = [
+    "B11",
+]
+critical_checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "storage-outage"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_storage_outage_banner_save",
+    "test_app.py::test_wf_storage_outage_export_failed",
+    "test_app.py::test_dp50_no_optimistic_success_no_silent_exit",
+    "test_app.py::test_dp34_storage_outage_api",
+]
+checkpoints = [
+    "B11",
+]
+critical_checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "mail-outage"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-51",
+    "DP-57",
+]
+critical = [
+    "test_app.py::test_wf_mail_outage_delivery_in_place",
+    "test_app.py::test_dp51_concurrent_share_changes",
+]
+checkpoints = [
+    "B10",
+]
+critical_checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "tablet-review"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_tablet_review_journey",
+    "test_app.py::test_dp39_touch_pan_pinch_cancel",
+    "test_app.py::test_dp53_closed_panels_unavailable",
+    "test_app.py::test_dp38_published_layouts",
+]
+checkpoints = [
+    "B8",
+    "B7",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_health",
+]
+checkpoints = [
+    "B3",
+    "B2",
+]
+critical_checkpoints = [
+    "B3",
+]

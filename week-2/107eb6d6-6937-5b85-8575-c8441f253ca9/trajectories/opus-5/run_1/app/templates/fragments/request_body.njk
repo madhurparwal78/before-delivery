@@ -1,0 +1,151 @@
+{% import "macros.njk" as m %}
+<div class="request" id="request-root" data-request-id="{{ request.id }}" data-status="{{ request.status }}">
+  <header class="request__head">
+    {{ m.headline([request.tour_name]) }}
+    <dl class="meta">
+      <div class="meta__row">
+        <dt>Request</dt>
+        <dd>{{ request.id }}</dd>
+      </div>
+      <div class="meta__row">
+        <dt>Type</dt>
+        <dd>{{ TRANSPORT_TYPE_LABELS[request.transport_type] }}</dd>
+      </div>
+      <div class="meta__row">
+        <dt>Requester</dt>
+        <dd>{{ request.requester.name }}</dd>
+      </div>
+      <div class="meta__row">
+        <dt>Notes</dt>
+        <dd>{{ request.notes if request.notes else 'No notes' }}</dd>
+      </div>
+      <div class="meta__row">
+        <dt>Status</dt>
+        <dd>{{ m.chip(request.status) }}</dd>
+      </div>
+    </dl>
+    {% if request.decided_by %}
+      <div class="decision">
+        <p class="decision__line">{{ decisionLine(request.status, request.decided_by.name) }} on {{ request.decided_at | stamp }}</p>
+        <p class="decision__note">{{ request.decision_note }}</p>
+      </div>
+    {% endif %}
+  </header>
+
+  <section class="stops" aria-labelledby="stops-heading">
+    <h2 class="heading" id="stops-heading">Stops</h2>
+    <ol class="stops__grid">
+      {% for stop in request.stops %}
+        <li class="card" data-stop-kind="{{ stop.kind }}">
+          <p class="card__index">( {{ loop.index }} ) {{ STOP_LABELS[stop.kind] }}</p>
+          <p class="card__date">{{ stop.date if stop.date else 'No date' }}</p>
+          <p class="card__line">{{ stop.address }}</p>
+          <p class="card__line">{{ stop.city }}</p>
+          <p class="card__line">{{ stop.region }}</p>
+          <p class="card__line">{{ stop.postal_code }}</p>
+          <p class="card__line">{{ stop.country }}</p>
+        </li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <section class="trucks" aria-labelledby="trucks-heading">
+    <h2 class="heading" id="trucks-heading">Trucks</h2>
+    <p
+      class="count-line"
+      data-trucks-assigned="{{ request.trucks_assigned }}"
+      data-trucks-requested="{{ request.trucks_requested }}"
+    >{{ truckCountLine(request.trucks_assigned, request.trucks_requested) }}</p>
+    <ul class="truck-list">
+      {% for truck in request.trucks %}
+        <li class="truck-row" data-truck-id="{{ truck.id }}" data-truck-status="assigned">
+          {{ m.truckOutline() }}
+          <span class="truck-row__id">{{ truck.id }}</span>
+          <span class="truck-row__depot">{{ DEPOT_LABELS[truck.depot] }}</span>
+          {% if panel %}
+            <button
+              class="btn btn--secondary btn--small"
+              type="button"
+              data-panel-action
+              hx-post="/requests/{{ request.id }}/release"
+              hx-vals='{"truck_id": "{{ truck.id }}"}'
+              hx-target="#request-root"
+              hx-swap="outerHTML swap:200ms"
+              hx-disabled-elt="this"
+            >{{ m.roll('Release ' + truck.id) }}</button>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  {% if panel %}
+    <section class="panel panel--dispatch" aria-labelledby="dispatch-heading">
+      <h2 class="heading" id="dispatch-heading">Dispatch panel</h2>
+      <form
+        class="panel__row"
+        method="post"
+        action="/requests/{{ request.id }}/assign"
+        hx-post="/requests/{{ request.id }}/assign"
+        hx-target="#request-root"
+        hx-swap="outerHTML swap:200ms"
+      >
+        <div class="field">
+          <label class="field__label" for="assign-truck">Assign truck</label>
+          <select
+            class="field__input" id="assign-truck" name="truck_id"
+            {% if fields.truck_id %}aria-invalid="true" aria-describedby="error-truck_id"{% endif %}
+          >
+            {% for truck in availableTrucks %}
+              <option value="{{ truck.id }}">{{ truck.id }} ({{ DEPOT_LABELS[truck.depot] }})</option>
+            {% endfor %}
+          </select>
+          {{ m.fieldError('truck_id', fields) }}
+        </div>
+        <button class="btn btn--primary" type="submit" data-panel-action hx-disabled-elt="this">
+          {{ m.roll('Assign') }}{{ m.arrowRight() }}
+        </button>
+      </form>
+
+      <form
+        class="panel__decision"
+        method="post"
+        action="/requests/{{ request.id }}/decision"
+        hx-post="/requests/{{ request.id }}/decision"
+        hx-target="#request-root"
+        hx-swap="outerHTML swap:200ms"
+      >
+        <div class="field">
+          <label class="field__label" for="decision-note">Note</label>
+          <textarea
+            class="field__input" id="decision-note" name="note" rows="3"
+            {% if fields.note %}aria-invalid="true" aria-describedby="error-note"{% endif %}
+          >{{ noteValue }}</textarea>
+          {{ m.fieldError('note', fields) }}
+        </div>
+        <div class="actions">
+          <button class="btn btn--primary" type="submit" name="decision" value="confirm" data-panel-action hx-disabled-elt="this">
+            {{ m.roll('Confirm') }}{{ m.arrowRight() }}
+          </button>
+          <button class="btn btn--secondary btn--danger" type="submit" name="decision" value="decline" data-panel-action hx-disabled-elt="this">
+            {{ m.roll('Decline') }}
+          </button>
+        </div>
+      </form>
+    </section>
+  {% endif %}
+
+  <section class="activity" aria-labelledby="activity-heading">
+    <h2 class="heading" id="activity-heading">Activity</h2>
+    <div
+      class="timeline-slot"
+      data-timeline
+      hx-get="/requests/{{ request.id }}/activity"
+      hx-trigger="load"
+      hx-target="this"
+      hx-swap="innerHTML"
+    >
+      <p class="loading">{{ m.spinnerRing() }}Loading activity</p>
+    </div>
+  </section>
+</div>

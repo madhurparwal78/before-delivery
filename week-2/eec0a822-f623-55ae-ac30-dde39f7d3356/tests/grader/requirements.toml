@@ -1,0 +1,1251 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "workspace-access",
+    "public-fleet",
+    "charter-holds",
+    "passage-planner",
+    "crew-rota",
+    "berths-and-shore-power",
+    "charter-invoicing",
+    "guest-manifest",
+    "energy-logbook",
+    "ships-stores",
+    "broker-pages",
+    "yacht-profiles",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 82
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "killbill", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Tidewright <bookings@tidewright.example>" } },
+]
+
+[criterion_weights]
+B1 = 3
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 5
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 5
+Q4 = 5
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_kbdown"
+S3_BUCKET = "${S3_BUCKET}-kbdown"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_s3down"
+S3_BUCKET = "${S3_BUCKET}-s3down"
+
+[[outages]]
+id = "short-timer"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+HOLD_SECONDS = "8"
+BROKER_PAGE_SECONDS = "20"
+MANIFEST_PAGE_SECONDS = "20"
+MANIFEST_RETENTION_SECONDS = "15"
+BROKER_RATE_WINDOW_SECONDS = "20"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[outages]]
+id = "short-session"
+port = 4177
+url_env = "APP_SHORT_SESSION_URL"
+
+[outages.env]
+SESSION_SECONDS = "20"
+DATABASE_URL = "${DATABASE_URL}_session"
+S3_BUCKET = "${S3_BUCKET}-session"
+
+[[requirements]]
+id = "DP-01"
+title = "Sign-in and sign-out without enumeration."
+text = "A wrong password and an email that belongs to no member get the identical 401 status and body, the right password starts a session, and signing out ends it."
+kind = "behavior"
+primary = "pytest"
+workflow = "workspace-access"
+tests = [
+    "test_app.py::test_sign_in_no_enumeration",
+    "test_app.py::test_wf_workspace_access_sign_in",
+    "test_app.py::test_wf_workspace_access_sign_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Member management by the fleet director."
+text = "The fleet director lists the workspace's members, adds a member with a name, email, starting password and role, changes a member's role and removes a member."
+kind = "behavior"
+primary = "pytest"
+workflow = "workspace-access"
+tests = [
+    "test_app.py::test_members_crud",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Members sealed per workspace."
+text = "Any member id of the other company's workspace answers 404 with the same body as an unknown id on every member endpoint."
+kind = "behavior"
+primary = "pytest"
+workflow = "workspace-access"
+tests = [
+    "test_app.py::test_members_sealed_per_workspace",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Member endpoints refuse other roles."
+text = "A charter manager, finance lead, captain or crew member calling any member endpoint of their own workspace gets 403."
+kind = "behavior"
+primary = "pytest"
+workflow = "workspace-access"
+tests = [
+    "test_app.py::test_member_endpoints_refuse_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Public fleet journey."
+text = "A lead guest browses a company's public fleet as a horizontal strip from 1024 px wide and as one column below it, moves the strip one card at a time from any of its controls, filters it in the Filters sheet (hidden and inert when closed, Tab kept inside it while open, kept open when reopened during its exit) and opens a yacht page, with the sun badge and loader stopped under reduced motion."
+kind = "behavior"
+primary = "workflow"
+workflow = "public-fleet"
+tests = [
+    "test_app.py::test_wf_public_fleet_strip",
+    "test_app.py::test_wf_public_fleet_filters",
+    "test_app.py::test_wf_public_fleet_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Fleet filters and filter sheet."
+text = "The base, cabins, season and week filters live in the address with each change adding one history entry that Back and Forward restore, and they sit in a Filters sheet."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-fleet"
+tests = [
+    "test_app.py::test_fleet_filters_history",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Yacht page and availability strip."
+text = "Each public yacht page shows the yacht's measurements in the published metric and imperial format and its next 26 charter weeks with each week's status and weekly rate."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-fleet"
+tests = [
+    "test_app.py::test_public_yacht_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Withdrawn yacht is gone."
+text = "A withdrawn yacht's public address and public API answer 410 with the published gone copy, and the yacht leaves the fleet page, the fleet search and the sitemap until it is back on sale."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-fleet"
+tests = [
+    "test_app.py::test_withdrawn_yacht_gone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Hold placement journey."
+text = "A charter manager places a hold for a named client from a yacht's availability strip through the Place hold dialog, which keeps Tab inside it and returns focus to the week's button on Escape, then sees the hold's own address in the address bar and the same hold after a reload, and on the hold screen an action's message stays through the 10-second refresh."
+kind = "behavior"
+primary = "workflow"
+workflow = "charter-holds"
+tests = [
+    "test_app.py::test_wf_charter_holds_place",
+    "test_app.py::test_wf_charter_holds_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Hold line and lapse."
+text = "A hold lapses HOLD_SECONDS after it is placed or moved up, an action at or after that instant is refused as too late, and the next hold in line for the week becomes live within 10 seconds, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "charter-holds"
+tests = [
+    "test_app.py::test_hold_lapse_and_line",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Last free week goes to one."
+text = "Of two hold requests that reach the same free week together, exactly one becomes the live hold and the other is refused with the name of who took the week and when, shown and announced in the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "charter-holds"
+tests = [
+    "test_app.py::test_last_free_week_goes_to_one",
+    "test_app.py::test_wf_charter_holds_week_taken",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Hold times and statuses from the server."
+text = "Every hold screen shows each hold's status exactly as the server reports it and its lapse time in Split time, also for Lavrio yachts and with the device clock hours off, and enables its buttons from that status."
+kind = "behavior"
+primary = "pytest"
+workflow = "charter-holds"
+tests = [
+    "test_app.py::test_hold_screen_server_status",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Charge ribbon journey."
+text = "A captain creates a passage, adds legs between published anchorages, tunes each leg's speed until no leg arrives below the 20% reserve and sends the passage to the crew, with every charge announcement in Passage updates character for character and, below 1024 px, the Leg speeds sheet hidden and inert when closed and its sticky Save passage bar never covering the focused slider."
+kind = "behavior"
+primary = "workflow"
+workflow = "passage-planner"
+tests = [
+    "test_app.py::test_wf_passage_planner_happy",
+    "test_app.py::test_wf_passage_planner_below_reserve",
+    "test_app.py::test_wf_passage_planner_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Leg distance, arrival charge and reserve."
+text = "Each leg's distance, arrival time, arrival charge and reserve state follow the passage energy rule in Business rules, alike on screen, in the leg's data attributes and in the API."
+kind = "behavior"
+primary = "pytest"
+workflow = "passage-planner"
+tests = [
+    "test_app.py::test_passage_energy_rule",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Planner keyboard and legs strip."
+text = "Each leg speed slider steps 0.5 kn on the arrow keys and 2.0 kn on Page Up and Page Down and jumps to 4.0 and 12.0 kn on Home and End, [ and ] select the previous and next leg whichever control of the legs has focus, and the vertical wheel moves the wide legs strip one leg at a time."
+kind = "behavior"
+primary = "pytest"
+workflow = "passage-planner"
+tests = [
+    "test_app.py::test_planner_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Departures across clock changes."
+text = "A departure typed inside its base's spring-forward gap is refused on its field, a repeated autumn time means its first occurrence, and each arrival is shown in its anchorage's base time."
+kind = "behavior"
+primary = "pytest"
+workflow = "passage-planner"
+tests = [
+    "test_app.py::test_departure_clock_changes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Charge ribbon motion."
+text = "On every speed change the changed digits roll over 180 ms, reserve bands fade over 360 ms and the ribbon eases over 720 ms, all starting together, and under reduced motion all three show their end state at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "passage-planner"
+tests = [
+    "test_app.py::test_charge_ribbon_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Rota editing journey."
+text = "A captain fills in a week of half-hour work and rest cells for a yacht's crew, saves it and, when a save is refused for a rest rule or a newer save, sees the published copy with every typed cell kept, with the grid scrolling sideways only inside its own frame at 768x1024 and 375x812 and the Discard changes dialog keeping Tab inside it and returning focus to its opener."
+kind = "behavior"
+primary = "workflow"
+workflow = "crew-rota"
+tests = [
+    "test_app.py::test_wf_crew_rota_save",
+    "test_app.py::test_wf_crew_rota_refused",
+    "test_app.py::test_wf_crew_rota_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Rota grid keyboard and touch."
+text = "The rota grid is a single Tab stop in which arrow keys move one cell, Shift with an arrow extends the selection, Space switches work and rest, Home and End jump within the row, and a tap switches a cell."
+kind = "behavior"
+primary = "pytest"
+workflow = "crew-rota"
+tests = [
+    "test_app.py::test_rota_grid_keyboard_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Rest rules on elapsed hours."
+text = "A rota save that breaks a rest rule answers 422 naming the crew member, the rule and the first window that breaks it, with every window counted in real elapsed hours across clock changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "crew-rota"
+tests = [
+    "test_app.py::test_rest_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Stale rota save."
+text = "A rota save based on an older version answers 412 naming who saved and when, and the screen keeps every typed cell."
+kind = "behavior"
+primary = "pytest"
+workflow = "crew-rota"
+tests = [
+    "test_app.py::test_stale_rota_save",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Rota visibility."
+text = "A crew member sees only their own yacht's rota and passages, and another yacht's rota or passages answer 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "crew-rota"
+tests = [
+    "test_app.py::test_rota_visibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Berth booking journey."
+text = "A captain searches a marina's berths for a yacht and dates in one column at 768x1024 and 375x812, books a berth that fits through the Book berth sheet, which keeps Tab inside it and returns focus to its opener, lands on the booking's own address and books shore-power slots on a pontoon."
+kind = "behavior"
+primary = "workflow"
+workflow = "berths-and-shore-power"
+tests = [
+    "test_app.py::test_wf_berths_book",
+    "test_app.py::test_wf_berths_shore_power",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Berth fit."
+text = "A berth fits when the yacht's length is at most the berth's length, its beam at most the berth's width and its draft plus 0.30 m at most the berth's depth, equal values fitting, and booking a berth that does not fit answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "berths-and-shore-power"
+tests = [
+    "test_app.py::test_berth_fit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Marina tariffs by night."
+text = "Each booked night is priced from the marina tariff in force on that night's local date, and existing bookings keep their prices on every surface after a finance lead adds a tariff."
+kind = "behavior"
+primary = "pytest"
+workflow = "berths-and-shore-power"
+tests = [
+    "test_app.py::test_tariff_by_night",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Shore-power slots."
+text = "Shore power is booked in 30-minute local slots within a pontoon's kilowatt limit, exactly one of two simultaneous claims on a slot's last capacity wins while the other is told who took it and when, and every slot shows open, full or past as the server reports."
+kind = "behavior"
+primary = "pytest"
+workflow = "berths-and-shore-power"
+tests = [
+    "test_app.py::test_shore_power_slots",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Deposit journey."
+text = "A charter manager opens a live hold, records the client's deposit in the client's currency through the Record deposit dialog, which keeps Tab inside it and stays open as typed when refused, and lands on a charter marked Invoiced with its priced lines, shown in one column at 768x1024 and 375x812."
+kind = "behavior"
+primary = "workflow"
+workflow = "charter-invoicing"
+tests = [
+    "test_app.py::test_wf_charter_invoicing_deposit",
+    "test_app.py::test_wf_charter_invoicing_refused",
+    "test_app.py::test_wf_charter_invoicing_outage",
+    "test_app.py::test_wf_charter_invoicing_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Charter pricing."
+text = "A charter is priced from the season's weekly rate, a 30% provisioning allowance and the base country's VAT on the charter fee only, with each line converted to the client's currency and rounded half up to the minor unit, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "charter-invoicing"
+tests = [
+    "test_app.py::test_charter_pricing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Deposit, invoice and mail together."
+text = "Recording a deposit creates the charter, one Kill Bill invoice with one item per line and one mail to the client together or creates none of them, and a double click records it once."
+kind = "behavior"
+primary = "pytest"
+workflow = "charter-invoicing"
+tests = [
+    "test_app.py::test_deposit_atomic_and_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Invoicing outage."
+text = "While Kill Bill is unreachable a deposit answers 503 with nothing recorded, invoiced or mailed, the published outage copy stays on screen through every later repaint, and every other screen keeps working."
+kind = "behavior"
+primary = "pytest"
+workflow = "charter-invoicing"
+tests = [
+    "test_app.py::test_invoicing_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Exchange tables by effective date."
+text = "A deposit uses the exchange table in force on its Split date, and charters priced earlier keep their amounts on the charter page, the invoice and the mail after a finance lead adds a table."
+kind = "behavior"
+primary = "pytest"
+workflow = "charter-invoicing"
+tests = [
+    "test_app.py::test_exchange_table_effective",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Manifest journey."
+text = "A charter manager sends the lead guest a private manifest page, the lead guest enters every guest's details and passport photo on it, with the Save manifest bar fixed to the bottom at 768x1024 and 375x812 without covering the focused field and the Add guest sheet hidden and inert when closed, and the captain sees the complete manifest on the charter page."
+kind = "behavior"
+primary = "workflow"
+workflow = "guest-manifest"
+tests = [
+    "test_app.py::test_wf_guest_manifest_happy",
+    "test_app.py::test_wf_guest_manifest_phone",
+    "test_app.py::test_wf_guest_manifest_ended",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Manifest page lifetime."
+text = "A manifest page ends MANIFEST_PAGE_SECONDS after issue, when the charter manager ends it, when a new page replaces it or when the charter is closed, and from then on answers 410 with the published ended copy whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "guest-manifest"
+tests = [
+    "test_app.py::test_manifest_page_lifetime",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Passport photo checks."
+text = "A passport photo is accepted only when its content decodes as a JPEG or PNG image, is stored without location data and with its camera orientation applied, and a refused photo stores nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "guest-manifest"
+tests = [
+    "test_app.py::test_passport_photo_checks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Passport data reach."
+text = "Passport numbers, dates of birth and passport photos reach only the captain and the fleet director, never the manifest page, broker pages, crew screens, any mail or any other role's API response."
+kind = "behavior"
+primary = "pytest"
+workflow = "guest-manifest"
+tests = [
+    "test_app.py::test_passport_data_reach",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Erasure after closing."
+text = "Within 10 seconds of MANIFEST_RETENTION_SECONDS after the captain closes a charter, its guests' passport numbers, dates of birth, nationalities and photos are erased from the database and from storage, leaving only the guest names."
+kind = "behavior"
+primary = "pytest"
+workflow = "guest-manifest"
+tests = [
+    "test_app.py::test_erasure_after_close",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Energy log journey."
+text = "A captain uploads a yacht's battery daily log through the Upload daily log dialog, which keeps Tab inside it and returns focus to its opener, and sees charge and solar yield per day as a chart with a table alternative, in two columns only from 1024 px."
+kind = "behavior"
+primary = "workflow"
+workflow = "energy-logbook"
+tests = [
+    "test_app.py::test_wf_energy_logbook_upload",
+    "test_app.py::test_wf_energy_logbook_layout",
+    "test_app.py::test_wf_energy_logbook_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Log kept as uploaded."
+text = "The stored daily log object is byte for byte the uploaded file, and the chart and table read from a separate working copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "energy-logbook"
+tests = [
+    "test_app.py::test_log_kept_as_uploaded",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Log upload limits."
+text = "A log file of up to 2,000,000 bytes, counted on the file alone, is accepted within the request envelope allowance in API and a larger file answers 413, a request that is not a multipart form answers 415, and a wrong method answers 405 with an Allow header."
+kind = "behavior"
+primary = "pytest"
+workflow = "energy-logbook"
+tests = [
+    "test_app.py::test_log_upload_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Storage outage and recovery."
+text = "On a copy started while MinIO is unreachable, staff sign in and use every other screen, log and passport photo uploads answer 503 with the published outage copy and nothing stored, and each upload tries MinIO again so the app recovers without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "energy-logbook"
+tests = [
+    "test_app.py::test_storage_outage",
+    "test_app.py::test_storage_recovers_without_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Stores journey."
+text = "A crew member adds a store item for their own yacht, lands on the item's own address, and logs stores received, used and spoiled from the Log movement sheet (hidden and inert when closed, Tab kept inside it while open, kept open when reopened during its exit) with its saved message kept after the list repaints."
+kind = "behavior"
+primary = "workflow"
+workflow = "ships-stores"
+tests = [
+    "test_app.py::test_wf_ships_stores_add_and_log",
+    "test_app.py::test_wf_ships_stores_insufficient",
+    "test_app.py::test_wf_ships_stores_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "On-hand counts."
+text = "Every store item's on-hand count equals received minus used minus spoiled, and a movement that would take it below zero answers 409 with the published copy, also when movements arrive together."
+kind = "behavior"
+primary = "pytest"
+workflow = "ships-stores"
+tests = [
+    "test_app.py::test_on_hand_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Stores paging and search."
+text = "The stores list pages by a cursor of at most 50 items that never repeats or skips an item while items are added or removed, another yacht's stores answer 404, and the search shows the results for its latest input."
+kind = "behavior"
+primary = "pytest"
+workflow = "ships-stores"
+tests = [
+    "test_app.py::test_stores_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Broker page journey."
+text = "A charter manager issues a partner broker a private broker page sent by mail, and the broker places holds for their own clients from it through the Hold for a client sheet, which keeps Tab inside it and returns focus to its opener, with each yacht's weeks as a strip only from 1024 px."
+kind = "behavior"
+primary = "workflow"
+workflow = "broker-pages"
+tests = [
+    "test_app.py::test_wf_broker_pages_issue_and_hold",
+    "test_app.py::test_wf_broker_pages_layout",
+    "test_app.py::test_wf_broker_pages_ended",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Broker page fields."
+text = "A broker page, its API and its mail carry only the published broker fields, never other brokers' clients, crew, passport data, internal notes or staff email addresses."
+kind = "behavior"
+primary = "pytest"
+workflow = "broker-pages"
+tests = [
+    "test_app.py::test_broker_page_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Broker hold rate limit."
+text = "A broker page takes at most 5 hold requests within BROKER_RATE_WINDOW_SECONDS, and the sixth answers 429 with Retry-After in whole seconds before the page or the request is checked."
+kind = "behavior"
+primary = "pytest"
+workflow = "broker-pages"
+tests = [
+    "test_app.py::test_broker_rate_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Broker page lifetime."
+text = "A broker page ends BROKER_PAGE_SECONDS after issue, when the charter manager ends it or when a new page replaces it, and from then on answers 410 with the published ended copy whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "broker-pages"
+tests = [
+    "test_app.py::test_broker_page_lifetime",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Profile editing journey."
+text = "The fleet director edits a yacht's name, cabins, measurements and season rates in the two-column profile from 1024 px and saves them from the Save profile bar, which never covers the focused field below 1024 px, and withdraws the yacht and puts it back on sale through their confirm dialogs, each keeping Tab inside it and staying open when reopened during its exit."
+kind = "behavior"
+primary = "workflow"
+workflow = "yacht-profiles"
+tests = [
+    "test_app.py::test_wf_yacht_profiles_edit",
+    "test_app.py::test_wf_yacht_profiles_withdraw",
+    "test_app.py::test_wf_yacht_profiles_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Metric and imperial figures."
+text = "Yacht and berth measurements are entered in metres and shown everywhere as metres to one decimal, a spaced en dash, and feet and inches with 12 inches carrying into the next foot, as set out in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "yacht-profiles"
+tests = [
+    "test_app.py::test_metric_imperial",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Profile form errors."
+text = "A refused profile save shows each field error inline and in a Problems summary whose links move focus to their fields, and keeps everything typed."
+kind = "behavior"
+primary = "pytest"
+workflow = "yacht-profiles"
+tests = [
+    "test_app.py::test_profile_form_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Sign-in landing and ended sessions."
+text = "Sign-in lands each role on its published home address, and a session that ends or loses access mid-form refuses the next action with the published copy, keeps what was typed and, for an ended session, puts it back after signing in again."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_sign_in_landing",
+    "test_app.py::test_wf_cross_cutting_session_ended",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Error precedence and published surface."
+text = "Every API request that breaks several rules gets the earliest answer of the single error ladder in API, unpublished paths answer 404, a wrong method answers 405 with an Allow header and a wrong content type answers 415."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_ladder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Exact starting state."
+text = "A fresh copy on its own empty database and bucket starts with exactly the seed data and no other records."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_seed_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Published layouts."
+text = "At 1280x800 every screen shows its wide layout and at 768x1024 and 375x812 its one-column layout, with no sideways overflow and no control covered by a sheet or sticky bar."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_published_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Dialogs, sheets and shortcuts."
+text = "Every dialog, sheet and menu is hidden and inert when closed, moves focus to its published first control on open, keeps Tab and Shift+Tab inside, closes on Escape, returns focus to its opener and stays open when reopened during its exit, and each published shortcut works from any control of its region but never while typing."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dialogs_and_shortcuts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Motion system."
+text = "Every motion runs as a style transition, style animation or element animation lasting 180, 360 or 720 ms, every loop stops and every sequence shows its end state at once under reduced motion, and touch handling follows each event's pointer type."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_system",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Accessibility check."
+text = "An automated WCAG 2.2 AA check passes on every screen at every published viewport, also with each of its dialogs and sheets open."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_accessibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Chart-paper look."
+text = "Screens read as a calm chart-paper workspace with serif display headings, tabular mono figures, hairline-ruled strips of cards and amber kept for charge and solar data alone."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Charge ribbon craft."
+text = "The charge ribbon reads at a glance as the yacht's battery across the passage, with clear arrival points, a dashed reserve line and hatched below-reserve legs that look made for this product."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Credentials from the environment."
+text = "Every service URL and credential is read from its environment variable at start, and none is written in the source or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string fields install, build and serve and \"_schema\":\"run-manifest-v1\", and its commands run the app as described in Deployment."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package with its version and licence, and every bundled font with its licence. Shipped packages means the production dependency tree as npm ls --omit=dev --all --json reports it."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and bundled font uses one of the MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0, CC0-1.0 or OFL-1.1 licences."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app keeps records only in Postgres and objects only in MinIO. No other database, cache server, SQLite file or data file under /app holds app records."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "A lockfile at /app (package-lock.json, pnpm-lock.yaml or yarn.lock) pins the dependency tree, and the install command uses it."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Fonts, scripts and styles are files of the app itself, and no page references another origin."
+tests = [
+    "test_app.py::test_if_same_origin",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The source contains no credential values. Service credentials (the Postgres, MinIO, Kill Bill and SMTP values) appear only as environment variable names; the brief's published seed password and MAIL_FROM default are not service credentials."
+tests = [
+    "test_app.py::test_if_no_credentials_in_source",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "The source defines no route for tests, debugging, seeding or resetting data."
+tests = [
+    "test_app.py::test_if_no_debug_routes",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "workspace-access"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_workspace_access_sign_in",
+    "test_app.py::test_wf_workspace_access_sign_out",
+    "test_app.py::test_sign_in_no_enumeration",
+    "test_app.py::test_members_sealed_per_workspace",
+    "test_app.py::test_member_endpoints_refuse_roles",
+]
+
+[[workflows]]
+id = "public-fleet"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_wf_public_fleet_strip",
+    "test_app.py::test_wf_public_fleet_filters",
+    "test_app.py::test_wf_public_fleet_reduced_motion",
+    "test_app.py::test_withdrawn_yacht_gone",
+]
+checkpoints = [
+    "B4",
+    "B5",
+]
+
+[[workflows]]
+id = "charter-holds"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_charter_holds_place",
+    "test_app.py::test_wf_charter_holds_release",
+    "test_app.py::test_wf_charter_holds_week_taken",
+    "test_app.py::test_hold_lapse_and_line",
+    "test_app.py::test_hold_screen_server_status",
+    "test_app.py::test_last_free_week_goes_to_one",
+]
+
+[[workflows]]
+id = "passage-planner"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_passage_planner_happy",
+    "test_app.py::test_wf_passage_planner_below_reserve",
+    "test_app.py::test_wf_passage_planner_phone",
+    "test_app.py::test_departure_clock_changes",
+    "test_app.py::test_planner_keyboard",
+    "test_app.py::test_charge_ribbon_motion",
+]
+checkpoints = [
+    "B7",
+    "B9",
+    "B11",
+]
+critical_checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "crew-rota"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_crew_rota_save",
+    "test_app.py::test_wf_crew_rota_refused",
+    "test_app.py::test_wf_crew_rota_phone",
+    "test_app.py::test_rest_rules",
+    "test_app.py::test_rota_grid_keyboard_touch",
+    "test_app.py::test_stale_rota_save",
+]
+
+[[workflows]]
+id = "berths-and-shore-power"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_berths_book",
+    "test_app.py::test_wf_berths_shore_power",
+    "test_app.py::test_tariff_by_night",
+    "test_app.py::test_shore_power_slots",
+]
+
+[[workflows]]
+id = "charter-invoicing"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_charter_invoicing_deposit",
+    "test_app.py::test_wf_charter_invoicing_outage",
+    "test_app.py::test_charter_pricing",
+    "test_app.py::test_invoicing_outage",
+    "test_app.py::test_deposit_atomic_and_once",
+    "test_app.py::test_exchange_table_effective",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "guest-manifest"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_guest_manifest_happy",
+    "test_app.py::test_wf_guest_manifest_phone",
+    "test_app.py::test_wf_guest_manifest_ended",
+    "test_app.py::test_manifest_page_lifetime",
+    "test_app.py::test_passport_photo_checks",
+    "test_app.py::test_erasure_after_close",
+    "test_app.py::test_passport_data_reach",
+]
+
+[[workflows]]
+id = "energy-logbook"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+]
+critical = [
+    "test_app.py::test_wf_energy_logbook_upload",
+    "test_app.py::test_wf_energy_logbook_layout",
+    "test_app.py::test_wf_energy_logbook_outage",
+    "test_app.py::test_log_kept_as_uploaded",
+    "test_app.py::test_log_upload_limits",
+    "test_app.py::test_storage_outage",
+    "test_app.py::test_storage_recovers_without_restart",
+]
+
+[[workflows]]
+id = "ships-stores"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_ships_stores_add_and_log",
+    "test_app.py::test_wf_ships_stores_phone",
+    "test_app.py::test_on_hand_counts",
+    "test_app.py::test_stores_paging",
+]
+
+[[workflows]]
+id = "broker-pages"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_broker_pages_issue_and_hold",
+    "test_app.py::test_wf_broker_pages_layout",
+    "test_app.py::test_wf_broker_pages_ended",
+    "test_app.py::test_broker_page_lifetime",
+    "test_app.py::test_broker_page_fields",
+    "test_app.py::test_broker_rate_limit",
+]
+
+[[workflows]]
+id = "yacht-profiles"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_yacht_profiles_edit",
+    "test_app.py::test_wf_yacht_profiles_withdraw",
+    "test_app.py::test_wf_yacht_profiles_phone",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_sign_in_landing",
+    "test_app.py::test_wf_cross_cutting_session_ended",
+    "test_app.py::test_seed_state",
+]
+checkpoints = [
+    "B1",
+    "B2",
+]

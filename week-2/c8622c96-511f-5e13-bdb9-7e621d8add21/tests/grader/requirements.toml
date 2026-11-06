@@ -1,0 +1,1340 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 70
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "contributor-submission",
+    "desk-review",
+    "embargo-alerts",
+    "feed-story",
+    "exclusive-claim",
+    "claim-outage",
+    "standard-licence",
+    "licence-mail",
+    "window-expiry",
+    "usage-export",
+    "commission-rates",
+    "royalty-statement",
+    "takedown",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 78
+services = [
+    { name = "postgres", env = { APP_CLOCK_CONTROL = "on" } },
+    { name = "minio", env = {} },
+    { name = "killbill", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Saltprint Desk <desk@saltprint.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 3
+B11 = 5
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[requirements]]
+id = "DP-01"
+title = "Essay drafts with co-credits"
+text = "A contributor photographer creates and edits a draft essay with title, caption, embargo lift, exclusive and standard window lengths, prices and an ordered list of co-credits with split shares, as defined in Business rules and API."
+kind = "behavior"
+primary = "pytest"
+workflow = "contributor-submission"
+tests = [
+    "test_app.py::test_essay_draft_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Split shares total exactly"
+text = "The server rejects any essay whose co-credit split shares do not total the full essay, and the studio form shows the running total before saving."
+kind = "behavior"
+primary = "pytest"
+workflow = "contributor-submission"
+tests = [
+    "test_app.py::test_credit_rules_and_share_total",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Embargo lift in co-op wall time"
+text = "An embargo lift is entered as a co-op wall time and resolved to one instant by the published repeated-time and missing-time rule, and the studio shows the resolved lift before saving."
+kind = "behavior"
+primary = "pytest"
+workflow = "contributor-submission"
+tests = [
+    "test_app.py::test_lift_resolution",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Original upload limits"
+text = "Each uploaded original is accepted or refused by its content and size under the published per-file limits, never by its file name or declared type."
+kind = "behavior"
+primary = "pytest"
+workflow = "contributor-submission"
+tests = [
+    "test_app.py::test_upload_sniffing",
+]
+criteria = []
+parameter_cases = [
+    "jpeg-named-png",
+    "png-named-jpg",
+    "gif-named-jpg",
+    "tiff",
+    "svg-with-script",
+    "html",
+    "text",
+    "unreadable-jpeg",
+    "jpeg-at-limit",
+    "jpeg-over-limit",
+    "path-traversal-name",
+    "twenty-fifth-frame",
+]
+
+[[requirements]]
+id = "DP-05"
+title = "Location stripped from derivatives"
+text = "Grid, story and preview derivatives carry no GPS location while the stored original keeps its bytes unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "contributor-submission"
+tests = [
+    "test_app.py::test_derivatives_strip_location",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Submit an essay for review"
+text = "A contributor photographer signs in, builds an essay in the studio, uploads frames, submits it, and sees it listed as in review."
+kind = "behavior"
+primary = "workflow"
+workflow = "contributor-submission"
+tests = [
+    "test_app.py::test_wf_contributor_submission_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Essay lifecycle"
+text = "Essays move only along the published lifecycle, and every other action answers the illegal-transition conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "desk-review"
+tests = [
+    "test_app.py::test_lifecycle_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Publish or hold from the review queue"
+text = "A co-op desk editor opens the review queue, publishes one essay into embargo and holds another back to draft with a desk note, and sees both leave the queue."
+kind = "behavior"
+primary = "workflow"
+workflow = "desk-review"
+tests = [
+    "test_app.py::test_wf_desk_review_publish_hold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Desk notes stay internal"
+text = "Desk notes, takedown references, split shares, commission rates and payout accounts never appear in any newsroom-facing response, page or email."
+kind = "behavior"
+primary = "pytest"
+workflow = "desk-review"
+tests = [
+    "test_app.py::test_desk_notes_stay_internal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Contributor withdrawal"
+text = "A credited contributor requests withdrawal of an embargoed or live essay and the desk editor carries it out, after which it leaves the feed and search while existing licences run to their end."
+kind = "behavior"
+primary = "pytest"
+workflow = "desk-review"
+tests = [
+    "test_app.py::test_contributor_withdrawal",
+    "test_app.py::test_wf_desk_review_withdrawal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Follows"
+text = "A newsroom picture editor follows an essay they can see or a contributor and can unfollow either, and each follow belongs to that person alone."
+kind = "behavior"
+primary = "pytest"
+workflow = "embargo-alerts"
+tests = [
+    "test_app.py::test_follows",
+    "test_app.py::test_wf_embargo_alerts_unfollow",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Embargo lifts once"
+text = "At the lift instant judged by the server clock the essay goes live and each person following at that instant receives exactly one embargo-lift alert, including on the autumn repeated hour."
+kind = "behavior"
+primary = "pytest"
+workflow = "embargo-alerts"
+tests = [
+    "test_app.py::test_embargo_lifts_once_on_repeated_hour",
+    "test_app.py::test_wf_embargo_alerts_follow",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Feed and search"
+text = "The contact sheet and its search list only embargoed and live essays, newest lift first, matching the published search fields."
+kind = "behavior"
+primary = "pytest"
+workflow = "feed-story"
+tests = [
+    "test_app.py::test_feed_and_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Co-op time on every stamp"
+text = "Every embargo lift, window end and confirmation time is shown in co-op time with its zone abbreviation, and every rate date as a co-op date, whatever the browser's time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "embargo-alerts"
+tests = [
+    "test_app.py::test_coop_time_on_stamps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Story viewer sequence"
+text = "Opening a tile shows a full-viewport story viewer that steps through frames in order by pointer, swipe or keyboard and returns focus to the tile when closed, including by browser Back."
+kind = "behavior"
+primary = "pytest"
+workflow = "feed-story"
+tests = [
+    "test_app.py::test_story_viewer_sequence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Organisation shortlist"
+text = "Picture editors in one newsroom share one shortlist of frames that no other newsroom can see or count."
+kind = "behavior"
+primary = "pytest"
+workflow = "feed-story"
+tests = [
+    "test_app.py::test_shortlist_per_newsroom",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Browse and shortlist"
+text = "A newsroom picture editor searches the contact sheet, opens an essay, steps to a frame, adds it to the shortlist and finds it on the Shortlist screen."
+kind = "behavior"
+primary = "workflow"
+workflow = "feed-story"
+tests = [
+    "test_app.py::test_wf_feed_story_shortlist",
+    "test_app.py::test_wf_feed_story_remove",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Exclusive window length"
+text = "An exclusive window or standard licence runs from confirmation through the published end date and ends at co-op midnight, as defined in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "exclusive-claim"
+tests = [
+    "test_app.py::test_window_length",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "One winner per window"
+text = "Of any number of simultaneous exclusive claims on one essay exactly one succeeds, and every other claimant gets the held-window conflict with its end time and no invoice."
+kind = "behavior"
+primary = "pytest"
+workflow = "exclusive-claim"
+tests = [
+    "test_app.py::test_one_winner_per_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Claim replay"
+text = "A licence request repeated with the same idempotency key returns the original response, the same key with a different request is refused, and the page re-sends an unanswered request's key on the next commit."
+kind = "behavior"
+primary = "pytest"
+workflow = "exclusive-claim"
+tests = [
+    "test_app.py::test_claim_replay",
+    "test_app.py::test_claim_resends_unanswered_key",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Grease-pencil hold"
+text = "Pressing and holding Claim exclusive window draws the claim ring in step with hold time, an early release retracts it without sending anything, and completing it sends exactly one claim."
+kind = "behavior"
+primary = "pytest"
+workflow = "exclusive-claim"
+tests = [
+    "test_app.py::test_claim_hold_pointer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Claim result stamp"
+text = "After a claim the stamp shows the win, pending or held-by state from the server, and shows the same state after a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "exclusive-claim"
+tests = [
+    "test_app.py::test_claim_result_stamps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Keyboard and reduced-motion claim"
+text = "Holding Space or Enter on the claim button, or the two-step claim pair under reduced motion, commits exactly one claim with the same result stamp."
+kind = "behavior"
+primary = "pytest"
+workflow = "exclusive-claim"
+tests = [
+    "test_app.py::test_keyboard_and_reduced_motion_claim",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Claim an exclusive window"
+text = "A newsroom picture editor opens a live essay, holds Claim to completion, sees the exclusive stamp, and a rival editor opening the same essay sees it held by another newsroom."
+kind = "behavior"
+primary = "workflow"
+workflow = "exclusive-claim"
+tests = [
+    "test_app.py::test_wf_exclusive_claim_rival",
+    "test_app.py::test_wf_exclusive_claim_colleague",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "All-or-nothing activation"
+text = "A licence becomes active only when its invoice charge, its grant record and its queued receipt all exist, and a pending licence never has a receipt, a grant record or more than one invoice charge."
+kind = "behavior"
+primary = "pytest"
+workflow = "claim-outage"
+tests = [
+    "test_app.py::test_activation_all_or_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Pending while billing is down"
+text = "A licence request made while the billing provider is unreachable holds the window as pending invoice until its hold deadline and says so honestly."
+kind = "behavior"
+primary = "pytest"
+workflow = "claim-outage"
+tests = [
+    "test_app.py::test_wf_claim_outage_standard_pending",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Recovery without restart"
+text = "The app starts and serves with any provider unreachable, and pending invoices, grants, payouts and mail complete on their own once the provider returns, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "claim-outage"
+tests = [
+    "test_app.py::test_recovery_without_restart",
+    "test_app.py::test_starts_with_providers_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Claim during a billing outage"
+text = "A newsroom picture editor claims while billing is down, sees the pending stamp, and once billing returns before the hold deadline sees the exclusive stamp on the Licences screen without anyone restarting the app."
+kind = "behavior"
+primary = "workflow"
+workflow = "claim-outage"
+tests = [
+    "test_app.py::test_wf_claim_outage_pending_then_active",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Standard licence"
+text = "A newsroom picture editor buys a non-exclusive standard licence, refused while another newsroom holds the exclusive, and an exclusive claim is refused while other newsrooms hold running standard licences, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "standard-licence"
+tests = [
+    "test_app.py::test_standard_licence_rules",
+    "test_app.py::test_wf_standard_licence_exclusive_held",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Buy a standard licence"
+text = "A newsroom picture editor buys a standard licence from the ledger, sees the standard stamp, and downloads an original frame from the Licences screen."
+kind = "behavior"
+primary = "workflow"
+workflow = "standard-licence"
+tests = [
+    "test_app.py::test_wf_standard_licence_buy_download",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Licence receipt contents"
+text = "Each active licence sends one receipt to each of its recipients, naming the essay, credit line, window and amount and nothing private."
+kind = "behavior"
+primary = "pytest"
+workflow = "licence-mail"
+tests = [
+    "test_app.py::test_receipt_contents",
+    "test_app.py::test_wf_licence_mail_receipt",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Expiry warning"
+text = "Each active licence sends one expiry warning to each of its recipients at the published lead time before its end instant, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "licence-mail"
+tests = [
+    "test_app.py::test_expiry_warning",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Mail waits out an outage"
+text = "Every outbound email is queued first and delivered exactly once when the mail server is reachable, with the queued state visible meanwhile."
+kind = "behavior"
+primary = "pytest"
+workflow = "licence-mail"
+tests = [
+    "test_app.py::test_mail_waits_out_outage",
+    "test_app.py::test_wf_licence_mail_queued",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Original download grants"
+text = "A picture editor of a newsroom with an active licence gets short-lived signed links for one frame of the licensed essay at a time, named by essay and frame, that never outlive the licence end."
+kind = "behavior"
+primary = "pytest"
+workflow = "window-expiry"
+tests = [
+    "test_app.py::test_original_grants",
+    "test_app.py::test_wf_window_expiry_download",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Server-judged end instant"
+text = "From the end instant the server refuses fresh original grants, shows the licence as expired and reopens the exclusive window for claims, whatever the browser clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "window-expiry"
+tests = [
+    "test_app.py::test_server_judged_end",
+    "test_app.py::test_wf_window_expiry_ended",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Organisation-scoped usage"
+text = "A licensing manager's usage totals and shortlist counts cover only their own newsroom."
+kind = "behavior"
+primary = "pytest"
+workflow = "usage-export"
+tests = [
+    "test_app.py::test_usage_scoped",
+    "test_app.py::test_wf_usage_export_licences_scoped",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Usage CSV export"
+text = "The usage export lists only the viewer's newsroom's licences in the published columns and times."
+kind = "behavior"
+primary = "pytest"
+workflow = "usage-export"
+tests = [
+    "test_app.py::test_usage_csv_export",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Neutralised CSV cells"
+text = "Any export cell that begins with a formula character is neutralised by the published rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "usage-export"
+tests = [
+    "test_app.py::test_csv_neutralisation",
+]
+criteria = []
+parameter_cases = [
+    "equals",
+    "plus",
+    "minus",
+    "at",
+    "tab",
+    "carriage-return",
+]
+
+[[requirements]]
+id = "DP-39"
+title = "Review usage and export"
+text = "A newsroom licensing manager opens Usage, reads totals and expiry dates for their own licences, and downloads the CSV export."
+kind = "behavior"
+primary = "workflow"
+workflow = "usage-export"
+tests = [
+    "test_app.py::test_wf_usage_export_csv",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Effective-dated commission rates"
+text = "The co-op treasurer schedules a commission rate from a future co-op date, and the rate table lists every rate with its start date."
+kind = "behavior"
+primary = "pytest"
+workflow = "commission-rates"
+tests = [
+    "test_app.py::test_rate_schedule",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Rate fixed at confirmation"
+text = "Each licence keeps the commission rate in force at its confirmation instant on every later statement and screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "commission-rates"
+tests = [
+    "test_app.py::test_rate_fixed_at_confirmation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Schedule a rate change"
+text = "The treasurer opens Rates, schedules a new rate, and sees it listed as scheduled from its date while the current rate stays unchanged."
+kind = "behavior"
+primary = "workflow"
+workflow = "commission-rates"
+tests = [
+    "test_app.py::test_wf_commission_rates_schedule",
+    "test_app.py::test_wf_commission_rates_invalid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Exact royalty split"
+text = "Every statement line splits the invoiced amount into co-op commission and co-contributor shares that add up exactly to it under the published remainder rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "royalty-statement"
+tests = [
+    "test_app.py::test_royalty_statement_split",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Monthly royalty statement"
+text = "The treasurer runs one statement per closed co-op month covering its invoiced licences, and each contributor sees only their own share lines."
+kind = "behavior"
+primary = "pytest"
+workflow = "royalty-statement"
+tests = [
+    "test_app.py::test_wf_royalty_statement_royalties",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Payouts recorded in billing"
+text = "Recording payouts for a statement records one payment per contributor with a non-zero total in the billing provider exactly once, queued while billing is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "royalty-statement"
+tests = [
+    "test_app.py::test_payouts_recorded_in_billing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Run a statement and record payouts"
+text = "The treasurer runs a closed month's statement, reads each line's commission and shares, records payouts and sees each payout's state."
+kind = "behavior"
+primary = "workflow"
+workflow = "royalty-statement"
+tests = [
+    "test_app.py::test_wf_royalty_statement_run",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Takedown removes the essay everywhere"
+text = "After a legal takedown the essay and its frames vanish from feed, search, every shortlist, every export and every image URL."
+kind = "behavior"
+primary = "pytest"
+workflow = "takedown"
+tests = [
+    "test_app.py::test_takedown_removes_everywhere",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Licensed-history placeholder"
+text = "Existing licences on a taken-down essay, including already expired ones, become revoked placeholders without imagery or original access."
+kind = "behavior"
+primary = "pytest"
+workflow = "takedown"
+tests = [
+    "test_app.py::test_takedown_placeholders",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Takedown mail"
+text = "A takedown cancels every unsent email about the essay and sends one takedown notice to each picture editor and licensing manager of every licensee newsroom, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "takedown"
+tests = [
+    "test_app.py::test_takedown_notices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Action a legal takedown"
+text = "The desk editor opens a licensed essay, confirms a legal takedown with a reference, and sees it marked taken down while the licensee sees a placeholder on Licences."
+kind = "behavior"
+primary = "workflow"
+workflow = "takedown"
+tests = [
+    "test_app.py::test_wf_takedown_action",
+    "test_app.py::test_wf_takedown_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Sign-in and roles"
+text = "People sign in with a seeded email and password, see only their role's sections, and the server refuses actions outside their role."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_sign_in_and_roles",
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Error shape and precedence"
+text = "Every API error uses one JSON shape and the published precedence."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from the run manifest on the published port and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_served_app",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Server boundary"
+text = "The server serves same-origin only, enforces body limits, and never serves source, configuration or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Credentials from environment"
+text = "Every service URL and credential is read from the environment at start and never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Responsive layout"
+text = "Every screen fits the three published viewports without horizontal scrolling, with the ledger as a right rail on wide screens and a bottom sheet below that."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Darkroom newsprint look"
+text = "Screens use the warm paper ground, ink type, hairline column rules, mono numerals and safelight red reserved for embargo and claim states."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Contact sheet and story composition"
+text = "The contact sheet is a three-column grid of square frames with embargo stamps, and the story viewer carries a segmented progress rule across its top."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B3",
+    "B8",
+    "B9",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Motion and reduced motion"
+text = "Each named motion runs within its stated time, nothing loops decoratively, and reduced motion replaces each with its published substitute."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_and_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Keyboard focus and tap targets"
+text = "Every control is reachable in a logical Tab order with a visible focus ring, dialogs trap focus and close on Escape, and touch targets meet the comfortable tap size from Visual design."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_focus_and_tap_targets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Contact sheet state in the URL"
+text = "The contact sheet keeps its search, open essay and frame in its address, so a reload, a shared link, Back and Forward land on the same view, as defined in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "feed-story"
+tests = [
+    "test_app.py::test_sheet_address_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Touch claim hold"
+text = "On a touch screen the claim hold commits after the same hold time, while a drift beyond the touch allowance, a second finger or a cancelled touch sends nothing, with no context menu, text selection, scroll or zoom."
+kind = "behavior"
+primary = "pytest"
+workflow = "exclusive-claim"
+tests = [
+    "test_app.py::test_touch_claim_hold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Pending hold deadline"
+text = "A pending licence holds its window only until its hold deadline, after which it is removed with no charge, grant or receipt and the window reopens."
+kind = "behavior"
+primary = "pytest"
+workflow = "claim-outage"
+tests = [
+    "test_app.py::test_pending_hold_deadline",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "One live licence per newsroom under races"
+text = "Simultaneous licence requests leave at most one pending or active licence per newsroom per essay, and a rival's standard licence and an exclusive claim never both stand."
+kind = "behavior"
+primary = "pytest"
+workflow = "standard-licence"
+tests = [
+    "test_app.py::test_one_live_licence_under_races",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Exact mail subjects"
+text = "Every email subject decodes to exactly its published text for any printable title, and titles with line breaks or control characters are refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "licence-mail"
+tests = [
+    "test_app.py::test_exact_mail_subjects",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Usage surfaces agree"
+text = "Usage totals, the Licences listing, the shortlist count and the CSV export agree with each other at every server-clock instant, including exactly at an end instant and right after a takedown."
+kind = "behavior"
+primary = "pytest"
+workflow = "usage-export"
+tests = [
+    "test_app.py::test_usage_surfaces_agree",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Unknown and mistyped fields refused"
+text = "Every JSON request body holding an unknown field, missing a required field or holding a field of the wrong type is refused with a field error and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "commission-rates"
+tests = [
+    "test_app.py::test_strict_request_bodies",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Exact money in billing and statements"
+text = "Every amount sent to billing is exact cents written with two decimals, payouts equal statement totals, and statement months are bounded by co-op midnights."
+kind = "behavior"
+primary = "pytest"
+workflow = "royalty-statement"
+tests = [
+    "test_app.py::test_month_bounds_and_exact_money",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Takedown serialised with licensing"
+text = "A takedown racing licence requests and activations leaves no licence on the essay active, no grant record, and no receipt for a licence revoked while pending."
+kind = "behavior"
+primary = "pytest"
+workflow = "takedown"
+tests = [
+    "test_app.py::test_takedown_serialised_with_licensing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Essay versions"
+text = "Essay saves require the version the editor last read, and a stale save is refused while the studio keeps the editor's input."
+kind = "behavior"
+primary = "pytest"
+workflow = "contributor-submission"
+tests = [
+    "test_app.py::test_essay_versions",
+    "test_app.py::test_wf_contributor_submission_stale_save",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve and _schema run-manifest-v1, and serve starts the app with no manual steps."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and every bundled font and icon set, each with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package, font and icon set uses one of MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0, OFL-1.1 or CC0-1.0."
+tests = [
+    "test_app.py::test_if_licence_allowlist",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in the provided Postgres database and the S3_BUCKET bucket; no other database, cache, queue or file-based record store is added."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration files and their seeded credentials are left unmodified."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "A lockfile (package-lock.json) is committed alongside package.json."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "contributor-submission"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-70",
+]
+critical = [
+    "test_app.py::test_wf_contributor_submission_happy",
+    "test_app.py::test_wf_contributor_submission_stale_save",
+    "test_app.py::test_upload_sniffing",
+    "test_app.py::test_essay_versions",
+    "test_app.py::test_lift_resolution",
+    "test_app.py::test_essay_draft_fields",
+]
+
+[[workflows]]
+id = "desk-review"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_desk_review_publish_hold",
+    "test_app.py::test_desk_notes_stay_internal",
+    "test_app.py::test_contributor_withdrawal",
+    "test_app.py::test_lifecycle_transitions",
+]
+
+[[workflows]]
+id = "embargo-alerts"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_embargo_alerts_follow",
+    "test_app.py::test_embargo_lifts_once_on_repeated_hour",
+    "test_app.py::test_coop_time_on_stamps",
+    "test_app.py::test_follows",
+]
+
+[[workflows]]
+id = "feed-story"
+requirements = [
+    "DP-13",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_feed_story_shortlist",
+    "test_app.py::test_sheet_address_state",
+    "test_app.py::test_story_viewer_sequence",
+    "test_app.py::test_shortlist_per_newsroom",
+]
+
+[[workflows]]
+id = "exclusive-claim"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_exclusive_claim_rival",
+    "test_app.py::test_one_winner_per_window",
+    "test_app.py::test_keyboard_and_reduced_motion_claim",
+    "test_app.py::test_touch_claim_hold",
+    "test_app.py::test_window_length",
+]
+
+[[workflows]]
+id = "claim-outage"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-63",
+]
+critical = [
+    "test_app.py::test_wf_claim_outage_pending_then_active",
+    "test_app.py::test_activation_all_or_nothing",
+    "test_app.py::test_recovery_without_restart",
+    "test_app.py::test_pending_hold_deadline",
+]
+
+[[workflows]]
+id = "standard-licence"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_standard_licence_buy_download",
+    "test_app.py::test_one_live_licence_under_races",
+]
+
+[[workflows]]
+id = "licence-mail"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_licence_mail_receipt",
+    "test_app.py::test_receipt_contents",
+    "test_app.py::test_exact_mail_subjects",
+    "test_app.py::test_mail_waits_out_outage",
+]
+
+[[workflows]]
+id = "window-expiry"
+requirements = [
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_window_expiry_download",
+    "test_app.py::test_original_grants",
+    "test_app.py::test_server_judged_end",
+]
+
+[[workflows]]
+id = "usage-export"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_usage_export_csv",
+    "test_app.py::test_usage_scoped",
+    "test_app.py::test_csv_neutralisation",
+    "test_app.py::test_usage_surfaces_agree",
+]
+
+[[workflows]]
+id = "commission-rates"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_commission_rates_schedule",
+    "test_app.py::test_rate_fixed_at_confirmation",
+    "test_app.py::test_strict_request_bodies",
+    "test_app.py::test_rate_schedule",
+]
+
+[[workflows]]
+id = "royalty-statement"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-68",
+]
+critical = [
+    "test_app.py::test_wf_royalty_statement_run",
+    "test_app.py::test_royalty_statement_split",
+    "test_app.py::test_payouts_recorded_in_billing",
+    "test_app.py::test_month_bounds_and_exact_money",
+]
+
+[[workflows]]
+id = "takedown"
+requirements = [
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-69",
+]
+critical = [
+    "test_app.py::test_wf_takedown_action",
+    "test_app.py::test_takedown_removes_everywhere",
+    "test_app.py::test_takedown_serialised_with_licensing",
+    "test_app.py::test_takedown_placeholders",
+    "test_app.py::test_takedown_notices",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+checkpoints = [
+    "B1",
+    "B8",
+    "B11",
+]

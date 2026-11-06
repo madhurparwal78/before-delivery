@@ -1,0 +1,953 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "access",
+    "request-intake",
+    "gate-thread",
+    "offer-response",
+    "team-staffing",
+    "cancellation",
+    "timesheet-billing",
+    "credentials",
+    "consumer-preferences",
+    "tenant-isolation",
+    "outages",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 88
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 5
+B5 = 5
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+S4 = 3
+S5 = 1
+Q1 = 5
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Fernhollow Access Dispatch <dispatch@fernhollow.test>"
+
+[[services]]
+name = "killbill"
+
+[services.env]
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+MAILPIT_URL = "http://127.0.0.1:9"
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest, health and server boundary"
+text = "The app installs, builds and serves from `/app/run.json`, answers the health check, and serves only its own client and API on one origin, as qualified in Technical requirements."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Sign-in and roles"
+text = "Seeded users sign in with email and passcode, and every API call is allowed or refused by role as listed in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_signin_and_roles",
+    "test_app.py::test_wf_access_landing",
+    "test_app.py::test_wf_access_invalid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Seed data"
+text = "A fresh database starts with exactly the organisations, people, credentials, requests, rates and Kill Bill accounts listed in Seed data."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_seed_data",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Request drafting and validation"
+text = "Requesters create, edit and submit requests, and invalid fields come back as field errors without saving anything."
+kind = "behavior"
+primary = "pytest"
+workflow = "request-intake"
+tests = [
+    "test_app.py::test_request_drafting_and_validation",
+    "test_app.py::test_wf_request_intake_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Prep material upload"
+text = "Requesters attach prep files to their own draft or submitted requests, and each file is stored in MinIO under the key pattern in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "request-intake"
+tests = [
+    "test_app.py::test_prep_upload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Requester journey: submit a request with prep"
+text = "In the browser, a requester fills the New request form, attaches a prep file with Add prep file and presses Submit request, and the request detail screen then shows the submitted status, the seat count and the file under Prep materials; stored records and objects are scored under DP-04 and DP-05."
+kind = "behavior"
+primary = "workflow"
+workflow = "request-intake"
+tests = [
+    "test_app.py::test_wf_request_intake_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Team seat rule"
+text = "Each request gets one or two seats from its setting and length by the team rule in Business rules, and is staffed only when every seat is accepted."
+kind = "behavior"
+primary = "pytest"
+workflow = "team-staffing"
+tests = [
+    "test_app.py::test_team_seat_rule",
+]
+criteria = []
+parameter_cases = [
+    "medical_1h",
+    "medical_2h",
+    "medical_2h15",
+    "legal_1h",
+    "community_3h",
+]
+
+[[requirements]]
+id = "DP-08"
+title = "Four dispatch gates"
+text = "Matching an interpreter to a seat checks setting credential, credential valid on date, schedule with travel buffer, and consumer preference, exactly as defined in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "gate-thread"
+tests = [
+    "test_app.py::test_four_gates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Gate dry-run"
+text = "A dry-run returns all four gate results for an interpreter and seat and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "gate-thread"
+tests = [
+    "test_app.py::test_gate_dry_run",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Commit re-runs the gates"
+text = "Pinning re-runs all four gates on the server and refuses with the first failing gate's reason, whatever an earlier dry-run said."
+kind = "behavior"
+primary = "pytest"
+workflow = "gate-thread"
+tests = [
+    "test_app.py::test_pin_reruns_gates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "One winner per seat"
+text = "When two coordinators pin the same seat at the same time, exactly one offer is created and the other gets a refusal that names the holder."
+kind = "behavior"
+primary = "pytest"
+workflow = "gate-thread"
+tests = [
+    "test_app.py::test_one_winner_per_seat",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "No overlapping assignments"
+text = "An interpreter never holds accepted seats or active offers that overlap or break the travel buffer, even when pins for them race."
+kind = "behavior"
+primary = "pytest"
+workflow = "gate-thread"
+tests = [
+    "test_app.py::test_no_overlapping_assignments",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Coordinator journey: match by thread"
+text = "In the browser, a coordinator drags a thread from an interpreter chip onto a request card, the card's four pips show the gate results, and the release either pins with the counter and detail pane showing the seat offered or recoils with the failing reason on the card; gate logic and offer records are scored under DP-08 to DP-12."
+kind = "behavior"
+primary = "workflow"
+workflow = "gate-thread"
+tests = [
+    "test_app.py::test_wf_gate_thread_recoil",
+    "test_app.py::test_wf_gate_thread_pin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Offer email with single-use link"
+text = "Every new offer sends the interpreter an email whose link opens the offer page and answers it once only."
+kind = "behavior"
+primary = "pytest"
+workflow = "offer-response"
+tests = [
+    "test_app.py::test_offer_email_single_use",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Offer expiry"
+text = "Each offer carries an expiry time set by the rule in Business rules, after which it cannot be accepted and its seat reopens."
+kind = "behavior"
+primary = "pytest"
+workflow = "offer-response"
+tests = [
+    "test_app.py::test_offer_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Accept and decline"
+text = "Accepting fills the seat and moves the request along its state machine, and declining reopens the seat."
+kind = "behavior"
+primary = "pytest"
+workflow = "offer-response"
+tests = [
+    "test_app.py::test_accept_and_decline",
+    "test_app.py::test_wf_offer_response_decline",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Interpreter journey: answer an offer"
+text = "In the browser, an interpreter opens the offer page from the emailed link, presses Accept offer, sees the accepted copy, and finds the job with its prep file links under My assignments; email delivery and seat state are scored under DP-14 and DP-16."
+kind = "behavior"
+primary = "workflow"
+workflow = "offer-response"
+tests = [
+    "test_app.py::test_wf_offer_response_accept",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Request state machine"
+text = "Requests and seats move only along the legal transitions in Business rules, and every illegal transition is refused with the documented error."
+kind = "behavior"
+primary = "pytest"
+workflow = "team-staffing"
+tests = [
+    "test_app.py::test_request_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Staffed confirmation email"
+text = "When the last seat of a request is accepted, every requester user in that organisation gets one confirmation email."
+kind = "behavior"
+primary = "pytest"
+workflow = "team-staffing"
+tests = [
+    "test_app.py::test_staffed_confirmation_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Coordinator journey: fill a team request"
+text = "In the browser, a coordinator threads two qualified interpreters onto a legal request's two seats, both accept on their offer pages, and the board and the requester's request detail then both read staffed; seat rules and the confirmation email are scored under DP-07, DP-18 and DP-19."
+kind = "behavior"
+primary = "workflow"
+workflow = "team-staffing"
+tests = [
+    "test_app.py::test_wf_team_staffing_fill",
+    "test_app.py::test_wf_team_staffing_partial",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Cancellation quote"
+text = "Before cancelling, the requester sees whether the cancellation is late and the exact charge, computed by the window rules in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_cancellation_quote",
+]
+criteria = []
+parameter_cases = [
+    "draft",
+    "on_time_long",
+    "late_unseated",
+    "late_seated",
+]
+
+[[requirements]]
+id = "DP-22"
+title = "Late-cancellation charge"
+text = "A late cancellation with a fee above zero posts its charge to the organisation's Kill Bill account exactly once, and an on-time or zero-fee cancellation posts nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_late_cancellation_charge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Cancellation notices"
+text = "Cancelling withdraws active offers and emails every seated interpreter once with the outcome and per-interpreter charge."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_cancellation_notices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Requester journey: cancel with the fee shown"
+text = "In the browser, a requester presses Cancel request, reads the late or on-time charge in the Cancel request dialog, confirms, and the request detail then shows the cancelled status with that charge; the quote, Kill Bill charge and notices are scored under DP-21 to DP-23."
+kind = "behavior"
+primary = "workflow"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_wf_cancellation_late",
+    "test_app.py::test_wf_cancellation_on_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Idempotency keys"
+text = "Timesheet submission, timesheet approval and cancellation require an idempotency key, replay identical results for a repeated key, and refuse a reused key with a different body."
+kind = "behavior"
+primary = "pytest"
+workflow = "timesheet-billing"
+tests = [
+    "test_app.py::test_idempotency_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Timesheet submission and billed hours"
+text = "A seated interpreter submits one signed timesheet after the scheduled end, and the server computes billed hours by the rule in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "timesheet-billing"
+tests = [
+    "test_app.py::test_timesheet_billed_hours",
+    "test_app.py::test_wf_timesheet_billing_submit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Atomic timesheet approval"
+text = "Approval records the Kill Bill charge, stores the signed PDF in MinIO and queues the requester notice together, or does none of them, as qualified by the failure model in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "timesheet-billing"
+tests = [
+    "test_app.py::test_atomic_timesheet_approval",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Billed amount frozen at approval"
+text = "The amount for an approved timesheet is computed once from the rate at approval and never changes when rates are edited later."
+kind = "behavior"
+primary = "pytest"
+workflow = "timesheet-billing"
+tests = [
+    "test_app.py::test_amount_frozen_at_approval",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Invoices match Kill Bill"
+text = "The invoices screen and API show each organisation's Kill Bill invoices with totals equal to Kill Bill's own."
+kind = "behavior"
+primary = "pytest"
+workflow = "timesheet-billing"
+tests = [
+    "test_app.py::test_invoices_match_killbill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Billing journey: approve and invoice"
+text = "In the browser, the billing lead presses approve on a row of the timesheet queue, sees the approved amount in the Billing status region, and finds a matching line on that organisation's Invoices screen; the charge, PDF and amount rules are scored under DP-27 to DP-29."
+kind = "behavior"
+primary = "workflow"
+workflow = "timesheet-billing"
+tests = [
+    "test_app.py::test_wf_timesheet_billing_approve",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Credentials with scans"
+text = "Interpreters add credentials with type, number, expiry date and a scan stored in MinIO, and the latest-expiring credential of a type is the one the gates use."
+kind = "behavior"
+primary = "pytest"
+workflow = "credentials"
+tests = [
+    "test_app.py::test_credentials_with_scans",
+    "test_app.py::test_wf_credentials_add",
+    "test_app.py::test_wf_credentials_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Credential expiry warning"
+text = "An interpreter gets exactly one warning email per credential once its expiry date is within the warning period in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "credentials"
+tests = [
+    "test_app.py::test_credential_expiry_warning",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Consumer preferences"
+text = "Deaf consumers record preferred and blocked interpreters, and blocks take effect on the very next dry-run and pin."
+kind = "behavior"
+primary = "pytest"
+workflow = "consumer-preferences"
+tests = [
+    "test_app.py::test_consumer_preferences",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Consumer journey: block an interpreter"
+text = "In the browser, a Deaf consumer marks an interpreter Blocked and presses Save preferences, and a coordinator then sees the Consumer pip fail when threading that interpreter onto that consumer's request; stored preferences and the gate rule are scored under DP-08 and DP-33."
+kind = "behavior"
+primary = "workflow"
+workflow = "consumer-preferences"
+tests = [
+    "test_app.py::test_wf_consumer_preferences_block",
+    "test_app.py::test_wf_consumer_preferences_preferred",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Tenant isolation"
+text = "A requester can never list, read, change or cancel another organisation's requests, timesheets or invoices, and gets the not-found error when trying."
+kind = "behavior"
+primary = "pytest"
+workflow = "tenant-isolation"
+tests = [
+    "test_app.py::test_tenant_isolation",
+    "test_app.py::test_wf_tenant_isolation_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Prep files for seated interpreters only"
+text = "Prep files download only for the request's organisation, agency staff and interpreters with an accepted seat on that request while it is not cancelled."
+kind = "behavior"
+primary = "pytest"
+workflow = "tenant-isolation"
+tests = [
+    "test_app.py::test_prep_access",
+    "test_app.py::test_wf_tenant_isolation_prep",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Audit log"
+text = "Every state change writes audit entries with actor, action, before and after state and time, counted and named as in Business rules, readable by agency staff."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_audit_log",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Billing outage"
+text = "When Kill Bill is unreachable, approvals, late cancellations with a fee above zero and invoice reads fail with the billing error and change nothing in the app, while everything else, including late cancellations with nobody seated, keeps working, as qualified by the failure model in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_billing_outage",
+    "test_app.py::test_billing_timeout_reconciliation",
+    "test_app.py::test_wf_outages_killbill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Mail outage"
+text = "When mail is unreachable, actions still succeed, their emails wait in a queue, and each queued email is delivered exactly once after mail returns, as qualified by the failure model in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_mail_outage",
+    "test_app.py::test_wf_outages_mail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Dispatch board layout"
+text = "The board shows three columns on wide screens and a tabbed stack with a bottom interpreter strip on narrow screens as described in Screens and layout, with no horizontal overflow at any tested size."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Gate thread motion"
+text = "Dragging from a chip draws a following thread, gate pips resolve left to right in a stagger, and pins and recoils settle within the times in Motion and effects."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Keyboard and reduced-motion path"
+text = "The whole matching flow works from the keyboard with each gate result announced, and reduced-motion users get the static substitutes in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Feedback live regions"
+text = "Every async action shows and announces its pending, success, error and outage copy in its named live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_feedback",
+    "test_app.py::test_feedback_timeouts_and_outages",
+    "test_app.py::test_feedback_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Visual identity"
+text = "Screens use the warm paper ground, ink text, serif headings, monospaced times, flat surfaces and vermilion only for failed gates and in-window requests."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Credentials from the environment"
+text = "Every protected value defined in Configuration and secrets is read from the environment at start and never appears in source, the client bundle, any response or any email."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_secrets_never_exposed",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with string `install`, `build` and `serve` commands and `\"_schema\":\"run-manifest-v1\"`, and the app is started only through it."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`/app/THIRD_PARTY_NOTICES.md` lists every runtime dependency and bundled font with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every dependency and font uses one of MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licence_allowlist",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastore beyond PostgreSQL, Kill Bill and MinIO: no SQLite, Redis, embedded key-value store or data files written to disk."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and its seeded credentials are left unmodified."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "No protected value from Configuration and secrets is committed to the repository or written into client assets."
+tests = [
+    "test_app.py::test_if_no_committed_secrets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "access"
+requirements = [
+    "DP-02",
+    "DP-03",
+]
+critical = [
+    "test_app.py::test_wf_access_landing",
+]
+
+[[workflows]]
+id = "request-intake"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-06",
+]
+critical = [
+    "test_app.py::test_wf_request_intake_happy",
+]
+
+[[workflows]]
+id = "gate-thread"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_gate_thread_pin",
+    "test_app.py::test_wf_gate_thread_recoil",
+]
+checkpoints = [
+    "B5",
+    "B6",
+]
+
+[[workflows]]
+id = "offer-response"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_offer_response_accept",
+]
+
+[[workflows]]
+id = "team-staffing"
+requirements = [
+    "DP-07",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_team_staffing_fill",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "cancellation"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_cancellation_late",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "timesheet-billing"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_timesheet_billing_approve",
+]
+
+[[workflows]]
+id = "credentials"
+requirements = [
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_credentials_add",
+]
+
+[[workflows]]
+id = "consumer-preferences"
+requirements = [
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_consumer_preferences_block",
+]
+
+[[workflows]]
+id = "tenant-isolation"
+requirements = [
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_tenant_isolation_list",
+]
+
+[[workflows]]
+id = "outages"
+requirements = [
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_outages_killbill",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-37",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_layout",
+]

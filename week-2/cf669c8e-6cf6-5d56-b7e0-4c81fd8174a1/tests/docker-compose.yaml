@@ -1,0 +1,127 @@
+services:
+  main:
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    security_opt:
+    - seccomp=unconfined
+    - systempaths=unconfined
+    - apparmor=unconfined
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+      killbill:
+        condition: service_healthy
+      wiremock:
+        condition: service_healthy
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-5c1e8a37
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  mailpit:
+    image: axllent/mailpit:v1.27@sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68
+    healthcheck:
+      test:
+      - CMD
+      - /mailpit
+      - readyz
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  killbill-db:
+    image: killbill/mariadb:0.24@sha256:8fddf7d564befcea3e3d762c01b3e65fb4b45fb8db077297998ad935468372fa
+    environment:
+      MYSQL_ROOT_PASSWORD: killbill
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - mariadb-admin ping -h 127.0.0.1 -uroot -pkillbill --silent
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+  killbill:
+    image: killbill/killbill:0.24.21@sha256:e6b6ab4a0e6287ebf57aafa2d5f22cfa6250dfa056682c74d7c208b4a39d0c9b
+    environment:
+      KB_org_killbill_dao_url: jdbc:mysql://killbill-db:3306/killbill
+      KB_org_killbill_dao_user: root
+      KB_org_killbill_dao_password: killbill
+      KB_org_killbill_billing_osgi_dao_url: jdbc:mysql://killbill-db:3306/killbill
+      KB_org_killbill_billing_osgi_dao_user: root
+      KB_org_killbill_billing_osgi_dao_password: killbill
+      KB_ADMIN_PASSWORD: password
+    depends_on:
+      killbill-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -fsS -o /dev/null http://127.0.0.1:8080/1.0/healthcheck
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 120s
+  wiremock:
+    image: wiremock/wiremock:3.13.2@sha256:0d4ecb3e4dc8213fd7a4d37d6a78f6e6b553a6d2e15bd51b0999781282ac61b3
+    entrypoint:
+    - sh
+    - -c
+    - if [ -n "$$WIREMOCK_STUBS" ]; then printf '%s' "$$WIREMOCK_STUBS" > /home/wiremock/mappings/baseline.json;
+      fi; exec /docker-entrypoint.sh --port 8080 --disable-banner --max-request-journal-entries 20000 --admin-api-basic-auth
+      gfkit-admin:gfkit-wm-4fce2a657cbe2442
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -sf
+      - -u
+      - gfkit-admin:gfkit-wm-4fce2a657cbe2442
+      - http://127.0.0.1:8080/__admin/health
+      interval: 2s
+      timeout: 5s
+      retries: 60
+    environment:
+      WIREMOCK_STUBS: '{"mappings": [{"priority": 9, "request": {"method": "GET", "urlPathPattern": "/v1/plates/.*"},
+        "response": {"jsonBody": {"error": "plate_not_found"}, "status": 404}}, {"request": {"method": "GET", "queryParameters":
+        {"country": {"equalTo": "NL"}}, "urlPath": "/v1/plates/FGH-12-K"}, "response": {"jsonBody": {"country":
+        "NL", "firstAdmissionYear": 2019, "model": "K50", "plate": "FGH-12-K", "plateColour": "blue", "registeredMassKg":
+        110.0, "roadClass": 25}, "status": 200}}, {"request": {"method": "GET", "queryParameters": {"country": {"equalTo":
+        "NL"}}, "urlPath": "/v1/plates/DBR-45-T"}, "response": {"jsonBody": {"country": "NL", "firstAdmissionYear":
+        2021, "model": "K50", "plate": "DBR-45-T", "plateColour": "yellow", "registeredMassKg": 110.0, "roadClass":
+        45}, "status": 200}}, {"request": {"method": "GET", "queryParameters": {"country": {"equalTo": "NL"}}, "urlPath":
+        "/v1/plates/GHJ-77-M"}, "response": {"jsonBody": {"country": "NL", "firstAdmissionYear": 2020, "model":
+        "D50", "plate": "GHJ-77-M", "plateColour": "yellow", "registeredMassKg": 90.0, "roadClass": 45}, "status":
+        200}}, {"request": {"method": "GET", "queryParameters": {"country": {"equalTo": "BE"}}, "urlPath": "/v1/plates/A-KLM-204"},
+        "response": {"jsonBody": {"country": "BE", "firstAdmissionYear": 2018, "model": "P50", "plate": "A-KLM-204",
+        "plateColour": "white", "registeredMassKg": 100.0, "roadClass": 25}, "status": 200}}, {"request": {"method":
+        "GET", "queryParameters": {"country": {"equalTo": "BE"}}, "urlPath": "/v1/plates/B-NOP-318"}, "response":
+        {"jsonBody": {"country": "BE", "firstAdmissionYear": 2020, "model": "P50", "plate": "B-NOP-318", "plateColour":
+        "white", "registeredMassKg": 100.0, "roadClass": 45}, "status": 200}}, {"request": {"method": "GET", "queryParameters":
+        {"country": {"equalTo": "DE"}}, "urlPath": "/v1/plates/418-RTV"}, "response": {"jsonBody": {"country": "DE",
+        "firstAdmissionYear": 2017, "model": "R50", "plate": "418-RTV", "plateColour": "white", "registeredMassKg":
+        74.0, "roadClass": 25}, "status": 200}}, {"request": {"method": "GET", "queryParameters": {"country": {"equalTo":
+        "DE"}}, "urlPath": "/v1/plates/725-XKM"}, "response": {"jsonBody": {"country": "DE", "firstAdmissionYear":
+        2022, "model": "R50", "plate": "725-XKM", "plateColour": "white", "registeredMassKg": 74.0, "roadClass":
+        45}, "status": 200}}, {"request": {"method": "GET", "queryParameters": {"country": {"equalTo": "NL"}}, "urlPath":
+        "/v1/plates/ZZX-99-Q"}, "response": {"jsonBody": {"country": "NL", "firstAdmissionYear": 2016, "model":
+        "Z99", "plate": "ZZX-99-Q", "plateColour": "blue", "registeredMassKg": 90.0, "roadClass": 25}, "status":
+        200}}, {"request": {"method": "GET", "queryParameters": {"country": {"equalTo": "NL"}}, "urlPath": "/v1/plates/SLW-22-T"},
+        "response": {"fixedDelayMilliseconds": 2000, "jsonBody": {"country": "NL", "firstAdmissionYear": 2019, "model":
+        "K50", "plate": "SLW-22-T", "plateColour": "blue", "registeredMassKg": 110.0, "roadClass": 25}, "status":
+        200}}, {"request": {"method": "GET", "queryParameters": {"country": {"equalTo": "NL"}}, "urlPath": "/v1/plates/LMN-31-K"},
+        "response": {"jsonBody": {"country": "NL", "firstAdmissionYear": 2019, "model": "K50", "plate": "LMN-31-K",
+        "plateColour": "blue", "registeredMassKg": 110.0, "roadClass": 25}, "status": 200}}, {"request": {"method":
+        "GET", "queryParameters": {"country": {"equalTo": "NL"}}, "urlPath": "/v1/plates/PQR-58-S"}, "response":
+        {"jsonBody": {"country": "NL", "firstAdmissionYear": 2019, "model": "K50", "plate": "PQR-58-S", "plateColour":
+        "blue", "registeredMassKg": 110.0, "roadClass": 25}, "status": 200}}]}'

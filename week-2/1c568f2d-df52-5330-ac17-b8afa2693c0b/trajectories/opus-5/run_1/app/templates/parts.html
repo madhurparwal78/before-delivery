@@ -1,0 +1,96 @@
+{% set icon_paths = {
+  'shuffle': 'M4 7h4l9 10h3 M17 14l3 3-3 3 M15 8l2-1h3 M17 4l3 3-3 3 M4 17h4l2-2',
+  'caret': 'M7 10l5 5 5-5',
+  'chevron': 'M9 6l6 6-6 6',
+  'reviewer': 'M12 11.5a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z M4.5 20c0-3.6 3.4-6 7.5-6s7.5 2.4 7.5 6',
+  'arrow-next': 'M4 12h14 M13 7l5 5-5 5',
+  'search': 'M10.5 17a6.5 6.5 0 100-13 6.5 6.5 0 000 13z M15.5 15.5L21 21',
+  'check': 'M5 13l4.5 4.5L19 7',
+  'cross': 'M6 6l12 12 M18 6L6 18',
+  'dash': 'M5 12h14',
+  'flag': 'M6 4v16 M6 5h11l-2 3.5 2 3.5H6',
+  'lock': 'M6.5 11h11v9.5h-11z M9 11V8.2a3 3 0 016 0V11'
+} %}
+
+{% macro icon(name) -%}
+<svg class="icon icon-{{ name }}" viewBox="0 0 24 24" width="20" height="20" fill="none"
+     stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" focusable="false">{% for leg in icon_paths[name].split(' M') %}<path d="{{ 'M' ~ leg if not loop.first else leg }}"/>{% endfor %}</svg>
+{%- endmacro %}
+
+{% macro cutout(obj, width, height, label=none) -%}
+{% set hue = (obj.id * 47) % 360 %}
+{% set size = [9, [14, (width / 9)|round(0, 'floor')]|min]|max %}
+{% set room = (width / (size * 0.52))|round(0, 'floor')|int %}
+<svg class="cutout-art" width="{{ width }}" height="{{ height }}" viewBox="0 0 {{ width }} {{ height }}"
+     {% if label %}role="img" aria-label="{{ label }}"{% else %}aria-hidden="true"{% endif %} focusable="false">
+  <rect x="1" y="1" width="{{ width - 2 }}" height="{{ height - 2 }}"
+        rx="{{ ([width, height]|min * 0.16)|round(1) }}"
+        fill="hsl({{ hue }} 46% 86%)" stroke="hsl({{ hue }} 40% 52%)" stroke-width="1.5"/>
+  <ellipse cx="{{ (width / 2)|round(1) }}" cy="{{ (height * 0.44)|round(1) }}"
+           rx="{{ (width * (obj.mask_w / 90))|round(1) }}" ry="{{ (height * (obj.mask_h / 90))|round(1) }}"
+           fill="hsl({{ hue }} 44% 68%)"/>
+  <path d="M{{ (width * 0.2)|round(1) }} {{ (height * 0.76)|round(1) }}
+           Q{{ (width * 0.5)|round(1) }} {{ (height * 0.62)|round(1) }}
+            {{ (width * 0.8)|round(1) }} {{ (height * 0.76)|round(1) }}"
+        fill="none" stroke="hsl({{ hue }} 40% 46%)" stroke-width="1.5" stroke-linecap="round"/>
+  <text x="{{ (width / 2)|round(1) }}" y="{{ (height - size * 0.9)|round(1) }}" text-anchor="middle"
+        font-size="{{ size }}" fill="#2b3038" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+        >{{ obj.title if obj.title|length <= room else obj.title[:room - 1] ~ '…' }}</text>
+</svg>
+{%- endmacro %}
+
+{% macro cover(titles) -%}
+<svg class="cover-art" viewBox="0 0 480 200" width="480" height="200" preserveAspectRatio="none"
+     aria-hidden="true" focusable="false">
+  <rect x="0" y="0" width="480" height="200" fill="#f7efe0"/>
+  <rect x="10" y="10" width="460" height="180" fill="#fffdf7" stroke="#d9cfba" stroke-width="1.5"/>
+  {% for title in titles %}
+  {% set hue = (loop.index0 * 67 + 24) % 360 %}
+  <rect x="{{ 34 + loop.index0 * 148 }}" y="34" width="124" height="90" rx="14"
+        fill="hsl({{ hue }} 44% 86%)" stroke="hsl({{ hue }} 38% 52%)" stroke-width="1.5"/>
+  <text x="{{ 96 + loop.index0 * 148 }}" y="146" text-anchor="middle" font-size="13" fill="#3b3426"
+        font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+        >{{ title if title|length <= 16 else title[:15] ~ '…' }}</text>
+  {% endfor %}
+  {% if not titles %}
+  <text x="240" y="110" text-anchor="middle" font-size="15" fill="#6b6458"
+        font-family="ui-monospace, SFMono-Regular, Menlo, monospace">No sources cited</text>
+  {% endif %}
+</svg>
+{%- endmacro %}
+
+{% macro state_chip(state) -%}
+<span class="chip chip-{{ state }}">{{ state }}</span>
+{%- endmacro %}
+
+{% macro review_mark(result) -%}
+{% if result == 'pass' %}<span class="mark mark-pass">{{ icon('check') }}Passed</span>
+{% elif result == 'fail' %}<span class="mark mark-fail">{{ icon('cross') }}Failed</span>
+{% else %}<span class="mark mark-none">{{ icon('dash') }}Not yet</span>{% endif %}
+{%- endmacro %}
+
+{% macro stamp(kind, result) -%}
+<span class="stamp stamp-{{ result }}" role="img"
+      aria-label="{{ kind }} review {{ 'passed' if result == 'pass' else 'failed' }}">
+  {{ icon('check') if result == 'pass' else icon('cross') }}
+  <span>{{ 'Passed' if result == 'pass' else 'Failed' }}</span>
+</span>
+{%- endmacro %}
+
+{% macro error_summary() -%}
+<div class="error-summary" role="alert" hidden data-error-summary>
+  <h2>There is a problem</h2>
+  <ul></ul>
+</div>
+{%- endmacro %}
+
+{% macro search_well(name, label, placeholder, value) -%}
+<div class="search-well">
+  <span class="search-mark">{{ icon('search') }}</span>
+  <input type="search" id="{{ name }}" name="{{ name }}" value="{{ value }}"
+         aria-label="{{ label }}" placeholder="{{ placeholder }}" data-search="{{ name }}">
+  <button type="button" class="icon-button" data-clear-search="{{ name }}"
+          aria-label="Clear search" title="Clear search">{{ icon('cross') }}</button>
+</div>
+{%- endmacro %}

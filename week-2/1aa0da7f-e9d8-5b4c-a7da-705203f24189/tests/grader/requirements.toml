@@ -1,0 +1,1841 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 99
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "sign-in-and-landing",
+    "exhibit-registration",
+    "quarantine-clearance",
+    "compartment-access",
+    "isolation-and-denials",
+    "redaction-and-derivatives",
+    "release-sign-off",
+    "share-and-collect",
+    "break-glass",
+    "legal-hold-and-disposal",
+    "outage-recovery",
+    "chain-walk",
+    "custody-history",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 97
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Wardline Custody <custody@ashgrove.example>" } },
+]
+
+[criterion_weights]
+B1 = 3
+B2 = 3
+B3 = 3
+B4 = 5
+B5 = 5
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 5
+B11 = 5
+B12 = 5
+B13 = 3
+B14 = 3
+S1 = 3
+S2 = 3
+S3 = 5
+S4 = 3
+S5 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 5
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mail-down"
+port = 4175
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "minio-denied"
+port = 4176
+url_env = "APP_MINIO_DENIED_URL"
+
+[outages.env]
+S3_SECRET_ACCESS_KEY = "wrong-secret-value-7e21c4"
+
+[[outages]]
+id = "short-timers"
+port = 4177
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+LOCKOUT_SECONDS = "6"
+STEP_UP_TTL_SECONDS = "6"
+SESSION_TTL_SECONDS = "45"
+BREAK_GLASS_SECONDS = "20"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[outages]]
+id = "idle-timers"
+port = 4178
+url_env = "APP_IDLE_URL"
+
+[outages.env]
+SESSION_IDLE_SECONDS = "12"
+DATABASE_URL = "${DATABASE_URL}_idle"
+S3_BUCKET = "${S3_BUCKET}-idle"
+
+[[outages]]
+id = "tamper"
+port = 4179
+url_env = "APP_TAMPER_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_tamper"
+S3_BUCKET = "${S3_BUCKET}-tamper"
+
+[[requirements]]
+id = "DP-01"
+title = "Sign-in refusal and lockout."
+text = "Refuse a failed sign-in with the same status, body, wording and comparable response time whether or not the account exists, and lock an identity after repeated failures for the period stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-landing"
+tests = [
+    "test_app.py::test_sign_in_refusal_indistinguishable",
+    "test_app.py::test_sign_in_lockout",
+    "test_app.py::test_wf_sign_in_and_landing_refused_then_recovers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Role landing routes."
+text = "Land each role on its published route after sign-in, and keep that screen on reload and on opening that address directly."
+kind = "behavior"
+primary = "workflow"
+workflow = "sign-in-and-landing"
+tests = [
+    "test_app.py::test_wf_sign_in_and_landing_role_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Session revocation."
+text = "Fail a revoked or signed-out session on its very next request."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-landing"
+tests = [
+    "test_app.py::test_session_revocation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Safe return after sign-in."
+text = "Return a person whose session ended to the published route they were on, and fall back to their landing route for any off-site, disguised or role-inappropriate address."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-landing"
+tests = [
+    "test_app.py::test_safe_return",
+    "test_app.py::test_wf_sign_in_and_landing_return_after_session",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Idle expiry ignores background checks."
+text = "End a session at the published idle moment without a non-background request, never count the page's own automatic checks as activity, and write its closing entry within the published delay."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-landing"
+tests = [
+    "test_app.py::test_idle_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Sign-in sheet measures."
+text = "Give the sign-in screen the published figure-to-label ratio, faces, colours, rules and absence of shadow listed for it under Measured values."
+kind = "visual"
+primary = "rubric"
+workflow = "sign-in-and-landing"
+tests = []
+criteria = [
+    "B1",
+    "B14",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Step-up proof."
+text = "Require a fresh password-and-code proof for every privileged action, bound to one session and consumed by one action."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-landing"
+tests = [
+    "test_app.py::test_step_up_proof",
+    "test_app.py::test_step_up_expiry_and_lock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Exhibit registration."
+text = "Let an intake officer register a file with its provenance into a granted compartment and see it sealed, with its full digest, in quarantine."
+kind = "behavior"
+primary = "workflow"
+workflow = "exhibit-registration"
+tests = [
+    "test_app.py::test_wf_exhibit_registration_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Upload refusal by content."
+text = "Judge an upload by its sniffed bytes and refuse a type mismatch, an unaccepted type, an unsafe file name or an oversize file."
+kind = "behavior"
+primary = "pytest"
+workflow = "exhibit-registration"
+tests = [
+    "test_app.py::test_upload_refusals",
+]
+criteria = []
+parameter_cases = [
+    "declared_differs",
+    "svg_bytes",
+    "html_bytes",
+    "declared_off_list",
+    "path_separator",
+    "dot_dot",
+    "digest_differs",
+    "over_limit",
+    "at_limit",
+]
+
+[[requirements]]
+id = "DP-10"
+title = "All-or-nothing sealed registration."
+text = "Commit the stored object, database row and seal entry together or leave none of them, and report an exhibit as sealed only after storage confirms the object's size and digest."
+kind = "behavior"
+primary = "pytest"
+workflow = "exhibit-registration"
+tests = [
+    "test_app.py::test_registration_all_or_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Byte-identical originals."
+text = "Keep every sealed original byte-identical to the submission, including metadata that redaction removes from derivatives."
+kind = "behavior"
+primary = "pytest"
+workflow = "exhibit-registration"
+tests = [
+    "test_app.py::test_original_byte_identical",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Registration replay and retry."
+text = "Replay or refuse a repeated registration key as stated in Business rules, keep every value and the file after a connection lost before an answer, and let one more press reuse the key without creating a second exhibit."
+kind = "behavior"
+primary = "pytest"
+workflow = "exhibit-registration"
+tests = [
+    "test_app.py::test_registration_replay",
+    "test_app.py::test_wf_exhibit_registration_connection_lost",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Intake announcements."
+text = "Show upload progress from the bytes actually sent, announce the published thresholds, storage confirmation, seal completion and refusals in the named live region, and keep an error summary linking to each field until the next submit."
+kind = "behavior"
+primary = "pytest"
+workflow = "exhibit-registration"
+tests = [
+    "test_app.py::test_intake_announcements",
+    "test_app.py::test_wf_exhibit_registration_refusal_recovers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Resume after a session ends."
+text = "Keep a page's unsaved work through an in-place sign-in when its session ends, resend a refused registration or marks save once with the same key or version, and never reuse a proof from the old session."
+kind = "behavior"
+primary = "pytest"
+workflow = "exhibit-registration"
+tests = [
+    "test_app.py::test_resume_registration_after_session_end",
+    "test_app.py::test_resume_marks_and_step_up_after_session_end",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Intake sheet measures."
+text = "Give the intake screen the published figure-to-label ratio, rule widths, progress bar thickness and refusal colour listed for it under Measured values."
+kind = "visual"
+primary = "rubric"
+workflow = "exhibit-registration"
+tests = []
+criteria = [
+    "B2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Second-officer clearance."
+text = "Let only an intake officer who did not register an exhibit clear or refuse it."
+kind = "behavior"
+primary = "workflow"
+workflow = "quarantine-clearance"
+tests = [
+    "test_app.py::test_wf_quarantine_clearance_second_officer",
+    "test_app.py::test_wf_quarantine_clearance_refuse_with_reason",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Quarantine lock."
+text = "Block preview, redaction, packaging and collection of an exhibit for every role until it is cleared."
+kind = "behavior"
+primary = "pytest"
+workflow = "quarantine-clearance"
+tests = [
+    "test_app.py::test_quarantine_lock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Attachment-only delivery."
+text = "Send every file as an attachment with content sniffing disabled, and never inline."
+kind = "behavior"
+primary = "pytest"
+workflow = "quarantine-clearance"
+tests = [
+    "test_app.py::test_attachment_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Single-use download grants."
+text = "Let exactly one of any number of concurrent requests claim a download grant, leave the grant unused if storage cannot open the object, and leave it spent once storage has opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "quarantine-clearance"
+tests = [
+    "test_app.py::test_download_grant_single_claim",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Seal re-check at clearance."
+text = "Re-read the stored original with no transaction or lock held before clearing, and on a mismatch keep the exhibit quarantined and the proof unused while durably recording one ledger entry and one signal."
+kind = "behavior"
+primary = "pytest"
+workflow = "quarantine-clearance"
+tests = [
+    "test_app.py::test_seal_recheck",
+    "test_app.py::test_seal_read_holds_no_lock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Focus survives a vanished row."
+text = "Move keyboard focus to the published fallback when a quarantine row disappears, whoever caused it, and tell an officer who lost the race."
+kind = "behavior"
+primary = "pytest"
+workflow = "quarantine-clearance"
+tests = [
+    "test_app.py::test_quarantine_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Quarantine measures."
+text = "Give the quarantine list the published rule widths, seal mark colour, mono digest and failed-seal colour listed for it under Measured values."
+kind = "visual"
+primary = "rubric"
+workflow = "quarantine-clearance"
+tests = []
+criteria = [
+    "B3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Compartment grants."
+text = "Let a case lead create compartments and issue, scope, edit and revoke access, with a derivatives-only scope that never reaches an original."
+kind = "behavior"
+primary = "workflow"
+workflow = "compartment-access"
+tests = [
+    "test_app.py::test_wf_compartment_access_grant_lifecycle",
+    "test_app.py::test_wf_compartment_access_derivatives_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Serialised grant writes."
+text = "Serialise grant writes per compartment so that a stale write loses and a revocation always holds, apart from the published refusal to remove a compartment's last case lead."
+kind = "behavior"
+primary = "pytest"
+workflow = "compartment-access"
+tests = [
+    "test_app.py::test_serialised_grant_writes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "A compartment keeps a case lead."
+text = "Refuse any revoke, narrowing or lapse that would leave a compartment with no case lead holding an active, full, non-lapsing grant, and check the actor's own authority again after taking the compartment lock."
+kind = "behavior"
+primary = "pytest"
+workflow = "compartment-access"
+tests = [
+    "test_app.py::test_last_case_lead",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Grant changes on any open page."
+text = "Stop a revoked member's very next read, and follow a grant's end or narrowing on every open compartment page within the delay stated in Feedback states, closing open dialogs when the grant ends and removing what the person may no longer see."
+kind = "behavior"
+primary = "pytest"
+workflow = "compartment-access"
+tests = [
+    "test_app.py::test_wf_compartment_access_revoked_on_open_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Live compartment view without repaint."
+text = "Update the access list, quarantine count and release byte total in place within the delay stated in Feedback states, keeping unchanged rows, focus and scroll position, and keep a grant dialog's typed values through a stale refusal so a second Save succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "compartment-access"
+tests = [
+    "test_app.py::test_live_view_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Docket pane layout."
+text = "Show three panes at 1200 pixels and wider, two from 768 to 1199 pixels and one below 768 pixels, at the published widths with no horizontal overflow at 375 pixels, and move between them on a live resize or rotation with no reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "compartment-access"
+tests = [
+    "test_app.py::test_docket_pane_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Closed compartment drawer."
+text = "Make a closed compartment drawer hidden and inert, with its links outside the tab order and the accessibility tree."
+kind = "behavior"
+primary = "pytest"
+workflow = "compartment-access"
+tests = [
+    "test_app.py::test_closed_drawer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Server-decided grant lapse."
+text = "Accept, refuse, display and end a grant's lapse time only from the server's clock and in UTC, with no validation or formatting from the browser's clock or time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "compartment-access"
+tests = [
+    "test_app.py::test_grant_lapse_server_decided",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Access list measures."
+text = "Give the compartment docket the published row rules, absence of shadow, top bar colour and mono identifiers listed for it under Measured values."
+kind = "visual"
+primary = "rubric"
+workflow = "compartment-access"
+tests = []
+criteria = [
+    "B4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Out-of-grant refusal."
+text = "Answer any id outside the caller's grants as not found, nested, body and malformed ids included, and write the denial to the ledger in the same transaction, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "isolation-and-denials"
+tests = [
+    "test_app.py::test_out_of_grant_refusal",
+    "test_app.py::test_wf_isolation_and_denials_screens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Derived surfaces stay inside grants."
+text = "Keep every number and name in search, compartment counts and dashboard totals inside the caller's active grants."
+kind = "behavior"
+primary = "pytest"
+workflow = "isolation-and-denials"
+tests = [
+    "test_app.py::test_derived_surfaces",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Role-restricted actions."
+text = "Refuse role-restricted actions on the server for lower roles, even with a well-formed request."
+kind = "behavior"
+primary = "pytest"
+workflow = "isolation-and-denials"
+tests = [
+    "test_app.py::test_role_restricted_actions",
+    "test_app.py::test_wf_isolation_and_denials_auditor_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Attributed ledger entries."
+text = "Write ledger entries attributed to an actor and session for every state change and for each denial, with the published encoded targets, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "isolation-and-denials"
+tests = [
+    "test_app.py::test_ledger_attribution",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Ledger write protection."
+text = "Make update, delete and truncate of the ledger fail for the application login, through database privileges and triggers."
+kind = "behavior"
+primary = "pytest"
+workflow = "isolation-and-denials"
+tests = [
+    "test_app.py::test_ledger_write_protection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Malformed input stays plain."
+text = "Answer malformed ids, bodies and unstorable characters with a plain not-found or validation response and no server error or internal detail."
+kind = "behavior"
+primary = "pytest"
+workflow = "isolation-and-denials"
+tests = [
+    "test_app.py::test_malformed_input",
+    "test_app.py::test_malformed_input_edges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Not-found and search measures."
+text = "Give the not-found page and the compartments screen the published figure-to-label ratio, faces, rule widths and absence of vermilion listed for them under Measured values."
+kind = "visual"
+primary = "rubric"
+workflow = "isolation-and-denials"
+tests = []
+criteria = [
+    "B5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Redaction marks and superseded derivatives."
+text = "Let an investigator mark regions on a cleared exhibit's preview, save them as a versioned set with a stale save refused, render a derivative, and refuse to add, submit, sign off, share or regenerate with a derivative superseded by newer marks."
+kind = "behavior"
+primary = "workflow"
+workflow = "redaction-and-derivatives"
+tests = [
+    "test_app.py::test_wf_redaction_and_derivatives_mark_and_render",
+    "test_app.py::test_wf_redaction_and_derivatives_stale_and_superseded",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Burned-in, exact derivative files."
+text = "Render each derivative on the server as a new rasterised file with its own digest and marks burned in, holding only the published structures and byte-identical on every render from the same original and saved marks, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "redaction-and-derivatives"
+tests = [
+    "test_app.py::test_derivative_files",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Canvas-only previews."
+text = "Fetch previews as blobs through single-use grants and draw them to a canvas, never inline."
+kind = "behavior"
+primary = "pytest"
+workflow = "redaction-and-derivatives"
+tests = [
+    "test_app.py::test_canvas_preview",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Keyboard redaction."
+text = "Let a keyboard user add, move, resize and remove regions with the published keys, with each change announced."
+kind = "behavior"
+primary = "pytest"
+workflow = "redaction-and-derivatives"
+tests = [
+    "test_app.py::test_keyboard_redaction",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Touch redaction and unsaved marks."
+text = "Let a touch user draw and adjust regions without scrolling the page, with 44 pixel hit areas and stable coordinates, and refuse to render while marks are unsaved."
+kind = "behavior"
+primary = "pytest"
+workflow = "redaction-and-derivatives"
+tests = [
+    "test_app.py::test_touch_redaction",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Redaction follows the displayed page."
+text = "Measure regions on the page as displayed, honouring image orientation, PDF rotation and crop, visible annotations and filled form fields, and round every fill outward so no covered pixel survives."
+kind = "behavior"
+primary = "pytest"
+workflow = "redaction-and-derivatives"
+tests = [
+    "test_app.py::test_displayed_page_geometry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Bounded rendering."
+text = "Seal oversized and password-protected files as submitted, refuse to preview or render them, and keep other requests answering during a render, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "redaction-and-derivatives"
+tests = [
+    "test_app.py::test_bounded_rendering",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Mark text matches."
+text = "Return displayed-page regions rounded outward for a searched text, ignore text outside the visible area, save nothing by itself, and never store the searched text."
+kind = "behavior"
+primary = "pytest"
+workflow = "redaction-and-derivatives"
+tests = [
+    "test_app.py::test_find_text",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Newest preview page and lasting working marks."
+text = "Paint only the newest requested preview page after rapid page turns, and keep working regions and any drag in progress through page turns, checks, refreshes and another person's save."
+kind = "behavior"
+primary = "pytest"
+workflow = "redaction-and-derivatives"
+tests = [
+    "test_app.py::test_newest_preview_page_and_working_marks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Redaction measures."
+text = "Give the exhibit screen the published figure-to-label ratio, region outline, absence of shadow on the canvas and absence of vermilion on working regions listed for it under Measured values."
+kind = "visual"
+primary = "rubric"
+workflow = "redaction-and-derivatives"
+tests = []
+criteria = [
+    "B6",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Release assembly."
+text = "Let a member assemble a release from current derivatives of its own compartment only and submit it for sign-off."
+kind = "behavior"
+primary = "workflow"
+workflow = "release-sign-off"
+tests = [
+    "test_app.py::test_wf_release_sign_off_assembly",
+    "test_app.py::test_wf_release_sign_off_reject_and_rework",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Release state machine with one winner."
+text = "Allow only the published release transitions, refuse every other one with the published conflict, and let exactly one of any number of concurrent decisions win with one ledger entry and one notice."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-sign-off"
+tests = [
+    "test_app.py::test_release_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Separated sign-off."
+text = "Refuse sign-off or rejection by anyone who assembled the release, added an item to it, rendered an added derivative or saved its marks, for every role."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-sign-off"
+tests = [
+    "test_app.py::test_separated_sign_off",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Release decision notice."
+text = "Queue a decision notice to the assembler in the same transaction as the decision, with no exhibit names, reasons or file content."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-sign-off"
+tests = [
+    "test_app.py::test_decision_notice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Keyboard-complete dialogs that survive refreshes."
+text = "Keep Tab and Shift+Tab inside every open dialog, close it on Escape with focus returned to its opener or the published fallback, and keep the step-up dialog, typed text, focus and error message through session checks and live refreshes, with the exceptions stated in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-sign-off"
+tests = [
+    "test_app.py::test_dialogs_keyboard_and_refreshes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Sign-off landing."
+text = "Land a case lead on the release's detail route after sign-off, showing its new state on reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-sign-off"
+tests = [
+    "test_app.py::test_sign_off_landing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Sign-off bound to the manifest."
+text = "Accept a sign-off only for the manifest digest the reviewer's dialog captured when it opened, leaving the proof unused on a mismatch."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-sign-off"
+tests = [
+    "test_app.py::test_sign_off_manifest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Reviewer opens every item."
+text = "Refuse a sign-off until that same person has a committed download claim for every current item's derivative, leaving the proof unused, and show each item's Opened mark in place."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-sign-off"
+tests = [
+    "test_app.py::test_open_every_item",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Live review queue."
+text = "Add and remove review queue rows and update its waiting count in place within the delay stated in Feedback states, keeping unchanged rows and moving focus to the published fallback when a focused row leaves."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-sign-off"
+tests = [
+    "test_app.py::test_live_review_queue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Release measures."
+text = "Give the release and review queue screens the published figure-to-label ratio, row rules, Opened mark colour and refusal colour listed for them under Measured values."
+kind = "visual"
+primary = "rubric"
+workflow = "release-sign-off"
+tests = []
+criteria = [
+    "B5",
+    "B7",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Confirmed share."
+text = "Mark a signed-off release as shared only after every derivative is confirmed present in storage and none is superseded."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-and-collect"
+tests = [
+    "test_app.py::test_confirmed_share",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Link lifecycle."
+text = "Let a case lead revoke and regenerate a share link, answer unknown, revoked, lapsed and withdrawn tokens identically, and send the published privacy headers on every link response."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-and-collect"
+tests = [
+    "test_app.py::test_link_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Link scope."
+text = "Show a link holder only that release's signed-off derivatives, without an account, and let the link change nothing."
+kind = "behavior"
+primary = "workflow"
+workflow = "share-and-collect"
+tests = [
+    "test_app.py::test_wf_share_and_collect_counsel",
+    "test_app.py::test_wf_share_and_collect_requester_link_dies",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Collection throttle."
+text = "Throttle bulk collection through a link at the published rate and raise a signal on the auditor's view."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-and-collect"
+tests = [
+    "test_app.py::test_collection_throttle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Download tokens die with their authority."
+text = "Answer an unclaimed token as not found once the issuer's session, grant, scope, exhibit or link no longer supports it."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-and-collect"
+tests = [
+    "test_app.py::test_tokens_die_with_authority",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Stalled transfers hold nothing."
+text = "Stream bytes outside any transaction, keep other requests answering during stalled transfers, and release an abandoned transfer's resources within the time stated in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-and-collect"
+tests = [
+    "test_app.py::test_stalled_transfers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Capability hygiene and verified collection."
+text = "Store tokens, session values and proofs only as digests, and save a collected file only after its digest is checked in the browser, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-and-collect"
+tests = [
+    "test_app.py::test_capability_hygiene_and_verified_collection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Link page measures."
+text = "Give the link collection screen the published figure-to-label ratio, single column, faces, digest-match colour and absence of a top bar listed for it under Measured values."
+kind = "visual"
+primary = "rubric"
+workflow = "share-and-collect"
+tests = []
+criteria = [
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Break-glass opening and server-decided expiry."
+text = "Let a case lead open break-glass on a compartment outside their grants with a written reason, committing grant, ledger entry and notice together, show the server's end time in UTC, end access by the server's status whatever the browser's clock or time zone, and never reopen access by replaying the opening key."
+kind = "behavior"
+primary = "workflow"
+workflow = "break-glass"
+tests = [
+    "test_app.py::test_wf_break_glass_open_and_expire",
+    "test_app.py::test_wf_break_glass_refused_openings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Break-glass notice."
+text = "Send the compartment owner the actor, reason and compartment reference from the outbox, with line breaks in the reason flattened and no exhibit names, provenance or file content."
+kind = "behavior"
+primary = "pytest"
+workflow = "break-glass"
+tests = [
+    "test_app.py::test_break_glass_notice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Break-glass limits and attribution."
+text = "Refuse decisions, sharing, link actions, withdrawal and disposal actions under break-glass as stated in Business rules, and name the grant on every entry made under it."
+kind = "behavior"
+primary = "pytest"
+workflow = "break-glass"
+tests = [
+    "test_app.py::test_break_glass_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Auditor review."
+text = "Show the auditor denials, break-glass use with its action count, role grants and suspicious-activity signals, with every ledger row attributed to an actor and session."
+kind = "behavior"
+primary = "pytest"
+workflow = "break-glass"
+tests = [
+    "test_app.py::test_auditor_review",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Break-glass and review measures."
+text = "Give the auditor review tables and the break-glass time notice the published row rules, mono values and colours listed for them under Measured values."
+kind = "visual"
+primary = "rubric"
+workflow = "break-glass"
+tests = []
+criteria = [
+    "B9",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Overlapping legal holds."
+text = "Let a case lead place a hold under a named matter with a written reason on a cleared, proposed or already held exhibit, lift each hold by its id, and keep the exhibit held until the last is lifted, one hold per matter, serialised per exhibit."
+kind = "behavior"
+primary = "workflow"
+workflow = "legal-hold-and-disposal"
+tests = [
+    "test_app.py::test_wf_legal_hold_and_disposal_overlapping_holds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Two-lead disposal."
+text = "Require a proposal and a confirmation by two different case leads, block disposal of a held exhibit and of an exhibit in a live release, and cancel a proposal when a hold is placed so that a confirmation losing to a hold deletes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "legal-hold-and-disposal"
+tests = [
+    "test_app.py::test_two_lead_disposal",
+    "test_app.py::test_wf_legal_hold_and_disposal_two_leads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Disposal removes every copy."
+text = "Remove the original, every derivative object and the saved marks on confirmation, confirmed in storage before commit, and keep the rows and digests."
+kind = "behavior"
+primary = "pytest"
+workflow = "legal-hold-and-disposal"
+tests = [
+    "test_app.py::test_disposal_removes_copies",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Hold marker measures."
+text = "Draw the held marker in the exact published vermilion with its icon and word, and keep vermilion off every exhibit row that is not held, as listed under Measured values."
+kind = "visual"
+primary = "rubric"
+workflow = "legal-hold-and-disposal"
+tests = []
+criteria = [
+    "B10",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Storage outage."
+text = "During a storage outage show the published banner, refuse storage-dependent actions with the published copy, and keep everything else working."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_storage_outage",
+    "test_app.py::test_wf_outage_recovery_storage_screens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Mail outage."
+text = "During a mail outage complete the action, hold its notice durably, show the published held copy and deliver the notice after the relay returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_mail_outage",
+    "test_app.py::test_wf_outage_recovery_mail_held",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Recovery without restart."
+text = "Start with a dependency down, return to service without a restart when it comes back, and clear the banner by itself."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_recovery_without_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Form state survives outage notices."
+text = "Keep typed values, the chosen file, focus, open dialogs and action messages while outage banners appear and clear, so a retry needs one press."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_form_survives_outage_notices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Authenticated storage status."
+text = "Report storage as up only after an authenticated bucket check, so that wrong credentials behave as a storage outage with the published copy and never a server error."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_storage_denied",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Outage banner measures."
+text = "Give the outage banner the published colours, absence of vermilion and absence of shadow, and keep its appearance from moving focus, as listed under Measured values."
+kind = "visual"
+primary = "rubric"
+workflow = "outage-recovery"
+tests = []
+criteria = [
+    "S1",
+    "S5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Single ledger chain."
+text = "Serialise ledger appends so the single chain never forks, across every running copy of the app, using the published canonical form with free text kept as typed after trimming."
+kind = "behavior"
+primary = "pytest"
+workflow = "chain-walk"
+tests = [
+    "test_app.py::test_single_chain",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Walk rail operation."
+text = "Drive the walk head by keyboard, touch and scroll, hashing each reached link in the browser and keeping the verified-through mark when the head moves back."
+kind = "behavior"
+primary = "workflow"
+workflow = "chain-walk"
+tests = [
+    "test_app.py::test_wf_chain_walk_keyboard",
+    "test_app.py::test_wf_chain_walk_scroll_and_touch",
+    "test_app.py::test_wf_chain_walk_tamper_below_application",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Digest settling, newest head position wins."
+text = "Settle the 64 digest cells for the link under the head left to right in the published grid, close the link mark with a check and the word Verified while the numeral counts up, and cancel any older settle when the head moves."
+kind = "behavior"
+primary = "pytest"
+workflow = "chain-walk"
+tests = [
+    "test_app.py::test_digest_settling",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "First-break finding."
+text = "Stop the walk at the first altered, mismatched or missing link or failed anchor, and show the published break state with matching data attributes."
+kind = "behavior"
+primary = "pytest"
+workflow = "chain-walk"
+tests = [
+    "test_app.py::test_first_break",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Walk on touch and under reduced motion."
+text = "Give rail controls targets of at least 44 pixels on a phone, and under reduced motion show the same verdicts with whole digests and no settling."
+kind = "behavior"
+primary = "pytest"
+workflow = "chain-walk"
+tests = [
+    "test_app.py::test_walk_touch_and_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-87"
+title = "Walk announcements."
+text = "Announce every single-step link result, and for a move of more than one link only the link where the head comes to rest, in the named live region, with or without motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "chain-walk"
+tests = [
+    "test_app.py::test_walk_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-88"
+title = "Walk over a long chain."
+text = "Walk a chain longer than one ledger page within the time stated in Browser support and performance, finding breaks across page boundaries with a bounded number of link marks on the page."
+kind = "behavior"
+primary = "pytest"
+workflow = "chain-walk"
+tests = [
+    "test_app.py::test_long_chain",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-89"
+title = "Anchors kept outside the server."
+text = "Let the auditor copy an anchor and check one later, catching a fully recomputed or truncated history at the anchor's link, with the anchor never leaving the browser."
+kind = "behavior"
+primary = "pytest"
+workflow = "chain-walk"
+tests = [
+    "test_app.py::test_anchors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-90"
+title = "Chain lattice with two published paths."
+text = "Draw the ledger on the chain lattice route as one node per link and one edge per previous-digest link, in WebGL2 when a context is available and otherwise as the published still frame, with the same verdict, node count and fault drawing either way."
+kind = "behavior"
+primary = "pytest"
+workflow = "chain-walk"
+tests = [
+    "test_app.py::test_lattice_paths",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-91"
+title = "Lattice orbit."
+text = "Orbit the lattice by the published keys and pointer rates from the published start camera, stop idle rotation on any input and always under reduced motion, keep the backing store at the device's pixel ratio, and never send a digest to the server from this view."
+kind = "behavior"
+primary = "pytest"
+workflow = "chain-walk"
+tests = [
+    "test_app.py::test_lattice_orbit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-92"
+title = "Walk and lattice measures."
+text = "Give the Chain Walk and lattice screens the published figure-to-label ratio, cell geometry, exact fault and verified colours, canvas sizes and pane widths listed under Measured values."
+kind = "visual"
+primary = "rubric"
+workflow = "chain-walk"
+tests = []
+criteria = [
+    "B11",
+    "B12",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-93"
+title = "Custody history reading."
+text = "Return an exhibit's and its derivatives' stored ledger entries unchanged and in order through a capped cursor with no entry skipped or repeated while the ledger grows, to the published roles, including after disposal."
+kind = "behavior"
+primary = "pytest"
+workflow = "custody-history"
+tests = [
+    "test_app.py::test_custody_reading",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-94"
+title = "Custody check in the browser."
+text = "Recompute each custody entry's digest in the browser from its previous digest using the published canonical form, and show Verified or Altered on each row with the published summary."
+kind = "behavior"
+primary = "workflow"
+workflow = "custody-history"
+tests = [
+    "test_app.py::test_wf_custody_history_auditor_lookup",
+    "test_app.py::test_wf_custody_history_case_lead_on_exhibit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-95"
+title = "Scrubbed custody timeline."
+text = "Tie the exhibit's custody timeline to its scroll position in both directions with the published values and end states, make it fully keyboard operable, and show each end state at once under reduced motion with the same function."
+kind = "behavior"
+primary = "pytest"
+workflow = "custody-history"
+tests = [
+    "test_app.py::test_custody_timeline",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-96"
+title = "Custody measures."
+text = "Give the custody table and timeline the published row rules, verdict colours, stop strengths and fill geometry listed under Measured values."
+kind = "visual"
+primary = "rubric"
+workflow = "custody-history"
+tests = []
+criteria = [
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-97"
+title = "Run manifest, health and seed."
+text = "Install, build and serve from the run manifest, answer the health path, and apply schema and seed data idempotently on every start."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_manifest_and_seed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-98"
+title = "Server boundary and credentials."
+text = "Serve same-origin only, enforce the request limits, never serve source files or credentials, and read every service credential and address from the environment without hard-coding one or sending it to the browser."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-99"
+title = "Docket sheet look."
+text = "Present every screen as a ruled docket sheet with one oversized figure, mono identifiers, a carbon top bar on signed-in screens and vermilion only for refusals, holds and chain breaks."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B4",
+    "B5",
+    "S2",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json has string install, build and serve keys and _schema run-manifest-v1, and its commands call Python tools through .venv/bin/<tool> or python -m <tool>."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at the /app root lists every shipped package, bundled browser library and bundled font with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Shipped packages, meaning every package the manifest's install command puts into /app/.venv, as listed by .venv/bin/python -m pip list (excluding pip, setuptools and wheel), and every bundled browser library, use only MIT, MIT-CMU, HPND, BSD, Apache-2.0, ISC, PSF, MPL-2.0 or LGPL licences; bundled fonts use OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The product stores data only in the provided PostgreSQL and MinIO, with no SQLite, Redis or other datastore, and no durable state on local disk."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Dev service configuration and seeded credentials supplied with the environment stay unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "No file in /app holds a literal credential for a service other than the seed people's published values."
+tests = [
+    "test_app.py::test_if_no_literal_credentials",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "sign-in-and-landing"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+]
+critical = [
+    "test_app.py::test_wf_sign_in_and_landing_role_routes",
+    "test_app.py::test_wf_sign_in_and_landing_return_after_session",
+    "test_app.py::test_sign_in_refusal_indistinguishable",
+    "test_app.py::test_sign_in_lockout",
+    "test_app.py::test_safe_return",
+    "test_app.py::test_idle_expiry",
+]
+checkpoints = [
+    "B1",
+    "B14",
+]
+
+[[workflows]]
+id = "exhibit-registration"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_exhibit_registration_happy",
+    "test_app.py::test_upload_refusals",
+    "test_app.py::test_registration_all_or_nothing",
+    "test_app.py::test_intake_announcements",
+    "test_app.py::test_original_byte_identical",
+    "test_app.py::test_resume_registration_after_session_end",
+]
+checkpoints = [
+    "B2",
+]
+
+[[workflows]]
+id = "quarantine-clearance"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_quarantine_clearance_second_officer",
+    "test_app.py::test_attachment_only",
+    "test_app.py::test_quarantine_focus",
+    "test_app.py::test_seal_recheck",
+]
+checkpoints = [
+    "B3",
+]
+
+[[workflows]]
+id = "compartment-access"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_compartment_access_grant_lifecycle",
+    "test_app.py::test_wf_compartment_access_revoked_on_open_page",
+    "test_app.py::test_serialised_grant_writes",
+    "test_app.py::test_closed_drawer",
+    "test_app.py::test_docket_pane_layout",
+    "test_app.py::test_grant_lapse_server_decided",
+    "test_app.py::test_live_view_in_place",
+]
+checkpoints = [
+    "B4",
+]
+
+[[workflows]]
+id = "isolation-and-denials"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_isolation_and_denials_screens",
+    "test_app.py::test_malformed_input",
+    "test_app.py::test_out_of_grant_refusal",
+    "test_app.py::test_role_restricted_actions",
+    "test_app.py::test_derived_surfaces",
+    "test_app.py::test_ledger_write_protection",
+]
+checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "redaction-and-derivatives"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_redaction_and_derivatives_mark_and_render",
+    "test_app.py::test_keyboard_redaction",
+    "test_app.py::test_touch_redaction",
+    "test_app.py::test_newest_preview_page_and_working_marks",
+    "test_app.py::test_derivative_files",
+]
+checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "release-sign-off"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_wf_release_sign_off_assembly",
+    "test_app.py::test_separated_sign_off",
+    "test_app.py::test_release_state_machine",
+    "test_app.py::test_sign_off_landing",
+    "test_app.py::test_dialogs_keyboard_and_refreshes",
+    "test_app.py::test_live_review_queue",
+]
+checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "share-and-collect"
+requirements = [
+    "DP-59",
+    "DP-60",
+    "DP-61",
+    "DP-62",
+    "DP-63",
+    "DP-64",
+    "DP-65",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_share_and_collect_counsel",
+    "test_app.py::test_link_lifecycle",
+    "test_app.py::test_collection_throttle",
+    "test_app.py::test_confirmed_share",
+    "test_app.py::test_stalled_transfers",
+]
+checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "break-glass"
+requirements = [
+    "DP-67",
+    "DP-68",
+    "DP-69",
+    "DP-70",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_wf_break_glass_open_and_expire",
+    "test_app.py::test_break_glass_notice",
+    "test_app.py::test_auditor_review",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "legal-hold-and-disposal"
+requirements = [
+    "DP-72",
+    "DP-73",
+    "DP-74",
+    "DP-75",
+]
+critical = [
+    "test_app.py::test_wf_legal_hold_and_disposal_overlapping_holds",
+    "test_app.py::test_two_lead_disposal",
+    "test_app.py::test_disposal_removes_copies",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "outage-recovery"
+requirements = [
+    "DP-76",
+    "DP-77",
+    "DP-78",
+    "DP-79",
+    "DP-80",
+    "DP-81",
+]
+critical = [
+    "test_app.py::test_wf_outage_recovery_storage_screens",
+    "test_app.py::test_recovery_without_restart",
+    "test_app.py::test_form_survives_outage_notices",
+    "test_app.py::test_mail_outage",
+]
+
+[[workflows]]
+id = "chain-walk"
+requirements = [
+    "DP-82",
+    "DP-83",
+    "DP-84",
+    "DP-85",
+    "DP-86",
+    "DP-87",
+    "DP-88",
+    "DP-89",
+    "DP-90",
+    "DP-91",
+    "DP-92",
+]
+critical = [
+    "test_app.py::test_wf_chain_walk_keyboard",
+    "test_app.py::test_wf_chain_walk_tamper_below_application",
+    "test_app.py::test_single_chain",
+    "test_app.py::test_walk_announcements",
+    "test_app.py::test_walk_touch_and_reduced_motion",
+]
+checkpoints = [
+    "B11",
+    "B12",
+]
+critical_checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "custody-history"
+requirements = [
+    "DP-93",
+    "DP-94",
+    "DP-95",
+    "DP-96",
+]
+critical = [
+    "test_app.py::test_wf_custody_history_auditor_lookup",
+    "test_app.py::test_custody_reading",
+]
+checkpoints = [
+    "B13",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-97",
+    "DP-98",
+    "DP-99",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_manifest_and_seed",
+    "test_app.py::test_wf_cross_cutting_server_boundary",
+]
+checkpoints = [
+    "B4",
+    "B5",
+]

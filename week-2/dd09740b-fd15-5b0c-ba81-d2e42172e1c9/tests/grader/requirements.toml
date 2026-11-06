@@ -1,0 +1,1296 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 67
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "seeded_data_and_deployment_contract",
+    "visitor_sends_inquiry",
+    "invalid_inquiry_and_flood_limit_rejected",
+    "idempotent_inquiry_submission",
+    "unauthenticated_studio_endpoints_denied",
+    "associate_limited_to_their_actions",
+    "pipeline_table_enforced",
+    "studio_moves_inquiry_through_pipeline",
+    "concurrent_transitions_one_winner",
+    "calendar_slots_and_one_booking_per_slot",
+    "call_invitation_lifecycle",
+    "reopen_window_and_private_status",
+    "studio_queue_counts_order_search",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 87
+services = [
+    { name = "postgres", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Northpier Studio <hello@northpier.studio>" } },
+]
+outages = []
+
+[criterion_weights]
+B1 = 3
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 5
+B7 = 5
+B8 = 3
+B9 = 5
+B10 = 5
+B11 = 3
+B12 = 5
+S1 = 3
+S2 = 5
+S3 = 5
+S4 = 5
+Q1 = 5
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 1
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[requirements]]
+id = "DP-01"
+title = "Startup and health"
+text = "The app answers `GET /api/health` as stated in Deployment once ready, applies its schema on every start, and every visitor page arrives as complete server-rendered HTML on first load."
+kind = "behavior"
+primary = "pytest"
+workflow = "seeded_data_and_deployment_contract"
+tests = [
+    "test_app.py::test_wf_seeded_data_and_deployment_contract_health_and_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Seed data"
+text = "On first start the app seeds the two studio accounts, the eight cases and the seven inquiries of Seed data with their fixture status tokens into PostgreSQL exactly once, with each seeded inquiry's history and version consistent with its status, and seeding sends no email."
+kind = "behavior"
+primary = "pytest"
+workflow = "seeded_data_and_deployment_contract"
+tests = [
+    "test_app.py::test_wf_seeded_data_and_deployment_contract_seed_records",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Seeded call times"
+text = "The seeded call times of `NP-M3XB7R`, `NP-Q7LD4V` and `NP-W8DK5T` fall on the studio days Seed data names and are stored as the UTC instants of their stated Stockholm wall-clock times under the Stockholm daylight-saving rules of each call's own date."
+kind = "behavior"
+primary = "pytest"
+workflow = "seeded_data_and_deployment_contract"
+tests = [
+    "test_app.py::test_wf_seeded_data_and_deployment_contract_seeded_call_times",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Own origin only"
+text = "Pages load nothing from another origin, and the app reaches no backing service besides PostgreSQL and the Mailpit SMTP server."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_own_origin_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Out of scope"
+text = "The source contains none of the features the opening paragraph lists as out of scope."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Studio sign in"
+text = "`POST /api/auth/login` signs a seeded account in with the fixture password and returns a token that `GET /api/me` resolves to that user and role, a wrong password and an unknown email get the same sign-in refusal byte for byte, `POST /api/auth/logout` ends the token, and passwords are stored only as hashes."
+kind = "behavior"
+primary = "pytest"
+workflow = "unauthenticated_studio_endpoints_denied"
+tests = [
+    "test_app.py::test_wf_unauthenticated_studio_endpoints_denied_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Studio roles"
+text = "Each studio account is a `lead` or an `associate`, Sana Holm is the lead and Ole Berg the associate, and the role appears in the login `user` and `GET /api/me` and cannot be changed by any request."
+kind = "behavior"
+primary = "pytest"
+workflow = "unauthenticated_studio_endpoints_denied"
+tests = [
+    "test_app.py::test_wf_unauthenticated_studio_endpoints_denied_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "No public signup"
+text = "There is no `/api/auth/signup` route and no request from outside creates a studio account."
+kind = "behavior"
+primary = "pytest"
+workflow = "unauthenticated_studio_endpoints_denied"
+tests = [
+    "test_app.py::test_wf_unauthenticated_studio_endpoints_denied_no_signup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Signed-in studio endpoints"
+text = "A caller with no token or an invalid one is refused by `GET /api/me` and every `/api/studio/` endpoint with the sign-in-required refusal, leaking no email address and changing nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "unauthenticated_studio_endpoints_denied"
+tests = [
+    "test_app.py::test_wf_unauthenticated_studio_endpoints_denied_endpoints_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Studio sign in page and redirects"
+text = "Signed out, `/studio` and `/studio/inquiries/<id>` redirect to `/studio/signin?next=` that path, sign in lands on `/studio` or an allowed `next` while any other `next` is ignored, and \"Sign out\" returns to `/studio/signin`."
+kind = "behavior"
+primary = "pytest"
+workflow = "unauthenticated_studio_endpoints_denied"
+tests = [
+    "test_app.py::test_wf_unauthenticated_studio_endpoints_denied_sign_in_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Sending an inquiry"
+text = "`POST /api/inquiries` stores a valid inquiry as `new` at version 1 with a server-minted reference and status token and the email stored lowercase, answers 201, and queues exactly one confirmation email."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor_sends_inquiry"
+tests = [
+    "test_app.py::test_wf_visitor_sends_inquiry_api_store",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Inquiry validation"
+text = "An invalid inquiry or a malformed body is refused with the first failing field's status, field and message from the Messages table, storing no row and sending no email."
+kind = "behavior"
+primary = "pytest"
+workflow = "invalid_inquiry_and_flood_limit_rejected"
+tests = [
+    "test_app.py::test_wf_invalid_inquiry_and_flood_limit_rejected_validation",
+]
+criteria = []
+parameter_cases = [
+    "name_blank",
+    "name_too_long",
+    "name_80_emoji",
+    "email_malformed",
+    "email_two_at",
+    "email_dotless_domain",
+    "email_space",
+    "email_too_long",
+    "company_too_long",
+    "company_120",
+    "services_empty",
+    "services_unknown",
+    "budget_missing",
+    "timeline_unknown",
+    "message_short_after_trim",
+    "message_too_long",
+    "message_2000_emoji",
+    "message_crlf_counts_once",
+    "first_failing_field",
+    "body_not_json",
+    "body_array",
+    "body_too_deep",
+]
+
+[[requirements]]
+id = "DP-13"
+title = "Five inquiries an hour"
+text = "One email address, compared case-insensitively, has at most five stored inquiries within the inquiry window, and the sixth is refused with 429 and a `Retry-After` header, storing and sending nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "invalid_inquiry_and_flood_limit_rejected"
+tests = [
+    "test_app.py::test_wf_invalid_inquiry_and_flood_limit_rejected_flood_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Resending an inquiry"
+text = "Repeating a stored inquiry's `Idempotency-Key` with the same body within the key lifetime answers 200 with the original response and creates, sends and counts nothing, while the same key with a different body, or a malformed key, is refused as the Messages table states."
+kind = "behavior"
+primary = "pytest"
+workflow = "idempotent_inquiry_submission"
+tests = [
+    "test_app.py::test_wf_idempotent_inquiry_submission_replay",
+    "test_app.py::test_wf_idempotent_inquiry_submission_key_lifetime",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "One inquiry per double submit"
+text = "Two identical requests carrying one `Idempotency-Key` sent together create exactly one inquiry, one confirmation email and one count toward the hourly limit, and both answer with the same reference."
+kind = "behavior"
+primary = "pytest"
+workflow = "idempotent_inquiry_submission"
+tests = [
+    "test_app.py::test_wf_idempotent_inquiry_submission_simultaneous",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Emails"
+text = "Submission sends one confirmation email and each successful studio transition one update email with the pinned subjects, bodies and `Message-ID`, only to the inquiry's own address, within the delivery times and with the at-least-once delivery rule in Services, while a note, a replay or a refused request sends nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "studio_moves_inquiry_through_pipeline"
+tests = [
+    "test_app.py::test_wf_studio_moves_inquiry_through_pipeline_emails",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Intro-call invitation"
+text = "The update email for every `book_call` and `reschedule_call` carries one `intro-call.ics` REQUEST invitation with the inquiry's stable UID, the pinned sequence number, the call's UTC start and end and CRLF line endings, and no email other than these and the DP-67 cancellation carries a calendar part."
+kind = "behavior"
+primary = "pytest"
+workflow = "call_invitation_lifecycle"
+tests = [
+    "test_app.py::test_wf_call_invitation_lifecycle_sequence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Private status read"
+text = "`GET /api/inquiries/status/{token}` returns only the public inquiry with its dated history, never an email address, note, studio account or another inquiry, and an unknown token answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "reopen_window_and_private_status"
+tests = [
+    "test_app.py::test_wf_reopen_window_and_private_status_private_status",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Status link is read-only"
+text = "Every method other than `GET` and `HEAD` sent to a status link's API address or page answers 405 and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "reopen_window_and_private_status"
+tests = [
+    "test_app.py::test_wf_reopen_window_and_private_status_read_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "The pipeline"
+text = "Status changes only through the Transitions table, each success raises the version by one and writes one history entry naming the studio account, `won` is final, and any other action gets the not-allowed refusal and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "pipeline_table_enforced"
+tests = [
+    "test_app.py::test_wf_pipeline_table_enforced_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Lead-only actions"
+text = "An associate's `mark_won`, `decline` or `reopen` gets the lead-only refusal and writes nothing, changes no version and sends no email, while an associate's `start_review`, `book_call` and `reschedule_call` succeed."
+kind = "behavior"
+primary = "pytest"
+workflow = "associate_limited_to_their_actions"
+tests = [
+    "test_app.py::test_wf_associate_limited_to_their_actions_lead_only_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Allowed actions by role"
+text = "`allowed_actions` and the inquiry page's action buttons list exactly the actions the Transitions table gives the caller's role from the current status, in table order."
+kind = "behavior"
+primary = "pytest"
+workflow = "associate_limited_to_their_actions"
+tests = [
+    "test_app.py::test_wf_associate_limited_to_their_actions_allowed_actions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Server-owned fields"
+text = "Any reference, status token, status, version, role, author or actor sent in a request body is ignored, so no visitor or studio request changes them except through the pipeline."
+kind = "behavior"
+primary = "pytest"
+workflow = "pipeline_table_enforced"
+tests = [
+    "test_app.py::test_wf_pipeline_table_enforced_server_owned_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Call window and hours"
+text = "A `call_at` must be in the future, at most 90 days ahead and within studio hours judged in Stockholm time, as qualified in Business rules, each failure refused with its `call_at` message."
+kind = "behavior"
+primary = "pytest"
+workflow = "calendar_slots_and_one_booking_per_slot"
+tests = [
+    "test_app.py::test_wf_calendar_slots_and_one_booking_per_slot_call_time_checks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Quarter-hour starts"
+text = "A call time that passes the hours and closure-day checks but does not start on a Stockholm quarter hour gets the quarter-hour refusal."
+kind = "behavior"
+primary = "pytest"
+workflow = "calendar_slots_and_one_booking_per_slot"
+tests = [
+    "test_app.py::test_wf_calendar_slots_and_one_booking_per_slot_quarter_hours",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Stockholm wall-clock times"
+text = "A `call_at` with an offset is taken as that instant and one without is read as Stockholm wall-clock time, so the stored UTC instant follows the Stockholm daylight-saving rule of the call's own date."
+kind = "behavior"
+primary = "pytest"
+workflow = "calendar_slots_and_one_booking_per_slot"
+tests = [
+    "test_app.py::test_wf_calendar_slots_and_one_booking_per_slot_wall_clock_dst",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "One call per slot"
+text = "A booking or reschedule whose call overlaps another `call_booked` inquiry's call gets the overlap refusal, while back-to-back calls and a reschedule overlapping only the inquiry's own current slot are accepted."
+kind = "behavior"
+primary = "pytest"
+workflow = "calendar_slots_and_one_booking_per_slot"
+tests = [
+    "test_app.py::test_wf_calendar_slots_and_one_booking_per_slot_one_call_per_slot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Simultaneous bookings"
+text = "Two bookings for overlapping slots on different inquiries sent together give exactly one success, one overlap refusal, one history entry and one email."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent_transitions_one_winner"
+tests = [
+    "test_app.py::test_wf_concurrent_transitions_one_winner_overlapping_bookings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Won after the call"
+text = "`mark_won` succeeds only once the stored call start has passed and otherwise gets the call-not-held refusal."
+kind = "behavior"
+primary = "pytest"
+workflow = "studio_moves_inquiry_through_pipeline"
+tests = [
+    "test_app.py::test_wf_studio_moves_inquiry_through_pipeline_won_after_call",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Declining"
+text = "A lead's decline from `new`, `in_review` or `call_booked` needs one valid reason, frees any booked call slot, and the visitor's status read shows that reason."
+kind = "behavior"
+primary = "pytest"
+workflow = "call_invitation_lifecycle"
+tests = [
+    "test_app.py::test_wf_call_invitation_lifecycle_decline_frees_slot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Reopening a declined inquiry"
+text = "A lead's `reopen` moves a `declined` inquiry to `in_review`, clears its decline reason and call time, raises the version by one, keeps the decline in the history and sends an update email."
+kind = "behavior"
+primary = "pytest"
+workflow = "reopen_window_and_private_status"
+tests = [
+    "test_app.py::test_wf_reopen_window_and_private_status_reopen_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Reopen window"
+text = "`reopen` is accepted only while less than the reopen window has passed since the inquiry's latest decline, judged by the server clock, and from that edge on gets the window-closed refusal."
+kind = "behavior"
+primary = "pytest"
+workflow = "reopen_window_and_private_status"
+tests = [
+    "test_app.py::test_wf_reopen_window_and_private_status_reopen_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Changes from the latest version"
+text = "A transition naming a stale or missing version gets 412, and unkeyed transitions sent together at the same version give exactly one success and one history entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent_transitions_one_winner"
+tests = [
+    "test_app.py::test_wf_concurrent_transitions_one_winner_stale_versions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Refusal order and shape"
+text = "Every refusal except the health answers of Deployment uses the one error shape and follows the single refusal order in API, and no request answers with a server error."
+kind = "behavior"
+primary = "pytest"
+workflow = "pipeline_table_enforced"
+tests = [
+    "test_app.py::test_wf_pipeline_table_enforced_refusal_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "The queue API"
+text = "`GET /api/studio/inquiries` lists one tab (default `new`, or `all`) in the pinned sort orders, narrowed by `q` matched literally with an over-long `q` refused, and never carries a status token."
+kind = "behavior"
+primary = "pytest"
+workflow = "studio_queue_counts_order_search"
+tests = [
+    "test_app.py::test_wf_studio_queue_counts_order_search_queue_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Counts follow the search"
+text = "`counts` are computed over the inquiries matching `q`, each equals the length of that tab's narrowed list, `all` equals the sum of the five, and this holds after every transition, reopen and new inquiry."
+kind = "behavior"
+primary = "pytest"
+workflow = "studio_queue_counts_order_search"
+tests = [
+    "test_app.py::test_wf_studio_queue_counts_order_search_counts_follow_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Notes"
+text = "Notes of 1 to 1000 characters from a lead or an associate list newest first and never change status or version, and blank or over-long notes are refused with their messages."
+kind = "behavior"
+primary = "pytest"
+workflow = "studio_queue_counts_order_search"
+tests = [
+    "test_app.py::test_wf_studio_queue_counts_order_search_notes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Case studies API"
+text = "`GET /api/cases` returns the eight seeded cases in position order, and `GET /api/cases/{slug}` returns one case with the next two as `more`, wrapping around."
+kind = "behavior"
+primary = "pytest"
+workflow = "seeded_data_and_deployment_contract"
+tests = [
+    "test_app.py::test_wf_seeded_data_and_deployment_contract_cases_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Visitor journey"
+text = "A visitor sends an inquiry from a case study through the composer, sees the confirmation, opens the status page reading \"New\" and receives the confirmation email."
+kind = "behavior"
+primary = "workflow"
+workflow = "visitor_sends_inquiry"
+tests = [
+    "test_app.py::test_wf_visitor_sends_inquiry_composer_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Studio pipeline journey"
+text = "Sana Holm signs in, starts review on a new inquiry and marks `NP-Q7LD4V` won, and the pill, history, tab counts and the visitor's status page follow each step."
+kind = "behavior"
+primary = "workflow"
+workflow = "studio_moves_inquiry_through_pipeline"
+tests = [
+    "test_app.py::test_wf_studio_moves_inquiry_through_pipeline_lead_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Associate journey"
+text = "Ole Berg signs in, starts review and books a call on a new inquiry, and is never offered \"Mark won\", \"Decline\" or \"Reopen\"."
+kind = "behavior"
+primary = "workflow"
+workflow = "associate_limited_to_their_actions"
+tests = [
+    "test_app.py::test_wf_associate_limited_to_their_actions_associate_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Reopen journey"
+text = "Sana Holm declines an inquiry with a reason and reopens it, and the visitor's status page reads \"In review\" with the decline still in its history."
+kind = "behavior"
+primary = "workflow"
+workflow = "reopen_window_and_private_status"
+tests = [
+    "test_app.py::test_wf_reopen_window_and_private_status_reopen_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Book call panel"
+text = "The \"Book call\" and \"Reschedule call\" panels take the time in Stockholm time, state the studio hours and closure-day rules, and show an out-of-hours, closure-day, off-quarter or overlapping time's message under the \"Call time\" field without changing the inquiry."
+kind = "behavior"
+primary = "pytest"
+workflow = "calendar_slots_and_one_booking_per_slot"
+tests = [
+    "test_app.py::test_wf_calendar_slots_and_one_booking_per_slot_panel_messages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Landing page and chrome"
+text = "The landing page has the shared header, the hero, the rotating line, the eight-case work grid, the client index that dims the other rows while one is pointed at, the closing statement and the footer, and the current page's header link is underlined."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_landing_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Case study page"
+text = "Each `/work/<slug>` page is flooded with its theme colour and shows the industry, the client name as its title, the testimonial and two \"More work\" links."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_case_study_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Services, contact and privacy"
+text = "The services, contact and privacy pages carry their pinned copy, and the contact offices end with live local greetings in their pinned formats."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_services_contact_privacy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Not-found page"
+text = "Every unknown address, case slug and status token answers 404 with the not-found page."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Cookie card"
+text = "The cookie card offers \"Reject\" and \"Accept\", the choice is remembered for a year in a first-party consent cookie, and the card does not return while that cookie is set."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_cookie_card",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Composer"
+text = "`/start` offers three starter cards that select their services, a form that works before any script runs, a live counter that counts characters as the server does, a send control that is unavailable until every required field is valid and while a send is pending, an in-place confirmation whose \"Copy link\" copies the status link, and a refused send that keeps everything typed."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor_sends_inquiry"
+tests = [
+    "test_app.py::test_wf_visitor_sends_inquiry_double_press",
+    "test_app.py::test_wf_visitor_sends_inquiry_without_scripts",
+    "test_app.py::test_wf_invalid_inquiry_and_flood_limit_rejected_composer_refusal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Status page"
+text = "`/inquiry/<token>` shows the reference, the status label in display size, its status line, the message as literal text with its line breaks and a dated history oldest first, and picks up a studio change without a reload as qualified in Screens and layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "reopen_window_and_private_status"
+tests = [
+    "test_app.py::test_wf_reopen_window_and_private_status_status_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Queue page"
+text = "`/studio` shows the six tabs with counts, keeps the tab and `q` in the address so that Back and Forward restore them, narrows the list and counts as the search is typed, shows the pinned row fields and shows the empty-tab copy for an empty tab."
+kind = "behavior"
+primary = "pytest"
+workflow = "studio_queue_counts_order_search"
+tests = [
+    "test_app.py::test_wf_studio_queue_counts_order_search_search_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Inquiry page"
+text = "`/studio/inquiries/<id>` shows the queue beside the inquiry with a breadcrumb back to its tab, offers only the allowed actions, and after each action closes its panel and updates the pill, history, buttons and counts without a full reload while announcing the change, or shows the refusal where Feedback states places it and leaves the inquiry as it was."
+kind = "behavior"
+primary = "pytest"
+workflow = "studio_moves_inquiry_through_pipeline"
+tests = [
+    "test_app.py::test_wf_studio_moves_inquiry_through_pipeline_inquiry_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Accessibility"
+text = "Pages meet WCAG 2.2 AA, \"Skip to content\" is the first focusable element, every control is reachable in a logical order by keyboard, and every focused control shows a visible ring, lilac on the composer."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_accessibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Responsive layout"
+text = "Every page fits 375x812, 768x1024 and 1280x800 viewports and reflows at 320 CSS pixels without sideways scroll, and on narrow viewports the header links fold into \"Menu\", which opens a full-screen sheet that \"Close\" or Escape closes."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Motion"
+text = "Letter reveals, label rises, underline draws, header letter rolls, image zooms, the hero line swap, the cookie card glide, the footer settle and the status-change sequence run with the timings in Motion and effects, and reduced motion shows every end state with the hero line on its first phrase."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Palette and grounds"
+text = "Each page sits on its ground from Visual design, with header text that turns white on dark grounds."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Typography"
+text = "Inter at one regular weight carries every page, hierarchy is size alone on the stated scale, and labels and buttons are small uppercase."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B6",
+    "B7",
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Surfaces and covers"
+text = "Public pages read as a gallery wall of huge type, space and flat colour without shadows or boxes, every cover is a procedural field of its theme colour, and the studio area is dense and compact."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B9",
+    "B10",
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Shared status pill"
+text = "One status pill shows each status with the same colour, dot and word on queue rows, the inquiry page and the status page."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Real data, real email and configuration"
+text = "Inquiries, history, notes, sessions, keys, sign-in attempts, hourly counts and the email outbox live in PostgreSQL, every email leaves over SMTP, and every service address and window length is read from the environment."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Sign-in limit"
+text = "Five failed sign-ins for one email, known or unknown, within the sign-in window and since that email's latest success make every further attempt for it, even with the right password, get the sign-in-limit refusal with `Retry-After`, as qualified in Business rules, while other accounts sign in as normal."
+kind = "behavior"
+primary = "pytest"
+workflow = "unauthenticated_studio_endpoints_denied"
+tests = [
+    "test_app.py::test_wf_unauthenticated_studio_endpoints_denied_sign_in_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Keyboard booking by the associate"
+text = "Ole Berg can open an inquiry, start review and book its call by keyboard alone, with focus, the field-error attributes, Escape and the live-region copy behaving as Interactions describes, and no lead-only button ever present in the page."
+kind = "behavior"
+primary = "pytest"
+workflow = "associate_limited_to_their_actions"
+tests = [
+    "test_app.py::test_wf_associate_limited_to_their_actions_keyboard_booking",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Wrong types and unsupported characters"
+text = "A wrong JSON type in any request field, or an unsupported character in any covered text field, gets the exact answer the Wrong types table or the Messages table gives, changing nothing, sending nothing and never answering 5xx."
+kind = "behavior"
+primary = "pytest"
+workflow = "pipeline_table_enforced"
+tests = [
+    "test_app.py::test_wf_pipeline_table_enforced_wrong_types",
+]
+criteria = []
+parameter_cases = [
+    "version_true",
+    "version_fraction",
+    "version_exponent",
+    "version_string",
+    "version_null",
+    "version_absent",
+    "action_number",
+    "call_at_number",
+    "decline_reason_list",
+    "name_number",
+    "email_list",
+    "company_number",
+    "services_string",
+    "services_number_item",
+    "budget_number",
+    "timeline_bool",
+    "message_number",
+    "note_body_number",
+    "login_email_number",
+    "login_password_absent",
+    "name_control",
+    "name_line_feed",
+    "email_nul",
+    "company_tab",
+    "message_escape",
+    "message_delete",
+    "message_unpaired_surrogate",
+    "note_control",
+    "q_control",
+]
+
+[[requirements]]
+id = "DP-64"
+title = "Private data stays out of email"
+text = "Every email goes to the inquiry's address alone, and its headers, body and attachments never carry a note, a studio account name or email, an internal id, or another inquiry's reference or token."
+kind = "behavior"
+primary = "pytest"
+workflow = "studio_moves_inquiry_through_pipeline"
+tests = [
+    "test_app.py::test_wf_studio_moves_inquiry_through_pipeline_private_data",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Resending a studio change"
+text = "Repeating a successful transition's `Idempotency-Key` from the same account on the same inquiry with an equal body answers 200 with the original response and changes and sends nothing, a different body is refused, and simultaneous identical keyed requests apply once and all answer 200 with one body."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent_transitions_one_winner"
+tests = [
+    "test_app.py::test_wf_concurrent_transitions_one_winner_transition_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Swedish closure days"
+text = "A call on a Swedish closure day, judged by its Stockholm date, gets the closed-day refusal in the `call_at` check order, and the next studio day at the same time is accepted."
+kind = "behavior"
+primary = "pytest"
+workflow = "calendar_slots_and_one_booking_per_slot"
+tests = [
+    "test_app.py::test_wf_calendar_slots_and_one_booking_per_slot_closure_days",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Cancellation invitation"
+text = "A lead's decline from `call_booked` sends its update email with one `intro-call.ics` CANCEL invitation for the cancelled slot under the inquiry's UID, and the sequence keeps rising across decline, reopen and the next booking."
+kind = "behavior"
+primary = "pytest"
+workflow = "call_invitation_lifecycle"
+tests = [
+    "test_app.py::test_wf_call_invitation_lifecycle_cancellation",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "Write `/app/USER_README.md` listing both seeded studio accounts with their roles beside the password `deku-demo-pw-2026`, and the fixture status link of `NP-Q7LD4V`."
+tests = [
+    "test_app.py::test_if_user_readme",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "Ship `/app/run.json` with `\"_schema\": \"run-manifest-v1\"` and string `install`, `build` and `serve` commands, `install` and `serve` non-empty."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Ship `/app/THIRD_PARTY_NOTICES.md` naming every shipped package with its version and licence, where shipped packages are everything `pip install -r /app/requirements.txt` installs into a clean environment, as `pip freeze` lists it, excluding test and development tools."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Every shipped package carries one of these licences: MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC, PSF-2.0, MPL-2.0 or LGPL-3.0-or-later."
+tests = [
+    "test_app.py::test_if_licence_allowlist",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Use no datastore, cache, queue, identity provider or mail vendor besides PostgreSQL and SMTP to Mailpit, and never download, install or start a copy of either."
+tests = [
+    "test_app.py::test_if_no_other_services",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Keep the reserved `.browser_screenshots/` and `.downloads/` directories at `/app`."
+tests = [
+    "test_app.py::test_if_reserved_dirs",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Leave the provided service definitions and their credentials unchanged."
+tests = [
+    "test_app.py::test_if_services_untouched",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "seeded_data_and_deployment_contract"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_seeded_data_and_deployment_contract_health_and_pages",
+    "test_app.py::test_wf_seeded_data_and_deployment_contract_seed_records",
+    "test_app.py::test_wf_seeded_data_and_deployment_contract_seeded_call_times",
+]
+
+[[workflows]]
+id = "visitor_sends_inquiry"
+requirements = [
+    "DP-11",
+    "DP-39",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_wf_visitor_sends_inquiry_composer_journey",
+    "test_app.py::test_wf_visitor_sends_inquiry_double_press",
+]
+
+[[workflows]]
+id = "invalid_inquiry_and_flood_limit_rejected"
+requirements = [
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_invalid_inquiry_and_flood_limit_rejected_validation",
+    "test_app.py::test_wf_invalid_inquiry_and_flood_limit_rejected_flood_limit",
+]
+
+[[workflows]]
+id = "idempotent_inquiry_submission"
+requirements = [
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_idempotent_inquiry_submission_replay",
+    "test_app.py::test_wf_idempotent_inquiry_submission_simultaneous",
+]
+
+[[workflows]]
+id = "unauthenticated_studio_endpoints_denied"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_unauthenticated_studio_endpoints_denied_sign_in",
+    "test_app.py::test_wf_unauthenticated_studio_endpoints_denied_roles",
+    "test_app.py::test_wf_unauthenticated_studio_endpoints_denied_endpoints_refused",
+    "test_app.py::test_wf_unauthenticated_studio_endpoints_denied_sign_in_page",
+    "test_app.py::test_wf_unauthenticated_studio_endpoints_denied_sign_in_limit",
+]
+
+[[workflows]]
+id = "associate_limited_to_their_actions"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-41",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_associate_limited_to_their_actions_lead_only_refused",
+    "test_app.py::test_wf_associate_limited_to_their_actions_associate_journey",
+    "test_app.py::test_wf_associate_limited_to_their_actions_keyboard_booking",
+]
+
+[[workflows]]
+id = "pipeline_table_enforced"
+requirements = [
+    "DP-20",
+    "DP-23",
+    "DP-34",
+    "DP-63",
+]
+critical = [
+    "test_app.py::test_wf_pipeline_table_enforced_transitions",
+    "test_app.py::test_wf_pipeline_table_enforced_server_owned_fields",
+    "test_app.py::test_wf_pipeline_table_enforced_refusal_order",
+    "test_app.py::test_wf_pipeline_table_enforced_wrong_types",
+]
+
+[[workflows]]
+id = "studio_moves_inquiry_through_pipeline"
+requirements = [
+    "DP-16",
+    "DP-29",
+    "DP-40",
+    "DP-52",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_studio_moves_inquiry_through_pipeline_lead_journey",
+    "test_app.py::test_wf_studio_moves_inquiry_through_pipeline_emails",
+    "test_app.py::test_wf_studio_moves_inquiry_through_pipeline_private_data",
+    "test_app.py::test_wf_studio_moves_inquiry_through_pipeline_inquiry_page",
+]
+
+[[workflows]]
+id = "concurrent_transitions_one_winner"
+requirements = [
+    "DP-28",
+    "DP-33",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_concurrent_transitions_one_winner_overlapping_bookings",
+    "test_app.py::test_wf_concurrent_transitions_one_winner_stale_versions",
+    "test_app.py::test_wf_concurrent_transitions_one_winner_transition_keys",
+]
+
+[[workflows]]
+id = "calendar_slots_and_one_booking_per_slot"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-43",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_calendar_slots_and_one_booking_per_slot_call_time_checks",
+    "test_app.py::test_wf_calendar_slots_and_one_booking_per_slot_quarter_hours",
+    "test_app.py::test_wf_calendar_slots_and_one_booking_per_slot_closure_days",
+    "test_app.py::test_wf_calendar_slots_and_one_booking_per_slot_wall_clock_dst",
+    "test_app.py::test_wf_calendar_slots_and_one_booking_per_slot_one_call_per_slot",
+    "test_app.py::test_wf_calendar_slots_and_one_booking_per_slot_panel_messages",
+]
+
+[[workflows]]
+id = "call_invitation_lifecycle"
+requirements = [
+    "DP-17",
+    "DP-30",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_call_invitation_lifecycle_sequence",
+    "test_app.py::test_wf_call_invitation_lifecycle_cancellation",
+    "test_app.py::test_wf_call_invitation_lifecycle_decline_frees_slot",
+]
+
+[[workflows]]
+id = "reopen_window_and_private_status"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-31",
+    "DP-32",
+    "DP-42",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_reopen_window_and_private_status_reopen_journey",
+    "test_app.py::test_wf_reopen_window_and_private_status_reopen_api",
+    "test_app.py::test_wf_reopen_window_and_private_status_reopen_window",
+    "test_app.py::test_wf_reopen_window_and_private_status_private_status",
+    "test_app.py::test_wf_reopen_window_and_private_status_read_only",
+    "test_app.py::test_wf_reopen_window_and_private_status_status_page",
+]
+
+[[workflows]]
+id = "studio_queue_counts_order_search"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_studio_queue_counts_order_search_queue_api",
+    "test_app.py::test_wf_studio_queue_counts_order_search_counts_follow_search",
+    "test_app.py::test_wf_studio_queue_counts_order_search_notes",
+    "test_app.py::test_wf_studio_queue_counts_order_search_search_page",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_not_found",
+    "test_app.py::test_own_origin_only",
+]

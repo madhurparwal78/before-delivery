@@ -1,0 +1,1487 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 79
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "intake",
+    "care-round",
+    "estimate-approval",
+    "paint-stages",
+    "coat-stack",
+    "invoicing",
+    "release",
+    "owner-portal",
+    "bay-billing",
+    "house-manager",
+    "outages",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 87
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "killbill", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Marrow & Lark Motor House <house@marrowlark.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 5
+B10 = 3
+B11 = 5
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "killbill-down"
+port = 4175
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4176
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "short-timer"
+port = 4177
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+SESSION_LIFETIME_SECONDS = "90"
+STARTUP_OVERDUE_SECONDS = "60"
+ESTIMATE_EXPIRY_SECONDS = "40"
+KILLBILL_KEY_PREFIX = "short"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Sessions and roles"
+text = "Seeded staff and owners sign in with email and password, every other API route except health and service status answers 401 without a live session, and each role reaches only the actions the role table in Business rules grants, with 403 otherwise."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "One error shape and order"
+text = "Every API error uses the single error shape and the single precedence order defined in API, so the same fault always yields the same status and body."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_error_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Owners reach only their own cars"
+text = "An owner reaches only their own cars and those cars' bay billing, condition reports, photos, sent jobs, invoices and releases on every page, endpoint, search result, total and email, and any other id, including one inside a request body or edited into a URL, answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-portal"
+tests = [
+    "test_app.py::test_owner_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Idempotent submissions"
+text = "Release requests, invoice issues, care-round entries and bank transfers carry an idempotency key whose record lives in Postgres, so a replay on any app process returns the original response without a second effect, a failed attempt may be retried with the same key on any process, and a reused key with a different body answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_idempotent_submissions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Bays fit with clearance"
+text = "A car is assigned only to a bay whose length and width each exceed the car's by at least the published clearance, and a bay that is too small answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake"
+tests = [
+    "test_app.py::test_bay_fit_clearance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "One car per bay"
+text = "A bay holds at most one car at a time, and when several assignments to the same free bay arrive together exactly one succeeds and the rest answer 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake"
+tests = [
+    "test_app.py::test_one_car_per_bay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Moves stay in bay class"
+text = "A stored car moves only to a free, fitting bay of the same bay class, so its bay subscription plan never changes mid-stay."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake"
+tests = [
+    "test_app.py::test_moves_stay_in_class",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Condition report kept as signed"
+text = "The signed intake condition report PDF is stored in object storage byte for byte as uploaded, at most once per stay, and every download returns exactly those bytes with the recorded SHA-256."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake"
+tests = [
+    "test_app.py::test_condition_report_bytes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Photos count once stored"
+text = "An intake or stage photo is listed as attached only after object storage confirms the upload, and a failed upload leaves no photo record."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake"
+tests = [
+    "test_app.py::test_photos_attach_after_storage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Bay picking by keyboard and touch"
+text = "The concierge picks a bay on the floor plan with arrow keys and Enter or by tap, and bays that are occupied, too small or in another class cannot be chosen and say why."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake"
+tests = [
+    "test_app.py::test_bay_picker_keyboard_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Car intake journey"
+text = "A concierge registers a car, assigns it a fitting bay from the floor plan, logs its belongings, uploads the signed condition report and an intake photo, and the car page then shows the bay, the belongings counts, the report and the photo, with bay billing turning from pending to paid-through in place."
+kind = "behavior"
+primary = "workflow"
+workflow = "intake"
+tests = [
+    "test_app.py::test_wf_intake_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Belongings ledger"
+text = "Each belonging's checked-in count always equals its check-in minus check-out movements and never goes below zero, and completing a release while any of the car's items is still checked in is refused in the completion order stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "release"
+tests = [
+    "test_app.py::test_belongings_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Care entries and flags"
+text = "A care-round entry records a start-up, battery voltage or four tyre pressures with who logged it and when, and the server flags a low battery or a tyre off its specified pressure as defined in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "care-round"
+tests = [
+    "test_app.py::test_care_entries_flags",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Server-decided start-up status"
+text = "Whether a scheduled car's start-up is overdue and when the next one is due come only from the server, using the overdue period set by environment, and the screen shows that status whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "care-round"
+tests = [
+    "test_app.py::test_startup_status_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Care round journey"
+text = "A care technician on a phone opens the round, sees overdue cars first, logs a start-up and battery reading for a car, and hears and sees the confirmation with the next due date while that car leaves the overdue group."
+kind = "behavior"
+primary = "workflow"
+workflow = "care-round"
+tests = [
+    "test_app.py::test_wf_care_round_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Readings stored once"
+text = "Film build, tyre pressure and odometer readings are stored once in micrometres, bar and kilometres, and every display in mil, psi or miles is derived from that stored value with the published conversion and precision."
+kind = "behavior"
+primary = "pytest"
+workflow = "paint-stages"
+tests = [
+    "test_app.py::test_readings_stored_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Workshop job states"
+text = "A workshop job moves only along draft, sent, approved, declined or expired, in progress, finished, invoiced and paid, and back from paid to invoiced, as defined in Business rules, and every other move answers 409 with the job unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "estimate-approval"
+tests = [
+    "test_app.py::test_job_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Estimate expiry"
+text = "A sent estimate expires when the expiry period set by environment has passed since it was sent, after which the server shows it as expired and refuses approval or decline with 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "estimate-approval"
+tests = [
+    "test_app.py::test_estimate_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Estimate approval journey"
+text = "The workshop lead drafts and sends an estimate, the owner receives the approval email, opens the estimate in the portal and approves it, and the workshop lead's open job page then shows it approved."
+kind = "behavior"
+primary = "workflow"
+workflow = "estimate-approval"
+tests = [
+    "test_app.py::test_wf_estimate_approval_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Paint stages and panel readings"
+text = "The workshop lead logs paint stages in the published order, each once per job, with film-build readings for named panels, and the job's reading history keeps every reading with who logged it and when."
+kind = "behavior"
+primary = "pytest"
+workflow = "paint-stages"
+tests = [
+    "test_app.py::test_paint_stages_readings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Keyboard stage logging"
+text = "The workshop lead opens, fills and saves the stage and reading dialogs using only the keyboard, with focus kept inside each open dialog and returned to the opener on close."
+kind = "behavior"
+primary = "pytest"
+workflow = "paint-stages"
+tests = [
+    "test_app.py::test_wf_paint_stages_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Exact invoice money"
+text = "Estimate and invoice totals combine parts, labour hours at the published rate and paint materials with VAT using exact decimal arithmetic, rounding half up per line and then the total to the nearest five centimes."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoicing"
+tests = [
+    "test_app.py::test_invoice_money",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Invoice balance from Kill Bill"
+text = "Issuing an invoice records a matching charge in Kill Bill before the invoice exists in the app, an invoice's balance and paid status come only from Kill Bill, and a recorded bank transfer is a Kill Bill external payment of exactly the entered amount, at most the live balance."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoicing"
+tests = [
+    "test_app.py::test_invoice_balance_from_killbill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Bay billing in Kill Bill"
+text = "Each stored car gets a monthly bay subscription in Kill Bill on its owner's account on the plan for its bay class, and on release that subscription is cancelled at the end of its paid term with the dates Kill Bill confirms."
+kind = "behavior"
+primary = "pytest"
+workflow = "bay-billing"
+tests = [
+    "test_app.py::test_wf_bay_billing_subscription",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Release notice rule"
+text = "The server accepts a release slot only on the published half-hour grid and at least 48 hours ahead in Zurich time, and publishes the earliest slot the form offers."
+kind = "behavior"
+primary = "pytest"
+workflow = "release"
+tests = [
+    "test_app.py::test_release_notice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Release states and slots"
+text = "A release moves only along requested, booked, car staged, released or cancelled as defined in Business rules, a car has at most one open release, and of several simultaneous requests for one slot exactly one succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "release"
+tests = [
+    "test_app.py::test_release_states_slots",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Release completes all or nothing"
+text = "Completing a release records it, frees the bay and sends the owner's release email together, and if any guard refuses or the email is not accepted none of them happens."
+kind = "behavior"
+primary = "pytest"
+workflow = "release"
+tests = [
+    "test_app.py::test_release_all_or_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Release journey"
+text = "An owner requests a release slot, the concierge books it, stages the car, finds it held until the car's unpaid invoice is paid, checks out every belonging and completes the release, and the owner sees each heading, receives the emails and the bay shows free."
+kind = "behavior"
+primary = "workflow"
+workflow = "release"
+tests = [
+    "test_app.py::test_wf_release_held_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Owner emails"
+text = "The estimate, release-booked, invoice-issued and released emails each reach only the car's owner exactly once with the published subject, even when sent after a mail outage, and carry no other owner's data."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-portal"
+tests = [
+    "test_app.py::test_owner_emails",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Owner portal journey"
+text = "An owner signs in, sees only their own cars with bays, care status, photos and bay billing, opens a paint job's coat stack and an invoice, and sees the invoice's outstanding balance drop and then turn paid as transfers are recorded."
+kind = "behavior"
+primary = "workflow"
+workflow = "owner-portal"
+tests = [
+    "test_app.py::test_wf_owner_portal_invoice_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Manager board and staff access"
+text = "The house manager's weekly review shows bay occupancy, overdue start-ups and unpaid balances summed from Kill Bill on one board, records a partial bank transfer that leaves exactly the balance Kill Bill reports, and revokes a leaver's access."
+kind = "behavior"
+primary = "workflow"
+workflow = "house-manager"
+tests = [
+    "test_app.py::test_wf_house_manager_board",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Published breakpoints"
+text = "The house manager's board and the job page show one pane below 768 pixels wide, two panes from 768 and three panes from 1200, in the published order with no horizontal scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "w1199",
+    "w1200",
+    "laptop",
+]
+
+[[requirements]]
+id = "DP-33"
+title = "Outages and recovery"
+text = "When object storage, Kill Bill or the mail service is unreachable, at boot or later, the app still serves bays, belongings and care rounds, answers the affected actions as stated in Services, and every effect it queued during the outage is applied once within 30 seconds by a process that can reach the service, without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_wf_outages_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Outage notices"
+text = "While a service is unreachable every staff screen shows its published notice within 15 seconds, and no notice shows while every service answers."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_outage_notices",
+]
+criteria = []
+parameter_cases = [
+    "storage",
+    "billing",
+    "mail",
+]
+
+[[requirements]]
+id = "DP-35"
+title = "Coat stack data"
+text = "The server derives each panel's film build, reading band and cross-section layers at every logged stage, and the browser draws exactly those values."
+kind = "behavior"
+primary = "pytest"
+workflow = "coat-stack"
+tests = [
+    "test_app.py::test_coat_stack_data",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Coat stack view and shared state"
+text = "The job page shows the 12-panel car plan with band tint, hatch and label, a stage scrubber, the selected panel's cross-section and total film build, and the stage and panel live in the address so a reload or shared portal link shows the same state."
+kind = "behavior"
+primary = "pytest"
+workflow = "coat-stack"
+tests = [
+    "test_app.py::test_wf_coat_stack_shared_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Panel map and scrubber by keyboard and touch"
+text = "Arrow keys move between panels, Enter opens the panel's reading history, the stage scrubber steps with arrow keys, Home and End, and on a phone panels and stages work by tap and drag."
+kind = "behavior"
+primary = "pytest"
+workflow = "coat-stack"
+tests = [
+    "test_app.py::test_panel_map_scrubber_keyboard_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Coat stack motion"
+text = "Moving the scrubber one step wipes the panel fills front to rear with a short stagger, then changes the cross-section layers from the bottom up, then counts the total film build to the server value, all within about 1.2 seconds."
+kind = "visual"
+primary = "pytest"
+workflow = "coat-stack"
+tests = [
+    "test_app.py::test_coat_stack_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Reduced motion and stage announcements"
+text = "With reduced motion on, every coat-stack change shows its end state at once with the same function, and a polite live region announces the stage, its position and the selected panel's reading and band after every step."
+kind = "behavior"
+primary = "pytest"
+workflow = "coat-stack"
+tests = [
+    "test_app.py::test_wf_coat_stack_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Announced results"
+text = "Every async action's pending, success and error results appear on screen and in its named live region with the exact copy from Feedback states, and a failed form shows an error summary linking to each field."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_announced_results",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Touch at phone width"
+text = "At 375 by 812 every screen fits without horizontal scrolling and every control, bay and panel offers a touch target of at least 44 by 44 pixels."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_touch_phone_width",
+]
+criteria = []
+parameter_cases = [
+    "bays",
+    "round",
+    "jobs",
+    "job",
+    "board",
+    "staff",
+    "releases",
+    "portal",
+]
+
+[[requirements]]
+id = "DP-42"
+title = "Build-sheet look"
+text = "The app reads as a calm workshop build sheet: putty ground, hairline rules on a 12-column grid, an expanded display face for car identity, readings in monospaced numerals with units, and masking-tape yellow on only the one thing in progress."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Coat stack craft"
+text = "The procedural top-down car plan, its band tints and hatches and the stage cross-section read clearly as one instrument that shows where a car is original, refinished or suspected of filler."
+kind = "visual"
+primary = "rubric"
+workflow = "coat-stack"
+tests = []
+criteria = [
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Real providers and secrets from environment"
+text = "All state that the brief assigns to Postgres, MinIO, Kill Bill and Mailpit lives in and is read from those services, and every credential and service URL comes from the environment and never reaches the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from the run manifest, listens on the published port and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_manifest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Server boundary"
+text = "The server answers only same-origin API calls, enforces the published body limits and never serves source files, credentials or environment values."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Release held for an unpaid invoice"
+text = "A release cannot complete while any invoice for that car has a Kill Bill balance above zero, checked live at completion and against the last confirmed balance when Kill Bill does not answer, while invoices for the owner's other cars never block."
+kind = "behavior"
+primary = "pytest"
+workflow = "release"
+tests = [
+    "test_app.py::test_release_hold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "One invoice per finished job"
+text = "Of concurrent invoice issues on one finished job exactly one succeeds with exactly one Kill Bill charge, and concurrent issues on different jobs get distinct gapless invoice numbers that a failed issue never consumes."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoicing"
+tests = [
+    "test_app.py::test_one_invoice_per_job",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Open screens survive their re-reads"
+text = "Every periodic re-read updates values in place and never closes an open dialog, clears typed values, moves focus, resets scroll, restarts an upload or re-announces an earlier result."
+kind = "behavior"
+primary = "pytest"
+workflow = "bay-billing"
+tests = [
+    "test_app.py::test_reread_keeps_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Release status updates live"
+text = "The portal release page and the Releases table pick up status changes made elsewhere within one re-read, update the heading or row in place, announce the owner's change once and keep focus inside a changed row."
+kind = "behavior"
+primary = "pytest"
+workflow = "release"
+tests = [
+    "test_app.py::test_release_status_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "No success before the server answers"
+text = "No screen shows an action's success state before the server answers, and when an outage refuses an action the row, floor plan, photo list and invoice keep their prior state throughout."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_wf_outages_no_false_success",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Revoked access ends every session"
+text = "Revoking a staff member ends every session they hold, their open screen reaches sign-in with the revoked copy on its next re-read or action, and restoring access revives none of those sessions."
+kind = "behavior"
+primary = "pytest"
+workflow = "house-manager"
+tests = [
+    "test_app.py::test_revoked_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Round rows move without losing place"
+text = "When a re-read moves a car between the overdue group and the rest of the care round, its row moves to its published position while an open round-entry dialog, its typed values, focus and scroll stay unchanged, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "care-round"
+tests = [
+    "test_app.py::test_wf_care_round_rows_move",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Lost answers retry safely"
+text = "Round entry, Issue invoice, Request release and Record bank transfer each hold one idempotency key until the server answers, so after a lost answer the form keeps its values, shows the no-answer copy, and pressing again records exactly one effect."
+kind = "behavior"
+primary = "pytest"
+workflow = "care-round"
+tests = [
+    "test_app.py::test_wf_care_round_lost_answer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Collapsed menu is unavailable"
+text = "Below 768 pixels wide the main navigation stays hidden from view, keyboard and assistive technology until Menu opens it, and Escape or following a link closes it again."
+kind = "behavior"
+primary = "pytest"
+workflow = "care-round"
+tests = [
+    "test_app.py::test_collapsed_menu",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Bank transfers apply once, in turn"
+text = "Bank transfers on one invoice carry an idempotency key and run one at a time across every app process, each checked against the balance Kill Bill reports after the previous one, and a repeated bank reference records a separate transfer."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoicing"
+tests = [
+    "test_app.py::test_wf_invoicing_partial_payments",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Paid is never latched"
+text = "When Kill Bill reports a balance above zero again on a paid invoice, the next read that reaches Kill Bill shows it awaiting payment, returns its job to invoiced and restores the board total and the release hold."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoicing"
+tests = [
+    "test_app.py::test_wf_invoicing_refund_reopens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Transfer dialog outlives its row"
+text = "A board re-read that changes or removes an invoice leaves an open Record bank transfer dialog and its typed values untouched, and a later submit answers with the invoice's current state."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoicing"
+tests = [
+    "test_app.py::test_transfer_dialog_outlives_row",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Owner invoice updates live"
+text = "The portal invoice page updates its balance and status in place within one re-read of a change and announces each change once, with nothing announced on first load or on an unchanged re-read."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-portal"
+tests = [
+    "test_app.py::test_owner_invoice_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Owners see the house, not staff"
+text = "Every response and portal page an owner receives shows staff actors only as the house and carries no Kill Bill invoice id, Kill Bill payment id or transfer recorder, while staff responses keep the real actors."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-portal"
+tests = [
+    "test_app.py::test_owner_projection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Sign-in returns to the linked page"
+text = "A page opened without a session sends the user to sign-in with its address as the return address, sign-in returns there when it is a single-slash path to an app page, and any other return address sends the user to their role's home."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-portal"
+tests = [
+    "test_app.py::test_wf_owner_portal_return_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Cross-system effects land together and in order"
+text = "Bay billing for a car stored and released during a Kill Bill outage reaches Kill Bill as account, subscription, first invoice and then cancellation ending at the paid-through date, a refused completion queues nothing, and concurrent completions or condition-report uploads yield exactly one effect."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_cross_system_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Stale balances say so"
+text = "Wherever Kill Bill did not answer for an invoice, the board, portal invoice and job ledger show its balance with the date it was last confirmed, and every read that reaches Kill Bill updates that stored balance."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_stale_balances",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "A refusal stays on screen"
+text = "An error result stays in its status region, with focus on the pressed control while it exists, until the user's next action on that screen, and re-reads and service-notice checks never clear or repeat it."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_refusal_stays",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Car search shows the latest input"
+text = "Search cars filters the Cars table as the concierge types, and an earlier query's late answer never replaces the results or announcement for the latest input."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake"
+tests = [
+    "test_app.py::test_wf_intake_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Expired session resumes in place"
+text = "A session ends at its fixed lifetime whatever the re-reads, and an open screen that meets the expiry opens Sign in again in place, keeps every open dialog and value, and after sign-in resends an interrupted idempotent action once with the same key and body while other interrupted actions are not resent, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "care-round"
+tests = [
+    "test_app.py::test_wf_care_round_session_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Estimate answers reach the job page live"
+text = "The workshop lead's job page and Jobs table pick up an owner's approval or decline or an expiry within one re-read, update the label and legal buttons in place, and announce the change once on the job page while focus and scroll stay put."
+kind = "behavior"
+primary = "pytest"
+workflow = "estimate-approval"
+tests = [
+    "test_app.py::test_estimate_answers_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Decline dialog survives expiry"
+text = "An owner's open Decline estimate dialog stays open with its focus when a re-read finds the estimate expired, and pressing Decline then answers estimate_expired, closes the dialog, focuses the Job ledger heading and keeps the error copy across re-reads."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-portal"
+tests = [
+    "test_app.py::test_decline_dialog_survives_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Zurich dates everywhere"
+text = "Every date and slot label on every screen and email is the Zurich calendar date or time whatever the device time zone, Kill Bill dates show exactly the day Kill Bill returns, and owner accounts in Kill Bill use the Europe/Zurich time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "bay-billing"
+tests = [
+    "test_app.py::test_zurich_dates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Revoke asks first, by keyboard"
+text = "Revoking access asks for confirmation in an alert dialog that opens on Keep access, wraps Tab and Shift+Tab, closes on Escape with focus back on the opener, and after a revoke moves focus to that row's Restore access button."
+kind = "behavior"
+primary = "pytest"
+workflow = "house-manager"
+tests = [
+    "test_app.py::test_wf_house_manager_revoke_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Abandoned uploads leave nothing behind"
+text = "A condition-report upload claims its stay as it starts, so a second upload during the stream answers report_already_signed within 1 second, and an upload cut off by the client leaves no object, incomplete multipart upload, claim, record, lock or busy database session within 5 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_abandoned_uploads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Contrast and not tint alone"
+text = "On the board, Staff access and the Record bank transfer dialog at every published viewport, text meets 4.5:1 (3:1 when large), every bay, panel and control outline and the focus indicator meet 3:1 against the ground, and occupied versus free bays and hold or unpaid states are told apart by text and pattern, never by tint alone."
+kind = "visual"
+primary = "pytest"
+workflow = "house-manager"
+tests = [
+    "test_app.py::test_contrast_not_tint",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Owner pages keep the published breakpoints"
+text = "My cars shows its cards one, two and three to a row below 768, from 768 and from 1200 pixels wide in the published order, and the portal job page follows the staff job page's pane rule, with no horizontal scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-portal"
+tests = [
+    "test_app.py::test_owner_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "w1199",
+    "w1200",
+    "laptop",
+]
+
+[[requirements]]
+id = "DP-74"
+title = "My cars shows a release live"
+text = "An owner's open My cars page shows a car released elsewhere as Released with Kill Bill's billing end date in place within one re-read after Kill Bill confirms, announces it once in Car updates, and keeps focus and scroll, as qualified by the re-read schedule in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "bay-billing"
+tests = [
+    "test_app.py::test_wf_bay_billing_my_cars_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Paint stages land one at a time"
+text = "Log stage, Add reading and Mark finished on one job run one at a time across every app process, so of concurrent logs of one stage exactly one succeeds, stages in stage order never have decreasing log times, and a finished job never gains a stage or reading."
+kind = "behavior"
+primary = "pytest"
+workflow = "paint-stages"
+tests = [
+    "test_app.py::test_wf_paint_stages_concurrent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Round entry outlives its car"
+text = "When a care-round re-read removes a car, that car's open round-entry dialog keeps its values and focus, and Save entry then answers car_not_stored, closes the dialog, focuses the Care round heading and keeps the error copy across re-reads with no entry recorded."
+kind = "behavior"
+primary = "pytest"
+workflow = "care-round"
+tests = [
+    "test_app.py::test_round_entry_outlives_car",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "One car, one change at a time"
+text = "Belongings movements, bay assignments and release completion for one car run one at a time across every app process, so a movement after a completion answers car_released, and of a racing completion and check-in either the completion answers belongings_checked_in or it succeeds and the check-in answers car_released, never leaving a released car with an item checked in."
+kind = "behavior"
+primary = "pytest"
+workflow = "release"
+tests = [
+    "test_app.py::test_wf_release_one_car_one_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Car search lives in the address"
+text = "Search cars keeps its settled text in the Bays address by replacing the current history entry, so a reload or shared link shows the same filtered table without an announcement, and an earlier query's late answer never writes the address, table or announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake"
+tests = [
+    "test_app.py::test_search_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Estimate edits refuse lost updates"
+text = "Every job carries a version that rises on every stored change, estimate edits and sends must name the version they were made from, a stale version answers 412 estimate_changed with the job unchanged and no email, and the open Estimate dialog keeps its values on that answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "estimate-approval"
+tests = [
+    "test_app.py::test_wf_estimate_approval_stale_edit",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\", and those commands alone install, build and serve the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and every bundled font, each with its licence."
+tests = [
+    "test_app.py::test_if_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and every bundled font is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0, CC0-1.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastore other than the provided Postgres, MinIO, Kill Bill and Mailpit: no SQLite, Redis, embedded databases, in-process caches standing in for shared state, or data files used as storage."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "All server and browser source you write is TypeScript, and the type check passes with no errors."
+tests = [
+    "test_app.py::test_if_typescript",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Fonts, scripts, styles and images are served from the app's own origin; the browser loads nothing from a third-party host."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The provided service definitions and their dev credentials are left unchanged; the app adapts to them through the environment."
+tests = [
+    "test_app.py::test_if_provided_services",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "intake"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-65",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_intake_happy",
+    "test_app.py::test_wf_intake_search",
+    "test_app.py::test_search_address",
+    "test_app.py::test_bay_picker_keyboard_touch",
+    "test_app.py::test_condition_report_bytes",
+]
+checkpoints = [
+    "B3",
+    "B6",
+]
+
+[[workflows]]
+id = "care-round"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-66",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_wf_care_round_phone",
+    "test_app.py::test_wf_care_round_lost_answer",
+    "test_app.py::test_wf_care_round_session_expiry",
+    "test_app.py::test_wf_care_round_rows_move",
+    "test_app.py::test_collapsed_menu",
+    "test_app.py::test_startup_status_server",
+]
+
+[[workflows]]
+id = "estimate-approval"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-67",
+    "DP-79",
+]
+critical = [
+    "test_app.py::test_wf_estimate_approval_happy",
+    "test_app.py::test_wf_estimate_approval_stale_edit",
+    "test_app.py::test_estimate_answers_live",
+]
+
+[[workflows]]
+id = "paint-stages"
+requirements = [
+    "DP-16",
+    "DP-20",
+    "DP-21",
+    "DP-75",
+]
+critical = [
+    "test_app.py::test_wf_paint_stages_keyboard",
+    "test_app.py::test_wf_paint_stages_concurrent",
+]
+checkpoints = [
+    "B5",
+    "B12",
+]
+
+[[workflows]]
+id = "coat-stack"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_coat_stack_shared_link",
+    "test_app.py::test_wf_coat_stack_reduced_motion",
+    "test_app.py::test_panel_map_scrubber_keyboard_touch",
+]
+checkpoints = [
+    "B8",
+    "B9",
+    "B11",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "invoicing"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-48",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_wf_invoicing_partial_payments",
+    "test_app.py::test_wf_invoicing_refund_reopens",
+    "test_app.py::test_invoice_money",
+    "test_app.py::test_one_invoice_per_job",
+    "test_app.py::test_invoice_balance_from_killbill",
+    "test_app.py::test_transfer_dialog_outlives_row",
+]
+
+[[workflows]]
+id = "release"
+requirements = [
+    "DP-12",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-47",
+    "DP-50",
+    "DP-77",
+]
+critical = [
+    "test_app.py::test_wf_release_held_journey",
+    "test_app.py::test_wf_release_one_car_one_change",
+    "test_app.py::test_release_notice",
+    "test_app.py::test_release_status_live",
+    "test_app.py::test_release_all_or_nothing",
+]
+
+[[workflows]]
+id = "owner-portal"
+requirements = [
+    "DP-03",
+    "DP-29",
+    "DP-30",
+    "DP-59",
+    "DP-60",
+    "DP-61",
+    "DP-68",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_owner_portal_invoice_live",
+    "test_app.py::test_owner_invoice_announcements",
+    "test_app.py::test_wf_owner_portal_return_address",
+    "test_app.py::test_owner_isolation",
+    "test_app.py::test_owner_projection",
+    "test_app.py::test_decline_dialog_survives_expiry",
+    "test_app.py::test_owner_breakpoints",
+]
+
+[[workflows]]
+id = "bay-billing"
+requirements = [
+    "DP-24",
+    "DP-49",
+    "DP-69",
+    "DP-74",
+]
+critical = [
+    "test_app.py::test_wf_bay_billing_subscription",
+    "test_app.py::test_wf_bay_billing_my_cars_release",
+    "test_app.py::test_zurich_dates",
+    "test_app.py::test_reread_keeps_dialog",
+]
+
+[[workflows]]
+id = "house-manager"
+requirements = [
+    "DP-31",
+    "DP-52",
+    "DP-70",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_house_manager_board",
+    "test_app.py::test_wf_house_manager_revoke_keyboard",
+    "test_app.py::test_revoked_sessions",
+    "test_app.py::test_contrast_not_tint",
+]
+checkpoints = [
+    "B1",
+    "B2",
+]
+
+[[workflows]]
+id = "outages"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-51",
+    "DP-62",
+    "DP-63",
+    "DP-64",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_wf_outages_recovery",
+    "test_app.py::test_wf_outages_no_false_success",
+    "test_app.py::test_outage_notices",
+    "test_app.py::test_cross_system_order",
+    "test_app.py::test_abandoned_uploads",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-04",
+    "DP-32",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_roles",
+    "test_app.py::test_wf_cross_cutting_error_order",
+]
+checkpoints = [
+    "B4",
+    "B7",
+]

@@ -1,0 +1,1 @@
+"""Northpier inquiry desk package."""

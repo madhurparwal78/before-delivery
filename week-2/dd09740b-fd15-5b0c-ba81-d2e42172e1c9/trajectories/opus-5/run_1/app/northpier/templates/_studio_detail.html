@@ -1,0 +1,97 @@
+{% from "macros.html" import pill %}
+<section class="detail" data-detail data-inquiry="{{ inquiry.id }}" data-version="{{ inquiry.version }}">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="/studio?{{ studio_query_string(tab, query) }}" data-breadcrumb-back>Inquiries</a>
+    <span class="breadcrumb-sep">/</span>
+    <span>{{ inquiry.reference }}</span>
+  </nav>
+
+  <p class="detail-ref">{{ inquiry.reference }} · {{ format_date(inquiry.row.created_at) }}</p>
+  <h1 class="display detail-name">{{ inquiry.name }}</h1>
+
+  <dl class="detail-fields">
+    {% if inquiry.company %}
+    <dt>Company</dt><dd>{{ inquiry.company }}</dd>
+    {% endif %}
+    <dt>Email</dt><dd><a href="mailto:{{ inquiry.email }}">{{ inquiry.email }}</a></dd>
+    <dt>Services</dt>
+    <dd>{% for value in inquiry.services %}{{ service_labels[value] }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>
+    <dt>Budget</dt><dd>{{ budget_labels[inquiry.budget] }}</dd>
+    <dt>Timeline</dt><dd>{{ timeline_labels[inquiry.timeline] }}</dd>
+  </dl>
+  <p class="detail-message">{{ inquiry.message }}</p>
+
+  <div class="status-block" data-status-block>
+    <h2 class="status-heading" tabindex="-1" data-status-heading>{{ pill(inquiry.status, status_labels) }}</h2>
+    <p class="detail-call" data-call-time {% if not inquiry.row.call_at %}hidden{% endif %}>
+      {%- if inquiry.row.call_at %}Call {{ format_call_time(inquiry.row.call_at) }} Stockholm time{% endif -%}
+    </p>
+    {% if inquiry.decline_reason %}
+    <p class="detail-reason" data-decline-reason>Reason: {{ reason_labels[inquiry.decline_reason] }}</p>
+    {% endif %}
+
+    <p class="action-alert" role="alert" data-action-alert hidden></p>
+
+    <div class="actions" data-actions>
+      {% for action in inquiry.actions %}
+      <button type="button" class="btn-solid action-button" data-action="{{ action }}">{{ action_labels[action] }}</button>
+      {% endfor %}
+    </div>
+
+    {% set call_action = 'reschedule_call' if 'reschedule_call' in inquiry.actions else 'book_call' %}
+    <div class="panel-inline" role="group" aria-label="{{ action_labels[call_action] }}"
+         data-panel="{{ call_action }}" hidden>
+      <span class="field-head"><label for="call-at">Call time</label></span>
+      <input class="input" id="call-at" type="datetime-local" step="900" data-call-input>
+      <p class="hint" id="call-hint-hours">Weekdays 09:00 to 17:00 Stockholm time, on the quarter hour. Calls last 45 minutes.</p>
+      <p class="hint" id="call-hint-closed">Closed on Swedish public holidays and the eves of Midsummer, Christmas and New Year.</p>
+      <p class="field-error" id="call-error" data-call-error hidden></p>
+      <button type="button" class="btn-solid" data-confirm="{{ call_action }}">Confirm</button>
+    </div>
+
+    {% if user.role == 'lead' %}
+    <div class="panel-inline" role="group" aria-label="Decline" data-panel="decline" hidden>
+      <span class="field-head"><label for="decline-reason">Reason</label></span>
+      <select class="input" id="decline-reason" data-reason-input>
+        <option value="">Choose a reason</option>
+        {% for value, label in reason_labels.items() %}
+        <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+      <p class="field-error" id="reason-error" data-reason-error hidden></p>
+      <button type="button" class="btn-solid" data-confirm="decline">Confirm decline</button>
+    </div>
+    {% endif %}
+
+    <p class="send-status" role="status" aria-label="Action status" data-action-status></p>
+  </div>
+
+  <div class="notes-block">
+    <h2 class="block-head">Add a note</h2>
+    <textarea class="input note-input" id="note-body" rows="3" aria-label="Add a note" data-note-input></textarea>
+    <button type="button" class="btn-solid" data-add-note>Add note</button>
+    <p class="field-error" id="note-error" data-note-error hidden></p>
+    <p class="send-status" role="status" aria-label="Note status" data-note-status></p>
+    <ul class="notes" aria-label="Notes" data-notes>
+      {% for note in inquiry.notes %}
+      <li class="note">
+        <p class="note-meta">{{ note.author_name }} · {{ format_date_time(note.created_at) }}</p>
+        <p class="note-body">{{ note.body }}</p>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="history-block">
+    <h2 class="block-head">History</h2>
+    <ol class="history" aria-label="History" data-detail-history>
+      {% for item in inquiry.history %}
+      <li class="history-item">
+        <span class="history-status">{{ action_labels[item.action] if item.action else 'Inquiry sent' }}</span>
+        <span class="history-when">{{ format_date_time(item.created_at) }}</span>
+        <span class="history-actor">{{ item.actor_name or 'Visitor' }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+</section>

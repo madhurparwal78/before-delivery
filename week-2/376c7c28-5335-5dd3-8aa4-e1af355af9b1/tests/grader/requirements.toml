@@ -1,0 +1,1125 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 53
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "cross-cutting",
+    "join-and-log",
+    "piece-passport",
+    "intake-desk",
+    "load-planning",
+    "unload-billing",
+    "service-outages",
+    "member-credit",
+    "rate-changes",
+    "owner-reports",
+    "pickup",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 84
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "killbill", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Kiln Desk <desk@kilndesk.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 5
+B4 = 5
+B5 = 5
+B6 = 5
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 1
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-timers"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+BILLING_RETRY_SECONDS = "2"
+REMINDER_SWEEP_SECONDS = "2"
+SIGNIN_LOCK_SECONDS = "20"
+INVITE_TTL_SECONDS = "20"
+SESSION_TTL_SECONDS = "600"
+
+[[outages]]
+id = "slow-billing"
+port = 4177
+url_env = "APP_SLOW_BILLING_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:18091"
+DATABASE_URL = "${DATABASE_URL}_slow"
+S3_BUCKET = "${S3_BUCKET}-slow"
+BILLING_RETRY_SECONDS = "2"
+REMINDER_SWEEP_SECONDS = "2"
+
+[[outages]]
+id = "switchable-billing"
+port = 4178
+url_env = "APP_SWITCHABLE_BILLING_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:18092"
+DATABASE_URL = "${DATABASE_URL}_switch"
+S3_BUCKET = "${S3_BUCKET}-switch"
+BILLING_RETRY_SECONDS = "2"
+REMINDER_SWEEP_SECONDS = "2"
+
+[[outages]]
+id = "pickup-due"
+port = 4179
+url_env = "APP_PICKUP_DUE_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_pickup"
+S3_BUCKET = "${S3_BUCKET}-pickup"
+APP_CLOCK_START = "2026-11-14T02:59:00Z"
+BILLING_RETRY_SECONDS = "2"
+REMINDER_SWEEP_SECONDS = "2"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health check"
+text = "/app/run.json installs, builds and serves the app on the configured port, and the health path answers as stated in Deployment."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Studio sign-in"
+text = "People sign in with studio, email and password and get a session cookie scoped to that studio and role, with the sign-in throttle, inactive accounts, and sign-out or deactivation reaching every open tab, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_signin_session_and_signout",
+    "test_app.py::test_signin_throttle",
+    "test_app.py::test_wf_cross_cutting_signin",
+    "test_app.py::test_wf_cross_cutting_session_end",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "One error shape and order"
+text = "Every API error uses the single error body and the single precedence order defined at the top of API, and malformed, unknown or foreign ids and month segments answer 404 as stated there."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_precedence_and_path_ids",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Server boundary"
+text = "The server enforces the same-origin, content-type and size limits in Server boundary, never serves source or credentials, and starts and stays healthy with Kill Bill or MinIO unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_boot_with_services_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Secrets from the environment"
+text = "Every service URL and credential is read from the environment variables in Configuration and secrets and never appears in source or browser code."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Three-viewport layout"
+text = "Every screen fits 375x812, 768x1024 and 1280x800 without horizontal page scrolling, arranged as described in Screens and layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_layout_three_viewports",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Workshop look"
+text = "Screens follow Visual design: near-black ground, one kiln-orange accent, condensed uppercase headings, mono figures with units, and flat panels split by hairlines."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Announced feedback"
+text = "Every async action shows and announces its pending, success, field error, error and outage copy in its named live region exactly as listed in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_feedback_pending_and_field_errors",
+    "test_app.py::test_wf_member_credit_owner_desk",
+    "test_app.py::test_wf_owner_reports_close_export",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Reduced motion"
+text = "With reduced motion requested, the planner and all figures change straight to their final values with no counting or springs, and refusals are still shown and announced."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_planner_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Invitations"
+text = "The studio owner invites a kiln tech or member by email; of all invites issued to one email, only the latest join link stays valid; racing accepts create exactly one person per token and per handle; and an inactive member's email cannot be invited, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-and-log"
+tests = [
+    "test_app.py::test_invites_latest_link_and_races",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Joining a studio"
+text = "An invitee opens the emailed link, chooses a name, handle and password and lands signed in on their role's home."
+kind = "behavior"
+primary = "workflow"
+workflow = "join-and-log"
+tests = [
+    "test_app.py::test_wf_join_and_log_invalid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Exact fee quote"
+text = "The quote for a set of dimensions follows the published rounding and rate rule in Business rules to the cent, for both bisque and glaze."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-and-log"
+tests = [
+    "test_app.py::test_quote_exact",
+]
+criteria = []
+parameter_cases = [
+    "published-example",
+    "tall-vase",
+    "breakfast-bowl",
+    "mug",
+    "drop-off-platter",
+]
+
+[[requirements]]
+id = "DP-13"
+title = "Logging a piece"
+text = "A member logs a piece with title, clay body and dimensions, and the piece keeps the quote it received at logging for all its charges."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-and-log"
+tests = [
+    "test_app.py::test_log_piece_frozen_quote",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Intake photo checks"
+text = "A photo upload is accepted only as a JPEG, PNG or WebP within the size limit, judged by its content, and stored under a key the server chooses, and a piece keeps exactly one stored photo object."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-and-log"
+tests = [
+    "test_app.py::test_photo_upload_checks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Member logs a piece"
+text = "In the browser a member fills the log form, watches the quote update, attaches a photo and sees the new piece in My pieces."
+kind = "behavior"
+primary = "workflow"
+workflow = "join-and-log"
+tests = [
+    "test_app.py::test_wf_join_and_log_happy",
+    "test_app.py::test_passport_history_studio_dates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Piece passport"
+text = "The passport shows a piece's photo, dimensions, quote, status history, current location, outcomes, charges with their labels and pickup deadline, and an open passport follows staff actions without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "piece-passport"
+tests = [
+    "test_app.py::test_wf_piece_passport_follow",
+    "test_app.py::test_wf_piece_passport_charges",
+    "test_app.py::test_wf_piece_passport_collect",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Private pieces and photos"
+text = "A member reaches only their own pieces' passports, photos and live updates, and any other member's or studio's piece id answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "piece-passport"
+tests = [
+    "test_app.py::test_piece_privacy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Intake check-in"
+text = "Staff move a logged piece with a photo onto the bisque rack and a bisqued piece onto the glaze rack; every other move, and the check-in of an inactive member's logged piece, is refused; racing check-ins and photo uploads resolve as stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake-desk"
+tests = [
+    "test_app.py::test_checkin_rules_and_races",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Waiting-piece tickets"
+text = "Staff piece listings return only the published ticket fields, never a member's email, balance or card status."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake-desk"
+tests = [
+    "test_app.py::test_ticket_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Tech checks in pieces"
+text = "On the Intake screen a kiln tech checks in a logged piece and sees it leave the logged list and appear on the planner rail, and other techs' open Intake and Planner screens follow."
+kind = "behavior"
+primary = "workflow"
+workflow = "intake-desk"
+tests = [
+    "test_app.py::test_wf_intake_desk_checkin",
+    "test_app.py::test_wf_intake_desk_refusal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Loads"
+text = "Each load's deck post heights, headroom, footprint and value are recomputed by the server from piece dimensions and quotes after every placement, move and removal, and no request can set them."
+kind = "behavior"
+primary = "pytest"
+workflow = "load-planning"
+tests = [
+    "test_app.py::test_load_figures_server_derived",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Placement limits"
+text = "A placement that would push headroom below zero or a deck's footprint past the limit is refused with its reason, and nothing changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "load-planning"
+tests = [
+    "test_app.py::test_placement_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "One open load per piece"
+text = "A piece sits in at most one open load, of simultaneous placements of one piece exactly one succeeds, and changes to one load apply one after another."
+kind = "behavior"
+primary = "pytest"
+workflow = "load-planning"
+tests = [
+    "test_app.py::test_one_open_load_per_piece",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Stack elevation planner"
+text = "Dropping a ticket on a deck animates the silhouette, shelf lines and figures as described in Motion and effects, a reload shows the same load, and another tech's open planner follows."
+kind = "behavior"
+primary = "pytest"
+workflow = "load-planning"
+tests = [
+    "test_app.py::test_planner_placement_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Keyboard placement"
+text = "A kiln tech builds a load with the keyboard alone through the Place piece and Move piece dialogs, which use the same requests and rules as dragging."
+kind = "behavior"
+primary = "pytest"
+workflow = "load-planning"
+tests = [
+    "test_app.py::test_wf_load_planning_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Tech builds a load"
+text = "In the planner a tech creates a load, places pieces on decks, sees a refused drop spring back, and marks the load loaded."
+kind = "behavior"
+primary = "workflow"
+workflow = "load-planning"
+tests = [
+    "test_app.py::test_wf_load_planning_drag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Load states"
+text = "Loads move only along the legal edges in Business rules, a kiln holds one active load at a time, and cancelling releases every piece the load holds even when placements race the cancel."
+kind = "behavior"
+primary = "pytest"
+workflow = "load-planning"
+tests = [
+    "test_app.py::test_load_state_edges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Unload outcomes"
+text = "Unloading a cooling load records one outcome per piece and moves each piece to its next state."
+kind = "behavior"
+primary = "pytest"
+workflow = "unload-billing"
+tests = [
+    "test_app.py::test_unload_outcomes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Charges at unload"
+text = "Each charge, for a firing fee or a storage day, gets exactly one Kill Bill purchase, one ledger pair and one receipt email together, funded from credit first and then by card as chosen when its billing is first requested, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "unload-billing"
+tests = [
+    "test_app.py::test_unload_charges_funding_and_receipts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Unload replay safety"
+text = "Repeating an unload with the same idempotency key returns the first response and charges nothing more, and a changed body under that key is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "unload-billing"
+tests = [
+    "test_app.py::test_unload_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Tech unloads a firing"
+text = "In the planner a tech takes a load through firing and cooling and unloads it with outcomes, members receive their receipts, and a member's open Credit screen follows each settlement."
+kind = "behavior"
+primary = "workflow"
+workflow = "unload-billing"
+tests = [
+    "test_app.py::test_wf_unload_billing_happy",
+    "test_app.py::test_wf_unload_billing_double_tap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Billing outage at unload"
+text = "With Kill Bill unreachable, slow or failing part-way, unload still succeeds with charges pending, and pending charges settle by themselves once billing answers, each once and in order, without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "service-outages"
+tests = [
+    "test_app.py::test_billing_down_settles_once_across_instances",
+    "test_app.py::test_slow_billing_unload",
+    "test_app.py::test_wf_service_outages_billing_down",
+    "test_app.py::test_pending_charge_settles_before_newer_unload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Photo storage outage"
+text = "With MinIO unreachable, piece logging still works, photo upload and photo reads answer the storage outage, and the passport shows a placeholder."
+kind = "behavior"
+primary = "pytest"
+workflow = "service-outages"
+tests = [
+    "test_app.py::test_photo_storage_outage",
+    "test_app.py::test_wf_service_outages_photo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Credit packs"
+text = "A member with a card on file buys a credit pack once per idempotency key and at most three per studio day, counting purchases billing has not yet confirmed or ruled out, each recorded as a Kill Bill purchase and a ledger pair, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "member-credit"
+tests = [
+    "test_app.py::test_credit_pack_rules_and_daily_limit",
+    "test_app.py::test_credit_pack_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Paired ledger"
+text = "Every credit movement posts exactly two opposite entries, one member's movements apply one after another, and the displayed balance always equals the sum of the member's credit entries."
+kind = "behavior"
+primary = "pytest"
+workflow = "member-credit"
+tests = [
+    "test_app.py::test_paired_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Refunds and adjustments"
+text = "The studio owner refunds a settled charge or posts a credit adjustment, each recorded as a new reversing ledger pair and never as an edit, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "member-credit"
+tests = [
+    "test_app.py::test_ledger_refund_and_adjustment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Member buys credit"
+text = "On the Credit screen a member buys a pack, confirms it in a dialog and sees the new balance and ledger rows."
+kind = "behavior"
+primary = "workflow"
+workflow = "member-credit"
+tests = [
+    "test_app.py::test_wf_member_credit_buy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Effective-dated rates"
+text = "A new rate schedule applies to quotes from the first instant of its studio-local start date, at most one schedule starts on any date, pieces quoted earlier keep their rates on every surface, and a changed storage fee applies only to studio days that begin after the change."
+kind = "behavior"
+primary = "pytest"
+workflow = "rate-changes"
+tests = [
+    "test_app.py::test_rate_schedule_effective_dates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Owner-only actions"
+text = "Changing rates, refunds, adjustments, pickup and storage policy, invites, deactivation, marking uncollected, month close and owner reports are refused with 403 for kiln techs and members."
+kind = "behavior"
+primary = "pytest"
+workflow = "rate-changes"
+tests = [
+    "test_app.py::test_owner_only_actions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Owner schedules a rate change"
+text = "On the Rates screen the owner schedules new rates and sees the schedule listed with its start date."
+kind = "behavior"
+primary = "workflow"
+workflow = "rate-changes"
+tests = [
+    "test_app.py::test_wf_rate_changes_schedule",
+    "test_app.py::test_wf_rate_changes_invalid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Backlog dashboard"
+text = "The owner's dashboard shows counts by piece state, the longest-waiting pieces with days waiting, pending charges and this month's revenue, and follows changes without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "owner-reports"
+tests = [
+    "test_app.py::test_wf_owner_reports_dashboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Revenue and statement export"
+text = "Monthly revenue and the statement CSV cover one studio-local month, and any cell that could run as a formula comes out as inert text."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-reports"
+tests = [
+    "test_app.py::test_statement_csv_and_revenue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Studio-scoped search and totals"
+text = "Member search, dashboard counts, revenue, statements and the firing log include only the owner's own studio."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-reports"
+tests = [
+    "test_app.py::test_reports_scoped",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Daily firing log"
+text = "The firing log lists loads unloaded within one studio-local calendar day, cut at the first instant of the studio's day."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-reports"
+tests = [
+    "test_app.py::test_firing_log_day",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Pickup and collection"
+text = "A glaze unload sets each piece's pickup deadline in studio days and sends the ready-for-pickup email and one reminder, and staff record collection or the owner marks a piece uncollected, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "pickup"
+tests = [
+    "test_app.py::test_pickup_deadline_reminder_and_collection",
+    "test_app.py::test_wf_pickup_not_due",
+    "test_app.py::test_wf_pickup_history_dates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Live updates"
+text = "Every open signed-in screen follows changes made by any other request within the bound in Business rules, without a reload, and receives only changes its viewer may read."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_live_updates_bound_and_scope",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Several instances"
+text = "Several app instances may serve one database and bucket at once, and each pending charge, storage day and due reminder is still acted on exactly once."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_several_instances_act_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Studio days at awkward midnights"
+text = "Every studio-local day starts at the studio's local midnight, or at the first instant after it when that midnight does not exist, as stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_studio_days",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Late pickup storage fee"
+text = "A piece still ready for pickup after its deadline day accrues one storage charge per further studio day, up to 10 days, each charged exactly once across instances and billing outages, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "pickup"
+tests = [
+    "test_app.py::test_storage_fee_charges",
+    "test_app.py::test_wf_pickup_storage_label",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Month close"
+text = "The owner closes a studio month once it has ended, after which its statement CSV is byte-identical on every download and its revenue never changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-reports"
+tests = [
+    "test_app.py::test_month_close",
+    "test_app.py::test_wf_owner_reports_month_close_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Member deactivation"
+text = "Deactivating a member ends their sessions and refuses their sign-in, invites, unchecked pieces and pack purchases, while loaded pieces and charges run on as normal, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "member-credit"
+tests = [
+    "test_app.py::test_deactivation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Moving between decks"
+text = "A placed piece moves to another deck of its load in one request that is checked like a placement, by drag or by keyboard, and a refused move changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "load-planning"
+tests = [
+    "test_app.py::test_moves_between_decks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Late billing answers on money paths"
+text = "A pack purchase or refund whose billing call gets no answer in time answers 202 as pending and completes exactly once by itself, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "service-outages"
+tests = [
+    "test_app.py::test_slow_billing_pack_and_refund",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve and \"_schema\":\"run-manifest-v1\", and serving needs no other manual step."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package and every bundled font with its licence; shipped packages means the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the production dependency tree from npm ls --omit=dev --all --json) is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0 or 0BSD, and bundled fonts are under OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "State lives only in Postgres and MinIO: no SQLite, Redis, JSON files, in-process stores shared between requests as the source of truth, or other datastores."
+tests = [
+    "test_app.py::test_if_state_only_postgres_minio",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service definitions and their dev credentials are left unchanged."
+tests = [
+    "test_app.py::test_if_service_definitions_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Every file under /app/src/, and every build or setup script the run manifest executes directly or through an npm script, is TypeScript (.ts, .tsx, .mts or .cts); plain JavaScript appears only in generated build output and in configuration files a tool reads itself."
+tests = [
+    "test_app.py::test_if_typescript_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The browser loads every font, script and style from the app's own origin."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_signin",
+    "test_app.py::test_wf_cross_cutting_session_end",
+]
+
+[[workflows]]
+id = "join-and-log"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_join_and_log_happy",
+    "test_app.py::test_photo_upload_checks",
+    "test_app.py::test_quote_exact",
+    "test_app.py::test_passport_history_studio_dates",
+]
+checkpoints = [
+    "B2",
+]
+
+[[workflows]]
+id = "piece-passport"
+requirements = [
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_piece_passport_follow",
+    "test_app.py::test_piece_privacy",
+    "test_app.py::test_wf_piece_passport_collect",
+]
+checkpoints = [
+    "B4",
+    "B10",
+]
+
+[[workflows]]
+id = "intake-desk"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_intake_desk_checkin",
+    "test_app.py::test_ticket_fields",
+    "test_app.py::test_checkin_rules_and_races",
+]
+
+[[workflows]]
+id = "load-planning"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_load_planning_drag",
+    "test_app.py::test_wf_load_planning_keyboard",
+    "test_app.py::test_one_open_load_per_piece",
+]
+checkpoints = [
+    "B6",
+    "B7",
+]
+critical_checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "unload-billing"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_unload_billing_happy",
+    "test_app.py::test_unload_replay",
+    "test_app.py::test_unload_charges_funding_and_receipts",
+]
+
+[[workflows]]
+id = "service-outages"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_service_outages_billing_down",
+    "test_app.py::test_billing_down_settles_once_across_instances",
+    "test_app.py::test_slow_billing_pack_and_refund",
+    "test_app.py::test_pending_charge_settles_before_newer_unload",
+]
+
+[[workflows]]
+id = "member-credit"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_member_credit_buy",
+    "test_app.py::test_paired_ledger",
+    "test_app.py::test_ledger_refund_and_adjustment",
+]
+checkpoints = [
+    "B8",
+    "B9",
+]
+
+[[workflows]]
+id = "rate-changes"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+]
+critical = [
+    "test_app.py::test_wf_rate_changes_schedule",
+    "test_app.py::test_rate_schedule_effective_dates",
+    "test_app.py::test_owner_only_actions",
+]
+
+[[workflows]]
+id = "owner-reports"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_owner_reports_dashboard",
+    "test_app.py::test_reports_scoped",
+    "test_app.py::test_statement_csv_and_revenue",
+    "test_app.py::test_wf_owner_reports_month_close_ui",
+]
+checkpoints = [
+    "B11",
+    "B12",
+]
+
+[[workflows]]
+id = "pickup"
+requirements = [
+    "DP-45",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_wf_pickup_not_due",
+    "test_app.py::test_pickup_deadline_reminder_and_collection",
+    "test_app.py::test_storage_fee_charges",
+    "test_app.py::test_wf_pickup_history_dates",
+]

@@ -1,0 +1,1564 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 84
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "application-intake",
+    "reviewer-decision",
+    "reviewer-access",
+    "concurrency",
+    "public-reads",
+    "browse-lists",
+    "experience",
+    "accessibility",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 82
+services = [
+    { name = "postgres", env = {} },
+    { name = "keycloak", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Relayo Partnerships <partners@relayo.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 5
+B11 = 3
+B12 = 1
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "mailpit-down"
+port = 4174
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "short-windows"
+port = 4175
+url_env = "APP_SHORT_WINDOWS_URL"
+
+[outages.env]
+IDEMPOTENCY_KEY_TTL_SECONDS = "6"
+LOGIN_FAILURE_WINDOW_SECONDS = "8"
+
+[[requirements]]
+id = "DP-01"
+title = "Health route"
+text = "GET /api/health answers 200 with {\"status\":\"ok\"} once the schema, the seeded corpus and the seeded auth accounts are in place, and 503 before that."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Application saved pending"
+text = "A valid POST /api/partner-applications writes one partner_applications row with status pending and answers 201 with the body given under API."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-intake"
+tests = [
+    "test_app.py::test_create_application_saved_pending",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Server-side validation"
+text = "An application with a missing, over-long, unsupported-character or malformed field is refused with 422 and the validation envelope, which gives every failing field its one message by the published priority, echoes every sent value as sent, and writes no row."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-intake"
+tests = [
+    "test_app.py::test_server_side_validation",
+]
+criteria = []
+parameter_cases = [
+    "missing_first_name",
+    "blank_last_name",
+    "over_long_company",
+    "malformed_email",
+    "malformed_website",
+    "unknown_option",
+    "repeated_market",
+    "consent_false",
+    "limit_before_unsupported",
+    "several_fields",
+]
+
+[[requirements]]
+id = "DP-04"
+title = "Thirteen-field form"
+text = "/partner-program carries the thirteen labelled application fields in the published order with exactly the option lists given under Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "experience"
+tests = [
+    "test_app.py::test_thirteen_field_form",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Confirmation ending"
+text = "Submitting a complete application on /partner-program replaces the form with the Application received panel that thanks the company by name."
+kind = "behavior"
+primary = "workflow"
+workflow = "experience"
+tests = [
+    "test_app.py::test_wf_experience_application_received",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Errors explained in place"
+text = "Submitting the page form with failing fields shows an announced message beside each failing field, linked to it, and keeps every value already typed, including over-long or unsupported text."
+kind = "behavior"
+primary = "pytest"
+workflow = "experience"
+tests = [
+    "test_app.py::test_errors_explained_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Reviewer sign in"
+text = "POST /api/auth/login with a seeded account and the seeded password answers 200 with the auth service's access token at access_token, and a wrong password answers 401, as qualified by the sign-in failure limit under Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-access"
+tests = [
+    "test_app.py::test_reviewer_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Queue refuses anonymous callers"
+text = "GET /api/review/partner-applications with no bearer token, a malformed one, an expired one or a forged one answers 401 with the WWW-Authenticate: Bearer header."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-access"
+tests = [
+    "test_app.py::test_queue_refuses_anonymous",
+]
+criteria = []
+parameter_cases = [
+    "missing",
+    "malformed",
+    "expired",
+    "forged",
+]
+
+[[requirements]]
+id = "DP-09"
+title = "Decision refuses non-reviewers"
+text = "A decision request without a token answers 401 and one from a signed-in Analyst answers 403, each leaving the application pending and recording no email."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-access"
+tests = [
+    "test_app.py::test_decision_refuses_non_reviewers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Queue status filter"
+text = "A Reviewer reading the queue with status=pending, approved or rejected receives exactly the applications in that status, in the chosen queue order."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-decision"
+tests = [
+    "test_app.py::test_queue_status_filter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Approve decision"
+text = "An approve decision moves a pending application to approved, records the deciding reviewer's email and the decision time, and records one approved outcome email in the same transaction."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-decision"
+tests = [
+    "test_app.py::test_approve_decision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Reject decision"
+text = "A reject decision moves a pending application to rejected, records the deciding reviewer's email and the decision time, and records one rejected outcome email in the same transaction."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-decision"
+tests = [
+    "test_app.py::test_reject_decision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Decided once"
+text = "A second decision on an approved or rejected application answers 409 already_decided, leaves status, reviewer, note and decision time unchanged, and records no further email."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-decision"
+tests = [
+    "test_app.py::test_decided_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Reviewer queue page"
+text = "On /review a signed-in Reviewer sees pending applications as rows with their own Approve and Reject buttons, opens one to read it, and decides it with an internal note."
+kind = "behavior"
+primary = "workflow"
+workflow = "reviewer-decision"
+tests = [
+    "test_app.py::test_wf_reviewer_decision_approve",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Duplicate work email race"
+text = "Simultaneous applications carrying one work email, in any letter case and without an Idempotency-Key, yield exactly one 201, every other answer is 409 duplicate_application, and one row persists."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency"
+tests = [
+    "test_app.py::test_duplicate_email_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Decision race"
+text = "Simultaneous Reviewer decisions on one pending application yield exactly one 200, the rest answer 409 already_decided, and exactly one outcome email is recorded and delivered."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency"
+tests = [
+    "test_app.py::test_decision_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Retried submission"
+text = "Re-sending an identical application without a key answers 409 duplicate_application, re-sending it with the original unexpired Idempotency-Key replays the original 201, and neither creates a second row."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency"
+tests = [
+    "test_app.py::test_retried_submission",
+    "test_app.py::test_wf_concurrency_dropped_connection_retry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Concurrent distinct applications"
+text = "A burst of simultaneous applications with different work emails is accepted in full with 201 each, every one persisted exactly once."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency"
+tests = [
+    "test_app.py::test_concurrent_distinct_applications",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Published integrations only"
+text = "GET /api/integrations lists every published integration and no unpublished one, narrowed to one category when category is given."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-reads"
+tests = [
+    "test_app.py::test_published_integrations_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Integrations category filter"
+text = "Choosing a category on /integrations narrows the grid to that category, marks the choice current and writes category into the address so a reload shows the same view."
+kind = "behavior"
+primary = "workflow"
+workflow = "browse-lists"
+tests = [
+    "test_app.py::test_wf_browse_lists_category",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Integration detail address"
+text = "/integration/{slug} opens a published integration and answers 404 for an unknown or unpublished slug."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-reads"
+tests = [
+    "test_app.py::test_wf_public_reads_open_integration",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Article detail address"
+text = "/blog/{slug} opens a public article with its title, author and publication date and answers 404 for an unknown, unpublished or not yet public slug."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-reads"
+tests = [
+    "test_app.py::test_wf_public_reads_open_article",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Blog category filter"
+text = "GET /api/blog?category=<name> returns, across every page, exactly the public articles in that category."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-reads"
+tests = [
+    "test_app.py::test_blog_category_filter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Press filter"
+text = "GET /api/press?category=News returns only public News items across every page, and /press offers the All, News and Press Releases choices."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-reads"
+tests = [
+    "test_app.py::test_press_filter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Seeded corpus"
+text = "Every start seeds the integrations, articles, press items, jobs and resource cards listed under Seed data as PostgreSQL rows without duplicating any, so the public counts stated there hold on every read."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-reads"
+tests = [
+    "test_app.py::test_seeded_corpus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Routes open directly"
+text = "Every public route in the route table answers 200 with its page when opened directly at its address."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_routes_open_directly",
+]
+criteria = []
+parameter_cases = [
+    "home",
+    "sales-agent",
+    "education-agent",
+    "media-agent",
+    "sdr-agent",
+    "recruiting-agent",
+    "resources",
+    "integrations",
+    "integration-detail",
+    "careers",
+    "press",
+    "blog",
+    "blog-detail",
+    "partner-program",
+    "review",
+]
+
+[[requirements]]
+id = "DP-27"
+title = "Bright blue direction"
+text = "The site reads as a bright white field under one saturated blue accent worn by the primary pill buttons, links and the current filter."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "One agent template"
+text = "The five agent pages share one section layout and differ only in their domain copy and media."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+    "B9",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Hero survives missing media"
+text = "The home headline, its supporting line and its two actions stay visible and readable when every hero media file fails to load."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Empty filter result"
+text = "An unknown category on /integrations, /blog or /press shows that list's empty-state copy and a reset link back to the unfiltered list."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-lists"
+tests = [
+    "test_app.py::test_empty_filter_result",
+]
+criteria = []
+parameter_cases = [
+    "integrations",
+    "blog",
+    "press",
+]
+
+[[requirements]]
+id = "DP-31"
+title = "Cookie preferences"
+text = "The first visit shows the cookie preferences panel, the choice is remembered across reloads, the footer reopens it on every route, and no page ever requests another origin."
+kind = "behavior"
+primary = "workflow"
+workflow = "experience"
+tests = [
+    "test_app.py::test_wf_experience_cookies",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Narrow layout"
+text = "At 375 by 812 the page columns stack into one, the application form and the reviewer table included, with every action still reachable."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_narrow_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "WCAG at desktop size"
+text = "/, /sales-agent, /integrations, /resources, /press, /blog and /partner-program show no WCAG 2.2 AA violation at a 1920 by 1200 viewport."
+kind = "behavior"
+primary = "pytest"
+workflow = "accessibility"
+tests = [
+    "test_app.py::test_wcag_desktop",
+]
+criteria = []
+parameter_cases = [
+    "home",
+    "sales-agent",
+    "integrations",
+    "resources",
+    "press",
+    "blog",
+    "partner-program",
+]
+
+[[requirements]]
+id = "DP-34"
+title = "WCAG on a phone"
+text = "/, /integrations and /partner-program show no WCAG 2.2 AA violation at a 390 by 844 viewport."
+kind = "behavior"
+primary = "pytest"
+workflow = "accessibility"
+tests = [
+    "test_app.py::test_wcag_phone",
+]
+criteria = []
+parameter_cases = [
+    "home",
+    "integrations",
+    "partner-program",
+]
+
+[[requirements]]
+id = "DP-35"
+title = "No sideways scrolling"
+text = "/, /integrations and /careers never scroll sideways at 320, 390, 768 or 1920 pixels wide."
+kind = "visual"
+primary = "pytest"
+workflow = "accessibility"
+tests = [
+    "test_app.py::test_no_sideways_scrolling",
+]
+criteria = []
+parameter_cases = [
+    "home",
+    "integrations",
+    "careers",
+]
+
+[[requirements]]
+id = "DP-36"
+title = "Visible focus"
+text = "The first Tab stop on /, /integrations and /partner-program shows a visible focus indicator."
+kind = "visual"
+primary = "pytest"
+workflow = "accessibility"
+tests = [
+    "test_app.py::test_visible_focus",
+]
+criteria = []
+parameter_cases = [
+    "home",
+    "integrations",
+    "partner-program",
+]
+
+[[requirements]]
+id = "DP-37"
+title = "No console errors"
+text = "/, /integrations and /partner-program load with no console error and no uncaught exception."
+kind = "behavior"
+primary = "pytest"
+workflow = "accessibility"
+tests = [
+    "test_app.py::test_no_console_errors",
+]
+criteria = []
+parameter_cases = [
+    "home",
+    "integrations",
+    "partner-program",
+]
+
+[[requirements]]
+id = "DP-38"
+title = "Reduced motion"
+text = "Under a reduced-motion preference /, /integrations and /partner-program keep every heading, link and button and run no endlessly repeating animation."
+kind = "behavior"
+primary = "pytest"
+workflow = "accessibility"
+tests = [
+    "test_app.py::test_reduced_motion",
+]
+criteria = []
+parameter_cases = [
+    "home",
+    "integrations",
+    "partner-program",
+]
+
+[[requirements]]
+id = "DP-39"
+title = "Eased card hover"
+text = "Pointing at an integration card lifts it slightly and deepens its shadow over about a fifth of a second, and under reduced motion only the shadow changes."
+kind = "visual"
+primary = "pytest"
+workflow = "accessibility"
+tests = [
+    "test_app.py::test_card_hover",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Published field limits"
+text = "Each text field longer than its published code-point limit is refused with 422 and the limit message, while a value of exactly the limit is accepted, as counted under Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-intake"
+tests = [
+    "test_app.py::test_field_limits",
+]
+criteria = []
+parameter_cases = [
+    "first_name",
+    "last_name",
+    "job_title",
+    "company_name",
+    "work_email",
+    "website",
+    "goals",
+]
+
+[[requirements]]
+id = "DP-41"
+title = "Normalised storage"
+text = "Stored text fields are trimmed of Unicode white space only and NFC-normalised, work_email is stored as the Unicode default lower-case of that form, and the 201 body returns the stored work email while an error envelope echoes the raw values."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-intake"
+tests = [
+    "test_app.py::test_normalised_storage",
+    "test_app.py::test_wf_application_intake_fix_and_resubmit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Privileged fields ignored"
+text = "A create body that also carries id, status, reviewer, decision_note, created_at or decided_at is accepted on its thirteen fields alone and stored pending with no reviewer and no decision time."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-intake"
+tests = [
+    "test_app.py::test_privileged_fields_ignored",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Two seeded identities"
+text = "On every start the app ensures the realm role partner-reviewer, the account reviewer@example.com holding it and the account analyst@example.com without it, both signing in with the seeded password."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-access"
+tests = [
+    "test_app.py::test_two_seeded_identities",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Forbidden versus unauthorized"
+text = "On every reviewer route a signed-in caller without partner-reviewer answers 403 even for an id that does not exist, and only a Reviewer ever receives 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-access"
+tests = [
+    "test_app.py::test_forbidden_versus_unauthorized",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Role checked on every request"
+text = "The auth service decides on each reviewer request whether the caller holds partner-reviewer, so removing the role makes the next request with the same unexpired token answer 403 and restoring it allows the next one."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-access"
+tests = [
+    "test_app.py::test_role_checked_every_request",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Idempotent application retry"
+text = "POST /api/partner-applications honours an optional Idempotency-Key with replay, body-mismatch, in-flight and invalid-key answers, judging the same body by the published JSON equality rule, exactly as given under Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency"
+tests = [
+    "test_app.py::test_idempotency_key_format",
+    "test_app.py::test_idempotency_same_body_rule",
+    "test_app.py::test_idempotency_simultaneous_identical",
+    "test_app.py::test_wf_concurrency_double_submit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Case-insensitive email uniqueness"
+text = "Two applications whose stored work emails are equal after Unicode lower-casing are the same applicant, and the database refuses the second with 409 duplicate_application whatever its collation."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency"
+tests = [
+    "test_app.py::test_case_insensitive_email_uniqueness",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Stable capped paging"
+text = "GET /api/blog and GET /api/press page in a fixed order with a capped limit and a category-bound next_cursor, never repeating or skipping a public item when another becomes public or is unpublished mid-walk."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-reads"
+tests = [
+    "test_app.py::test_stable_capped_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "History restores filters"
+text = "Choosing a category on /integrations, /blog or /press adds a history entry, and Back and Forward restore that list, its current marker and its announced count without a full reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-lists"
+tests = [
+    "test_app.py::test_history_restores_filters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Press paging in the address"
+text = "/press shows ten items per page, Load more writes page into the address, a reload of /press?category=News&page=2 shows News items 11 to 20, and the edge, invalid and beyond-last rules under Interactions hold."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-lists"
+tests = [
+    "test_app.py::test_wf_browse_lists_press_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Decision body validated"
+text = "A decision other than approve or reject, or a note over 1000 code points or carrying unsupported characters, answers 422 with the validation envelope and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-decision"
+tests = [
+    "test_app.py::test_decision_body_validated",
+    "test_app.py::test_wf_reviewer_decision_reject_note_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Outcome email contract"
+text = "Each decision records one email to the stored work email from the configured sender with the published subject for its outcome, naming the company and never containing the internal note."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-decision"
+tests = [
+    "test_app.py::test_outcome_email_contract",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Outcome email header safety"
+text = "A company name containing line breaks is stored as submitted and its outcome email still has exactly one recipient, one subject and no added header."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-decision"
+tests = [
+    "test_app.py::test_outcome_email_header_safety",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Queue view in the address"
+text = "Choosing Pending, Approved or Rejected on /review writes status into the address as a new history entry, and reload, Back and Forward restore that view."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-decision"
+tests = [
+    "test_app.py::test_wf_reviewer_decision_status_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Limit hints and goals counter"
+text = "Each limited field on /partner-program shows its Up to N characters hint linked to the field, and Partnership goals shows a live n / 2000 counter that trims and counts exactly as the server does."
+kind = "behavior"
+primary = "pytest"
+workflow = "experience"
+tests = [
+    "test_app.py::test_limit_hints_and_goals_counter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Over-long paste kept"
+text = "Pasting more than the limit into a field keeps the whole pasted text in the field and, on submit, shows the limit message beside it instead of cutting the text."
+kind = "behavior"
+primary = "pytest"
+workflow = "experience"
+tests = [
+    "test_app.py::test_over_long_paste_kept",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Before, during and after story"
+text = "Scrolling through the home narrative moves the current-step marker from Before to During to After and back again in reverse, and under reduced motion all three steps show at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "experience"
+tests = [
+    "test_app.py::test_before_during_after_story",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Request size and type limits"
+text = "A request body over 65,536 bytes answers 413 and a non-JSON media type answers 415 right after the route and method check, while unparseable JSON, a repeated member name, nesting deeper than 32 levels, a number literal over 64 characters or a NaN or Infinity literal answers 400 invalid_json at its place in the check order under Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_request_size_and_type_limits",
+]
+criteria = []
+parameter_cases = [
+    "too_large",
+    "exact_size",
+    "text_media_type",
+    "media_before_auth",
+    "unparseable",
+    "top_level_array",
+    "repeated_member",
+    "depth_32",
+    "depth_33",
+    "number_64",
+    "number_65",
+    "nan",
+    "infinity",
+    "negative_infinity",
+    "auth_before_json",
+    "json_never_stored",
+]
+
+[[requirements]]
+id = "DP-59"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read from its environment variable at start and none is written in source or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Refused analyst page"
+text = "An Analyst who signs in on /review sees the no-access message and no application, and the queue answers 403 to that session."
+kind = "behavior"
+primary = "workflow"
+workflow = "reviewer-access"
+tests = [
+    "test_app.py::test_wf_reviewer_access_refused_analyst",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Unsupported characters refused"
+text = "A text field or decision note carrying a control character other than tab, line feed and carriage return, a delete character or an unpaired surrogate is refused with 422 naming that field, an application create also echoing the raw values in valid UTF-8 JSON, such login credentials answer 401, and no request value ever produces a 5xx."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-intake"
+tests = [
+    "test_app.py::test_unsupported_characters_refused",
+]
+criteria = []
+parameter_cases = [
+    "nul",
+    "control",
+    "delete",
+    "lone_surrogate",
+]
+
+[[requirements]]
+id = "DP-62"
+title = "Idempotency-Key lifetime"
+text = "An Idempotency-Key is honoured strictly before its fixed lifetime from first use on the database clock, replays never extend it, and a request after expiry is processed fresh with exactly one processing among simultaneous takers."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency"
+tests = [
+    "test_app.py::test_idempotency_key_lifetime",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Only the published API"
+text = "Unknown /api paths answer 404 not_found, undocumented methods answer 405 with an exact Allow header before any other check, a repeated documented query parameter answers 400 with its code, and list items carry exactly their documented keys."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-reads"
+tests = [
+    "test_app.py::test_unknown_api_paths_and_methods",
+    "test_app.py::test_repeated_query_parameters",
+    "test_app.py::test_documented_item_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Latest choice wins"
+text = "On /integrations, /blog and /press the list, current marker, address and Results announcement always follow the last choice, a superseded response never renders or announces, paging controls are disabled while a page loads, and a failed load shows the outage alert on the chosen entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-lists"
+tests = [
+    "test_app.py::test_latest_choice_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Focus never hidden"
+text = "With the cookie panel open at 1280 by 800 and 390 by 844, every focused control on /, /integrations and /partner-program stays visible past the header and the panel, and the Agents and Menu buttons open, close with Escape and return focus by keyboard alone."
+kind = "behavior"
+primary = "pytest"
+workflow = "accessibility"
+tests = [
+    "test_app.py::test_wf_accessibility_keyboard_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Sign out ends one session"
+text = "POST /api/auth/logout answers 204 and ends only the auth-service session of the presented token so that token answers 401 next while another sign-in of the same account keeps working, and a disabled account's token answers 401 on its next request."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-access"
+tests = [
+    "test_app.py::test_sign_out_ends_one_session",
+    "test_app.py::test_wf_reviewer_access_sign_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Receipt email recorded with the application"
+text = "Every 201 that creates an application records exactly one receipt email in the same PostgreSQL transaction as the row, and no replay, duplicate, in-progress, key-reuse, refused or failed request records one."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-intake"
+tests = [
+    "test_app.py::test_receipt_recorded_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Outcome email delivery state"
+text = "Recorded emails are delivered from PostgreSQL with the published first-attempt, backoff and Message-ID rules and reach Mailpit at most once each, and an application's outcome_email_status and details panel show Queued or Sent."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-decision"
+tests = [
+    "test_app.py::test_outcome_email_delivery_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Reply due in business hours"
+text = "Every application carries reply_due_at, the moment 16 Europe/Berlin business hours after its submission with weekends and the published holidays skipped, derived on every read as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-decision"
+tests = [
+    "test_app.py::test_reply_due_business_hours",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Queue order in the address"
+text = "The queue accepts sort=submitted or sort=reply_due and answers invalid_sort for any other or repeated value, and /review keeps the chosen order in the address as a history entry restored by reload, Back and Forward."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-decision"
+tests = [
+    "test_app.py::test_queue_order_api",
+    "test_app.py::test_wf_reviewer_decision_queue_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Sign-in failure limit"
+text = "Five sign-in failures for one email within the published window make every further sign-in for that email, the correct password included, answer 429 with Retry-After, counted atomically so that simultaneous failures on a fresh email yield exactly five 401s, and /review counts the wait down per email key as qualified under Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-access"
+tests = [
+    "test_app.py::test_sign_in_limit_lock",
+    "test_app.py::test_sign_in_limit_correct_password",
+    "test_app.py::test_sign_in_limit_concurrent",
+    "test_app.py::test_wf_reviewer_access_sign_in_wait",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Consistent queue counts"
+text = "Every queue response carries per-status counts taken from the same database snapshot as its items, so they always match the items listed while other changes commit, and /review shows them in Queue counts."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency"
+tests = [
+    "test_app.py::test_consistent_queue_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Effective publication moment"
+text = "An article is public only from its published_at and a press item only from its date on the database clock, in lists, cursor walks, result counts and /blog/{slug}."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-reads"
+tests = [
+    "test_app.py::test_effective_publication_moment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Safe return to the list"
+text = "Integration and article detail pages lead back to the exact list view the Visitor came from with focus on the opened card, and any return address that is not that list falls back to the plain list."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-lists"
+tests = [
+    "test_app.py::test_safe_return_to_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Tab-scoped draft"
+text = "The partner form keeps its thirteen values and the attempt's Idempotency-Key in that tab's session storage only, restores them on reload, reuses the key until a value changes, and erases both once the application is received."
+kind = "behavior"
+primary = "pytest"
+workflow = "experience"
+tests = [
+    "test_app.py::test_tab_scoped_draft",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Swipeable accessible carousel"
+text = "The home use-case carousel exposes only its current slide, announces its position, does not wrap, moves one slide per qualifying horizontal touch swipe while vertical swipes scroll the page, and switches at once under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "accessibility"
+tests = [
+    "test_app.py::test_wf_accessibility_carousel_swipe",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Recipient name in the address line"
+text = "Every receipt and outcome email is addressed to the stored work email alone with the applicant's first and last name as its display name, written so a standard mail parser recovers that name exactly while no applicant text adds a recipient, a header or a line over 998 octets."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-intake"
+tests = [
+    "test_app.py::test_display_name_round_trip",
+    "test_app.py::test_wf_application_intake_receipt_by_name",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Withdrawn access clears the screen"
+text = "The first 403 on /review removes the queue, the counts, the status and order links, the details panel, any open dialog and every applicant value from the page, shows the no-access alert with focus on it and Sign out kept, and a reload after the role is restored shows the queue again."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-access"
+tests = [
+    "test_app.py::test_wf_reviewer_access_withdrawn",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Private answers never cached"
+text = "Every response to a path under /api/auth/ or /api/review/ carries Cache-Control: no-store and neither ETag nor Last-Modified, whatever its status."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-access"
+tests = [
+    "test_app.py::test_private_answers_never_cached",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Media follows publication"
+text = "Integration icons and article covers answer 200 image/svg+xml at their exact published paths only while their row is public, checked on every request, and every other request under those path prefixes answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-reads"
+tests = [
+    "test_app.py::test_media_follows_publication",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Conditional public reads"
+text = "The integrations, blog and press lists answer 200 with a strong ETag and Cache-Control: no-cache, and 304 with no body to a matching If-None-Match, as qualified under API, with the tag changing exactly when the body changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-reads"
+tests = [
+    "test_app.py::test_conditional_public_reads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Marker and focus beyond colour"
+text = "On /integrations, /blog and /press the current category carries a line at least 2 CSS pixels thick and every focus indicator is drawn outside its control, both still visible and distinct in forced-colours mode."
+kind = "visual"
+primary = "pytest"
+workflow = "browse-lists"
+tests = [
+    "test_app.py::test_marker_and_focus_beyond_colour",
+]
+criteria = []
+parameter_cases = [
+    "integrations",
+    "blog",
+    "press",
+]
+
+[[requirements]]
+id = "DP-83"
+title = "Form reflows with full-limit text"
+text = "At 320 and 1280 pixels wide, the partner form, its 422 state and the Application received panel never scroll sideways, clip any label, hint, message, counter, summary link, button or thank-you text, or overlap a field's parts with every text field at its limit as one unbroken run, also under the WCAG text-spacing overrides, as qualified under Screens and layout."
+kind = "visual"
+primary = "pytest"
+workflow = "experience"
+tests = [
+    "test_app.py::test_form_reflows_with_full_limit_text",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Error summary of named links"
+text = "A refused partner form shows one summary link per failing field in form order, named by the field and its message, each moving focus to its field fully in view without changing the address or history."
+kind = "behavior"
+primary = "pytest"
+workflow = "experience"
+tests = [
+    "test_app.py::test_error_summary_named_links",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/USER_README.md lists reviewer@example.com with role partner-reviewer and analyst@example.com with no role, each with the password deku-demo-pw-2026."
+tests = [
+    "test_app.py::test_if_user_readme",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/run.json is a JSON object with \"_schema\": \"run-manifest-v1\" and the string keys install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package with its version and licence, shipped packages being the production dependency tree installed by the install command from the runtime requirements (or a lockfile's non-dev group), transitive dependencies included."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Every shipped package is under the MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC, PSF-2.0 or MPL-2.0 licence."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The only datastores and backing services are PostgreSQL, Keycloak and Mailpit, with no embedded database, cache server, message broker or file used as a datastore."
+tests = [
+    "test_app.py::test_if_only_three_services",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service configuration stays untouched: Keycloak realm settings and clients are never edited, nothing is imported, and no realm, client, role or user is deleted, except removing the partner-reviewer mapping from analyst@example.com and deleting the single session named in a sign-out."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "/app/.browser_screenshots/ and /app/.downloads/ exist and are empty."
+tests = [
+    "test_app.py::test_if_empty_directories",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "Python dependencies are installed into /app/.venv, and run.json calls tools through .venv/bin/ or python -m within that environment, never through a system-wide install."
+tests = [
+    "test_app.py::test_if_venv_dependencies",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "application-intake"
+requirements = [
+    "DP-02",
+    "DP-03",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-61",
+    "DP-67",
+    "DP-77",
+]
+critical = [
+    "test_app.py::test_wf_application_intake_fix_and_resubmit",
+    "test_app.py::test_wf_application_intake_receipt_by_name",
+    "test_app.py::test_field_limits",
+    "test_app.py::test_unsupported_characters_refused",
+    "test_app.py::test_receipt_recorded_once",
+    "test_app.py::test_display_name_round_trip",
+]
+
+[[workflows]]
+id = "reviewer-decision"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-68",
+    "DP-69",
+    "DP-70",
+]
+critical = [
+    "test_app.py::test_wf_reviewer_decision_approve",
+    "test_app.py::test_wf_reviewer_decision_status_view",
+    "test_app.py::test_reply_due_business_hours",
+    "test_app.py::test_outcome_email_delivery_state",
+]
+
+[[workflows]]
+id = "reviewer-access"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-60",
+    "DP-66",
+    "DP-71",
+    "DP-78",
+    "DP-79",
+]
+critical = [
+    "test_app.py::test_wf_reviewer_access_refused_analyst",
+    "test_app.py::test_wf_reviewer_access_withdrawn",
+    "test_app.py::test_decision_refuses_non_reviewers",
+    "test_app.py::test_sign_in_limit_concurrent",
+    "test_app.py::test_role_checked_every_request",
+]
+
+[[workflows]]
+id = "concurrency"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-46",
+    "DP-47",
+    "DP-62",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_concurrency_dropped_connection_retry",
+    "test_app.py::test_idempotency_same_body_rule",
+    "test_app.py::test_idempotency_key_lifetime",
+    "test_app.py::test_consistent_queue_counts",
+]
+
+[[workflows]]
+id = "public-reads"
+requirements = [
+    "DP-19",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-48",
+    "DP-63",
+    "DP-73",
+    "DP-80",
+    "DP-81",
+]
+critical = [
+    "test_app.py::test_wf_public_reads_open_integration",
+    "test_app.py::test_wf_public_reads_open_article",
+    "test_app.py::test_stable_capped_paging",
+    "test_app.py::test_unknown_api_paths_and_methods",
+    "test_app.py::test_effective_publication_moment",
+    "test_app.py::test_media_follows_publication",
+]
+
+[[workflows]]
+id = "browse-lists"
+requirements = [
+    "DP-20",
+    "DP-30",
+    "DP-49",
+    "DP-50",
+    "DP-64",
+    "DP-74",
+    "DP-82",
+]
+critical = [
+    "test_app.py::test_wf_browse_lists_category",
+    "test_app.py::test_wf_browse_lists_press_paging",
+    "test_app.py::test_latest_choice_wins",
+    "test_app.py::test_safe_return_to_list",
+    "test_app.py::test_marker_and_focus_beyond_colour",
+]
+
+[[workflows]]
+id = "experience"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-31",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-75",
+    "DP-83",
+    "DP-84",
+]
+critical = [
+    "test_app.py::test_wf_experience_application_received",
+    "test_app.py::test_tab_scoped_draft",
+    "test_app.py::test_error_summary_named_links",
+    "test_app.py::test_over_long_paste_kept",
+]
+
+[[workflows]]
+id = "accessibility"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-65",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_wf_accessibility_keyboard_focus",
+    "test_app.py::test_wf_accessibility_carousel_swipe",
+    "test_app.py::test_wcag_desktop",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-32",
+    "DP-58",
+    "DP-59",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_health",
+]

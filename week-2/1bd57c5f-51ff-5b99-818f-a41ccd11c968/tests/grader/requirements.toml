@@ -1,0 +1,1393 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 68
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "job-setup",
+    "walkthrough-capture",
+    "room-tether",
+    "offline-merge",
+    "offline-checkoff",
+    "defect-photos",
+    "trade-flow",
+    "site-visit-access",
+    "offboarding",
+    "assignment-notices",
+    "homeowner-summary",
+    "close-out",
+    "note-collab",
+    "recurring-visits",
+    "plan-revision",
+    "costing",
+    "dependencies-bulk",
+    "live-updates",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 79
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Snaglight <notices@snaglight.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+B13 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "storage-down"
+port = 4174
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mail-down"
+port = 4175
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+DATABASE_URL = "${DATABASE_URL}_maildown"
+S3_BUCKET = "${S3_BUCKET}-maildown"
+
+[[outages]]
+id = "summary-clock"
+port = 4176
+url_env = "APP_SUMMARY_URL"
+
+[outages.env]
+SUMMARY_LOCAL_TIME = "00:00"
+SUMMARY_QUIET_SECONDS = "15"
+EVENT_RETENTION_COUNT = "20"
+DATABASE_URL = "${DATABASE_URL}_summary"
+S3_BUCKET = "${S3_BUCKET}-summary"
+
+[[outages]]
+id = "mirror"
+port = 4177
+url_env = "APP_MIRROR_URL"
+
+[outages.env]
+
+[[requirements]]
+id = "DP-01"
+title = "Sign in"
+text = "Members sign in with email and password, receive a session cookie and see their name from the account endpoint, and a wrong pair is refused with the published message."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-setup"
+tests = [
+    "test_app.py::test_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Jobs"
+text = "The remodeler owner creates a job with a name, address and time zone that starts with no rooms, no plan and 0% verified, and each member lists and opens only the jobs where they hold an active role."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-setup"
+tests = [
+    "test_app.py::test_jobs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Floor plan and rooms"
+text = "The owner uploads a floor-plan image that is stored in the object store as plan revision 1 and served same-origin, and adds named rectilinear room outlines of 4 to 12 corners that never overlap, each with a server-computed bounding box and anchor, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-setup"
+tests = [
+    "test_app.py::test_floor_plan_and_rooms",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "People on a job"
+text = "The owner adds a lead carpenter, trade subcontractors with their trade, and homeowners to a job, creating an account with an initial password when the email is new."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-setup"
+tests = [
+    "test_app.py::test_people_on_a_job",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Job and record scoping"
+text = "A job, item, photo, room, member, visit, note, change order or plan revision id the caller cannot see answers the same 404 as a missing one, whether it is in the URL or inside a request body, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-setup"
+tests = [
+    "test_app.py::test_record_scoping_404",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Owner sets up a job"
+text = "The owner starts from exactly the seeded firm, creates an empty job, uploads a plan, adds an L-shaped and a rectangular room and people, and the new homeowner signs in to see that job and none of another family's."
+kind = "behavior"
+primary = "workflow"
+workflow = "job-setup"
+tests = [
+    "test_app.py::test_seed_data_exact",
+    "test_app.py::test_wf_job_setup_happy",
+    "test_app.py::test_wf_job_setup_invalid_corners",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Punch items and quick add"
+text = "The owner, lead carpenter and homeowner add items to a room with a consecutive job-wide number that is never reused, and the owner and lead carpenter edit title, room, trade, cost note, quantity and unit cost, with the validation in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "walkthrough-capture"
+tests = [
+    "test_app.py::test_items_numbers_and_edits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Plan-relative pins"
+text = "Each item's pin is stored as x and y between 0 and 1 of the plan image and decides the item's room by the published inside and shared-edge rules, a pin moved across a boundary re-files the item with its number kept, a pin outside every room is refused with the published message, and a pin shows at the same plan-relative spot after a reload, on another device and at every published viewport."
+kind = "behavior"
+primary = "pytest"
+workflow = "walkthrough-capture"
+tests = [
+    "test_app.py::test_pins_decide_room",
+    "test_app.py::test_pin_spot_every_viewport",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Keyboard pin placement"
+text = "Pressing P on a focused row or on any control inside it starts placement at the room's anchor, the arrow keys move the crosshair in the published steps, Enter drops the pin and Escape cancels with focus back on the row."
+kind = "behavior"
+primary = "pytest"
+workflow = "walkthrough-capture"
+tests = [
+    "test_app.py::test_keyboard_pin_placement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Touch pin placement on a phone"
+text = "On a phone-width screen the lead carpenter opens the plan sheet from an item, taps the plan to move the crosshair and drops the pin with a button, with the same stored result as by keyboard."
+kind = "behavior"
+primary = "pytest"
+workflow = "room-tether"
+tests = [
+    "test_app.py::test_touch_pin_placement_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Lead pins and checks off by keyboard"
+text = "Using only the keyboard, the lead carpenter quick-adds an item, pins it in its room, assigns a trade, checks off a crew item and moves a pin into another room, and each step is visible in the list and on the plan."
+kind = "behavior"
+primary = "workflow"
+workflow = "walkthrough-capture"
+tests = [
+    "test_app.py::test_wf_walkthrough_capture_keyboard",
+    "test_app.py::test_wf_walkthrough_capture_refused_pin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Room tether on selection"
+text = "Selecting a row by click, tap or Enter highlights it, frames the pin's room in the plan pane, draws a blueprint-blue line from the row to its pin and pulses the pin once, in the order and timing given in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "room-tether"
+tests = [
+    "test_app.py::test_room_tether_sequence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Reduced-motion tether"
+text = "With reduced motion on, selecting a row draws no line and runs no pan or pulse; the plan jumps straight to the room, the pin gets a static orange ring and the row shows the published pinned-in text."
+kind = "behavior"
+primary = "pytest"
+workflow = "room-tether"
+tests = [
+    "test_app.py::test_reduced_motion_tether",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Pins and rows find each other"
+text = "A trade or homeowner selects a row to see its pin and room or activates a pin to select and scroll to its row, and verified items show as check-mark pins in the done green."
+kind = "behavior"
+primary = "workflow"
+workflow = "room-tether"
+tests = [
+    "test_app.py::test_wf_room_tether_homeowner_finds_pins",
+    "test_app.py::test_wf_room_tether_trade_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Offline banner and queue"
+text = "When the device loses connection the published offline banner shows. Items, edits, actions and notes made offline appear at once with the pending mark and survive a reload until they sync."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-checkoff"
+tests = [
+    "test_app.py::test_offline_banner_and_queue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Sync operation log"
+text = "Queued offline operations sync through one endpoint that runs them in ascending client sequence whatever their array order, maps pins stamped with an older plan revision through every later revision, rejects operations that depend on a rejected creation or target a deleted item as not found, reports each outcome, and treats replays as specified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-merge"
+tests = [
+    "test_app.py::test_sync_operation_log",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Field-by-field merge"
+text = "On sync each changed field merges on its own by the published policy, where title, cost note, quantity, unit cost, trade and room keep the server value and record a conflict, a phone pin wins and re-files the item while the replaced pin is recorded as a conflict, and an online edit or a resolution clears that field's conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-merge"
+tests = [
+    "test_app.py::test_field_merge_policy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Sync announcement"
+text = "When queued edits finish syncing, the Activity live region announces the published sync sentence with the counts the server reported."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-merge"
+tests = [
+    "test_app.py::test_sync_announcement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Lead resolves a sync conflict"
+text = "The lead carpenter edits an item's title and pin offline while the owner changes the same fields online, and on reconnect both fields are listed under the published conflict heading with both values, with the phone's pin in place, and choosing a value clears that conflict for everyone."
+kind = "behavior"
+primary = "workflow"
+workflow = "offline-merge"
+tests = [
+    "test_app.py::test_wf_offline_merge_title_and_pin_conflict",
+    "test_app.py::test_wf_offline_merge_choose_alternative_pin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Item lifecycle and deletion"
+text = "Items move from open to in progress to ready for check to verified, with send-back and an owner-only reopen, the owner or the creating lead carpenter deletes items as permitted in Business rules, and each illegal step, including a trade change on finished work, is refused with the code given there."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-checkoff"
+tests = [
+    "test_app.py::test_item_lifecycle_and_deletion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Honest offline check-off"
+text = "An item checked off offline shows as done with the pending mark, and if the server rejects the action the row returns to the server's status with the published not-saved text, or disappears with the published removal text when the item was deleted meanwhile."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-checkoff"
+tests = [
+    "test_app.py::test_honest_offline_checkoff",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Lead walks a room offline"
+text = "The lead carpenter goes offline, adds and checks off items and reconnects. Accepted changes settle, rejected ones revert, and a second sync creates no duplicate items."
+kind = "behavior"
+primary = "workflow"
+workflow = "offline-checkoff"
+tests = [
+    "test_app.py::test_wf_offline_checkoff_basement",
+    "test_app.py::test_wf_offline_checkoff_edit_then_reload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Photo upload rules"
+text = "Plan images and defect and completion photos are accepted only as JPEG, PNG or WebP, judged by their content, and only up to the published byte limit, and the stored copy carries no embedded metadata and so no location."
+kind = "behavior"
+primary = "pytest"
+workflow = "defect-photos"
+tests = [
+    "test_app.py::test_photo_upload_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Storage-confirmed photos"
+text = "A photo appears on an item only after the object store confirms it, the row shows the uploading text until then, a storage outage leaves no photo behind, and removing a photo or deleting its item deletes the stored object first and leaves everything in place when that fails."
+kind = "behavior"
+primary = "pytest"
+workflow = "defect-photos"
+tests = [
+    "test_app.py::test_storage_confirmed_photos",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Lead documents a defect"
+text = "The lead carpenter selects an item, attaches a defect photo, sees it under the item after the upload, and the homeowner sees the same photo on that item."
+kind = "behavior"
+primary = "workflow"
+workflow = "defect-photos"
+tests = [
+    "test_app.py::test_wf_defect_photos_lead_attaches",
+    "test_app.py::test_wf_defect_photos_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Role-scoped responses"
+text = "Job, item, note, member and event responses return only the fields published for the caller's role, so trades and homeowners never receive cost notes, quantities, unit costs, line totals, notes outside their audience or other trades' contact details."
+kind = "behavior"
+primary = "pytest"
+workflow = "trade-flow"
+tests = [
+    "test_app.py::test_role_projection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Notes threads"
+text = "Members post notes with an audience on items they can see and reply one level deep, homeowners see only notes for everyone, and each note carries a revision number that every applied edit, undo and redo raises by one."
+kind = "behavior"
+primary = "pytest"
+workflow = "note-collab"
+tests = [
+    "test_app.py::test_notes_threads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Sub finishes, lead verifies or sends back"
+text = "The trade marks an assigned item done with a completion photo, the lead carpenter sends it back with a reason or verifies it, and both sides see the new status."
+kind = "behavior"
+primary = "workflow"
+workflow = "trade-flow"
+tests = [
+    "test_app.py::test_wf_trade_flow_done_and_verified",
+    "test_app.py::test_wf_trade_flow_photo_required",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Access card and reveal log"
+text = "The owner keeps the lockbox, alarm and garage codes and a house note on one access card. The owner and lead carpenter can always read it, the homeowner never can, and every read is recorded in a log that only the owner sees."
+kind = "behavior"
+primary = "pytest"
+workflow = "site-visit-access"
+tests = [
+    "test_app.py::test_access_card_and_reveals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Site visits and the code window"
+text = "Every site visit occurrence falls between 07:00 and 19:00 on one job-local date, the first ends in the future, none overlaps another occurrence of the same person, each converts to UTC with its own date's offset, and a trade reads the access card only during the code window around one of their occurrences, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "site-visit-access"
+tests = [
+    "test_app.py::test_site_visit_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Sub opens house access on visit day"
+text = "The owner schedules a trade's visit starting soon within working hours, and the trade opens the job, shows the codes with the time they stay visible until, and sees them disappear once the visit ends."
+kind = "behavior"
+primary = "workflow"
+workflow = "site-visit-access"
+tests = [
+    "test_app.py::test_wf_site_visit_access_visit_day",
+    "test_app.py::test_wf_site_visit_access_codes_expire",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Ending a role"
+text = "When the owner ends a member's role on a job, that member's next request to the job is refused with the role-ended response, their open event streams end with the role-ended event, and their open tab clears the codes and shows the role-ended message within the delay in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "offboarding"
+tests = [
+    "test_app.py::test_ending_role",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Password change ends other sessions"
+text = "Changing a password ends every other session of that account and its open event streams at once, while the session that made the change stays signed in."
+kind = "behavior"
+primary = "pytest"
+workflow = "offboarding"
+tests = [
+    "test_app.py::test_password_change_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Owner offboards a sub after a lost phone"
+text = "The owner ends a trade's role and changes their own password, after which the sub's open tab and the owner's other session both lose access."
+kind = "behavior"
+primary = "workflow"
+workflow = "offboarding"
+tests = [
+    "test_app.py::test_wf_offboarding_lost_phone",
+    "test_app.py::test_wf_offboarding_role_ended_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Assignment notice"
+text = "Each applied change that gives an item a different non-null trade, each item of a successful bulk assignment included, queues exactly one code-free email to each active member of that trade, carrying the item, its room and a sign-in link, while replays, conflicts, rejections, failed bulk actions and same-trade edits queue none, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "assignment-notices"
+tests = [
+    "test_app.py::test_assignment_notice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Mail outbox"
+text = "Every email goes through an outbox the owner can read, which shows the not-sent label while mail is unreachable and sends each message exactly once when mail returns, even with several server processes."
+kind = "behavior"
+primary = "pytest"
+workflow = "assignment-notices"
+tests = [
+    "test_app.py::test_mail_outbox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Owner assigns trades and watches the outbox"
+text = "The owner assigns and reassigns items to trades while the lead carpenter's offline batch replays, and sees exactly one notice per applied change in the outbox and in the trades' inboxes."
+kind = "behavior"
+primary = "workflow"
+workflow = "assignment-notices"
+tests = [
+    "test_app.py::test_wf_assignment_notices_offline_replay",
+    "test_app.py::test_wf_assignment_notices_mail_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Daily walkthrough summary"
+text = "Each homeowner receives at most one code-free, amount-free summary per job-local day at or after the daily summary time, listing each item changed since the previous cut-off once with its state at the cut-off or as removed, and tomorrow's expanded site visits, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "homeowner-summary"
+tests = [
+    "test_app.py::test_daily_summary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "One set of counts"
+text = "Room counts and job progress come from one calculation and agree in the list headings, the plan room labels, the API, the event stream and the summary email after every transition, cascade, re-filing, plan revision, deletion, bulk action and sync."
+kind = "behavior"
+primary = "pytest"
+workflow = "homeowner-summary"
+tests = [
+    "test_app.py::test_one_set_of_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Homeowner follows progress"
+text = "The homeowner adds an item they noticed, sees room-by-room progress that follows re-filed and deleted items, sees the published empty-room copy, and never sees crew notes or costs."
+kind = "behavior"
+primary = "workflow"
+workflow = "homeowner-summary"
+tests = [
+    "test_app.py::test_wf_homeowner_summary_follows",
+    "test_app.py::test_wf_homeowner_summary_phone_pin_hidden",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Job stages and close-out"
+text = "A job moves from active to walkthrough to closed out, close-out requires every item to be verified and deletes every plan revision and photo object before their records, and a closed job refuses changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "close-out"
+tests = [
+    "test_app.py::test_job_stages_close_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Owner closes out a job"
+text = "The owner deletes a duplicate item, starts the walkthrough, verifies the remaining items and closes out the job, then sees it read-only with every plan revision and photo gone."
+kind = "behavior"
+primary = "workflow"
+workflow = "close-out"
+tests = [
+    "test_app.py::test_wf_close_out_owner",
+    "test_app.py::test_wf_close_out_blocked_until_verified",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from the run manifest on the published port and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_manifest_port",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Server boundary"
+text = "The server accepts only same-origin requests within the published size limits, serves only built assets, and starts even when storage or mail is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Published copy"
+text = "Every string the brief prints in backticks renders, and is announced, character for character."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_published_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Breakpoint layouts"
+text = "The job view switches between list beside plan, list with a collapsible plan rail, and list with a plan bottom sheet exactly at the breakpoints in Screens and layout, with no horizontal scrolling, and a collapsed rail or closed sheet exposes no plan control."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_breakpoint_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Dialogs and keyboard"
+text = "Every action works by keyboard, focus stays inside an open dialog or sheet, Escape closes it and focus returns to the control that opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dialogs_and_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Motion and loops"
+text = "Every motion in the product is one named in Motion and effects and runs at its stated timing, nothing loops, and reduced motion shows each end state at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_inventory",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Drafting-table look"
+text = "The job view reads as a drafting table, with a warm paper ground, graphite text, hairline rules, thin blueprint room outlines on a faint grid, condensed capital room headings and tabular numerals, and no gradients or shadows."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Real services and configuration"
+text = "Every record, object and email goes through the real Postgres, object store and mail server, using credentials read from the environment, with no stand-in state."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Note edits converge"
+text = "Note edits name code-point positions in the text of a base revision and merge by the published character model, so simultaneous edits from any device converge to the body that model gives."
+kind = "behavior"
+primary = "pytest"
+workflow = "note-collab"
+tests = [
+    "test_app.py::test_note_edits_converge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Personal undo and redo"
+text = "Undo and redo change only the caller's own note edits, hiding or restoring their characters in place around other people's later text, and the note's history lists every revision with its body."
+kind = "behavior"
+primary = "pytest"
+workflow = "note-collab"
+tests = [
+    "test_app.py::test_personal_undo_redo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Lead and owner edit a note together"
+text = "The lead carpenter edits a crew note offline while the owner edits it online, and after the sync both see the published merged body, each person's undo removes only their own text, and a replay changes nothing."
+kind = "behavior"
+primary = "workflow"
+workflow = "note-collab"
+tests = [
+    "test_app.py::test_wf_note_collab_offline_merge",
+    "test_app.py::test_wf_note_collab_draft_survives",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Recurring visit series"
+text = "The owner or lead carpenter schedules a daily, weekly or every-N-days visit series of at most 60 occurrences within 180 days, refused before any occurrence is expanded or stored when larger, whose occurrences keep their wall-clock times with each date's own UTC offset."
+kind = "behavior"
+primary = "pytest"
+workflow = "recurring-visits"
+tests = [
+    "test_app.py::test_recurring_series",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Occurrence exceptions and overlap"
+text = "Single occurrences are moved or cancelled, overlap is judged across every non-cancelled occurrence of the person with the earliest clashing date reported, and the code window, next visit and summary use the expanded occurrences."
+kind = "behavior"
+primary = "pytest"
+workflow = "recurring-visits"
+tests = [
+    "test_app.py::test_occurrence_exceptions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Owner books a recurring visit"
+text = "The owner books a daily series for the electrician, who reveals the codes during today's occurrence with the server's visible-until time even when the phone's clock is wrong, and a cancelled occurrence drops out of the next visit."
+kind = "behavior"
+primary = "workflow"
+workflow = "recurring-visits"
+tests = [
+    "test_app.py::test_wf_recurring_visits_book_series",
+    "test_app.py::test_wf_recurring_visits_dst_table",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Plan revisions"
+text = "The owner uploads a plan revision with three reference point pairs and every room's new outline, earlier revisions stay listed and readable, and a storage outage changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "plan-revision"
+tests = [
+    "test_app.py::test_plan_revisions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Pin transform and review flags"
+text = "Every pin is mapped through the published affine transform with rounding and re-filed by the new outlines or flagged as needing review, and queued phone pins from an older revision are mapped through every later transform before they merge."
+kind = "behavior"
+primary = "pytest"
+workflow = "plan-revision"
+tests = [
+    "test_app.py::test_pin_transform",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Owner revises the plan"
+text = "The owner uploads a revision while the lead carpenter has a pin move queued offline, and after the sync the mapped pin applies without a conflict, a pin mapped outside every room is refused with the published text, and the room counts, plan labels and cost by room follow."
+kind = "behavior"
+primary = "workflow"
+workflow = "plan-revision"
+tests = [
+    "test_app.py::test_wf_plan_revision_owner_revises",
+    "test_app.py::test_wf_plan_revision_collinear_points",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Item costs"
+text = "The owner and lead carpenter record each item's quantity and unit cost as exact decimal strings, and its line total is quantity times unit cost rounded half to even to cents."
+kind = "behavior"
+primary = "pytest"
+workflow = "costing"
+tests = [
+    "test_app.py::test_item_costs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Cost rollups and change orders"
+text = "The costs endpoint totals items by room and by trade and adds the change orders approved by the requested moment and one contingency on the job total at the percent in effect then."
+kind = "behavior"
+primary = "pytest"
+workflow = "costing"
+tests = [
+    "test_app.py::test_cost_rollups",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Owner reviews costs"
+text = "The owner sets item costs, approves a change order and raises the contingency while the Costs tab updates in place, a lead carpenter's conflicting offline cost edit waits under the conflict heading, and an earlier moment reproduces the earlier total."
+kind = "behavior"
+primary = "workflow"
+workflow = "costing"
+tests = [
+    "test_app.py::test_wf_costing_owner_reviews",
+    "test_app.py::test_wf_costing_invalid_contingency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Blocked-by links"
+text = "Items wait on up to 10 other items without ever forming a cycle, an item cannot be marked done or verified while a blocker is unverified, and reopening an item reopens every transitive dependent that was ready for check or verified."
+kind = "behavior"
+primary = "pytest"
+workflow = "dependencies-bulk"
+tests = [
+    "test_app.py::test_blocked_by_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "All-or-nothing bulk actions"
+text = "Bulk start, mark done, verify and trade assignment evaluate the selected items in ascending number, commit all or nothing, report every failure, and queue no email and emit no event when they fail."
+kind = "behavior"
+primary = "pytest"
+workflow = "dependencies-bulk"
+tests = [
+    "test_app.py::test_bulk_actions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Lead bulk-checks a room"
+text = "The lead carpenter filters the list and assigns or checks off the shown items in one action, a selection with a blocked item shows the nothing-changed alert with nothing changed, and a reopened blocker returns its dependents to open everywhere."
+kind = "behavior"
+primary = "workflow"
+workflow = "dependencies-bulk"
+tests = [
+    "test_app.py::test_wf_dependencies_bulk_room",
+    "test_app.py::test_wf_dependencies_bulk_reopen_cascade",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Job event stream"
+text = "Each job serves a live event stream whose events carry per-job sequence numbers in commit order and are projected for each caller's role and scope, with nothing emitted for replays, rejections or failed bulk actions."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-updates"
+tests = [
+    "test_app.py::test_event_stream_projection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Resume and every-process delivery"
+text = "A client that reconnects with its last sequence number receives exactly the missed in-scope events in order or the published reset, and events reach open streams on every server process sharing the database within 2 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-updates"
+tests = [
+    "test_app.py::test_event_resume_and_processes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Two devices stay in step"
+text = "The owner's changes appear in place on the homeowner's open job within 2 seconds, a device that reconnects catches up to what a fresh load shows, and an open note editor keeps its draft through incoming events."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-updates"
+tests = [
+    "test_app.py::test_wf_live_updates_two_devices",
+    "test_app.py::test_wf_live_updates_mirror_process",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\", and no other way of starting the app is required."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package with its version and licence; shipped packages are the production dependency tree that npm ls --omit=dev --all --json reports, plus every bundled font."
+tests = [
+    "test_app.py::test_if_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and bundled font is licensed under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or SIL OFL 1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The server uses no datastore other than the provided Postgres, object store and mail server (no SQLite, Redis, embedded database or files written as a database on the server); the browser may keep the cached job and offline queue in IndexedDB or localStorage."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and environment variable names are used as given and are not modified."
+tests = [
+    "test_app.py::test_if_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "All application source is TypeScript; JavaScript files appear only as tool configuration or build output."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The running app makes no request to any third-party origin; the app serves fonts, icons and the seed plan images itself."
+tests = [
+    "test_app.py::test_if_same_origin_only",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "job-setup"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+]
+critical = [
+    "test_app.py::test_wf_job_setup_happy",
+    "test_app.py::test_seed_data_exact",
+    "test_app.py::test_record_scoping_404",
+    "test_app.py::test_jobs",
+]
+checkpoints = [
+    "B11",
+]
+critical_checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "walkthrough-capture"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_wf_walkthrough_capture_keyboard",
+]
+checkpoints = [
+    "B1",
+    "B2",
+]
+critical_checkpoints = [
+    "B2",
+]
+
+[[workflows]]
+id = "room-tether"
+requirements = [
+    "DP-10",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_room_tether_homeowner_finds_pins",
+    "test_app.py::test_wf_room_tether_trade_phone",
+    "test_app.py::test_touch_pin_placement_phone",
+    "test_app.py::test_reduced_motion_tether",
+]
+checkpoints = [
+    "B9",
+    "B10",
+]
+critical_checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "offline-merge"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_offline_merge_title_and_pin_conflict",
+    "test_app.py::test_field_merge_policy",
+    "test_app.py::test_sync_operation_log",
+]
+
+[[workflows]]
+id = "offline-checkoff"
+requirements = [
+    "DP-15",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_offline_checkoff_basement",
+    "test_app.py::test_honest_offline_checkoff",
+    "test_app.py::test_offline_banner_and_queue",
+]
+
+[[workflows]]
+id = "defect-photos"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_defect_photos_lead_attaches",
+    "test_app.py::test_photo_upload_rules",
+    "test_app.py::test_storage_confirmed_photos",
+]
+
+[[workflows]]
+id = "trade-flow"
+requirements = [
+    "DP-26",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_trade_flow_done_and_verified",
+    "test_app.py::test_role_projection",
+]
+
+[[workflows]]
+id = "site-visit-access"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_site_visit_access_visit_day",
+    "test_app.py::test_site_visit_rules",
+]
+
+[[workflows]]
+id = "offboarding"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_offboarding_lost_phone",
+    "test_app.py::test_ending_role",
+    "test_app.py::test_password_change_sessions",
+]
+
+[[workflows]]
+id = "assignment-notices"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_assignment_notices_offline_replay",
+    "test_app.py::test_assignment_notice",
+    "test_app.py::test_mail_outbox",
+]
+
+[[workflows]]
+id = "homeowner-summary"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+]
+critical = [
+    "test_app.py::test_wf_homeowner_summary_follows",
+    "test_app.py::test_daily_summary",
+    "test_app.py::test_one_set_of_counts",
+]
+
+[[workflows]]
+id = "close-out"
+requirements = [
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_close_out_owner",
+    "test_app.py::test_job_stages_close_out",
+]
+
+[[workflows]]
+id = "note-collab"
+requirements = [
+    "DP-27",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_note_collab_offline_merge",
+    "test_app.py::test_wf_note_collab_draft_survives",
+    "test_app.py::test_note_edits_converge",
+]
+
+[[workflows]]
+id = "recurring-visits"
+requirements = [
+    "DP-54",
+    "DP-55",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_recurring_visits_book_series",
+    "test_app.py::test_recurring_series",
+    "test_app.py::test_occurrence_exceptions",
+]
+
+[[workflows]]
+id = "plan-revision"
+requirements = [
+    "DP-57",
+    "DP-58",
+    "DP-59",
+]
+critical = [
+    "test_app.py::test_wf_plan_revision_owner_revises",
+    "test_app.py::test_plan_revisions",
+]
+
+[[workflows]]
+id = "costing"
+requirements = [
+    "DP-60",
+    "DP-61",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_costing_owner_reviews",
+    "test_app.py::test_item_costs",
+    "test_app.py::test_cost_rollups",
+]
+checkpoints = [
+    "B8",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "dependencies-bulk"
+requirements = [
+    "DP-63",
+    "DP-64",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_dependencies_bulk_room",
+    "test_app.py::test_bulk_actions",
+    "test_app.py::test_blocked_by_links",
+]
+
+[[workflows]]
+id = "live-updates"
+requirements = [
+    "DP-66",
+    "DP-67",
+    "DP-68",
+]
+critical = [
+    "test_app.py::test_wf_live_updates_two_devices",
+    "test_app.py::test_event_resume_and_processes",
+    "test_app.py::test_event_stream_projection",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_health_and_manifest_port",
+    "test_app.py::test_server_boundary",
+]
+checkpoints = [
+    "B3",
+    "B13",
+]
+critical_checkpoints = [
+    "B3",
+]

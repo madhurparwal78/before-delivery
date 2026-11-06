@@ -1,0 +1,44 @@
+services:
+  main:
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    security_opt:
+    - seccomp=unconfined
+    - systempaths=unconfined
+    - apparmor=unconfined
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-5c1e8a37
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.7@sha256:4388e2379b7e870a447adbe7b80bd61f5fbf04e925832b19669fda4957f05a81
+    command:
+    - start-dev
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: gf-kc-boot
+      KC_BOOTSTRAP_ADMIN_PASSWORD: gf-kc-boot-4f81a2c7
+      KC_HEALTH_ENABLED: 'true'
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\r\n\r\n' >&3 && timeout 5 cat <&3
+        | grep -q UP
+      interval: 5s
+      timeout: 10s
+      retries: 36
+      start_period: 30s

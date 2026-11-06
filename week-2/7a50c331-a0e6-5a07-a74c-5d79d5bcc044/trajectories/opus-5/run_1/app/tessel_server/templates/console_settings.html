@@ -1,0 +1,157 @@
+{% extends "base_console.html" %}
+{% block main %}
+<header class="console-head">
+  <h1>Settings</h1>
+</header>
+
+{% if member.role == 'owner' %}
+<nav class="settings-rail" aria-label="Settings sections">
+  <a href="/console/settings" aria-current="page">Members</a>
+  <a href="/console/settings/keys">API keys</a>
+  <a href="/console/settings/billing">Billing</a>
+  <a href="/console/settings/audit">Audit log</a>
+</nav>
+{% endif %}
+
+<section class="panel">
+  <h2>Members</h2>
+  {% if member.role == 'owner' %}
+  <form method="post" action="/console/settings" class="inline-form">
+    <input type="hidden" name="action" value="add-member">
+    <div class="field">
+      <label for="member-email">Email</label>
+      <input type="text" id="member-email" name="email" value="{{ values.email }}"
+             aria-describedby="member-email-error">
+      <p class="field-error" id="member-email-error" {% if not errors.email %}hidden{% endif %}>{{ errors.email }}</p>
+    </div>
+    <div class="field">
+      <label for="member-role">Role</label>
+      <select id="member-role" name="role">
+        <option value="viewer">viewer</option>
+        <option value="editor">editor</option>
+        <option value="owner">owner</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="member-password">Initial password</label>
+      <input type="password" id="member-password" name="password" aria-describedby="member-password-error">
+      <p class="field-error" id="member-password-error" {% if not errors.password %}hidden{% endif %}>{{ errors.password }}</p>
+    </div>
+    <button type="submit" class="capsule capsule-primary">Add member</button>
+  </form>
+  {% endif %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <caption class="visually-hidden">Members of {{ member.organization }}</caption>
+      <thead><tr><th scope="col">Email</th><th scope="col">Role</th>
+        {% if member.role == 'owner' %}<th scope="col">Actions</th>{% endif %}</tr></thead>
+      <tbody>
+        {% for row in members %}
+        <tr>
+          <td data-label="Email">{{ row.email }}</td>
+          <td data-label="Role">
+            {% if member.role == 'owner' %}
+            <form method="post" action="/console/settings" class="row-form">
+              <input type="hidden" name="action" value="set-role">
+              <input type="hidden" name="email" value="{{ row.email }}">
+              <label class="visually-hidden" for="role-{{ loop.index0 }}">Role for {{ row.email }}</label>
+              <select id="role-{{ loop.index0 }}" name="role">
+                {% for option in ('viewer', 'editor', 'owner') %}
+                <option value="{{ option }}" {% if option == row.role %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="capsule">Save</button>
+            </form>
+            {% else %}
+            <span class="role-badge">{{ row.role }}</span>
+            {% endif %}
+          </td>
+          {% if member.role == 'owner' %}
+          <td data-label="Actions">
+            <form method="post" action="/console/settings" class="row-form">
+              <input type="hidden" name="action" value="remove-member">
+              <input type="hidden" name="email" value="{{ row.email }}">
+              <button type="submit" class="capsule">Remove</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+        {% if not members %}
+        <tr><td colspan="3" class="empty-state">No members yet</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Security</h2>
+  <form method="post" action="/console/settings" class="row-form">
+    <input type="hidden" name="action" value="logout-all">
+    <button type="submit" class="capsule">Sign out everywhere</button>
+  </form>
+
+  <h3>Change password</h3>
+  <form method="post" action="/console/settings" class="inline-form">
+    <input type="hidden" name="action" value="change-password">
+    <div class="field">
+      <label for="current-password">Current password</label>
+      <input type="password" id="current-password" name="current_password"
+             aria-describedby="current-password-error">
+      <p class="field-error" id="current-password-error" {% if not errors.current_password %}hidden{% endif %}>{{ errors.current_password }}</p>
+    </div>
+    <div class="field">
+      <label for="new-password">New password</label>
+      <input type="password" id="new-password" name="new_password" aria-describedby="new-password-error">
+      <p class="field-error" id="new-password-error" {% if not errors.new_password %}hidden{% endif %}>{{ errors.new_password }}</p>
+    </div>
+    <div class="field">
+      <label for="confirm-password">Confirm new password</label>
+      <input type="password" id="confirm-password" name="confirm" aria-describedby="confirm-password-error">
+      <p class="field-error" id="confirm-password-error" {% if not errors.confirm %}hidden{% endif %}>{{ errors.confirm }}</p>
+    </div>
+    <button type="submit" class="capsule capsule-primary">Change password</button>
+  </form>
+
+  <h3>Two-step sign-in</h3>
+  <p class="totp-state">{{ 'On' if totp_on else 'Off' }}</p>
+  {% if totp_setup %}
+  <div class="totp-setup">
+    <p class="one-time">Setup key: <code>{{ totp_setup.grouped }}</code></p>
+    <p class="one-time">Key address: <code>{{ totp_setup.uri }}</code></p>
+    <form method="post" action="/console/settings" class="inline-form">
+      <input type="hidden" name="action" value="totp-enable">
+      <div class="field">
+        <label for="totp-code">Code from your app</label>
+        <input type="text" id="totp-code" name="code" autocomplete="one-time-code"
+               aria-describedby="totp-code-error">
+        <p class="field-error" id="totp-code-error" {% if not errors.code %}hidden{% endif %}>{{ errors.code }}</p>
+      </div>
+      <button type="submit" class="capsule capsule-primary">Turn on</button>
+    </form>
+  </div>
+  {% elif recovery_codes %}
+  <div class="recovery-codes">
+    <p class="one-time">Save these recovery codes now. Each works once.</p>
+    <ul>{% for code in recovery_codes %}<li><code>{{ code }}</code></li>{% endfor %}</ul>
+  </div>
+  {% elif totp_on %}
+  <form method="post" action="/console/settings" class="inline-form">
+    <input type="hidden" name="action" value="totp-disable">
+    <div class="field">
+      <label for="totp-off-code">Code from your app</label>
+      <input type="text" id="totp-off-code" name="code" autocomplete="one-time-code"
+             aria-describedby="totp-off-error">
+      <p class="field-error" id="totp-off-error" {% if not errors.code %}hidden{% endif %}>{{ errors.code }}</p>
+    </div>
+    <button type="submit" class="capsule">Turn off</button>
+  </form>
+  {% else %}
+  <form method="post" action="/console/settings" class="row-form">
+    <input type="hidden" name="action" value="totp-setup">
+    <button type="submit" class="capsule">Set up two-step sign-in</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

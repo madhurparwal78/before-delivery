@@ -1,0 +1,1404 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 76
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "board-reading",
+    "figure-computation",
+    "price-feed",
+    "drafting",
+    "exhibit-vault",
+    "review-and-release",
+    "release-dialog",
+    "corrections",
+    "citation",
+    "vault-outage",
+    "unspool-trace",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 89
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 5
+B9 = 3
+B10 = 5
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 5
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "vault-down"
+port = 4174
+url_env = "APP_VAULT_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-timers"
+port = 4175
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+ETH_STALE_SECONDS = "10"
+STAFF_SESSION_IDLE_SECONDS = "20"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health check"
+text = "Ship the run manifest described in Deployment and answer the health check described there, even while the filing vault is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Credentials from the environment"
+text = "Read every database and filing-vault credential and URL at start from the environment variables in Configuration and secrets, never hard-code them, and never send them to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Same-origin server boundary"
+text = "Refuse cross-site writes, oversize or wrong-type bodies, and requests for source or configuration files exactly as Server boundary states."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Filing vault outage"
+text = "While the filing vault is unreachable, the board keeps showing every figure with the vault notice, and exhibit downloads and uploads are refused with the outage response, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "vault-outage"
+tests = [
+    "test_app.py::test_wf_vault_outage_board",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Figure board tiles"
+text = "The public board at / shows the four figure tiles in the published order, each with its displayed value, clock badge, as-of time and filing citation read from that figure's current stored computation."
+kind = "behavior"
+primary = "pytest"
+workflow = "board-reading"
+tests = [
+    "test_app.py::test_wf_board_reading_desktop",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Server-decided clock rail"
+text = "The three-clock rail shows the equity session, ETH price and holdings week exactly as the board API reports them, never recomputed from the device clock even when that clock is wrong, picks up server changes within the refresh limit in Business rules, and keeps the last loaded state through a failed refresh."
+kind = "behavior"
+primary = "pytest"
+workflow = "board-reading"
+tests = [
+    "test_app.py::test_board_rail_server_decided",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Stale and market-closed notices"
+text = "The board shows the stale-ETH and market-closed copy from Feedback states verbatim whenever the server reports those states."
+kind = "behavior"
+primary = "pytest"
+workflow = "board-reading"
+tests = [
+    "test_app.py::test_board_stale_and_closed_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Session close announcement"
+text = "When the server reports the equity session closing while the board is open, the board announces the session-close copy once in its polite live region and the share-price input relabels to the official close."
+kind = "behavior"
+primary = "pytest"
+workflow = "board-reading"
+tests = [
+    "test_app.py::test_wf_board_reading_session_close",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Weekly history with restated entries"
+text = "The weekly history lists every published and superseded restatement newest first and keeps superseded rows visible, marked Restated with their date, reason and a link to the superseding row."
+kind = "behavior"
+primary = "pytest"
+workflow = "board-reading"
+tests = [
+    "test_app.py::test_board_history_restated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Responsive board layout"
+text = "The figure grid has one column below 768 px wide, two from 768 px and four from 1280 px, and the clock rail is a fixed left column from 1280 px and a horizontal strip below that, with no horizontal page scrolling at 375, 768 or 1280 px."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Exact amounts and display rounding"
+text = "ETH is kept as integer wei and USD as exact decimals, no figure is computed in floating point, and rounding happens only at display by the rule in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "figure-computation"
+tests = [
+    "test_app.py::test_exact_amounts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "One stored computation per figure"
+text = "Each figure value is computed once and stored, and the tile, the weekly history row, the citation and the trace all show the same digits and as-of from that stored row."
+kind = "behavior"
+primary = "pytest"
+workflow = "figure-computation"
+tests = [
+    "test_app.py::test_one_stored_computation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "As-of from the oldest input"
+text = "The server sets each computation's as-of to the oldest as-of among its inputs and flags the input that sets it."
+kind = "behavior"
+primary = "pytest"
+workflow = "figure-computation"
+tests = [
+    "test_app.py::test_as_of_oldest_input",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "mNAV follows ticks and every session close"
+text = "The server stores a new mNAV computation on every newly accepted price tick, on every publication, and once at every session close the market clock passes, catching up skipped closes in order as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-feed"
+tests = [
+    "test_app.py::test_mnav_ticks_and_closes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Signed tick ingestion"
+text = "The internal tick endpoint accepts only ticks whose signature verifies and whose signed timestamp is within the window in API measured on the server's market clock, stamps them on that clock, and refuses share-price ticks outside the regular session."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-feed"
+tests = [
+    "test_app.py::test_wf_price_feed_signed_ticks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Tick tape and staleness"
+text = "The seeded tape plays and signs its ticks as described in Seed data until the operator pauses it, and the ETH clock turns stale when no ETH tick has arrived within the threshold set by ETH_STALE_SECONDS."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-feed"
+tests = [
+    "test_app.py::test_tape_and_staleness",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Rehearsal clock"
+text = "An operator can set the server's market clock to a chosen instant or return it to real time, and every time rule in the product follows that clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-feed"
+tests = [
+    "test_app.py::test_rehearsal_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "2026 session calendar"
+text = "The server applies the published 2026 regular-session hours, holidays and early closes, and reports them through the session calendar endpoint."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-feed"
+tests = [
+    "test_app.py::test_session_calendar",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Staff sign-in and roles"
+text = "Seeded staff sign in with email and password, staff sessions end as Staff sessions in Business rules states, and the server enforces the role rules in Business rules on every staff endpoint."
+kind = "behavior"
+primary = "pytest"
+workflow = "drafting"
+tests = [
+    "test_app.py::test_staff_sign_in_and_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Draft sequence rules"
+text = "A treasury analyst can open a weekly draft only for the week after the latest published week, only after that week has ended, and only while no other restatement is open."
+kind = "behavior"
+primary = "pytest"
+workflow = "drafting"
+tests = [
+    "test_app.py::test_draft_sequence_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Holdings arithmetic checks"
+text = "The server rejects a draft whose six exhibit rows do not reconcile exactly, to 18 fractional digits, with the prior week, with each other and with the share-count ledger, naming every failing field, and stores every row as typed."
+kind = "behavior"
+primary = "pytest"
+workflow = "drafting"
+tests = [
+    "test_app.py::test_holdings_arithmetic",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Effective-dated share count"
+text = "Share-count events take effect on their effective date once their restatement publishes, a week may carry several, an event that would take the count to zero or below is refused, and every computation uses the diluted share count in effect on its own week-ending date."
+kind = "behavior"
+primary = "pytest"
+workflow = "drafting"
+tests = [
+    "test_app.py::test_wf_drafting_effective_dated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Vault-confirmed exhibit attachment"
+text = "An exhibit counts as attached only after the server has staged it in the vault, read it back and found its SHA-256 equal to the hash the browser computed, and until then the editor shows the exhibit as pending and the draft cannot be sent to disclosure counsel."
+kind = "behavior"
+primary = "pytest"
+workflow = "exhibit-vault"
+tests = [
+    "test_app.py::test_vault_confirmed_attachment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Exhibits kept byte for byte"
+text = "Only verified bytes are copied to the published exhibit key, which is never rewritten even when identical bytes are uploaded again, downloading an exhibit from a trace returns exactly those bytes with the SHA-256 the trace shows even after later restatements, and a visible exhibit answers conditional and range requests with the headers in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "exhibit-vault"
+tests = [
+    "test_app.py::test_wf_exhibit_vault_bytes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Exhibit upload announcements"
+text = "The draft editor announces the upload's progress, verification, hash mismatch, filing-safe refusal, size refusal and vault-down results in its exhibit-upload live region with the copy in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "exhibit-vault"
+tests = [
+    "test_app.py::test_wf_exhibit_vault_upload_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Counsel review"
+text = "Disclosure counsel either returns an in-review restatement with a note or clears the version they reviewed after confirming all six exhibit rows, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-and-release"
+tests = [
+    "test_app.py::test_counsel_review",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Two-person release rule"
+text = "The server refuses a clear by the restatement's preparer, a release by its preparer or by the person who cleared it, and a withdraw by its preparer, whatever roles they hold."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-and-release"
+tests = [
+    "test_app.py::test_wf_review_and_release_two_person",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Release timing by session"
+text = "On the server's market clock, a release during the regular session is queued to that day's session close, and a release outside it publishes at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-and-release"
+tests = [
+    "test_app.py::test_release_timing_by_session",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Queued release publishes at close"
+text = "A queued restatement that is not withdrawn before its release time publishes with its release time as its publication time, including when the market clock jumps past that close, as qualified in Business rules, and appears on the public board only after the server reports it published."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-and-release"
+tests = [
+    "test_app.py::test_wf_review_and_release_queued_close",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Release replay and races"
+text = "A release replayed with the same idempotency key returns the stored response, even after the release was withdrawn, and when the same restatement is released several times at once, exactly one release succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-and-release"
+tests = [
+    "test_app.py::test_release_replay_and_races",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Guarded restatement transitions"
+text = "Every action outside the restatement state machine is refused with the conflict response in Business rules and leaves the restatement unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-and-release"
+tests = [
+    "test_app.py::test_guarded_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Weekly restatement journey"
+text = "A treasury analyst drafts a week and attaches a verified exhibit, counsel clears it, a different officer releases it, and the new week appears on the public board with its figures and downloadable exhibit."
+kind = "behavior"
+primary = "workflow"
+workflow = "review-and-release"
+tests = [
+    "test_app.py::test_wf_review_and_release_weekly_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Release dialog by keyboard"
+text = "A disclosure officer can open, complete and cancel the release and withdraw dialogs with the keyboard alone, with Tab wrapping inside each dialog, Escape closing it and focus returning to the opener."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-dialog"
+tests = [
+    "test_app.py::test_wf_release_dialog_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Release confirmation copy"
+text = "The release dialog shows the queued, published, refused or unconfirmed outcome from Feedback states verbatim in its release-status live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-dialog"
+tests = [
+    "test_app.py::test_release_confirmation_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Corrections supersede the latest week"
+text = "A published correction supersedes the latest published week's current restatement, which may itself be a correction, records its reason, and leaves every earlier version readable as restated and linked to its direct superseder."
+kind = "behavior"
+primary = "pytest"
+workflow = "corrections"
+tests = [
+    "test_app.py::test_corrections_supersede",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Correction journey"
+text = "After an officer publishes a correction, the public board shows the corrected figures while the superseded week stays in the history, marked Restated with its reason, and its exhibit still downloads."
+kind = "behavior"
+primary = "workflow"
+workflow = "corrections"
+tests = [
+    "test_app.py::test_wf_corrections_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Dated citation permalinks"
+text = "A citation page and its API return the figure's last computation stored before the New York midnight that ends the cited date, and return the same digits, inputs, as-of and exhibit every time once that date is final (only the restated marker may be added later by a correction), as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "citation"
+tests = [
+    "test_app.py::test_citation_permalinks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Citation URL restores the trace"
+text = "The citation URL carries the figure, the date and the open trace step, so reloading or sharing it restores exactly that view."
+kind = "behavior"
+primary = "pytest"
+workflow = "citation"
+tests = [
+    "test_app.py::test_citation_url_restores_trace",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Analyst citation journey"
+text = "A sell-side analyst opens a past-date citation, steps to the diluted share count, downloads the cited exhibit, and later sees the same view after a newer week is published."
+kind = "behavior"
+primary = "workflow"
+workflow = "citation"
+tests = [
+    "test_app.py::test_wf_citation_analyst",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Unspool trace sequence"
+text = "Activating a figure tile runs the four-step Unspool sequence in Motion and effects, with each thread running from its chip to its own exhibit row and re-anchoring within 300 milliseconds on resize and on page or panel scroll without replaying its draw, threads removed without closing the trace when a resize crosses below 768 px, and closing the trace reverses it."
+kind = "visual"
+primary = "pytest"
+workflow = "unspool-trace"
+tests = [
+    "test_app.py::test_unspool_threads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Unspool by keyboard"
+text = "A keyboard-only user can open Unspool on any tile, step through its inputs, open the exhibit link and close with Escape back to the tile, with Tab wrapping inside the trace."
+kind = "behavior"
+primary = "pytest"
+workflow = "unspool-trace"
+tests = [
+    "test_app.py::test_wf_unspool_trace_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Unspool with reduced motion"
+text = "With reduced motion set, Unspool shows the ordered input list at once, draws no threads, opens the panel in place and focuses the first input, and every value and link still works."
+kind = "visual"
+primary = "pytest"
+workflow = "unspool-trace"
+tests = [
+    "test_app.py::test_unspool_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Unspool on a phone"
+text = "Below 768 px wide, the trace opens as a scroll-locking bottom sheet with chips and input buttons at the touch size given in Visual design and no threads."
+kind = "visual"
+primary = "pytest"
+workflow = "unspool-trace"
+tests = [
+    "test_app.py::test_wf_unspool_trace_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Ruled ledger look"
+text = "The board reads as a ruled ledger sheet, with hairline rules under every figure row, decimal-aligned tabular numerals, the palette and type in Visual design, and the accent used only for a trace in progress."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Unspool visual craft"
+text = "An open trace reads as one connected path from the figure through its chips and threads to the highlighted exhibit row."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+    "B10",
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Vault recovery without restart"
+text = "When the filing vault becomes reachable again, the notice clears and exhibit downloads and uploads work again without restarting the app, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "vault-outage"
+tests = [
+    "test_app.py::test_vault_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Collapsed clock details"
+text = "Below 768 px wide, each clock item shows a short status and a details button, its full status line is absent from the page and the accessibility tree until expanded, and its expanded state survives every board refresh."
+kind = "behavior"
+primary = "pytest"
+workflow = "board-reading"
+tests = [
+    "test_app.py::test_wf_board_reading_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Instants across the daylight-saving change"
+text = "Every session, week-end and day-end instant uses the America/New_York offset in force on its date, as the week ending 2026-11-01 example in Business rules shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "figure-computation"
+tests = [
+    "test_app.py::test_wf_figure_computation_dst_week",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Release retry reuses its key"
+text = "A release whose response was lost can be retried in the same dialog with the same idempotency key and shows the stored outcome without releasing twice, while a reopened dialog uses a new key."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-dialog"
+tests = [
+    "test_app.py::test_wf_release_dialog_retry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Citation day boundary"
+text = "A citation is provisional exactly while the server's New York date is the cited date, a provisional citation page turns final on its own once the server reports it final, and a future date is not found, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "citation"
+tests = [
+    "test_app.py::test_citation_day_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Opaque error bodies"
+text = "Every error response uses the published error shape and fixed messages, and no response or page ever reveals hosts, ports, driver errors, stack frames, file paths, SQL, environment variable names or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "vault-outage"
+tests = [
+    "test_app.py::test_opaque_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Open trace survives refresh"
+text = "Board refreshes and new computations never close, re-run, refocus or change an open trace or its tile, and the tile shows the current figure within 5 seconds after the trace closes."
+kind = "behavior"
+primary = "pytest"
+workflow = "unspool-trace"
+tests = [
+    "test_app.py::test_wf_unspool_trace_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Half-away ties on every surface"
+text = "The tile, history cell, trace, citation and API display of every figure round a tie at display precision away from zero from the stored 18-digit value, which keeps its trailing zeros, as Display rounding in Business rules shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "figure-computation"
+tests = [
+    "test_app.py::test_wf_figure_computation_tie_week",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Tick redelivery by id"
+text = "A correctly signed tick whose id was already accepted returns the originally stored tick and stores nothing new, and the same id with a different instrument or price is refused, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-feed"
+tests = [
+    "test_app.py::test_tick_redelivery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Version-checked edits and clears"
+text = "Every restatement carries a version that rises by exactly one on each stored change, and a save, clear or withdraw that carries any other version is refused with the version conflict in Business rules and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-and-release"
+tests = [
+    "test_app.py::test_version_checked_edits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Provisional citation follows in place"
+text = "While a citation is provisional and its trace is closed, the page shows each newly resolved computation within 5 seconds on the same elements without moving focus, and an open trace stays pinned until it closes."
+kind = "behavior"
+primary = "pytest"
+workflow = "citation"
+tests = [
+    "test_app.py::test_wf_citation_provisional",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Refused upload changes nothing"
+text = "An exhibit upload refused because the vault is unreachable leaves the restatement's exhibit, version and update time unchanged, and the editor returns to its prior exhibit state and Send availability with the file control cleared."
+kind = "behavior"
+primary = "pytest"
+workflow = "vault-outage"
+tests = [
+    "test_app.py::test_wf_vault_outage_upload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Exact replayed seed state"
+text = "A fresh start replays the seeded history to exactly the versions, audit entries, computations and current figures in Seed data, and a later start against the same database replays and duplicates nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "figure-computation"
+tests = [
+    "test_app.py::test_wf_figure_computation_seed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Exactly-once ticks and closes"
+text = "Simultaneous deliveries of one new tick id store exactly one tick and one mNAV computation and never answer 500, and each session close is processed exactly once however many requests or timers see the clock pass it."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-feed"
+tests = [
+    "test_app.py::test_wf_price_feed_redelivery_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Cross-site staff writes refused"
+text = "A state-changing request with a foreign or null Origin, or with no Origin and a cross-site or same-site fetch site, is refused with the cross-origin response before any body check and changes nothing, as Server boundary states."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-and-release"
+tests = [
+    "test_app.py::test_wf_review_and_release_cross_site",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Late responses never win"
+text = "The citation page applies only a response newer than the one on screen, so a late provisional response never undoes a final citation, and rapid input stepping leaves the URL step, the pressed input and the current exhibit row on the last input chosen."
+kind = "behavior"
+primary = "pytest"
+workflow = "citation"
+tests = [
+    "test_app.py::test_wf_citation_latest_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Honest exhibit state through a refused upload"
+text = "While an upload is in flight the editor shows the exhibit as pending with Send disabled, and after a vault refusal it shows only its exact prior state and keeps the vault-down announcement until the next file is chosen."
+kind = "behavior"
+primary = "pytest"
+workflow = "vault-outage"
+tests = [
+    "test_app.py::test_honest_exhibit_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Only editable draft fields accepted"
+text = "A create or save that carries any member, row key or share-event attribute outside its published list is refused with a validation failure naming each such field, reported together with any other failing fields, and changes nothing, as Draft validation states."
+kind = "behavior"
+primary = "pytest"
+workflow = "drafting"
+tests = [
+    "test_app.py::test_wf_drafting_mass_assignment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Unreleased exhibits stay unfindable"
+text = "An exhibit downloads publicly only once a published or superseded restatement cites it, and every other hash answers exactly like an unknown hash, whatever conditional or range headers it carries, without contacting the vault, as Exhibit access in Business rules states."
+kind = "behavior"
+primary = "pytest"
+workflow = "exhibit-vault"
+tests = [
+    "test_app.py::test_wf_exhibit_vault_unreleased",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "One open restatement under simultaneous creates"
+text = "Of several simultaneous weekly or correction creates exactly one draft is stored and every other request is refused with a conflict, never 500, and a correction naming a restatement that has just been superseded is refused, as Opening a draft states."
+kind = "behavior"
+primary = "pytest"
+workflow = "corrections"
+tests = [
+    "test_app.py::test_wf_corrections_simultaneous",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Dialog outcomes stay with their session"
+text = "A release, withdraw or sign-in response that arrives after its dialog closed never changes a reopened dialog, release and withdraw outcomes show in the staff updates region instead, and a dialog reopened during its closing transition stays open with focus on its first control, as Interactions states."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-dialog"
+tests = [
+    "test_app.py::test_wf_release_dialog_late_response",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Withdraw a queued release"
+text = "A disclosure officer who did not prepare a queued restatement can withdraw it back to cleared with a note only while the market clock is before its release time, and at or after that instant the close wins and the restatement publishes exactly once, as Withdrawing a queued release in Business rules states."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-and-release"
+tests = [
+    "test_app.py::test_withdraw_queued",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Attributed append-only audit trail"
+text = "Every stored change to a restatement, including the server's own publication and supersede steps and the seeded history, writes exactly one attributed audit entry whose version equals the new version, refused requests and replays write none, and the database rejects any change to an entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "corrections"
+tests = [
+    "test_app.py::test_wf_corrections_chain_audit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Filing-safe exhibits"
+text = "An exhibit that is not a complete PDF or carries any of the active-content, link, embedded-file or encryption names in Business rules is refused before the vault is contacted, stores nothing and leaves the restatement unchanged, even while the vault is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "exhibit-vault"
+tests = [
+    "test_app.py::test_filing_safe_exhibits",
+]
+criteria = []
+parameter_cases = [
+    "javascript_escaped",
+    "js",
+    "launch",
+    "embedded_file",
+    "encrypt",
+    "uri",
+    "submit_form",
+    "not_complete",
+]
+
+[[requirements]]
+id = "DP-70"
+title = "Interrupted action resumes after sign-in"
+text = "When a save, send or clear is refused because the staff session ended, the editor opens the inline sign-in dialog keeping every typed value and resends the interrupted request once with its original body only if the same user signs in, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "drafting"
+tests = [
+    "test_app.py::test_wf_drafting_session_resume",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Operator console keeps its own status"
+text = "The operator console shows the server's tape state, tape position and market clock, refreshed in place at least every 5 seconds and kept as last loaded through a failed poll, and its Operator status changes only on the operator's own Pause, Resume, Set clock or Use real time action."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-feed"
+tests = [
+    "test_app.py::test_wf_price_feed_operator_console",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Simultaneous uploads to one draft"
+text = "Simultaneous exhibit uploads to one restatement are each answered without 409 or 500 and each add their own consecutive pending and final versions and audit entries, and the published exhibit key is written once and never rewritten, as Exhibits in Business rules states."
+kind = "behavior"
+primary = "pytest"
+workflow = "exhibit-vault"
+tests = [
+    "test_app.py::test_wf_exhibit_vault_double_drop",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Exhibit download outcome stays in the trace"
+text = "Open exhibit in a trace downloads the stored bytes in the page as the accession's PDF, and a vault refusal or network failure keeps the page, the open trace, its selected input and focus, and shows the copy in Feedback states in the trace's Exhibit download region until the link is activated again or the trace closes."
+kind = "behavior"
+primary = "pytest"
+workflow = "vault-outage"
+tests = [
+    "test_app.py::test_wf_vault_outage_trace_download",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "A closed trace is gone"
+text = "Closing a trace makes it inert at once and, within 600 milliseconds, leaves no trace dialog, control, chip or thread rendered, focusable or in the accessibility tree, at every viewport."
+kind = "behavior"
+primary = "pytest"
+workflow = "unspool-trace"
+tests = [
+    "test_app.py::test_wf_unspool_trace_close",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Server-decided release timing preview"
+text = "The release dialog's Release timing line says whether releasing now queues or publishes from the board API alone, re-reads it at least every 5 seconds while open and updates in place without changing the checkbox, the Release button or focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "release-dialog"
+tests = [
+    "test_app.py::test_wf_release_dialog_timing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Weekly history updates in place"
+text = "A newly published or correcting week enters the weekly history in place within 5 seconds, with superseded rows moved beneath their superseder, unchanged rows kept as the same elements, and a focused history link and expanded clock items kept as they were."
+kind = "behavior"
+primary = "pytest"
+workflow = "board-reading"
+tests = [
+    "test_app.py::test_wf_board_reading_new_week",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve fields and \"_schema\":\"run-manifest-v1\", and nothing else is needed to install, build and serve the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and every bundled font, each with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Shipped packages (the production dependency tree from npm ls --omit=dev --all --json) and fonts use only the MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1 licences."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in the provided Postgres database and MinIO bucket, with no other datastore (no SQLite, Redis, or files used as a database)."
+tests = [
+    "test_app.py::test_if_single_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The app loads no script, style or font from a third-party origin at runtime."
+tests = [
+    "test_app.py::test_if_no_third_party_origin",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Application source, server and browser, is TypeScript; only tool configuration files may be plain JavaScript."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The provided service definitions and their development credentials are left unchanged."
+tests = [
+    "test_app.py::test_if_services_unchanged",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "board-reading"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-47",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_wf_board_reading_desktop",
+    "test_app.py::test_wf_board_reading_phone",
+    "test_app.py::test_wf_board_reading_session_close",
+    "test_app.py::test_wf_board_reading_new_week",
+]
+checkpoints = [
+    "B1",
+    "B3",
+    "B5",
+]
+critical_checkpoints = [
+    "B3",
+]
+
+[[workflows]]
+id = "figure-computation"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-48",
+    "DP-53",
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_wf_figure_computation_tie_week",
+    "test_app.py::test_wf_figure_computation_dst_week",
+    "test_app.py::test_wf_figure_computation_seed",
+    "test_app.py::test_one_stored_computation",
+]
+
+[[workflows]]
+id = "price-feed"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-54",
+    "DP-59",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_wf_price_feed_operator_console",
+    "test_app.py::test_wf_price_feed_signed_ticks",
+    "test_app.py::test_wf_price_feed_redelivery_race",
+]
+
+[[workflows]]
+id = "drafting"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-63",
+    "DP-70",
+]
+critical = [
+    "test_app.py::test_wf_drafting_session_resume",
+    "test_app.py::test_wf_drafting_mass_assignment",
+    "test_app.py::test_wf_drafting_effective_dated",
+]
+
+[[workflows]]
+id = "exhibit-vault"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-64",
+    "DP-69",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_exhibit_vault_upload_ui",
+    "test_app.py::test_wf_exhibit_vault_bytes",
+    "test_app.py::test_wf_exhibit_vault_unreleased",
+    "test_app.py::test_wf_exhibit_vault_double_drop",
+    "test_app.py::test_filing_safe_exhibits",
+]
+
+[[workflows]]
+id = "review-and-release"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-55",
+    "DP-60",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_review_and_release_weekly_journey",
+    "test_app.py::test_wf_review_and_release_two_person",
+    "test_app.py::test_wf_review_and_release_cross_site",
+    "test_app.py::test_wf_review_and_release_queued_close",
+    "test_app.py::test_withdraw_queued",
+    "test_app.py::test_release_replay_and_races",
+]
+
+[[workflows]]
+id = "release-dialog"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-49",
+    "DP-66",
+    "DP-75",
+]
+critical = [
+    "test_app.py::test_wf_release_dialog_keyboard",
+    "test_app.py::test_wf_release_dialog_retry",
+    "test_app.py::test_wf_release_dialog_late_response",
+    "test_app.py::test_wf_release_dialog_timing",
+]
+
+[[workflows]]
+id = "corrections"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-65",
+    "DP-68",
+]
+critical = [
+    "test_app.py::test_wf_corrections_journey",
+    "test_app.py::test_wf_corrections_chain_audit",
+    "test_app.py::test_wf_corrections_simultaneous",
+]
+
+[[workflows]]
+id = "citation"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-50",
+    "DP-56",
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_citation_analyst",
+    "test_app.py::test_wf_citation_provisional",
+    "test_app.py::test_wf_citation_latest_wins",
+    "test_app.py::test_citation_day_boundary",
+    "test_app.py::test_citation_url_restores_trace",
+    "test_app.py::test_citation_permalinks",
+]
+
+[[workflows]]
+id = "vault-outage"
+requirements = [
+    "DP-04",
+    "DP-46",
+    "DP-51",
+    "DP-57",
+    "DP-62",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_vault_outage_board",
+    "test_app.py::test_wf_vault_outage_upload",
+    "test_app.py::test_wf_vault_outage_trace_download",
+    "test_app.py::test_vault_recovery",
+    "test_app.py::test_opaque_errors",
+    "test_app.py::test_honest_exhibit_state",
+]
+
+[[workflows]]
+id = "unspool-trace"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-52",
+    "DP-74",
+]
+critical = [
+    "test_app.py::test_wf_unspool_trace_keyboard",
+    "test_app.py::test_wf_unspool_trace_phone",
+    "test_app.py::test_wf_unspool_trace_refresh",
+    "test_app.py::test_wf_unspool_trace_close",
+]
+checkpoints = [
+    "B8",
+    "B10",
+    "B11",
+]
+critical_checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-10",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_health",
+    "test_app.py::test_wf_cross_cutting_boundary",
+    "test_app.py::test_wf_cross_cutting_layout",
+]
+checkpoints = [
+    "B7",
+    "B12",
+]

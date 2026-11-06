@@ -1,0 +1,710 @@
+/* Railside: steel-ruled paper look (DP-44, DP-45).
+   Colour roles:
+   - ground: warm pale paper grey
+   - ink: near-black text and ticket outlines
+   - heat orange: live holds and the now-line ONLY
+   - buffer green: diagonal hatching on buffer tails
+   - rules: mid steel grey one-pixel rules */
+
+@font-face {
+  font-family: "Archivo Black";
+  src: url("/fonts/ArchivoBlack.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Public Sans";
+  src: url("/fonts/PublicSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --ground: #f4f1ea;
+  --paper: #fbf9f4;
+  --ink: #1c1a17;
+  --rule: #9a978f;
+  --heat: #e2661f;
+  --buffer: #1f5c3a;
+  --steel: #6d6a63;
+  --shadow: 0 1px 3px rgba(28, 26, 23, 0.14);
+  --step: 125ms;
+  --settle: 250ms;
+  --retract: 400ms;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: "Public Sans", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  overflow-x: hidden;
+}
+
+.mono,
+input,
+.numeral {
+  font-family: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+h1,
+h2,
+h3,
+.brand,
+.station-name,
+.auth-brand {
+  font-family: "Archivo Black", "Arial Black", sans-serif;
+  letter-spacing: 0.01em;
+  margin: 0 0 0.5rem;
+}
+
+h1 {
+  font-size: 2.33rem; /* screen heading ~2⅓ body size */
+}
+
+h2 {
+  font-size: 1.33rem;
+}
+
+h3 {
+  font-size: 1rem;
+}
+
+a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 0;
+}
+
+button {
+  cursor: pointer;
+  transition: box-shadow var(--step) ease, transform var(--step) ease;
+}
+
+button:hover:not(:disabled) {
+  box-shadow: 0 2px 0 var(--ink);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+:is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.status-live {
+  min-height: 1.5rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.field-error {
+  font-size: 0.9rem;
+  min-height: 1.2rem;
+}
+
+.auth-column {
+  max-width: 420px;
+  margin: 4rem auto;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  box-shadow: var(--shadow);
+  padding: 2rem;
+}
+
+.auth-brand {
+  font-size: 2.33rem;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.app-header .brand {
+  font-size: 1.33rem;
+}
+
+.app-header nav {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.app-header .menu-toggle {
+  display: none;
+}
+
+/* The drawer is hidden by default at every width; the phone band gives it a
+   visible drawer style and the toggle. Above 768px the toggle is hidden and the
+   drawer stays display:none unless opened. */
+@media (min-width: 768px) {
+  .app-header .menu-drawer {
+    display: none;
+  }
+}
+
+.frame {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.screen {
+  padding: 1rem 1.25rem 3rem;
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ---------- Board ---------- */
+
+.date-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.day-line {
+  margin: 0 0 0 auto;
+}
+
+.rail-wrap {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 9fr 3fr;
+}
+
+.rails-region {
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.hour-ruler {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  border-bottom: 1px solid var(--rule);
+  position: sticky;
+  top: 0;
+  background: var(--paper);
+  z-index: 2;
+  min-height: 32px;
+}
+
+.ruler-mark {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.7rem;
+  border-left: 1px solid var(--rule);
+  padding: 0.25rem 0 0 0.15rem;
+  position: relative;
+}
+
+.now-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--heat);
+}
+
+.rail-scroller {
+  overflow-x: auto;
+}
+
+.station-row {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  border-bottom: 1px solid var(--rule);
+  min-height: 44px;
+}
+
+.station-name {
+  font-size: 0.85rem;
+  padding: 0.5rem 0.75rem;
+  border-right: 1px solid var(--rule);
+  align-self: start;
+}
+
+.rail-track {
+  position: relative;
+  min-height: 44px;
+}
+
+.rail,
+.rail-row {
+  display: grid;
+  grid-template-columns: repeat(96, 1fr);
+}
+
+.rail-cell {
+  min-height: 44px;
+  border-right: 1px solid var(--rule);
+  position: relative;
+}
+
+.rail-cell:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.ticket {
+  position: absolute;
+  top: 2px;
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 4px 4px 6px;
+  overflow: hidden;
+  z-index: 1;
+  /* perforated top edge */
+  -webkit-mask-image: radial-gradient(circle at 4px 0, transparent 3px, #000 3.5px);
+  mask-image: radial-gradient(circle at 4px 0, transparent 3px, #000 3.5px);
+  -webkit-mask-size: 8px 100%;
+  mask-size: 8px 100%;
+  transition: left var(--step) ease, width var(--step) ease, height var(--step) ease;
+}
+
+.ticket-draft {
+  border-left: 3px solid var(--ink);
+}
+
+.ticket-hold {
+  background: var(--heat);
+  border-color: var(--ink);
+  z-index: 2;
+}
+
+.ticket-hold::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 0;
+  background: var(--paper);
+  mask: linear-gradient(to bottom, transparent 0 12px, #000 12px);
+}
+
+.ticket-hold > * {
+  position: relative;
+  z-index: 1;
+}
+
+.ticket-hold .ticket-times,
+.ticket-hold .ticket-hours {
+  background: var(--paper);
+  padding: 0 2px;
+}
+
+.ticket-confirmed,
+.ticket-other {
+  background: var(--paper);
+}
+
+.ticket-maintenance {
+  background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgba(28, 26, 23, 0.5) 4px 5px);
+}
+
+.ticket[role="button"] {
+  cursor: pointer;
+}
+
+.ticket-times,
+.ticket-hours {
+  font-size: 0.68rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.ticket-flag {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+}
+
+.buffer-tail {
+  position: absolute;
+  top: 2px;
+  height: 44px;
+  background: repeating-linear-gradient(45deg, var(--buffer) 0 3px, transparent 3px 6px);
+  border-left: 1px dashed var(--buffer);
+  z-index: 0;
+}
+
+.empty-copy {
+  padding: 1rem;
+  color: var(--steel);
+}
+
+.docket {
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  padding: 1rem;
+  align-self: start;
+}
+
+.docket .balance,
+.docket .countdown {
+  font-size: 1.6rem;
+  margin: 0 0 0.5rem;
+}
+
+.docket p {
+  margin: 0 0 0.5rem;
+  min-height: 0;
+}
+
+.docket-repeat {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.75rem 0;
+}
+
+.docket-repeat input {
+  width: 5rem;
+}
+
+.docket button {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.ticket-line {
+  border-top: 1px solid var(--rule);
+  padding-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  min-height: 1.5rem;
+}
+
+.compliance-line {
+  border-top: 1px solid var(--rule);
+  padding-top: 0.5rem;
+}
+
+/* ---------- Dialogs ---------- */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 26, 23, 0.35);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+}
+
+.dialog {
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  box-shadow: var(--shadow);
+  padding: 1.25rem;
+  max-width: 560px;
+  width: min(560px, calc(100vw - 2rem));
+  max-height: 90vh;
+  overflow: auto;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.dialog h2 {
+  margin: 0;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ---------- Panels and tables ---------- */
+
+.panel {
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  padding: 1rem;
+}
+
+.kitchen-body {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.operator-body {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--rule);
+}
+
+.data-table th,
+.data-table td {
+  border-bottom: 1px solid var(--rule);
+  padding: 0.5rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.data-table th {
+  font-family: "Archivo Black", sans-serif;
+  font-size: 0.75rem;
+}
+
+.pack-line {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.outage {
+  min-height: 1.5rem;
+  font-weight: 600;
+}
+
+.balance-wrap {
+  margin-bottom: 0.75rem;
+}
+
+.balance {
+  font-size: 1.6rem;
+}
+
+.document-row,
+.statement-row,
+.link-row,
+.share-document {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.upload-form,
+.statement-form,
+.link-form {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+.review-documents {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.shelf-line {
+  margin: 0;
+}
+
+.shift-controls {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.share-column {
+  max-width: 720px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.share-renter {
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.share-dead {
+  max-width: 420px;
+  margin: 4rem auto;
+  padding: 2rem;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.copied {
+  color: var(--steel);
+}
+
+/* ---------- Layout bands (DP-42) ---------- */
+
+@media (max-width: 1199px) {
+  .rail-wrap {
+    grid-template-columns: 1fr;
+  }
+  .docket {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  .docket button {
+    width: auto;
+  }
+}
+
+@media (max-width: 767px) {
+  .app-header {
+    position: relative;
+  }
+  .app-header nav {
+    display: none;
+  }
+  .app-header .menu-toggle {
+    display: inline-flex;
+    margin-left: auto;
+  }
+  .app-header .menu-drawer {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--paper);
+    border-bottom: 1px solid var(--ink);
+    padding: 0.5rem 1.25rem;
+    z-index: 40;
+  }
+  .app-header .menu-drawer[hidden] {
+    display: none;
+  }
+
+  .menu-drawer a,
+  .menu-drawer button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    margin-bottom: 0.5rem;
+  }
+  .kitchen-body,
+  .operator-body {
+    grid-template-columns: 1fr;
+  }
+  .docket {
+    grid-template-columns: 1fr;
+  }
+  .data-table,
+  .data-table thead,
+  .data-table tbody,
+  .data-table tr,
+  .data-table th,
+  .data-table td {
+    display: block;
+    width: 100%;
+  }
+  .data-table thead {
+    display: none;
+  }
+  .data-table tr {
+    border: 1px solid var(--rule);
+    margin-bottom: 0.75rem;
+    background: var(--paper);
+  }
+  .data-table td {
+    border-bottom: none;
+    padding: 0.25rem 0.5rem;
+  }
+  .rail-scroller {
+    overflow-x: scroll;
+    scroll-snap-type: x proximity;
+  }
+  .rail-cell {
+    min-width: 44px;
+    width: 44px;
+  }
+  .rail,
+  .rail-row {
+    grid-template-columns: repeat(96, 44px);
+  }
+  .station-row {
+    grid-template-columns: 96px 1fr;
+  }
+  .station-name {
+    font-size: 0.7rem;
+    padding: 0.4rem 0.35rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+  .ticket {
+    transition: none;
+  }
+}

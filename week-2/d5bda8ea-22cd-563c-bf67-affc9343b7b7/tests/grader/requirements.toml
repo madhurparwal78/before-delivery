@@ -1,0 +1,1187 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 59
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "deployment",
+    "accounts",
+    "authorization",
+    "discovery",
+    "event-page",
+    "join-request",
+    "approval",
+    "capacity",
+    "registration",
+    "waitlist",
+    "registration-rules",
+    "event-authoring",
+    "communities",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 81
+services = [
+    { name = "postgres", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "postgres-down"
+port = 4174
+url_env = "APP_POSTGRES_DOWN_URL"
+
+[outages.env]
+DATABASE_URL = "postgresql://gf_app:unreachable@127.0.0.1:9/gf_down"
+
+[[requirements]]
+id = "DP-01"
+title = "Healthy deployment"
+text = "`GET /api/health` answers 200 as soon as the server listens, with `\"status\": \"ok\"` once the database answers and seeding has finished and `\"status\": \"unavailable\"` before that, and the server listens on every interface at the public port."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_wf_deployment_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Seed data"
+text = "The three seeded members, the fifteen seeded events and the four communities exist exactly once with the values under Seed data, after any number of restarts and when two instances boot together."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_wf_deployment_seed",
+    "test_app.py::test_wf_deployment_twin_boot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Self-contained runtime"
+text = "Pages load only from the app's own origin, with Alpine.js served by the app, and contact no other host."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_same_origin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Sign up"
+text = "`POST /api/auth/signup` creates one member with an HttpOnly session cookie and refuses a taken email in any letter case with 409, and `POST /api/auth/check` reports whether an email exists."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_wf_accounts_signup_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Sign-up validation"
+text = "An invalid email, a password shorter than eight characters or a missing name returns 422 and stores no member."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_signup_validation",
+]
+criteria = []
+parameter_cases = [
+    "invalid-email",
+    "short-password",
+    "missing-name",
+    "blank-name",
+    "long-name",
+]
+
+[[requirements]]
+id = "DP-06"
+title = "Generic sign-in failure and sign-out"
+text = "A wrong password and an unknown email get the same 401 response, and signing out stops the token and the cookie at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_wf_accounts_signin_signout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Salted password hashes"
+text = "Passwords are stored only as salted hashes, so one password never yields the same stored value for two members."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_password_hashes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Sign-in screen"
+text = "`/signin` takes a visitor from the email step to the password or new-account step, shows a failed sign-in as one generic alert and lands on `next` or `/home` on success, as qualified in Interactions."
+kind = "behavior"
+primary = "workflow"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_wf_accounts_signin_screen",
+    "test_app.py::test_wf_accounts_unsafe_next",
+    "test_app.py::test_wf_accounts_outage_signup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Visitor boundary"
+text = "Every member-only endpoint answers 401 to a visitor and leaves events, registrations, follows, host messages and reports unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "authorization"
+tests = [
+    "test_app.py::test_visitor_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Member pages"
+text = "`/home`, `/create` and `/manage/{slug}` redirect a visitor to `/signin?next=` with the requested path and open for a member."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_member_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Host-only management"
+text = "The guest list, the manage page, event edits and guest decisions answer not found to any signed-in member who is not the host and change nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "authorization"
+tests = [
+    "test_app.py::test_wf_authorization_host_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Address privacy"
+text = "The street address, the `Open in maps` link and the virtual link reach only the host and approved guests, in every API response and page."
+kind = "behavior"
+primary = "pytest"
+workflow = "authorization"
+tests = [
+    "test_app.py::test_wf_authorization_address_privacy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Landing page"
+text = "`/` renders its headline, paragraph links, actions and every section in the first response, and its three example links and quiet buttons change colour on hover."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_landing_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Hero motion"
+text = "The first hero word cycles through its four words and the floating covers scatter as the page scrolls and gather again on the way back, while under reduced motion the word stays on `Joyful` and nothing moves."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_hero_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Discover filters"
+text = "City and category filters narrow the list to upcoming public events, put `?place=` and `?category=` in the address and never show a private or past event."
+kind = "behavior"
+primary = "pytest"
+workflow = "discovery"
+tests = [
+    "test_app.py::test_wf_discovery_filters",
+    "test_app.py::test_wf_discovery_no_address_copies",
+    "test_app.py::test_wf_discovery_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Discover sections and counts"
+text = "`/discover` shows its four sections with the twelve category tiles and the six city tiles, counting only upcoming public events."
+kind = "behavior"
+primary = "pytest"
+workflow = "discovery"
+tests = [
+    "test_app.py::test_wf_discovery_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Registration card states"
+text = "Each event page renders the right Registration card state, one level-one heading and its sections in the first HTML response."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-page"
+tests = [
+    "test_app.py::test_wf_event_page_card_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Dates and times"
+text = "The event page shows the date tile, the long date and the time range in the event's own time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-page"
+tests = [
+    "test_app.py::test_wf_event_page_dates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Countdown and capacity meter"
+text = "The countdown and the capacity meter are correct in the first response, the countdown ticks every second, and the meter and card update in place from the response to a card action."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-page"
+tests = [
+    "test_app.py::test_wf_event_page_countdown_meter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Themes"
+text = "The `night` event page is dark with light text, the five other themes are light with dark text, and the theme accent fills the primary button."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Event page layout"
+text = "On a narrow screen the event page stacks the cover, the title, the Registration card, `About Event` and `Hosted By` in that order."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-page"
+tests = [
+    "test_app.py::test_wf_event_page_narrow_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Request to join"
+text = "A visitor who presses `Request to Join` on `Founders Board Game Night`, signs up and returns sees the pending card state, and `/home` lists the event with the pending pill."
+kind = "behavior"
+primary = "workflow"
+workflow = "join-request"
+tests = [
+    "test_app.py::test_wf_join_request_signup",
+    "test_app.py::test_wf_join_request_offsite_next",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Host decisions"
+text = "Approving, declining and removing guests move registrations only along the edges in Business rules and refuse every other change with 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "approval"
+tests = [
+    "test_app.py::test_wf_approval_host_decisions",
+    "test_app.py::test_wf_approval_foreign_guest",
+    "test_app.py::test_wf_approval_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Capacity under concurrency"
+text = "Simultaneous registrations and approvals for the last places never approve more guests than the capacity."
+kind = "behavior"
+primary = "pytest"
+workflow = "capacity"
+tests = [
+    "test_app.py::test_wf_capacity_concurrent_approve",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "One registration per member"
+text = "A repeat request returns 200 with the existing status and stores no second registration, and a cancelled member may register again."
+kind = "behavior"
+primary = "pytest"
+workflow = "capacity"
+tests = [
+    "test_app.py::test_wf_capacity_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Fair queue under concurrency"
+text = "Places freed by simultaneous cancellations go to waiting guests in queue order, never to newcomers."
+kind = "behavior"
+primary = "pytest"
+workflow = "waitlist"
+tests = [
+    "test_app.py::test_wf_waitlist_concurrent_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Register and waitlist"
+text = "An open event approves at once or records a pending request, a full event waitlists or refuses by its waitlist setting, and the card shows the matching state."
+kind = "behavior"
+primary = "pytest"
+workflow = "registration"
+tests = [
+    "test_app.py::test_wf_registration_outcomes",
+    "test_app.py::test_wf_registration_double_press",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Automatic promotion"
+text = "Cancelling, removing an approved guest, raising the capacity or making it unlimited moves waiting guests up in queue order within the same request, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "waitlist"
+tests = [
+    "test_app.py::test_wf_waitlist_promotion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Queue positions"
+text = "A waitlisted guest's place in the queue shows as a number in the API and as an English ordinal on their card and on the manage page."
+kind = "behavior"
+primary = "pytest"
+workflow = "waitlist"
+tests = [
+    "test_app.py::test_queue_positions",
+    "test_app.py::test_wf_waitlist_move_up",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Registration refusals"
+text = "Closed, ended and code-only events refuse registration with 403, and a host registering for their own event gets 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "registration-rules"
+tests = [
+    "test_app.py::test_wf_registration_rules_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Access codes"
+text = "A guest on `/fireworx` is refused a wrong code beside the field and registers with the valid code, which matches with its letter case after surrounding spaces are trimmed."
+kind = "behavior"
+primary = "workflow"
+workflow = "registration-rules"
+tests = [
+    "test_app.py::test_wf_registration_rules_access_code_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Create event"
+text = "`POST /api/events` stores the event in UTC with a new eight-character slug, applies every default and escapes authored text."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-authoring"
+tests = [
+    "test_app.py::test_wf_event_authoring_create_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Event validation"
+text = "Each invalid create-event or edit field returns 422 with that field in `errors` and stores nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-authoring"
+tests = [
+    "test_app.py::test_event_validation",
+]
+criteria = []
+parameter_cases = [
+    "blank-name",
+    "long-name",
+    "end-before-start",
+    "start-in-past",
+    "unknown-timezone",
+    "capacity-zero",
+    "capacity-over",
+    "virtual-plain-http",
+    "unknown-theme",
+    "three-categories",
+    "unknown-category",
+    "repeated-category",
+    "calendar-not-followed",
+    "long-description",
+]
+
+[[requirements]]
+id = "DP-34"
+title = "Create form"
+text = "`/create` offers every field and the six-theme shuffle, shows inline errors that keep what was typed, then publishes to `/{slug}`."
+kind = "behavior"
+primary = "workflow"
+workflow = "event-authoring"
+tests = [
+    "test_app.py::test_wf_event_authoring_create_form",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Edit and close"
+text = "The host edits only the fields a request carries, moves registration status only along its edges and can close and reopen registration without touching registrations."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-authoring"
+tests = [
+    "test_app.py::test_wf_event_authoring_edit",
+    "test_app.py::test_wf_event_authoring_address_edit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "My events"
+text = "`/api/me/events` and `/home` list the member's upcoming and past events with the right pill in the stated order."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_my_events",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Following"
+text = "A follow counts once even under simultaneous requests, can be undone and redone, and its button turns into `Following`."
+kind = "behavior"
+primary = "pytest"
+workflow = "communities"
+tests = [
+    "test_app.py::test_wf_communities_follow_ui",
+    "test_app.py::test_follow_concurrent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Contact and report"
+text = "Host messages and reports are validated and stored, and each dialog keeps focus inside, closes with Escape and returns focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "communities"
+tests = [
+    "test_app.py::test_wf_communities_contact_report",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Live card updates"
+text = "A guest who registers for `/runclub7` and then cancels sees the card, going count and meter change in place and hears each change announced politely without focus moving."
+kind = "behavior"
+primary = "workflow"
+workflow = "registration"
+tests = [
+    "test_app.py::test_wf_registration_live_card",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Notifications"
+text = "Member actions confirm with the named toasts, at most three show at once, and each waits while hovered or focused and closes with `Dismiss notification` or Escape."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_toasts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Celebration"
+text = "A confirmed place plays one confetti or firework celebration that never blocks, never replays on reload and never plays under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_celebration",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Global chrome"
+text = "The header shows `Sign In` to visitors and the initials avatar menu to members, and `/home` shows its tabs, empty state and pills."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_global_chrome",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Accessible public pages"
+text = "The landing page, `/discover`, a community page, an event page and `/signin` meet WCAG 2.2 AA."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_accessible_public_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Accessible themes"
+text = "An event page in each of the six themes meets WCAG 2.2 AA."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_accessible_themes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Accessible member pages"
+text = "`/home`, `/create`, a manage page and an event page seen by its host meet WCAG 2.2 AA."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_accessible_member_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Skip link"
+text = "`Skip to Content` is the first focus target and moves focus into the main content."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_skip_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Reflow at 320 pixels"
+text = "Every page reflows at 320 CSS pixels wide without sideways scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reflow",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Not-found responses"
+text = "Unknown addresses, unknown events, unknown communities and `/pricing` answer 404 with Mela's own not-found page."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Not-found page"
+text = "The not-found page's `Back to Discover` link takes the visitor to `/discover`."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_not_found_back_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Visual design"
+text = "The pages follow the palette, type, shapes and shadows under Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Engineering standards"
+text = "The code meets every line under Engineering standards."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Outage and recovery"
+text = "The app starts and serves Mela's 503 page and bodies while PostgreSQL is unreachable, then recovers without a restart and keeps existing sessions, within the times in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_wf_deployment_outage_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Strict request bodies"
+text = "Every JSON endpoint refuses a non-object body, an unknown key or a wrongly typed value with 422 and stores nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "authorization"
+tests = [
+    "test_app.py::test_wf_authorization_strict_bodies",
+]
+criteria = []
+parameter_cases = [
+    "array-body",
+    "string-body",
+    "number-body",
+    "null-body",
+    "invalid-json",
+    "signup-id",
+    "register-status",
+    "create-slug",
+    "create-host-id",
+    "capacity-string",
+    "capacity-float",
+    "capacity-boolean",
+    "approval-string",
+    "approval-zero",
+    "categories-string",
+    "patch-going-count",
+    "follow-extra",
+    "contact-array",
+    "contact-oversize",
+]
+
+[[requirements]]
+id = "DP-54"
+title = "Immediate loss of access"
+text = "A declined or removed guest loses the address on their very next request and cannot undo the decline by cancelling or registering again, and no event response may be stored by any cache."
+kind = "behavior"
+primary = "pytest"
+workflow = "approval"
+tests = [
+    "test_app.py::test_wf_approval_loss_of_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Counts from the committed change"
+text = "Every registration and guest-decision response reports the counts as of its own committed change and names the guests it moved up, and every event object keeps going count plus places left equal to capacity."
+kind = "behavior"
+primary = "pytest"
+workflow = "capacity"
+tests = [
+    "test_app.py::test_wf_capacity_concurrent_register",
+    "test_app.py::test_wf_capacity_count_injection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Capacity edits and queue order"
+text = "A capacity edit never drops below the going count and never loses a concurrent edit, and promotions take only the earliest guests in a queue where a guest who rejoins goes to the back."
+kind = "behavior"
+primary = "pytest"
+workflow = "waitlist"
+tests = [
+    "test_app.py::test_wf_waitlist_capacity_edits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Access code lockout"
+text = "Five wrong access codes from one member on one event within the lockout window answer every further attempt with 429 and `Retry-After`, counted atomically across instances."
+kind = "behavior"
+primary = "pytest"
+workflow = "registration-rules"
+tests = [
+    "test_app.py::test_wf_registration_rules_lockout",
+    "test_app.py::test_wf_registration_rules_lockout_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Guest records belong to their event"
+text = "A guest decision acts only on a registration of the event in its path, and a guest id from another event or not a canonical positive whole number answers JSON not found and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "authorization"
+tests = [
+    "test_app.py::test_wf_authorization_foreign_guest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "One message per send"
+text = "A contact or report sent again with the same `Idempotency-Key` and body returns the first id and stores nothing new even under simultaneous sends, the same key with a different body is refused with 422, and the dialog resends its key after a failed send."
+kind = "behavior"
+primary = "pytest"
+workflow = "communities"
+tests = [
+    "test_app.py::test_wf_communities_idempotent_send",
+    "test_app.py::test_contact_dialog_retry",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "Ship /app/run.json with \"_schema\": \"run-manifest-v1\" and string install, build and serve, where serve starts a production WSGI server in the foreground: not flask run, no debug or reload flag, and no nohup, setsid, disown or trailing &."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "Write the three seeded logins and their shared password to /app/USER_README.md."
+tests = [
+    "test_app.py::test_if_user_readme",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Declare Flask as a dependency and ship no datastore client other than PostgreSQL's (no MongoDB, MySQL, SQLite, Redis, Supabase or Firebase client) among the shipped packages, meaning the production dependency tree: every package in requirements.txt, or the lockfile's non-dev group, together with their transitive dependencies."
+tests = [
+    "test_app.py::test_if_datastore_clients",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Ship /app/THIRD_PARTY_NOTICES.md naming Alpine.js and every shipped package with its licence and where it came from; each licence is one of MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC, PSF-2.0, MPL-2.0 or LGPL-3.0."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Pin every Python dependency to one exact version: every line of /app/requirements.txt reads name==version (extras allowed), or ship pyproject.toml with its lockfile (uv.lock, poetry.lock, pdm.lock or Pipfile.lock)."
+tests = [
+    "test_app.py::test_if_pinned_dependencies",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Do not download, install or start a database or any other service while building; use only the PostgreSQL at DATABASE_URL."
+tests = [
+    "test_app.py::test_if_no_extra_services",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "deployment"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_deployment_health",
+    "test_app.py::test_wf_deployment_seed",
+    "test_app.py::test_wf_deployment_twin_boot",
+    "test_app.py::test_wf_deployment_outage_recovery",
+]
+
+[[workflows]]
+id = "accounts"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-10",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_accounts_signup_api",
+    "test_app.py::test_wf_accounts_signin_signout",
+    "test_app.py::test_wf_accounts_signin_screen",
+    "test_app.py::test_wf_accounts_unsafe_next",
+    "test_app.py::test_wf_accounts_outage_signup",
+]
+
+[[workflows]]
+id = "authorization"
+requirements = [
+    "DP-09",
+    "DP-11",
+    "DP-12",
+    "DP-53",
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_wf_authorization_host_only",
+    "test_app.py::test_wf_authorization_address_privacy",
+    "test_app.py::test_wf_authorization_strict_bodies",
+    "test_app.py::test_wf_authorization_foreign_guest",
+]
+
+[[workflows]]
+id = "discovery"
+requirements = [
+    "DP-15",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_wf_discovery_filters",
+    "test_app.py::test_wf_discovery_counts",
+    "test_app.py::test_wf_discovery_no_address_copies",
+    "test_app.py::test_wf_discovery_outage",
+]
+
+[[workflows]]
+id = "event-page"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_event_page_card_states",
+    "test_app.py::test_wf_event_page_countdown_meter",
+]
+
+[[workflows]]
+id = "join-request"
+requirements = [
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_join_request_signup",
+    "test_app.py::test_wf_join_request_offsite_next",
+]
+
+[[workflows]]
+id = "approval"
+requirements = [
+    "DP-23",
+    "DP-54",
+]
+critical = [
+    "test_app.py::test_wf_approval_host_decisions",
+    "test_app.py::test_wf_approval_loss_of_access",
+    "test_app.py::test_wf_approval_foreign_guest",
+    "test_app.py::test_wf_approval_outage",
+]
+
+[[workflows]]
+id = "capacity"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_capacity_concurrent_register",
+    "test_app.py::test_wf_capacity_concurrent_approve",
+    "test_app.py::test_wf_capacity_replay",
+    "test_app.py::test_wf_capacity_count_injection",
+]
+
+[[workflows]]
+id = "registration"
+requirements = [
+    "DP-27",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_registration_outcomes",
+    "test_app.py::test_wf_registration_live_card",
+    "test_app.py::test_wf_registration_double_press",
+]
+
+[[workflows]]
+id = "waitlist"
+requirements = [
+    "DP-26",
+    "DP-28",
+    "DP-29",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_waitlist_promotion",
+    "test_app.py::test_wf_waitlist_move_up",
+    "test_app.py::test_wf_waitlist_concurrent_cancel",
+    "test_app.py::test_wf_waitlist_capacity_edits",
+]
+
+[[workflows]]
+id = "registration-rules"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-57",
+]
+critical = [
+    "test_app.py::test_wf_registration_rules_refusals",
+    "test_app.py::test_wf_registration_rules_access_code_ui",
+    "test_app.py::test_wf_registration_rules_lockout",
+]
+
+[[workflows]]
+id = "event-authoring"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_event_authoring_create_api",
+    "test_app.py::test_wf_event_authoring_create_form",
+    "test_app.py::test_wf_event_authoring_edit",
+    "test_app.py::test_wf_event_authoring_address_edit",
+]
+
+[[workflows]]
+id = "communities"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-59",
+]
+critical = [
+    "test_app.py::test_wf_communities_follow_ui",
+    "test_app.py::test_wf_communities_contact_report",
+    "test_app.py::test_wf_communities_idempotent_send",
+    "test_app.py::test_follow_concurrent",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-03",
+    "DP-13",
+    "DP-14",
+    "DP-20",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_same_origin",
+    "test_app.py::test_landing_page",
+    "test_app.py::test_not_found",
+    "test_app.py::test_skip_link",
+]

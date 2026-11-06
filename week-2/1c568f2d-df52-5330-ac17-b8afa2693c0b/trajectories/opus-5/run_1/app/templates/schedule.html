@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% from "parts.html" import icon, error_summary %}
+{% block title %}Featured schedule{% endblock %}
+{% block main %}
+{% set lead = account.role == 'lead' %}
+<div class="schedule-page">
+  <section class="panel schedule-main">
+    {{ error_summary() }}
+    <header class="schedule-header">
+      <h1>Featured schedule</h1>
+      <form class="month-controls" method="get" action="/schedule">
+        <button type="submit" class="button" name="month" value="{{ previous_month }}">Previous month</button>
+        <span class="month-name">{{ month_name }} {{ year }}</span>
+        <button type="submit" class="button" name="month" value="{{ next_month }}">Next month</button>
+      </form>
+    </header>
+    <div class="month-grid" role="grid" aria-label="{{ month_name }} {{ year }}">
+      <div class="week week-names" role="row">
+        {% for name in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+        <span class="day-name" role="columnheader">{{ name }}</span>
+        {% endfor %}
+      </div>
+      {% for week in weeks %}
+      <div class="week" role="row">
+        {% for day in week %}
+        {% if day %}
+        {% set slot = booked.get(day) %}
+        {% set label = day.isoformat() ~ (', ' ~ slot.title if slot else ', free') %}
+        <div class="day-cell {{ 'is-booked' if slot else 'is-free' }} {{ 'is-today' if day == today else '' }}"
+             role="gridcell" aria-label="{{ label }}">
+          {% if lead and (day >= today or slot) %}
+          <button type="button" class="day-button" aria-label="{{ label }}"
+                  data-day="{{ day.isoformat() }}"
+                  data-booked="{{ slot.id if slot else '' }}">
+            <span class="day-number figure">{{ day.day }}</span>
+            {% if day == today %}<span class="day-today">Today</span>{% endif %}
+            {% if slot %}<span class="day-title">{{ slot.title }}</span>{% else %}<span class="day-free">Free</span>{% endif %}
+          </button>
+          {% else %}
+          <span class="day-static">
+            <span class="day-number figure">{{ day.day }}</span>
+            {% if day == today %}<span class="day-today">Today</span>{% endif %}
+            {% if slot %}<span class="day-title">{{ slot.title }}</span>{% else %}<span class="day-free">Free</span>{% endif %}
+          </span>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="day-cell is-blank" role="gridcell" aria-hidden="true"></div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <aside class="panel today-panel" role="region" aria-label="Today">
+    <h2>Today</h2>
+    {% if today_slot %}
+    <p class="today-title"><a href="/pieces/{{ today_slot.id }}">{{ today_slot.title }}</a></p>
+    <p class="today-visits">{{ today_slot.view_count }} visitor{{ '' if today_slot.view_count == 1 else 's' }} opened this piece</p>
+    {% else %}
+    <p class="empty">No piece is featured today</p>
+    {% endif %}
+  </aside>
+</div>
+
+{% if lead %}
+<dialog class="modal" id="book-dialog" aria-label="Book a day">
+  <form method="dialog" class="modal-body">
+    <div class="modal-head">
+      <h2>Book a day</h2>
+      <button type="button" class="icon-button" data-close-dialog aria-label="Close" title="Close">{{ icon('cross') }}</button>
+    </div>
+    <p class="modal-note">Choose a cleared piece for <span class="figure" data-book-target></span>.</p>
+    {% if cleared %}
+    <ul class="book-list">
+      {% for piece in cleared %}
+      <li>
+        <button type="button" class="button book-choice" data-book-piece="{{ piece.id }}">{{ piece.title }}</button>
+        <span class="book-meta">{{ piece.owner_name }} · <span class="figure">{{ piece.fee_cents|money }}</span></span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">No cleared piece is waiting for a day</p>
+    {% endif %}
+    <div class="modal-foot">
+      <button type="button" class="button button-primary" data-book-confirm>Confirm</button>
+      <button type="button" class="button button-quiet" data-close-dialog>Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="modal" id="unschedule-dialog" aria-label="Unschedule">
+  <form method="dialog" class="modal-body">
+    <div class="modal-head">
+      <h2>Unschedule</h2>
+      <button type="button" class="icon-button" data-close-dialog aria-label="Close" title="Close">{{ icon('cross') }}</button>
+    </div>
+    <p class="modal-note">Free <span class="figure" data-unschedule-target></span>?</p>
+    <div class="modal-foot">
+      <button type="button" class="button button-primary" data-unschedule-confirm>Unschedule</button>
+      <button type="button" class="button button-quiet" data-close-dialog>Cancel</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}

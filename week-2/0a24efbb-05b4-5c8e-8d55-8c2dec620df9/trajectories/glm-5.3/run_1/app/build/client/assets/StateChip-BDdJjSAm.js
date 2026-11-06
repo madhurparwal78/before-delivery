@@ -1,0 +1,1 @@
+import{j as p}from"./jsx-runtime-D_zvdyIk.js";import{b as i,c as r}from"./icons-C4ykedoB.js";function e({state:s,animate:c}){const n=i[s]||i.pending;return p.jsxs("span",{className:`chip chip-${s}${c?" chip-settle":""}`,children:[p.jsx(n,{className:"chip-glyph"}),p.jsx("span",{children:r[s]||s})]})}export{e as S};

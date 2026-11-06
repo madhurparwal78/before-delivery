@@ -1,0 +1,1559 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 80
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "search",
+    "payment",
+    "last-berth",
+    "booking-windows",
+    "cancellation",
+    "my-bookings",
+    "public-pnr",
+    "family-booking",
+    "pnr-tracking",
+    "promotion",
+    "chart",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 90
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "killbill", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Pakka Rail <tickets@pakka-rail.example>" } },
+    { name = "minio", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 5
+B10 = 5
+B11 = 5
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 5
+Q4 = 5
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "minio-down"
+port = 4176
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "fast-clock"
+port = 4177
+url_env = "APP_FAST_CLOCK_URL"
+
+[outages.env]
+RAIL_CLOCK_START = "2026-12-01T06:00:00+05:30"
+RAIL_CLOCK_RATE = "240"
+DATABASE_URL = "${DATABASE_URL}_fast"
+S3_BUCKET = "${S3_BUCKET}-fast"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health check"
+text = "Ship /app/run.json as described in Deployment, and answer the health path with the healthy body once the database is ready, whether or not the other services are reachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health",
+    "test_app.py::test_health_primary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Service settings from the environment"
+text = "Read every service URL and credential at start from the environment variables listed in Configuration and secrets, and never hard-code them or send them to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Server boundary"
+text = "Enforce the same-origin, body-size, content-type, idempotency-header and never-served rules in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = [
+    "cross_origin",
+    "too_large",
+    "at_limit",
+    "media_type",
+    "idempotency_header",
+    "never_served",
+]
+
+[[requirements]]
+id = "DP-04"
+title = "Error shape and precedence"
+text = "Answer every API error with the one error shape and the one precedence order stated at the top of API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Business clock in IST"
+text = "Reckon every business time in Asia/Kolkata from the business clock in Business rules, and publish that clock at GET /api/clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking-windows"
+tests = [
+    "test_app.py::test_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Traveller accounts and sessions"
+text = "Let a traveller create an account, sign in and sign out, with the validation and errors in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "my-bookings"
+tests = [
+    "test_app.py::test_accounts_and_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Bookings belong to their account"
+text = "Answer any request for a booking, ticket file, cancellation or cancellation quote whose PNR belongs to another account exactly as for a PNR that does not exist."
+kind = "behavior"
+primary = "pytest"
+workflow = "my-bookings"
+tests = [
+    "test_app.py::test_other_account_is_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "E-ticket versions"
+text = "Store the as-booked e-ticket at booking and the after-chart version at the chart, and let the owner download every stored version from the booking page."
+kind = "behavior"
+primary = "pytest"
+workflow = "my-bookings"
+tests = [
+    "test_app.py::test_wf_my_bookings_tickets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Public PNR lookup"
+text = "Show anyone each passenger's booking status and current status for a PNR, and never the names, ages, genders, phone number or email behind it."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-pnr"
+tests = [
+    "test_app.py::test_wf_public_pnr_lookup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Train search"
+text = "Return and show every seeded train that calls at the From stop and later at the To stop on the searched date, with IST times, chart time, booking window and the selected class's availability."
+kind = "behavior"
+primary = "pytest"
+workflow = "search"
+tests = [
+    "test_app.py::test_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Availability counts match inventory"
+text = "Keep every AVL, RAC and waiting-list count equal to the berths, RAC places and waitlisted passengers actually held, after every booking, cancellation and chart."
+kind = "behavior"
+primary = "pytest"
+workflow = "search"
+tests = [
+    "test_app.py::test_availability_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Availability announced on class and quota change"
+text = "Update the cards and the URL in place when the class or quota changes, without adding a history entry, and announce the selected train's new availability in the status \"Availability\" region."
+kind = "behavior"
+primary = "pytest"
+workflow = "search"
+tests = [
+    "test_app.py::test_class_change_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Results layout at three widths"
+text = "Show train results in the stacked, two-column and three-pane layouts at the widths given in Screens and layout, with no horizontal page scroll."
+kind = "behavior"
+primary = "pytest"
+workflow = "search"
+tests = [
+    "test_app.py::test_wf_search_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Solo booking journey"
+text = "Let a solo commuter on a phone search, pick a class and quota, book one berth, and land on the booking page showing the PNR and the passenger's status."
+kind = "behavior"
+primary = "workflow"
+workflow = "search"
+tests = [
+    "test_app.py::test_wf_search_phone_solo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Party size and ages"
+text = "Accept on one PNR only the party sizes, ages and quota eligibility in Business rules, and reject the rest with field errors."
+kind = "behavior"
+primary = "pytest"
+workflow = "family-booking"
+tests = [
+    "test_app.py::test_party_rules",
+]
+criteria = []
+parameter_cases = [
+    "no_adult",
+    "seven_adults",
+    "three_children",
+    "tatkal_five",
+    "senior_three",
+    "ladies_male",
+    "senior_young",
+    "age_range",
+    "full_party",
+    "senior_woman",
+]
+
+[[requirements]]
+id = "DP-16"
+title = "Fare calculation"
+text = "Compute every fare in integer paise from the fare rules in Business rules, with GST on AC classes and no fare for children under five."
+kind = "behavior"
+primary = "pytest"
+workflow = "family-booking"
+tests = [
+    "test_app.py::test_fare_quote",
+]
+criteria = []
+parameter_cases = [
+    "sl_general",
+    "ac3_general",
+    "sl_tatkal",
+    "ac3_tatkal",
+    "children",
+]
+
+[[requirements]]
+id = "DP-17"
+title = "Live fare total"
+text = "Update the fare lines and total in place, within the delay in Interactions, after any passenger or option change, and announce the total in the status \"Fare total\" region."
+kind = "behavior"
+primary = "pytest"
+workflow = "family-booking"
+tests = [
+    "test_app.py::test_live_fare_total",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Berth allotment"
+text = "Allot each passenger a confirmed berth, then an RAC place, then a waiting-list place, in PNR order, using the allotment rule in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "family-booking"
+tests = [
+    "test_app.py::test_allotment_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Senior lower berths"
+text = "On a General booking, allot each passenger who meets the senior criteria a free Senior-quota lower berth when one is free on their stretch, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "family-booking"
+tests = [
+    "test_app.py::test_senior_lower_berths",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Keep party in one coach"
+text = "With \"Keep party in one coach\" ticked, confirm every passenger in one coach or book nobody and charge nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "family-booking"
+tests = [
+    "test_app.py::test_wf_family_booking_party_split",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Lower berth only"
+text = "With \"Book only if a lower berth is allotted\" ticked, book only when at least one passenger is confirmed on a lower or side-lower berth, and otherwise book nobody and charge nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "family-booking"
+tests = [
+    "test_app.py::test_lower_berth_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Ladies and Senior quotas"
+text = "Book Ladies and Senior quota tickets only for eligible passengers and only on free berths of that quota, with no RAC and no waiting list."
+kind = "behavior"
+primary = "pytest"
+workflow = "family-booking"
+tests = [
+    "test_app.py::test_ladies_and_senior_quotas",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Coach plan preference picker"
+text = "Let the planner set each passenger's berth preference on the coach plan by keyboard, bay by bay, as described in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "family-booking"
+tests = [
+    "test_app.py::test_coach_plan_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Family booking journey"
+text = "Let the family trip planner enter a mixed party, watch the live fare, pay, and land on the booking page with every passenger's status."
+kind = "behavior"
+primary = "workflow"
+workflow = "family-booking"
+tests = [
+    "test_app.py::test_wf_family_booking_mixed_party",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Payment before the PNR"
+text = "Charge each booking's total as a Kill Bill purchase on the traveller's account before the PNR exists, recorded as described in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "payment"
+tests = [
+    "test_app.py::test_payment_recorded",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "All-or-nothing booking"
+text = "Create the payment, PNR, stored e-ticket and queued e-ticket mail together, or leave no PNR, no held berth and no captured money."
+kind = "behavior"
+primary = "pytest"
+workflow = "payment"
+tests = [
+    "test_app.py::test_all_or_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Booking replay"
+text = "Make booking and cancellation requests idempotent per account and Idempotency-Key, replaying a stored success and rejecting a reused key with a different body, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "last-berth"
+tests = [
+    "test_app.py::test_booking_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Payment outage"
+text = "When Kill Bill is unreachable, refuse the booking with the payment-outage 503 and show the payment-outage copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "payment"
+tests = [
+    "test_app.py::test_wf_payment_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Ticket storage outage"
+text = "When MinIO is unreachable, refuse the booking with the ticket-storage 503, leave no PNR and charge nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "payment"
+tests = [
+    "test_app.py::test_ticket_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Mail outage keeps the booking"
+text = "When Mailpit is unreachable, still complete the booking, and deliver each queued mail once Mailpit is reachable again, as timed in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "payment"
+tests = [
+    "test_app.py::test_mail_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Confirm-and-pay dialog"
+text = "Take payment in the dialog \"Confirm and pay\": keep Tab inside it, close it on Escape, and return focus to the button that opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "payment"
+tests = [
+    "test_app.py::test_wf_payment_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "One winner for the last berth"
+text = "When simultaneous bookings need the same last free berth over overlapping stretches, give it only to bookings whose stretches never overlap, and answer every other with the availability-changed offer and no charge."
+kind = "behavior"
+primary = "pytest"
+workflow = "last-berth"
+tests = [
+    "test_app.py::test_last_berth_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Availability changed offer"
+text = "When a booking would get a worse status than the traveller accepted, charge nothing, answer with the availability-changed 409 and the status now on offer, and let the traveller book at that status in one step."
+kind = "behavior"
+primary = "pytest"
+workflow = "last-berth"
+tests = [
+    "test_app.py::test_wf_last_berth_offer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Advance reservation window"
+text = "Refuse General, Ladies and Senior bookings for a run date before its advance reservation window opens, reckoned on the IST business date and open from the opening instant itself."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking-windows"
+tests = [
+    "test_app.py::test_advance_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Tatkal opening"
+text = "Refuse Tatkal bookings before the class's Tatkal opening instant in IST, accept them from that instant itself, and report the opening as an exact IST timestamp."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking-windows"
+tests = [
+    "test_app.py::test_tatkal_opening",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Chart time"
+text = "Publish each run's chart time from the chart rule in Business rules, and close bookings and queue movement from that instant."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking-windows"
+tests = [
+    "test_app.py::test_chart_times",
+]
+criteria = []
+parameter_cases = [
+    "12951",
+    "12627",
+    "17031",
+    "22477",
+    "14231",
+    "11025",
+    "12489",
+    "16341",
+]
+
+[[requirements]]
+id = "DP-37"
+title = "Screen follows server time"
+text = "Show booking windows, chart state and deduction bands exactly as the server reports them, whatever the device clock or time zone says."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking-windows"
+tests = [
+    "test_app.py::test_wf_booking_windows_device_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "PNR tracking journey"
+text = "Let the waitlisted traveller open their booking and follow each passenger from waiting list to RAC to a confirmed berth on the coach plan."
+kind = "behavior"
+primary = "workflow"
+workflow = "pnr-tracking"
+tests = [
+    "test_app.py::test_wf_pnr_tracking_chart_drop",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Status polling"
+text = "Refresh the booking page's statuses from the server on the schedule in Interactions, without a reload, while the booking can still change."
+kind = "behavior"
+primary = "pytest"
+workflow = "pnr-tracking"
+tests = [
+    "test_app.py::test_status_polling",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Chart drop"
+text = "Animate each changed passenger from old status to new status in the order and timing given in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "pnr-tracking"
+tests = [
+    "test_app.py::test_chart_drop_count",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Reduced-motion Chart drop"
+text = "Under reduced motion, show every final status at once and list each change in the region \"What changed\"."
+kind = "behavior"
+primary = "pytest"
+workflow = "pnr-tracking"
+tests = [
+    "test_app.py::test_reduced_motion_what_changed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Status announcements"
+text = "Announce one line per changed passenger in the status \"PNR updates\" region, in the format given in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "pnr-tracking"
+tests = [
+    "test_app.py::test_status_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "PNR on a phone"
+text = "At the phone width, turn the coach plan vertical inside the page's own touch scroll and fold the queue column under it."
+kind = "behavior"
+primary = "pytest"
+workflow = "pnr-tracking"
+tests = [
+    "test_app.py::test_pnr_on_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Status shown by text and shape"
+text = "Mark confirmed, RAC, waitlisted and cancelled states on chips and berth cells with text and shape as well as colour, with text at 4.5:1 contrast."
+kind = "visual"
+primary = "pytest"
+workflow = "pnr-tracking"
+tests = [
+    "test_app.py::test_status_chip_shapes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Queue promotion"
+text = "On each cancellation before the chart, give freed berths and RAC places to waiting passengers in the promotion order in Business rules, cascading inside the same change."
+kind = "behavior"
+primary = "pytest"
+workflow = "promotion"
+tests = [
+    "test_app.py::test_wf_promotion_cascade",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Contiguous queues"
+text = "Keep RAC and each waiting list numbered from 1 upward, without gaps, after every change."
+kind = "behavior"
+primary = "pytest"
+workflow = "promotion"
+tests = [
+    "test_app.py::test_contiguous_queues",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "One berth per stretch"
+text = "Never let two passengers hold one berth over overlapping stretches of a run, and never let more than two RAC passengers share one side-lower berth."
+kind = "behavior"
+primary = "pytest"
+workflow = "last-berth"
+tests = [
+    "test_app.py::test_one_berth_per_stretch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Status-moved mail"
+text = "Mail the booking's owner once per cancellation event in which any of its passengers moves up from a waiting list or from RAC, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "promotion"
+tests = [
+    "test_app.py::test_status_moved_mail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Chart preparation"
+text = "At the chart time, freeze every booking on the run and move every passenger still on a waiting list to not confirmed."
+kind = "behavior"
+primary = "pytest"
+workflow = "chart"
+tests = [
+    "test_app.py::test_chart_freezes_run",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Waitlisted refunds at chart"
+text = "Refund every not-confirmed passenger's full fare through Kill Bill after the chart."
+kind = "behavior"
+primary = "pytest"
+workflow = "chart"
+tests = [
+    "test_app.py::test_chart_refunds_waitlisted",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Chart mail"
+text = "After the chart, mail each booking's owner every passenger's final coach and berth, RAC place or not-confirmed result."
+kind = "behavior"
+primary = "pytest"
+workflow = "chart"
+tests = [
+    "test_app.py::test_chart_mail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Chart prepared journey"
+text = "Show the waitlisted traveller the Chart prepared state on their booking page, with each final berth or not-confirmed label."
+kind = "behavior"
+primary = "workflow"
+workflow = "chart"
+tests = [
+    "test_app.py::test_wf_chart_prepared",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Cancellation quote"
+text = "Show the deduction band, charge, GST, deduction and refund for each selected passenger before the traveller confirms."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_cancellation_preview",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Deduction bands"
+text = "Decide each cancelled passenger's band from Business rules at the moment the request arrives on the business clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_deduction_bands",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Exact refund in paise"
+text = "Compute and store each refund once, in integer paise per passenger, refund only the selected passengers, and make its Kill Bill refund equal the sum of the passenger refunds."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_exact_refund_paise",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Refund confirmed by Kill Bill"
+text = "Show Refund issued only after Kill Bill records the refund, and Refund pending until then, retrying while Kill Bill is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_refund_confirmed_by_killbill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Refund mail"
+text = "Mail the owner once per refund, after Kill Bill confirms it."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_refund_mail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Cancellation journey"
+text = "Let the cancelling traveller cancel some passengers, see the refund before confirming, and later see it issued on the booking page."
+kind = "behavior"
+primary = "workflow"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_wf_cancellation_partial",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Chart-paper look"
+text = "Render every screen with the ruled chart-paper ground, stamped status chips, route ribbon and type described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Coach plan drawing"
+text = "Draw the sleeper coach plan as a nine-bay diagram with halved RAC side-lower cells, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Latest filter wins"
+text = "Let only the reply for the latest class and quota selection update the cards, the train details, the URL and the Availability announcement, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "search"
+tests = [
+    "test_app.py::test_latest_filter_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Booking resumes after sign-in"
+text = "When the session has ended at Pay, charge nothing, send the traveller to sign in, and return them to the same booking page with the whole draft restored and unpaid."
+kind = "behavior"
+primary = "pytest"
+workflow = "payment"
+tests = [
+    "test_app.py::test_wf_payment_session_resume",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Concurrent replays"
+text = "When requests with one key and one body arrive together, make one booking or cancellation and one Kill Bill transaction, and answer every other as a replay of it."
+kind = "behavior"
+primary = "pytest"
+workflow = "last-berth"
+tests = [
+    "test_app.py::test_concurrent_replays",
+    "test_app.py::test_wf_last_berth_double_pay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "The clock, not the job, decides the edge"
+text = "Treat a run as chart-prepared for every decision and answer from the business-clock instant of its chart time, even before the chart job has run."
+kind = "behavior"
+primary = "pytest"
+workflow = "chart"
+tests = [
+    "test_app.py::test_wf_chart_bookings_close",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "GST on cancellation charges"
+text = "On 3A, add 5% GST to each passenger's cancellation charge, rounded half up once per passenger, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_gst_on_cancellation_charges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Part-confirmed party clerkage"
+text = "Charge only clerkage to every passenger when a cancellation before the chart takes the whole remaining party of a part-confirmed General PNR."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_party_clerkage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Polling keeps what the traveller is doing"
+text = "Keep the Cancel passengers dialog, its ticks and its focus through a status poll, re-quote the refund preview for the new statuses, and play the Chart drop after the dialog closes."
+kind = "behavior"
+primary = "pytest"
+workflow = "pnr-tracking"
+tests = [
+    "test_app.py::test_wf_pnr_tracking_poll_during_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Waiting-list cap"
+text = "Cap each run and class's General and Tatkal waiting lists at the share of the pool in Business rules, show REGRET at the cap, and refuse a booking that would pass it for the whole party with nothing charged."
+kind = "behavior"
+primary = "pytest"
+workflow = "family-booking"
+tests = [
+    "test_app.py::test_waitlist_cap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "RAC cancellation after the chart"
+text = "After the chart, refund an RAC passenger's fare minus clerkage only up to and including 30 minutes before departure from the PNR's From stop, and nothing after that."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_wf_cancellation_rac_after_chart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "E-ticket after every cancellation"
+text = "Store a new e-ticket version after every cancellation that answers 201, numbered in creation order with the booked and chart versions, and none for a replay, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "my-bookings"
+tests = [
+    "test_app.py::test_cancellation_ticket_versions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Newest booking state wins"
+text = "Carry a version on every booking body that rises by one with each change to the PNR, and paint on the booking page only a reply newer than the one shown."
+kind = "behavior"
+primary = "pytest"
+workflow = "pnr-tracking"
+tests = [
+    "test_app.py::test_wf_pnr_tracking_newest_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Simultaneous cancellations promote once"
+text = "Promote simultaneous cancellations on one run and class one change at a time, so no passenger moves twice, no berth or RAC place is given twice, and each event mails each affected PNR at most once."
+kind = "behavior"
+primary = "pytest"
+workflow = "promotion"
+tests = [
+    "test_app.py::test_wf_promotion_simultaneous",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Results follow the business clock"
+text = "Refresh the results in place within 5 real seconds after the business clock reaches the next opening or chart time among the cards shown, reading the clock from the server, never the device date."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking-windows"
+tests = [
+    "test_app.py::test_wf_booking_windows_live_flip",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Closed sheet and unselected details are unavailable"
+text = "Keep the closed Filters sheet and every unselected train's details out of view, the Tab order and the accessibility tree, and make everything behind the open sheet unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "search"
+tests = [
+    "test_app.py::test_closed_sheet_unavailable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Booking problem survives repaints"
+text = "Keep the booking problem alert through every refresh and repaint until the traveller acts again, and never let a closing dialog's exit hide a dialog reopened during it."
+kind = "behavior"
+primary = "pytest"
+workflow = "payment"
+tests = [
+    "test_app.py::test_wf_payment_problem_survives",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Each request answers its own traveller"
+text = "Charge, store and answer every booking for the traveller who sent it, even when two accounts send the same Idempotency-Key and body at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "last-berth"
+tests = [
+    "test_app.py::test_two_accounts_same_key",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Safe sign-in landing"
+text = "After sign-in or account creation, land on next only when it passes the return-path rule in Server boundary, on the search screen when it does not, and on My bookings when there is none."
+kind = "behavior"
+primary = "pytest"
+workflow = "my-bookings"
+tests = [
+    "test_app.py::test_wf_my_bookings_signin_next",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "PNR status table on every width"
+text = "Show the PNR status table as stacked passenger blocks below 768 px and as side-by-side columns from 768 px, with no horizontal page scroll."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-pnr"
+tests = [
+    "test_app.py::test_wf_public_pnr_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Family booking on a phone"
+text = "At the phone width with touch, keep every focused booking field clear of the pinned Review and pay bar, let a tap on a berth set the preference, and give every berth a comfortable tap target."
+kind = "behavior"
+primary = "pytest"
+workflow = "family-booking"
+tests = [
+    "test_app.py::test_wf_family_booking_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "E-tickets stay as issued"
+text = "Serve every stored e-ticket version byte for byte as first stored, and never rewrite one after promotions, cancellations, refunds or the chart."
+kind = "behavior"
+primary = "pytest"
+workflow = "chart"
+tests = [
+    "test_app.py::test_chart_tickets_stay_as_issued",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json has exactly the run-manifest-v1 shape in Deployment, with string install, build and serve fields."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package with its licence, plus the fonts and the icon set; shipped packages means the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package, font and icon is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The only datastores are the provided Postgres for records and MinIO for e-ticket files; there is no SQLite, no Redis and no local file holding application state."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and its credentials are used as given and left unchanged."
+tests = [
+    "test_app.py::test_if_service_config",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Application source is TypeScript, and the lockfile package-lock.json is committed."
+tests = [
+    "test_app.py::test_if_typescript_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The browser loads nothing from third-party hosts; fonts, icons and scripts ship with the app."
+tests = [
+    "test_app.py::test_if_no_third_party_hosts",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "search"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-61",
+    "DP-74",
+]
+critical = [
+    "test_app.py::test_wf_search_phone_solo",
+    "test_app.py::test_wf_search_layouts",
+    "test_app.py::test_availability_counts",
+    "test_app.py::test_latest_filter_wins",
+    "test_app.py::test_class_change_in_place",
+    "test_app.py::test_closed_sheet_unavailable",
+]
+checkpoints = [
+    "B3",
+    "B4",
+    "B6",
+]
+critical_checkpoints = [
+    "B4",
+]
+
+[[workflows]]
+id = "payment"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-62",
+    "DP-75",
+]
+critical = [
+    "test_app.py::test_wf_payment_outage",
+    "test_app.py::test_wf_payment_session_resume",
+    "test_app.py::test_wf_payment_dialog",
+    "test_app.py::test_wf_payment_problem_survives",
+    "test_app.py::test_all_or_nothing",
+]
+checkpoints = [
+    "B12",
+    "B4",
+]
+critical_checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "last-berth"
+requirements = [
+    "DP-27",
+    "DP-32",
+    "DP-33",
+    "DP-47",
+    "DP-63",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_wf_last_berth_offer",
+    "test_app.py::test_last_berth_race",
+    "test_app.py::test_concurrent_replays",
+    "test_app.py::test_two_accounts_same_key",
+]
+checkpoints = [
+    "B11",
+    "B8",
+]
+critical_checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "booking-windows"
+requirements = [
+    "DP-05",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_booking_windows_device_clock",
+    "test_app.py::test_wf_booking_windows_live_flip",
+    "test_app.py::test_advance_window",
+    "test_app.py::test_tatkal_opening",
+]
+checkpoints = [
+    "B3",
+    "B7",
+]
+critical_checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "cancellation"
+requirements = [
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-65",
+    "DP-66",
+    "DP-69",
+]
+critical = [
+    "test_app.py::test_wf_cancellation_partial",
+    "test_app.py::test_wf_cancellation_rac_after_chart",
+    "test_app.py::test_gst_on_cancellation_charges",
+    "test_app.py::test_party_clerkage",
+    "test_app.py::test_refund_confirmed_by_killbill",
+]
+checkpoints = [
+    "B5",
+]
+critical_checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "my-bookings"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-70",
+    "DP-77",
+]
+critical = [
+    "test_app.py::test_wf_my_bookings_signin_next",
+    "test_app.py::test_wf_my_bookings_tickets",
+    "test_app.py::test_other_account_is_not_found",
+]
+checkpoints = [
+    "B4",
+    "B5",
+]
+critical_checkpoints = [
+    "B4",
+]
+
+[[workflows]]
+id = "public-pnr"
+requirements = [
+    "DP-09",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_public_pnr_lookup",
+    "test_app.py::test_wf_public_pnr_layout",
+]
+checkpoints = [
+    "B1",
+]
+critical_checkpoints = [
+    "B1",
+]
+
+[[workflows]]
+id = "family-booking"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-68",
+    "DP-79",
+]
+critical = [
+    "test_app.py::test_wf_family_booking_mixed_party",
+    "test_app.py::test_wf_family_booking_phone",
+    "test_app.py::test_wf_family_booking_party_split",
+    "test_app.py::test_coach_plan_keyboard",
+    "test_app.py::test_live_fare_total",
+]
+checkpoints = [
+    "B10",
+    "B8",
+    "B9",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "pnr-tracking"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-67",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_wf_pnr_tracking_chart_drop",
+    "test_app.py::test_wf_pnr_tracking_newest_wins",
+    "test_app.py::test_wf_pnr_tracking_poll_during_dialog",
+    "test_app.py::test_reduced_motion_what_changed",
+    "test_app.py::test_status_announcements",
+    "test_app.py::test_status_chip_shapes",
+]
+checkpoints = [
+    "B11",
+    "B8",
+    "B9",
+]
+critical_checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "promotion"
+requirements = [
+    "DP-45",
+    "DP-46",
+    "DP-48",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_promotion_cascade",
+    "test_app.py::test_wf_promotion_simultaneous",
+    "test_app.py::test_contiguous_queues",
+]
+checkpoints = [
+    "B10",
+    "B11",
+    "B9",
+]
+critical_checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "chart"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-64",
+    "DP-80",
+]
+critical = [
+    "test_app.py::test_wf_chart_prepared",
+    "test_app.py::test_wf_chart_bookings_close",
+    "test_app.py::test_chart_refunds_waitlisted",
+    "test_app.py::test_chart_tickets_stay_as_issued",
+]
+checkpoints = [
+    "B4",
+    "B5",
+]
+critical_checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_health_primary",
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_error_precedence",
+]

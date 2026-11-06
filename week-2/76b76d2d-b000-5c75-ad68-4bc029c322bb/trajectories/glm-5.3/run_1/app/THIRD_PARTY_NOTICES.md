@@ -1,0 +1,126 @@
+# Third-party notices
+
+Shipped packages (the production tree from `npm ls --omit=dev --all --json`):
+
+- @esbuild/aix-ppc64@0.28.2 — MIT
+- @esbuild/android-arm64@0.28.2 — MIT
+- @esbuild/android-arm@0.28.2 — MIT
+- @esbuild/android-x64@0.28.2 — MIT
+- @esbuild/darwin-arm64@0.28.2 — MIT
+- @esbuild/darwin-x64@0.28.2 — MIT
+- @esbuild/freebsd-arm64@0.28.2 — MIT
+- @esbuild/freebsd-x64@0.28.2 — MIT
+- @esbuild/linux-arm64@0.28.2 — MIT
+- @esbuild/linux-arm@0.28.2 — MIT
+- @esbuild/linux-ia32@0.28.2 — MIT
+- @esbuild/linux-loong64@0.28.2 — MIT
+- @esbuild/linux-mips64el@0.28.2 — MIT
+- @esbuild/linux-ppc64@0.28.2 — MIT
+- @esbuild/linux-riscv64@0.28.2 — MIT
+- @esbuild/linux-s390x@0.28.2 — MIT
+- @esbuild/linux-x64@0.28.2 — MIT
+- @esbuild/netbsd-arm64@0.28.2 — MIT
+- @esbuild/netbsd-x64@0.28.2 — MIT
+- @esbuild/openbsd-arm64@0.28.2 — MIT
+- @esbuild/openbsd-x64@0.28.2 — MIT
+- @esbuild/openharmony-arm64@0.28.2 — MIT
+- @esbuild/sunos-x64@0.28.2 — MIT
+- @esbuild/win32-arm64@0.28.2 — MIT
+- @esbuild/win32-ia32@0.28.2 — MIT
+- @esbuild/win32-x64@0.28.2 — MIT
+- accepts@2.0.0 — MIT
+- body-parser@2.4.0 — MIT
+- bytes@3.1.2 — MIT
+- call-bind-apply-helpers@1.0.2 — MIT
+- call-bound@1.0.4 — MIT
+- content-disposition@2.0.1 — MIT
+- content-type@2.1.0 — MIT
+- cookie-signature@1.2.2 — MIT
+- cookie@0.7.2 — MIT
+- debug@4.4.3 — MIT
+- depd@2.0.0 — MIT
+- dunder-proto@1.0.1 — MIT
+- ee-first@1.1.1 — MIT
+- encodeurl@2.0.1 — MIT
+- es-define-property@1.0.1 — MIT
+- es-errors@1.3.0 — MIT
+- es-object-atoms@1.1.2 — MIT
+- esbuild@0.28.2 — MIT
+- escape-html@1.0.3 — MIT
+- etag@1.8.1 — MIT
+- express@5.3.0 — MIT
+- finalhandler@2.1.1 — MIT
+- forwarded@0.2.0 — MIT
+- fresh@2.0.0 — MIT
+- function-bind@1.1.2 — MIT
+- get-intrinsic@1.3.0 — MIT
+- get-proto@1.0.1 — MIT
+- gopd@1.2.0 — MIT
+- has-symbols@1.1.0 — MIT
+- hasown@2.0.4 — MIT
+- http-errors@2.0.1 — MIT
+- iconv-lite@0.6.3 — MIT
+- iconv-lite@0.7.3 — MIT
+- inherits@2.0.4 — ISC
+- ipaddr.js@1.9.1 — MIT
+- is-promise@4.0.0 — MIT
+- luxon@3.7.2 — MIT
+- math-intrinsics@1.1.0 — MIT
+- media-typer@1.1.1 — MIT
+- merge-descriptors@2.0.0 — MIT
+- mime-db@1.54.0 — MIT
+- mime-types@3.0.2 — MIT
+- ms@2.1.3 — MIT
+- negotiator@1.1.0 — MIT
+- nodemailer@10.3.1 — MIT-0
+- object-inspect@1.13.4 — MIT
+- on-finished@2.4.2 — MIT
+- once@1.4.0 — ISC
+- parseurl@1.3.3 — MIT
+- path-to-regexp@8.4.2 — MIT
+- pg-cloudflare@1.4.1 — MIT
+- pg-connection-string@2.14.1 — MIT
+- pg-int8@1.0.1 — ISC
+- pg-pool@3.14.0 — MIT
+- pg-protocol@1.16.1 — MIT
+- pg-types@2.2.0 — MIT
+- pg@8.23.1 — MIT
+- pgpass@1.0.5 — MIT
+- postgres-array@2.0.0 — MIT
+- postgres-bytea@1.0.1 — MIT
+- postgres-date@1.0.7 — MIT
+- postgres-interval@1.2.0 — MIT
+- proxy-addr@2.0.8 — MIT
+- punycode@2.3.1 — MIT
+- qs@6.17.1 — BSD-3-Clause
+- range-parser@1.3.0 — MIT
+- raw-body@3.0.2 — MIT
+- router@2.2.0 — MIT
+- safer-buffer@2.1.2 — MIT
+- send@1.2.1 — MIT
+- serve-static@2.2.1 — MIT
+- setprototypeof@1.2.0 — ISC
+- side-channel-list@1.0.1 — MIT
+- side-channel-map@1.0.1 — MIT
+- side-channel-weakmap@1.0.2 — MIT
+- side-channel@1.1.1 — MIT
+- split2@4.2.0 — ISC
+- statuses@2.0.2 — MIT
+- toidentifier@1.0.1 — MIT
+- tr46@5.1.1 — MIT
+- type-is@2.1.0 — MIT
+- unpipe@1.0.0 — MIT
+- vary@1.1.2 — MIT
+- webidl-conversions@7.0.0 — BSD-2-Clause
+- whatwg-encoding@2.0.0 — MIT
+- whatwg-url@14.2.0 — MIT
+- wrappy@1.0.2 — ISC
+- xtend@4.0.2 — MIT
+
+Bundled fonts (self-hosted, SIL Open Font License 1.1):
+
+- Instrument Serif (Regular, version 1.000) — Instrument Serif Project Authors — OFL-1.1
+- Inter (variable, version 4.001) — The Inter Project Authors — OFL-1.1
+- IBM Plex Mono (Regular, version 2.3) — IBM — OFL-1.1
+- IBM Plex Mono (Bold, version 2.3) — IBM — OFL-1.1
+

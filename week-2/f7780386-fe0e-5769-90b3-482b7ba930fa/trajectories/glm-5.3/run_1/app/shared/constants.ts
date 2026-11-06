@@ -1,0 +1,19 @@
+export const CELL_MINUTES = 15;
+export const BOARD_OPENS_MINUTES = 5 * 60; // 05:00
+export const BOARD_CLOSES_MINUTES = 24 * 60; // 24:00
+export const FREE_CANCEL_DAYS = 2;
+export const CHECK_IN_OPENS_MINUTES = 15;
+export const BOOKING_DAYS_AHEAD = 28;
+export const HOLD_SECONDS_DEFAULT = 600;
+export const MAX_JSON_BYTES = 65536;
+export const MAX_UPLOAD_BYTES = 5250000;
+export const MAX_FILE_BYTES = 5000000;
+export const MAX_FILENAME_LENGTH = 120;
+export const OUTBOUND_FROM = 'Passboard <passboard@halsted-kitchen.test>';
+export const OUTBOUND_ADDRESS = 'passboard@halsted-kitchen.test';
+export const SESSION_COOKIE = 'passboard_session';
+export const PACKET_MAX_DAYS = 31;
+export const PACKET_LINK_MAX_DAYS = 30;
+export const BOOKINGS_RANGE_MAX_DAYS = 62;
+export const CSV_NEUTRALISE_PREFIX = "'";
+export const CSV_NEUTRALISE_FIRST_CHARS = ['=', '+', '-', '@', '\t', '\r'];

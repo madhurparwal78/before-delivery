@@ -1,0 +1,68 @@
+{% from "macros.njk" import status_chip, truck_icon, arrow_icon %}
+<div class="status-line">{{ status_chip(request.status) }}</div>
+{% if request.status != 'submitted' %}
+<div class="decision-info">
+  {% if request.decided_by %}
+  <p class="timeline-note">{{ 'Confirmed by ' if request.status == 'confirmed' else 'Declined by ' }}{{ request.decided_by.name }}</p>
+  <p class="muted">{{ request.decided_at | truncate(16, true, '') | replace('T', ' ') }} UTC</p>
+  {% if request.decision_note %}<p class="decision-note">{{ request.decision_note }}</p>{% endif %}
+  {% endif %}
+</div>
+{% endif %}
+<section class="trucks" aria-labelledby="trucks-head">
+  <h2 class="section-head" id="trucks-head" role="heading">Trucks</h2>
+  <p class="count-line" data-trucks-assigned="{{ request.trucks_assigned }}" data-trucks-requested="{{ request.trucks_requested }}">
+    {{ request.trucks_assigned }} of {{ request.trucks_requested }} trucks assigned
+  </p>
+  <ul class="truck-list" id="truck-list">
+    {% for truck in request.trucks %}
+    <li class="truck-row" data-truck-id="{{ truck.id }}" data-truck-status="assigned">
+      {{ truck_icon() }}
+      <span class="truck-id">{{ truck.id }}</span>
+      <span class="truck-depot">{{ truck.depot | label }}</span>
+    </li>
+    {% else %}
+    <li class="truck-row muted">No trucks assigned yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% if isDispatcher and request.status == 'submitted' %}
+<section class="dispatch-panel" aria-labelledby="panel-head">
+  <h3 class="section-head" id="panel-head" role="heading">Dispatch</h3>
+  <form class="panel-form" hx-post="/requests/{{ request.id }}/assignments" hx-target="#request-dynamics" hx-swap="outerHTML" novalidate>
+    <div class="field field-inline">
+      <label for="truck-select">Assign truck</label>
+      <select id="truck-select" name="truck_id"
+        {% if field_errors.truck_id %}aria-invalid="true" aria-describedby="truck-error"{% endif %}>
+        {% for truck in available_trucks %}
+        <option value="{{ truck.id }}">{{ truck.id }} ({{ truck.depot | label }})</option>
+        {% endfor %}
+      </select>
+      {% if field_errors.truck_id %}<p class="field-error" id="truck-error">{{ field_errors.truck_id }}</p>{% endif %}
+    </div>
+    <button type="submit" class="btn btn-primary" data-busy-text="Saving...">Assign {{ arrow_icon() }}</button>
+  </form>
+  <ul class="release-list">
+    {% for truck in request.trucks %}
+    <li class="release-row" data-truck-id="{{ truck.id }}">
+      <span class="truck-id">{{ truck.id }}</span>
+      <button type="button" class="btn btn-outline btn-small" data-busy-text="Saving..."
+        hx-post="/requests/{{ request.id }}/assignments/{{ truck.id }}/release"
+        hx-target="#request-dynamics" hx-swap="outerHTML">Release {{ truck.id }}</button>
+    </li>
+    {% endfor %}
+  </ul>
+  <form class="decision-form" hx-post="/requests/{{ request.id }}/decision" hx-target="#request-dynamics" hx-swap="outerHTML" novalidate>
+    <div class="field">
+      <label for="decision-note">Note</label>
+      <textarea id="decision-note" name="note" rows="3"
+        {% if field_errors.note %}aria-invalid="true" aria-describedby="note-error"{% endif %}></textarea>
+      {% if field_errors.note %}<p class="field-error" id="note-error">{{ field_errors.note }}</p>{% endif %}
+    </div>
+    <div class="panel-actions">
+      <button type="submit" class="btn btn-primary" name="decision" value="confirm" data-busy-text="Saving...">Confirm {{ arrow_icon() }}</button>
+      <button type="submit" class="btn btn-danger" name="decision" value="decline" data-busy-text="Saving...">Decline</button>
+    </div>
+  </form>
+</section>
+{% endif %}

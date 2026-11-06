@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_ui.html" import cover, avatar, follow_button with context %}
+{% set start = fmt.local(event.start_at, event.timezone) %}
+{% set countdown = fmt.countdown(event.start_at, event.end_at, now) %}
+{% block title %}{{ event.name }} · Mela{% endblock %}
+{% block body_class %}themed{% endblock %}
+{% block body_attrs %} data-theme="{{ event.theme }}"{% endblock %}
+{% macro location_lines(compact) -%}
+{% if event.sees_address and event.location_type == "offline" %}
+  <span class="loc-primary">{{ event.venue_name or event.city }}</span>
+  <span class="loc-secondary">{{ event.street_address }}, {{ event.city }}</span>
+  <a class="loc-maps" href="geo:0,0?q={{ (event.street_address ~ ', ' ~ event.city) | urlencode }}">Open in maps {{ icon("arrow", 14) }}</a>
+{% elif event.sees_address %}
+  <span class="loc-primary">Virtual event</span>
+  <a class="loc-maps" href="{{ event.virtual_link }}" rel="noopener noreferrer">{{ event.virtual_link }} {{ icon("arrow", 14) }}</a>
+{% elif event.location_type == "offline" %}
+  <span class="loc-primary">Register to See Address</span>
+  <span class="loc-secondary">{{ event.city }}</span>
+  {% if not compact %}<span class="loc-note">The exact address is shared with confirmed guests.</span>{% endif %}
+{% else %}
+  <span class="loc-primary">Virtual event</span>
+  {% if not compact %}<span class="loc-note">The link is shared with confirmed guests.</span>{% endif %}
+{% endif %}
+{%- endmacro %}
+{% block main %}
+<div class="event-backdrop" aria-hidden="true">{{ cover(event, "cover-glow", decorative=True) }}</div>
+<div class="event-layout" x-data="eventPage" data-slug="{{ event.slug }}">
+  <div class="event-cover">{{ cover(event, "cover-hero") }}</div>
+
+  <div class="event-main">
+    {% if event.visibility == "private" %}
+    <p class="chip">{{ icon("lock", 14) }}Private Event</p>
+    {% else %}
+    <p class="chip">{{ icon("sparkle", 14) }}Featured in {{ event.city }}</p>
+    {% endif %}
+    <h1 class="event-title">{{ event.name }}</h1>
+
+    <div class="when">
+      <div class="date-tile" aria-hidden="true"><span class="date-month">{{ start.strftime("%b") }}</span><span class="date-day">{{ start.day }}</span></div>
+      <div class="when-text">
+        <p class="when-date">{{ fmt.long_date(start) }}</p>
+        <p class="when-time">{{ fmt.time_range(event) }}</p>
+      </div>
+    </div>
+    {% if countdown %}
+    <p class="countdown">
+      {% if countdown != "Happening now" %}<span class="countdown-label">Starts in</span>{% endif %}
+      <span role="timer" aria-label="Starts in" data-countdown data-start="{{ iso(event.start_at) }}" data-end="{{ iso(event.end_at) }}">{{ countdown }}</span>
+    </p>
+    {% endif %}
+
+    <div class="location-row" data-live="location-row">
+      <span class="loc-icon">{{ icon("pin", 20) }}</span>
+      <span class="loc-text">{{ location_lines(True) }}</span>
+    </div>
+
+    <section class="card" aria-labelledby="registration-title" x-data="registrationCard" :aria-busy="busy.toString()" aria-busy="false" tabindex="-1">
+      <h2 class="card-title" id="registration-title">Registration</h2>
+      <div class="sr-only" role="status" aria-label="Registration status" aria-live="polite" data-card-status></div>
+      {% include "_card.html" %}
+    </section>
+
+    <section class="event-section" aria-labelledby="about-title">
+      <h2 class="section-label" id="about-title">About Event</h2>
+      <div class="prose">
+        {% for paragraph in event.description.split("\n") if paragraph.strip() %}<p>{{ paragraph }}</p>{% else %}<p class="quiet-line">The host has not added a description yet.</p>{% endfor %}
+      </div>
+    </section>
+
+    <section class="event-section" aria-labelledby="location-title">
+      <h2 class="section-label" id="location-title">Location</h2>
+      <div class="location-block" data-live="location">{{ location_lines(False) }}</div>
+    </section>
+  </div>
+
+  <aside class="event-aside" aria-label="Host and guests">
+    {% if calendar %}
+    <section class="aside-block">
+      <h2 class="section-label">Presented by</h2>
+      <div class="presenter">
+        <a class="presenter-link" href="/c/{{ calendar.slug }}">{{ avatar(calendar.name, calendar.tint, "avatar-md") }}<span>{{ calendar.name }}</span>{{ icon("chevron", 16) }}</a>
+        {{ follow_button(calendar, small=True) }}
+      </div>
+    </section>
+    {% endif %}
+    <section class="aside-block">
+      <h2 class="section-label">Hosted By</h2>
+      <p class="host-line">{{ avatar(event.host_name, art.avatar_tint(event.host_name), "avatar-md") }}<span>{{ event.host_name }}</span></p>
+    </section>
+    <section class="aside-block" data-live="guests">
+      <p class="going">{{ icon("users", 18) }}<span>{{ event.going_count }} Going</span></p>
+      {% if attending %}
+      <div class="guest-stack" aria-hidden="true">{% for name in attending %}{{ avatar(name, art.avatar_tint(name), "avatar-sm") }}{% endfor %}</div>
+      {% set others = event.going_count - (attending[:2]|length) %}
+      <p class="guest-names">{% if others > 0 %}{{ attending[:2]|join(", ") }} and {{ fmt.plural(others, "other") }}{% else %}{{ fmt.names(attending) }}{% endif %}</p>
+      {% endif %}
+    </section>
+    {% if not event.is_host %}
+    <p class="quiet-links">
+      {% if me %}
+      <a href="#contact" data-open-dialog="contact-dialog">{{ icon("mail", 16) }}Contact the Host</a>
+      <a href="#report" data-open-dialog="report-dialog">{{ icon("flag", 16) }}Report Event</a>
+      {% else %}
+      <a href="/signin?next={{ ('/' ~ event.slug) | urlencode }}">{{ icon("mail", 16) }}Contact the Host</a>
+      <a href="/signin?next={{ ('/' ~ event.slug) | urlencode }}">{{ icon("flag", 16) }}Report Event</a>
+      {% endif %}
+    </p>
+    {% endif %}
+  </aside>
+</div>
+
+{% if me and not event.is_host %}
+<dialog class="dialog" id="contact-dialog" aria-labelledby="contact-title" x-data="sendDialog('contact')">
+  <form class="dialog-form" novalidate @submit.prevent="send()">
+    <div class="dialog-head">
+      <h2 class="dialog-title" id="contact-title">Contact the Host</h2>
+      <button type="button" class="icon-button" aria-label="Close" @click="close()">{{ icon("close", 20) }}</button>
+    </div>
+    <p class="dialog-lede">{{ event.host_name }} will read your message. Your email is shared with the host so they can reply.</p>
+    <div class="field">
+      <label for="contact-message">Message</label>
+      <textarea id="contact-message" name="message" rows="5" maxlength="1000" x-model="fields.message" data-first
+                :aria-invalid="(!!errors.message).toString()" aria-describedby="contact-message-error"></textarea>
+      <p class="field-error" id="contact-message-error" x-show="errors.message" x-text="errors.message"></p>
+    </div>
+    <template x-if="outage"><p class="form-alert" role="alert" x-text="outageMessage"></p></template>
+    <button type="submit" class="pill-button strong" :disabled="busy">Send</button>
+  </form>
+</dialog>
+<dialog class="dialog" id="report-dialog" aria-labelledby="report-title" x-data="sendDialog('report')">
+  <form class="dialog-form" novalidate @submit.prevent="send()">
+    <div class="dialog-head">
+      <h2 class="dialog-title" id="report-title">Report Event</h2>
+      <button type="button" class="icon-button" aria-label="Close" @click="close()">{{ icon("close", 20) }}</button>
+    </div>
+    <p class="dialog-lede">Tell us what is wrong with this event. Reports go to the Mela team, not the host.</p>
+    <div class="field">
+      <label for="report-reason">Reason</label>
+      <select id="report-reason" name="reason" x-model="fields.reason" data-first :aria-invalid="(!!errors.reason).toString()" aria-describedby="report-reason-error">
+        {% for value, label in reasons %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+      </select>
+      <p class="field-error" id="report-reason-error" x-show="errors.reason" x-text="errors.reason"></p>
+    </div>
+    <div class="field">
+      <label for="report-details">Details <span class="optional">optional</span></label>
+      <textarea id="report-details" name="details" rows="4" maxlength="1000" x-model="fields.details"
+                :aria-invalid="(!!errors.details).toString()" aria-describedby="report-details-error"></textarea>
+      <p class="field-error" id="report-details-error" x-show="errors.details" x-text="errors.details"></p>
+    </div>
+    <template x-if="outage"><p class="form-alert" role="alert" x-text="outageMessage"></p></template>
+    <button type="submit" class="pill-button strong" :disabled="busy">Send Report</button>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}

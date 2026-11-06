@@ -1,0 +1,65 @@
+{% extends "_staff.html" %}
+{% from "_macros.html" import icon, chip, empty %}
+{% from "_dialogs.html" import close_button %}
+{% block title %}Budget{% endblock %}
+{% block main %}
+{% set lead = account.role == "lead" %}
+<div class="budget" data-region="budget" data-quarter="{{ view.quarter }}">
+  <section class="sheet" aria-labelledby="budget-title">
+    <div class="alert" role="alert" data-panel-alert hidden></div>
+    <p class="muted">Clearance budget</p>
+    <h1 id="budget-title">{{ heading }}</h1>
+    <div class="totals">
+      <div class="total"><p class="total__label">Budget</p><p class="total__value mono">{{ view.budget_cents | money }}</p></div>
+      <div class="total"><p class="total__label">Committed</p><p class="total__value mono">{{ view.committed_cents | money }}</p></div>
+      <div class="total total--remaining"><p class="total__label">Remaining</p><p class="total__value mono">{{ view.remaining_cents | money }}</p></div>
+    </div>
+  </section>
+  <section class="sheet" aria-labelledby="budget-table-title">
+    <h2 id="budget-table-title">Pieces cleared this quarter</h2>
+    {% if view.rows %}
+    <table class="budget-table">
+      <thead><tr><th scope="col">Piece</th><th scope="col">Maker</th><th scope="col">State</th><th scope="col" class="num">Fee</th>{% if lead %}<th scope="col" class="adjust">Adjust in dollars</th>{% endif %}</tr></thead>
+      <tbody>
+        {% for r in view.rows %}
+        <tr data-fee-row data-piece-id="{{ r.id }}" data-version="{{ r.version }}" data-title="{{ r.title }}">
+          <td><a href="/pieces/{{ r.id }}">{{ r.title }}</a></td>
+          <td>{{ r.owner_name }}</td>
+          <td>{{ chip(r.state) }}</td>
+          <td class="num mono">{{ r.fee_cents | money }}</td>
+          {% if lead %}
+          <td class="adjust">
+            <input type="number" step="0.01" class="mono adjust__amount" aria-label="Amount for {{ r.title }}" placeholder="0" data-amount>
+            <span class="adjust__buttons">
+              <button type="button" class="btn btn--small btn--quiet-edge" data-multiply="10">x10</button>
+              <button type="button" class="btn btn--small btn--quiet-edge" data-multiply="100">x100</button>
+              <button type="button" class="btn btn--small btn--quiet-edge" data-multiply="1000">x1,000</button>
+              <button type="button" class="btn btn--small btn--primary" data-apply>Apply</button>
+            </span>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    {{ empty("No piece has been cleared this quarter") }}
+    {% endif %}
+    {% if lead %}<p class="budget__reset"><button type="button" class="btn" data-open-reset>Reset quarter</button></p>{% endif %}
+  </section>
+  {% if lead %}
+  <dialog class="dialog" id="dialog-reset" role="alertdialog" aria-labelledby="dialog-reset-title" aria-describedby="dialog-reset-text">
+    <form class="dialog__form" data-reset-form novalidate>
+      <h2 id="dialog-reset-title">Reset every fee this quarter?</h2>
+      <p id="dialog-reset-text">Every fee of a piece cleared in {{ heading }} goes back to the amount it was submitted with. Each change is kept in the audit trail.</p>
+      <div class="alert" role="alert" data-panel-alert hidden></div>
+      <div class="dialog__actions">
+        <button type="submit" class="btn btn--primary">Reset fees</button>
+        <button type="button" class="btn" data-close>Cancel</button>
+      </div>
+      {{ close_button() }}
+    </form>
+  </dialog>
+  {% endif %}
+</div>
+{% endblock %}

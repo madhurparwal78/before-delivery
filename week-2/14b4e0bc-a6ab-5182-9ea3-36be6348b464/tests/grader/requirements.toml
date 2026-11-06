@@ -1,0 +1,1781 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 99
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "access-admin",
+    "analyst-search",
+    "impact-sweep",
+    "asset-detail",
+    "tag-propagation",
+    "tag-withdrawal",
+    "verify-evidence",
+    "verify-blocked",
+    "deprecate-notify",
+    "outage-recovery",
+    "glossary",
+    "lineage-ingest",
+    "live-activity",
+    "point-in-time",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 80
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Strata Catalog <strata@quarrystone.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 5
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 3
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "evidence-down"
+port = 4174
+url_env = "APP_EVIDENCE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mail-down"
+port = 4175
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "both-down"
+port = 4176
+url_env = "APP_BOTH_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "isolated-mail-down"
+port = 4177
+url_env = "APP_ISOLATED_MAIL_DOWN_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_isolated"
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[requirements]]
+id = "DP-01"
+title = "Sign in and session"
+text = "Each seeded person signs in with email and password and gets a new session that replaces any session the browser already held, a wrong password answers 401 with the published copy, and the database stores no session token or password in readable form."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-admin"
+tests = [
+    "test_app.py::test_session_signin_and_storage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Server-enforced roles"
+text = "Every API route and every activity stream enforces the published role rules on the server, so a refused request answers 403 and leaves state, the evidence store and the audit log unchanged whatever the interface shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-admin"
+tests = [
+    "test_app.py::test_server_enforced_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "User and role administration"
+text = "An Admin lists users, creates a user with a role and changes another user's role, which applies to that user's next request; changing your own role or resetting your own password answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-admin"
+tests = [
+    "test_app.py::test_user_and_role_administration",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Ingested lineage reaches open views"
+text = "Within 3 seconds of another person's lineage write, an open live canvas or hop list adds each new edge and node in place with the published attributes and removes each removed edge, keeping every other node's lit, drawn and hop state, the sweep counter and Trace summary; Lineage status announces the lineage-changed copy once; a chosen node stays chosen across a breakpoint crossing; non-Latin labels wrap inside their nodes; and a newly registered asset matching an open search joins its results with the new count announced once, as set out in Interactions and Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "lineage-ingest"
+tests = [
+    "test_app.py::test_wf_lineage_ingest_live_edge",
+    "test_app.py::test_wf_lineage_ingest_search_join",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Live audit rows keep the reading position"
+text = "While an Admin has scrolled the Audit log's first row out of view, rows committed on any instance are held behind a Show <n> new audit rows button that counts in place and is announced once, the rows in view stay within 2 pixels of their place, and pressing the button inserts the held rows in strictly descending, contiguous seq and focuses the first row's Seq link, at every published viewport, as set out in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-activity"
+tests = [
+    "test_app.py::test_wf_live_activity_held_rows",
+    "test_app.py::test_wf_live_activity_held_rows_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Bulk tag apply with undo"
+text = "A Steward or Admin applies one tag to several selected Columns rows in one request that reports a per-row outcome and applies the tag wherever allowed, the published count is announced once, the request honours an Idempotency-Key, and one Undo restores those rows' exact direct tags as one audit row or is refused with the published message, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "tag-propagation"
+tests = [
+    "test_app.py::test_bulk_apply_and_undo",
+    "test_app.py::test_wf_tag_propagation_bulk_undo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Password reset ends sessions"
+text = "An Admin's password reset of another person replaces their password and ends every session they hold in the same request, so their next request, even an exact Idempotency-Key replay, answers 401, their streams close and their open screens reach the sign-in screen within 5 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-admin"
+tests = [
+    "test_app.py::test_password_reset_ends_every_session",
+    "test_app.py::test_wf_access_admin_password_reset",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Role changes reach open screens"
+text = "A person whose role changes sees role-gated controls, open dialogs and focus follow the new role within 3 seconds exactly as published in Interactions, while their next request already uses it; what a role change does to a trace is owned by DP-95."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-admin"
+tests = [
+    "test_app.py::test_wf_access_admin_role_change_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Authority rechecked at commit"
+text = "Every write re-reads its actor's session and role when it commits, so a verify whose uploader is demoted or signed out while the evidence uploads is refused with nothing stored and no audit row."
+kind = "behavior"
+primary = "pytest"
+workflow = "verify-blocked"
+tests = [
+    "test_app.py::test_authority_rechecked_at_commit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Attributed audit trail"
+text = "Every successful state change and every delivered evidence download writes exactly one audit row with actor, actor role, action, target, before, after and a millisecond server timestamp, and refused, failed or replayed requests write none."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-admin"
+tests = [
+    "test_app.py::test_attributed_audit_rows",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Audit log cannot change"
+text = "No route edits or deletes audit rows (405 for every role, Admin included), and UPDATE, DELETE or TRUNCATE on the audit table fails even as the app's own database role."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-admin"
+tests = [
+    "test_app.py::test_audit_log_cannot_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Chained audit log and chain check"
+text = "Audit rows carry a gapless seq from 1 in commit order and a SHA-256 chain anyone can recompute, and GET /api/audit/chain reports the first gap, broken link or wrong hash within 2 seconds for 10,000 rows, shown on the Admin screen in the published words."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-admin"
+tests = [
+    "test_app.py::test_audit_chain_recomputes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Admin console"
+text = "An Admin opens Admin from the main navigation, changes roles and resets passwords in the Users table and sees every new audit row reach the Audit log table within 3 seconds without a reload, a duplicate or a lost row, as qualified by DP-05; other roles see no Admin link."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-admin"
+tests = [
+    "test_app.py::test_wf_access_admin_console",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Audit paging"
+text = "GET /api/audit pages backwards with before_seq and next_before_seq so that paging while new rows are written never repeats or skips a row, and the Admin screen loads older rows on request."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-admin"
+tests = [
+    "test_app.py::test_audit_paging_is_stable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Catalog search"
+text = "GET /api/search matches every character of the query literally against asset ids, descriptions, column names and linked term names and narrows by tag, owner, state and term, each filter AND-combined."
+kind = "behavior"
+primary = "pytest"
+workflow = "analyst-search"
+tests = [
+    "test_app.py::test_search_matches_literally_and_filters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Facet counts"
+text = "Each facet group's counts apply the query and every other selected filter but not that group's own selection, computed from effective tags, so they match a fresh recompute after any edit."
+kind = "behavior"
+primary = "pytest"
+workflow = "analyst-search"
+tests = [
+    "test_app.py::test_facet_counts_exclude_own_group",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Search state in the URL"
+text = "The query and every selected filter live in the catalog URL, so reloading, sharing or going back and forward reproduces the same results, selections and counts."
+kind = "behavior"
+primary = "pytest"
+workflow = "analyst-search"
+tests = [
+    "test_app.py::test_wf_analyst_search_url_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "In-place filtering"
+text = "Typing or choosing a facet value updates results and counts in place without a page load, keeps focus on the control just used, and announces each settled result count once in the published words."
+kind = "behavior"
+primary = "pytest"
+workflow = "analyst-search"
+tests = [
+    "test_app.py::test_wf_analyst_search_type_and_facets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Empty state and bounded search"
+text = "A search with no matches shows the published empty-state copy and one Clear filters button, a query over 200 code points answers 422, and every accepted search answers within one second."
+kind = "behavior"
+primary = "pytest"
+workflow = "analyst-search"
+tests = [
+    "test_app.py::test_search_bounds_in_code_points",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Latest input wins"
+text = "Only the response for the newest search state or the latest opened asset or column ever renders or announces, even when an older response arrives later."
+kind = "behavior"
+primary = "pytest"
+workflow = "analyst-search"
+tests = [
+    "test_app.py::test_wf_analyst_search_latest_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Keyboard-complete facets"
+text = "Each facet group is one Tab stop keyed by value, and below 768 pixels the Filters sheet opens on the checked Tag radio, chooses and searches with arrow keys, keeps Tab inside, closes back onto the Filters button and reports the active filter count, as set out in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "analyst-search"
+tests = [
+    "test_app.py::test_wf_analyst_search_filters_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Published response fields"
+text = "Asset, column, graph and lineage responses carry exactly the published keys for every role and never contain an evidence storage key, an owner's email or another internal identifier."
+kind = "behavior"
+primary = "pytest"
+workflow = "asset-detail"
+tests = [
+    "test_app.py::test_published_response_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Masked samples by role"
+text = "The server replaces every sample hidden from the caller's role by its effective tags with the published placeholder in every response that carries samples, live or point-in-time, direct or inherited, and a suppressed tag no longer masks."
+kind = "behavior"
+primary = "pytest"
+workflow = "asset-detail"
+tests = [
+    "test_app.py::test_masked_samples_by_role",
+    "test_app.py::test_wf_asset_detail_masked_view",
+    "test_app.py::test_wf_asset_detail_latest_open",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Tag glyphs"
+text = "Every PII tag shows as a hatched mark with a P glyph and every Confidential tag as a dotted outline with a C glyph, in column rows, search result rows and canvas nodes, so no tag relies on colour alone."
+kind = "behavior"
+primary = "pytest"
+workflow = "asset-detail"
+tests = [
+    "test_app.py::test_wf_asset_detail_glyphs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Workspace breakpoints and overlays"
+text = "The catalog workspace shows three panes at 1200 pixels and wider, two from 768 to 1199 pixels and a single hop-stacked column below 768 pixels, no screen scrolls horizontally even with the longest real ids, and at every published viewport each open dialog, Filters sheet and Lineage rail sits uncut above every other layer with each control hit-testing to itself, the page behind neither scrolling nor taking pointer events, and no focused control under the sticky top bar."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_breakpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Collapsed panels and settled states"
+text = "Below 768 pixels the Filters sheet and the Lineage side rail are hidden, unfocusable and absent from the accessibility tree while closed, and every dialog, sheet, rail, canvas layout and sweep exposes its published settled-state attribute, which reaches its settled value at once, with the same announcement, while reduced motion is on, including when it is switched on live."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_closed_panels",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Columns table at every width"
+text = "Below 768 pixels the Columns table renders labelled stacked cards that keep table roles, and long ids, names, descriptions and unbroken samples wrap inside the detail pane with no horizontal scrolling at every published viewport."
+kind = "behavior"
+primary = "pytest"
+workflow = "asset-detail"
+tests = [
+    "test_app.py::test_wf_asset_detail_cards",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Stored text renders inert"
+text = "Text people enter always renders as literal characters and never as markup."
+kind = "behavior"
+primary = "pytest"
+workflow = "asset-detail"
+tests = [
+    "test_app.py::test_wf_asset_detail_inert_text",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Direct tag changes"
+text = "A Steward or Admin adds or withdraws a direct PII or Confidential tag on a column, with the 409s and single-winner outcomes qualified in API and Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "tag-propagation"
+tests = [
+    "test_app.py::test_direct_tag_changes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Effective tag propagation"
+text = "A column's effective tags are its direct tags plus every tag reaching it along copy, rename, cast, filter, join or concat edges on paths that avoid every column suppressing that tag, while hash and aggregate edges pass nothing on."
+kind = "behavior"
+primary = "pytest"
+workflow = "tag-propagation"
+tests = [
+    "test_app.py::test_effective_tag_propagation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Tag controls in the column pane"
+text = "A Steward or Admin tags, withdraws, suppresses or lifts from Column detail, also by touch at 375x812 with every such control at least 44 by 44 pixels, and once the server confirms sees the column's tags and sources, the asset's counts, the result row's glyph counts and the facet counts change in one paint with the success copy announced once, while another person's open canvas shows the suppression seal and drops the glyph within 3 seconds, with no transition under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "tag-propagation"
+tests = [
+    "test_app.py::test_wf_tag_propagation_column_controls",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Withdrawal respects other paths"
+text = "Withdrawing a direct tag removes the inherited copy only from columns no other unsuppressed tagged upstream path still reaches, including tags only a lineage cycle kept alive, the result never depends on edit order, and the reply reports how many columns the tag still reaches."
+kind = "behavior"
+primary = "pytest"
+workflow = "tag-withdrawal"
+tests = [
+    "test_app.py::test_withdrawal_respects_other_paths",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Tagged-column counts"
+text = "Each asset's tagged, PII and Confidential column counts are recomputed in the same request as any tag, suppression, lineage or asset change and always match a fresh recompute from effective tags."
+kind = "behavior"
+primary = "pytest"
+workflow = "tag-propagation"
+tests = [
+    "test_app.py::test_tagged_column_counts_match_recompute",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Tag suppression"
+text = "A Steward or Admin suppresses an inherited tag on a de-identified column with a justification, stopping it there and downstream, and the suppression persists while dormant until explicitly lifted."
+kind = "behavior"
+primary = "pytest"
+workflow = "tag-propagation"
+tests = [
+    "test_app.py::test_tag_suppression_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Tag provenance"
+text = "Every column reports, per effective tag, the sorted set of direct-tag columns that reach it along unsuppressed pass-through paths, and the column pane names them."
+kind = "behavior"
+primary = "pytest"
+workflow = "tag-propagation"
+tests = [
+    "test_app.py::test_tag_provenance_sorted",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Graph writes are serialised"
+text = "After any interleaving of concurrent tag, bulk tag, suppression, edge and asset writes, stored effective tags, sources, counts and facets equal a fresh recompute and each response's changed columns are that request's own difference in commit order."
+kind = "behavior"
+primary = "pytest"
+workflow = "tag-withdrawal"
+tests = [
+    "test_app.py::test_graph_writes_serialised",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Focus follows the replacing control"
+text = "After a confirmed tag, withdrawal, suppression or lift removes the pressed control, focus moves to the published replacement control or the Column detail heading, and on an error it stays on the pressed control."
+kind = "behavior"
+primary = "pytest"
+workflow = "tag-propagation"
+tests = [
+    "test_app.py::test_wf_tag_propagation_focus_follows",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Refused tag actions resync"
+text = "A tag action refused with 409 is announced once in Activity, re-reads the column, counts and search in place, and leaves focus on the pressed control if still shown, else on the DP-37 replacement."
+kind = "behavior"
+primary = "pytest"
+workflow = "tag-propagation"
+tests = [
+    "test_app.py::test_wf_tag_propagation_refused_resync",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Impact analysis"
+text = "GET /api/columns/{id}/lineage with direction downstream returns every reached column once with its shortest hop, the focus tags it carries with their sources and those sealed by a suppression there, and each traversed edge marked as flow, seal or cycle."
+kind = "behavior"
+primary = "pytest"
+workflow = "impact-sweep"
+tests = [
+    "test_app.py::test_impact_analysis_and_cycles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Cycles and traversal bounds"
+text = "A traversal through a lineage cycle terminates, reports each cycle edge once without revisiting its target, and stops at 12 hops or 500 columns with the truncated flag and both limits published, answering within two seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "impact-sweep"
+tests = [
+    "test_app.py::test_traversal_bounds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Lineage canvas"
+text = "Opening a column draws upstream hop bands to the left of the focus column and downstream hop bands to the right, with mono hop numbers along the top edge."
+kind = "behavior"
+primary = "pytest"
+workflow = "impact-sweep"
+tests = [
+    "test_app.py::test_wf_impact_sweep_canvas_rest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Downstream sweep"
+text = "Pressing Trace impact lights downstream hop bands on the published schedule from the response's time zero, draws seal marks and a single labelled cycle arc, counts up to the total, and ends with the canvas matching the server response and the summary announced once."
+kind = "behavior"
+primary = "pytest"
+workflow = "impact-sweep"
+tests = [
+    "test_app.py::test_wf_impact_sweep_schedule",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Edge drawing state"
+text = "Every canvas edge exposes its ends, kind, drawn state and edge state, and during a sweep each downstream edge turns drawn exactly when its target band begins lighting and each cycle edge when its source hop does."
+kind = "behavior"
+primary = "pytest"
+workflow = "impact-sweep"
+tests = [
+    "test_app.py::test_wf_impact_sweep_edge_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Sweep survives interruption"
+text = "A canvas rebuilt mid-sweep resumes on the original schedule, and a refocus or re-trace mid-sweep cancels the old sweep so none of its nodes light, none of its edges draw and its summary is never announced."
+kind = "behavior"
+primary = "pytest"
+workflow = "impact-sweep"
+tests = [
+    "test_app.py::test_wf_impact_sweep_interrupt",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Keyboard lineage navigation"
+text = "The lineage canvas and hop list are one roving Tab stop whose arrow, Home, End, Enter, Space, Escape and T keys move focus and act exactly as set out in Interactions, never dropping focus to the page body."
+kind = "behavior"
+primary = "pytest"
+workflow = "impact-sweep"
+tests = [
+    "test_app.py::test_wf_impact_sweep_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Canvas zoom keys and focus visibility"
+text = "Zoom keys follow the published zoom formula, and a node taking keyboard focus outside the canvas content area pans by the smallest amount that brings it fully inside, keeping the zoom."
+kind = "behavior"
+primary = "pytest"
+workflow = "impact-sweep"
+tests = [
+    "test_app.py::test_wf_impact_sweep_zoom_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Touch pan and pinch"
+text = "On a touch screen a one-finger drag, including one started in the canvas's always-empty bottom strip, pans the lineage canvas and a two-finger pinch zooms it between half and double size, keeping the content point under the pinch midpoint fixed by the published formula."
+kind = "behavior"
+primary = "pytest"
+workflow = "impact-sweep"
+tests = [
+    "test_app.py::test_wf_impact_sweep_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Reduced motion, followed live"
+text = "Strata follows the system's reduced-motion setting as it changes without a reload, and while it is on nothing on the page animates and Trace impact shows every reached hop at once with a hop-number badge on each node and the final count, keeping seal marks, cycle arc and the announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "impact-sweep"
+tests = [
+    "test_app.py::test_wf_impact_sweep_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Verify with evidence"
+text = "A Steward or Admin verifies a draft asset by attaching a PDF or text sign-off, and the asset becomes verified only after the evidence store confirms the upload."
+kind = "behavior"
+primary = "pytest"
+workflow = "verify-evidence"
+tests = [
+    "test_app.py::test_verify_with_evidence_acceptance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Evidence stored as submitted"
+text = "The evidence object holds exactly the uploaded bytes under the published key with the server-decided type and its SHA-256 on record, and a refused, failed or interrupted verification leaves no object, record or audit row."
+kind = "behavior"
+primary = "pytest"
+workflow = "verify-evidence"
+tests = [
+    "test_app.py::test_evidence_stored_as_submitted",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Times in the viewer's zone"
+text = "The Audit log's When column and the Point in time note's recorded time show each instant in the viewer's browser time zone with its UTC offset in the published format, so two instants in a repeated fall-back hour show the same wall time with different offsets, while Catalog as of keeps America/Chicago."
+kind = "behavior"
+primary = "pytest"
+workflow = "point-in-time"
+tests = [
+    "test_app.py::test_wf_point_in_time_viewer_zone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Evidence download"
+text = "Admins, Stewards and Analysts download evidence through the app with the original bytes and filename, Viewers get 403, no storage URL or key reaches the browser, and ETag, If-None-Match, If-Range, HEAD and single ranges follow API exactly."
+kind = "behavior"
+primary = "pytest"
+workflow = "verify-evidence"
+tests = [
+    "test_app.py::test_evidence_download_headers",
+    "test_app.py::test_wf_verify_evidence_download",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Multiple byte ranges"
+text = "A Range of 2 to 10 specs is resolved, sorted and merged, answering a single-part 206 for one merged range or a multipart/byteranges 206 with one part per merged range, exactly as published in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "verify-evidence"
+tests = [
+    "test_app.py::test_evidence_multiple_ranges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Evidence access logging"
+text = "Each evidence GET answering 200 or 206 commits one evidence.download row with the hash and merged range before its first byte, an aborted download keeps its row and releases its connection and store stream within 5 seconds, and no other response writes one."
+kind = "behavior"
+primary = "pytest"
+workflow = "verify-evidence"
+tests = [
+    "test_app.py::test_evidence_access_logging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Idempotency keys"
+text = "Verify and deprecate under one Idempotency-Key replay the stored response with no new effects, answer 409 for a different request under that key, and answer 409 idempotency_in_progress with no effect while the first is still running."
+kind = "behavior"
+primary = "pytest"
+workflow = "verify-evidence"
+tests = [
+    "test_app.py::test_idempotency_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Certification dialogs"
+text = "A Steward verifies through the Verify asset dialog and deprecates through the Deprecate asset dialog and sees the new state, evidence link and published success copy, with focus kept inside the dialog until it closes."
+kind = "behavior"
+primary = "pytest"
+workflow = "verify-evidence"
+tests = [
+    "test_app.py::test_wf_verify_evidence_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Certification by keyboard"
+text = "After a confirmed verify, deprecate or reinstate, focus moves to the first shown certification control or the Asset detail heading, a refused verify keeps focus on Verify asset with the file and note kept, and the deprecated-upstream warning links to the upstream asset."
+kind = "behavior"
+primary = "pytest"
+workflow = "verify-blocked"
+tests = [
+    "test_app.py::test_wf_verify_blocked_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Verification blocked by deprecated upstream"
+text = "Verifying an asset with any deprecated transitive upstream, checked before the upload and again at commit, answers 409 with the published reason naming the nearest one and leaves no object, record or audit row, so a race with a deprecation or edge write ends in a serial outcome."
+kind = "behavior"
+primary = "pytest"
+workflow = "verify-blocked"
+tests = [
+    "test_app.py::test_verification_blocked_by_deprecated_upstream",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Deprecated-upstream warning"
+text = "Every transitive downstream asset of a deprecated asset shows the published warning naming its nearest deprecated upstream, in API responses and on its asset page."
+kind = "behavior"
+primary = "pytest"
+workflow = "verify-blocked"
+tests = [
+    "test_app.py::test_deprecated_upstream_warning_nearest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Upstream changes reach an open verify"
+text = "While a Verify asset dialog is open, a deprecation or reinstatement of an upstream makes the warning appear or clear behind it within 3 seconds without closing the dialog, moving focus or clearing its file, note or Idempotency-Key."
+kind = "behavior"
+primary = "pytest"
+workflow = "verify-blocked"
+tests = [
+    "test_app.py::test_wf_verify_blocked_open_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Certification transitions and reinstatement"
+text = "Certification moves only draft to verified, draft or verified to deprecated, and deprecated to draft by Admin reinstatement, which clears downstream warnings and blocks, and every other move answers 409 or 403 with no change."
+kind = "behavior"
+primary = "pytest"
+workflow = "verify-blocked"
+tests = [
+    "test_app.py::test_certification_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Deprecate with reason"
+text = "A Steward or Admin deprecates a draft or verified asset with a reason, the response reports this deprecation's queued notices and the total unsent, and of simultaneous deprecations of one asset exactly one succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "deprecate-notify"
+tests = [
+    "test_app.py::test_deprecate_with_reason_single_winner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Downstream owner notices"
+text = "Each deprecation sends exactly one plain-text email per distinct owner of a transitive downstream asset, listing their affected assets and columns and the nearest deprecated upstream and never a sample value, evidence key, filename or bucket address."
+kind = "behavior"
+primary = "pytest"
+workflow = "deprecate-notify"
+tests = [
+    "test_app.py::test_downstream_owner_notices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Notices reach each owner once"
+text = "Each owner gets exactly one notice whose single To recipient is the owner's exact stored name and email, with a plain-text UTF-8 body in the published format, and user names refuse control characters."
+kind = "behavior"
+primary = "pytest"
+workflow = "deprecate-notify"
+tests = [
+    "test_app.py::test_notice_recipient_and_headers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Cancelled notices"
+text = "An Admin reinstatement cancels that asset's unsent, unclaimed deprecation notices in the same transaction, reports how many, and those notices never reach the mail relay."
+kind = "behavior"
+primary = "pytest"
+workflow = "deprecate-notify"
+tests = [
+    "test_app.py::test_cancelled_notices_never_sent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Service status and banners"
+text = "GET /api/status reports evidence storage, mail relay and unsent notices, and every signed-in screen shows one published banner per service that is down, in flow under the top bar, evidence before mail, without overlap or horizontal scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_service_status_reports",
+    "test_app.py::test_wf_outage_recovery_banners_mobile",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Evidence outage keeps draft"
+text = "While evidence storage is unreachable, verifying answers 503 with the published copy, the asset stays draft and nothing else in the catalog stops working."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_evidence_outage_keeps_draft",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Queued notices are delivered once"
+text = "While the relay is unreachable deprecation still succeeds and its notices wait in the database, then go out exactly once with their published Message-ID from any instance on the same database that reaches the relay, with no restart, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_queued_notices_delivered_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "No outcome before confirmation"
+text = "Asset state, evidence link, tag glyphs and counts change only after the server confirms, a verify 503 shows the evidence banner within half a second, and the mail banner shows the server's queued-notice count."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_wf_outage_recovery_verify_503",
+    "test_app.py::test_wf_outage_recovery_queued_mail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Outage replies survive status changes"
+text = "Each opening of the Verify or Deprecate dialog uses one Idempotency-Key for every resubmit, and a dialog's error copy, file and note survive any number of banner changes, with exactly one banner element per service."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_wf_outage_recovery_503_holds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Banners stay out of the keyboard path"
+text = "Outage banners hold no focusable element, never move focus when they appear, clear or reorder, and stay outside an open dialog's Tab cycle, and a verify 503 keeps focus on Verify asset."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_wf_outage_recovery_503_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Dialogs survive their own timers"
+text = "A dialog reopened during its exit transition stays open, success or error copy survives later polls and refreshes unchanged, and the banner's queued-notice count is never replaced by a poll sent before the deprecation or reinstatement reply, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "deprecate-notify"
+tests = [
+    "test_app.py::test_wf_deprecate_notify_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Glossary terms and revisions"
+text = "Stewards and Admins create and edit terms whose names are unique after trimming, whitespace collapse and case-folding, every edit carries the revision it edited, a stale revision answers 409 with no change, and a rename reaches asset term lists, search, the term facet and glossary order in the same request."
+kind = "behavior"
+primary = "pytest"
+workflow = "glossary"
+tests = [
+    "test_app.py::test_glossary_terms_and_revisions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Term links"
+text = "A Steward or Admin links and unlinks glossary terms on assets, linked terms appear on the asset, in search matching and in the term facet, and a link racing a rename ends in a serial outcome as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "glossary"
+tests = [
+    "test_app.py::test_term_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Glossary screen and live renames"
+text = "The Glossary screen lists each term with its definition and linked assets in a row-major grid of one, two or three columns by width, with New term and Edit only for Stewards and Admins, and another person's rename reaches an open Glossary in place within 3 seconds with focus kept and one announcement, as set out in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "glossary"
+tests = [
+    "test_app.py::test_wf_glossary_live_rename",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Glossary shows confirmed edits only"
+text = "Term cards, Edit buttons and glossary order never show an unsaved or refused name, and the Edit term dialog keeps the revision and typed text it opened with through every refresh and a reopen during its exit transition."
+kind = "behavior"
+primary = "pytest"
+workflow = "glossary"
+tests = [
+    "test_app.py::test_wf_glossary_stale_edit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Asset registration"
+text = "A Steward or Admin registers a table, view or dashboard with its columns and samples through the ingestion API, starting in draft, with column names in any script under the published rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "lineage-ingest"
+tests = [
+    "test_app.py::test_asset_registration_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Lineage edge recording"
+text = "A Steward or Admin records or removes column-level lineage edges with a transform kind, cycles allowed and self-edges refused, with effective tags and counts recomputed in the same request within 2 seconds at the published catalog scale."
+kind = "behavior"
+primary = "pytest"
+workflow = "lineage-ingest"
+tests = [
+    "test_app.py::test_lineage_edge_recording",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Single winner for ingestion"
+text = "Of simultaneous identical asset registrations exactly one answers 201, and of overlapping edge batches each pair is stored once while every losing batch stores nothing and answers 409 naming its lowest conflicting entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "lineage-ingest"
+tests = [
+    "test_app.py::test_single_winner_for_ingestion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Limits count code points"
+text = "Every character limit counts Unicode code points with inclusive bounds, and JSON bodies of exactly 1,000,000 bytes and multipart bodies of exactly 6,000,000 bytes are accepted while one byte more answers 413."
+kind = "behavior"
+primary = "pytest"
+workflow = "lineage-ingest"
+tests = [
+    "test_app.py::test_limits_count_code_points",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Activity stream"
+text = "GET /api/events streams one event per committed audit row the caller may see, carrying only seq, action and target, with keep-alives, as qualified in API and Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-activity"
+tests = [
+    "test_app.py::test_activity_stream_format",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Stream resume and fan-out"
+text = "A stream resumed with Last-Event-ID or after_seq delivers every later visible row exactly once in ascending seq, rows committed on any instance reach every instance's streams within 2 seconds, and a stream closes within 5 seconds of its session ending."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-activity"
+tests = [
+    "test_app.py::test_stream_resume_and_fanout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Streams release resources"
+text = "An instance holds at most 12 Postgres connections however many event streams are open, and an abandoned stream's connections and timers are released within 5 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-activity"
+tests = [
+    "test_app.py::test_streams_release_resources",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Per-stream cursor and visibility"
+text = "Each activity stream keeps its own cursor and decides each row's visibility from its caller's role as it stood right after that row committed, so promotion widens and demotion narrows from its own row, identically for live and resumed delivery, and concurrent reads never share masking."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-activity"
+tests = [
+    "test_app.py::test_stream_visibility_from_role_history",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Live workspace refresh"
+text = "An open catalog workspace refreshes affected results, facets, asset and column in place within 3 seconds of another person's relevant change, yielding to any newer search state, keeping focus and dialogs untouched, changing the canvas only as DP-04, DP-97 and DP-99 allow, announcing a changed count once and marking the applied event's seq."
+kind = "behavior"
+primary = "pytest"
+workflow = "tag-withdrawal"
+tests = [
+    "test_app.py::test_wf_tag_withdrawal_live_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Point-in-time reads"
+text = "Search, asset, column, graph and lineage reads accept as_of_seq or as_of_time and answer exactly what that read returned right after the resolved seq committed, masked by the caller's current role, as qualified in API and Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "point-in-time"
+tests = [
+    "test_app.py::test_point_in_time_reads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-87"
+title = "Point-in-time workspace"
+text = "An Admin following an audit Seq link or the Catalog as of form opens a read-only catalog as of that seq with the published note and no write control or evidence link anywhere at any width, whose results, detail, canvas and hop list never change while data-synced-seq stays at that seq, whose newer-changes line updates in place within 3 seconds and is announced once, whose Back returns to the same Admin audit rows with the same row in view and whose Forward or reload reproduces it, while other roles have the parameter removed."
+kind = "behavior"
+primary = "pytest"
+workflow = "point-in-time"
+tests = [
+    "test_app.py::test_wf_point_in_time_seq_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-88"
+title = "Quarter end in business time"
+text = "The Admin's Catalog as of form converts an America/Chicago wall time with the offset in force on that date, the earlier one on a repeated hour and shifted forward across a skipped hour, and opens the read-only catalog at the seq the server resolves."
+kind = "behavior"
+primary = "pytest"
+workflow = "point-in-time"
+tests = [
+    "test_app.py::test_wf_point_in_time_business_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-89"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from /app/run.json on port 4173 or APP_PUBLIC_PORT and answers GET /api/health with 200 and the published body even when a dependency is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_run_manifest_and_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-90"
+title = "Seeded first-run state"
+text = "On first start against an empty database the catalog holds exactly the seed users, assets, columns, samples, edges, tags, terms and states listed in Seed data, with no audit rows."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_seeded_first_run_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-91"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read from the published environment variables at start, never hard-coded and never sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-92"
+title = "Server boundary"
+text = "The server refuses oversized bodies and over-nested JSON with the published statuses, answers combined faults by the one published precedence, and never serves source files, environment files or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-93"
+title = "Drafting-sheet look"
+text = "The workspace reads as a warm paper drafting sheet: hairline rules between panes, one dark ink with two tag hues, a serif display face, mono numerals and no gradients or shadows."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-94"
+title = "Field errors tied to fields"
+text = "A dialog 422 announces the first field message once, marks each invalid field with aria-invalid and a description holding exactly its API message, and focuses the first invalid field."
+kind = "behavior"
+primary = "pytest"
+workflow = "verify-evidence"
+tests = [
+    "test_app.py::test_wf_verify_evidence_field_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-95"
+title = "Demotion reaches an open trace"
+text = "When a person's role changes to one that may not trace while their workspace has a trace pending or running, the trace is cancelled, the canvas or hop list returns to rest for the same focus column, samples re-render under the new role's masking, focus lands on the published fallback and the role-change copy is announced once, within 3 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-admin"
+tests = [
+    "test_app.py::test_wf_access_admin_demote_during_trace",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-96"
+title = "Live counts in an open Filters sheet"
+text = "Below 768 pixels, another person's change reaching an open Filters sheet updates its facet counts and the results behind it in place within 3 seconds, keeps the sheet open with its selections and focus, and announces a changed result count once."
+kind = "behavior"
+primary = "pytest"
+workflow = "analyst-search"
+tests = [
+    "test_app.py::test_wf_analyst_search_live_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-97"
+title = "Open canvas follows tag changes"
+text = "Within 3 seconds of another person's tag change, an open lineage canvas or hop list drops a glyph only from the nodes that lose the tag while a node kept tagged by another path or a cycle keeps its glyph and its hop-list source line names the remaining source, keeping every node's lit, drawn and hop state, the sweep state, counter, summary, scroll position, view and focus, with no transition under reduced motion, and a withdrawal whose tag still reaches other columns announces the published remaining-reach copy once in the withdrawer's Activity."
+kind = "behavior"
+primary = "pytest"
+workflow = "tag-withdrawal"
+tests = [
+    "test_app.py::test_wf_tag_withdrawal_live_canvas",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-98"
+title = "Verification reaches every open view"
+text = "After a confirmed verification, every other open screen on that asset shows verified and the evidence link within 3 seconds without a reload, and the evidence filename and SHA-256 wrap inside the detail pane with no horizontal scrolling at every published viewport."
+kind = "behavior"
+primary = "pytest"
+workflow = "verify-blocked"
+tests = [
+    "test_app.py::test_wf_verify_blocked_reaches_other_viewers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-99"
+title = "Open canvas marks deprecation"
+text = "An open lineage canvas or hop list marks each node's deprecated asset and nearest deprecated upstream through published attributes in place within 3 seconds of a deprecation or reinstatement, without changing any sweep or view state."
+kind = "behavior"
+primary = "pytest"
+workflow = "deprecate-notify"
+tests = [
+    "test_app.py::test_wf_deprecate_notify_canvas_marks",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve fields and \"_schema\":\"run-manifest-v1\", and nothing else starts the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package (the production dependency tree from npm ls --omit=dev --all --json), every font and the icon set, each with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (as defined in IF-02) is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0 or 0BSD, and fonts are under the SIL Open Font License 1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastore beyond the provided Postgres, MinIO and Mailpit: no SQLite, no Redis, no in-process store shared between instances, no files used as a database."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration files and seeded development credentials stay unmodified."
+tests = [
+    "test_app.py::test_if_seed_credentials_unmodified",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Fonts (Fraunces, IBM Plex Sans, IBM Plex Mono) and Lucide icons are bundled with the app, and the browser makes no request to any third-party origin."
+tests = [
+    "test_app.py::test_if_no_third_party_requests",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "package-lock.json is committed at /app and matches package.json."
+tests = [
+    "test_app.py::test_if_lockfile_matches",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "access-admin"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-07",
+    "DP-08",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-95",
+]
+critical = [
+    "test_app.py::test_wf_access_admin_role_change_live",
+    "test_app.py::test_wf_access_admin_console",
+    "test_app.py::test_wf_access_admin_password_reset",
+    "test_app.py::test_password_reset_ends_every_session",
+    "test_app.py::test_user_and_role_administration",
+    "test_app.py::test_audit_paging_is_stable",
+    "test_app.py::test_server_enforced_roles",
+    "test_app.py::test_audit_log_cannot_change",
+]
+
+[[workflows]]
+id = "analyst-search"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-96",
+]
+critical = [
+    "test_app.py::test_wf_analyst_search_type_and_facets",
+    "test_app.py::test_wf_analyst_search_url_state",
+    "test_app.py::test_wf_analyst_search_filters_sheet",
+    "test_app.py::test_wf_analyst_search_live_sheet",
+    "test_app.py::test_wf_analyst_search_latest_wins",
+]
+
+[[workflows]]
+id = "impact-sweep"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_impact_sweep_canvas_rest",
+    "test_app.py::test_wf_impact_sweep_schedule",
+    "test_app.py::test_wf_impact_sweep_edge_state",
+    "test_app.py::test_wf_impact_sweep_interrupt",
+    "test_app.py::test_wf_impact_sweep_keyboard",
+    "test_app.py::test_wf_impact_sweep_zoom_keys",
+    "test_app.py::test_wf_impact_sweep_touch",
+    "test_app.py::test_wf_impact_sweep_reduced_motion",
+    "test_app.py::test_traversal_bounds",
+]
+
+[[workflows]]
+id = "asset-detail"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_asset_detail_cards",
+    "test_app.py::test_wf_asset_detail_glyphs",
+    "test_app.py::test_wf_asset_detail_inert_text",
+    "test_app.py::test_wf_asset_detail_masked_view",
+    "test_app.py::test_wf_asset_detail_latest_open",
+    "test_app.py::test_published_response_fields",
+]
+
+[[workflows]]
+id = "tag-propagation"
+requirements = [
+    "DP-06",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_tag_propagation_column_controls",
+    "test_app.py::test_wf_tag_propagation_focus_follows",
+    "test_app.py::test_wf_tag_propagation_refused_resync",
+    "test_app.py::test_wf_tag_propagation_bulk_undo",
+    "test_app.py::test_tagged_column_counts_match_recompute",
+    "test_app.py::test_bulk_apply_and_undo",
+]
+
+[[workflows]]
+id = "tag-withdrawal"
+requirements = [
+    "DP-32",
+    "DP-36",
+    "DP-85",
+    "DP-97",
+]
+critical = [
+    "test_app.py::test_wf_tag_withdrawal_live_canvas",
+    "test_app.py::test_wf_tag_withdrawal_live_refresh",
+    "test_app.py::test_graph_writes_serialised",
+]
+
+[[workflows]]
+id = "verify-evidence"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-94",
+]
+critical = [
+    "test_app.py::test_wf_verify_evidence_dialog",
+    "test_app.py::test_wf_verify_evidence_field_errors",
+    "test_app.py::test_wf_verify_evidence_download",
+    "test_app.py::test_evidence_access_logging",
+    "test_app.py::test_evidence_stored_as_submitted",
+    "test_app.py::test_idempotency_keys",
+    "test_app.py::test_evidence_multiple_ranges",
+]
+
+[[workflows]]
+id = "verify-blocked"
+requirements = [
+    "DP-09",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-61",
+    "DP-98",
+]
+critical = [
+    "test_app.py::test_wf_verify_blocked_open_dialog",
+    "test_app.py::test_wf_verify_blocked_keyboard",
+    "test_app.py::test_wf_verify_blocked_reaches_other_viewers",
+    "test_app.py::test_verification_blocked_by_deprecated_upstream",
+    "test_app.py::test_authority_rechecked_at_commit",
+]
+
+[[workflows]]
+id = "deprecate-notify"
+requirements = [
+    "DP-62",
+    "DP-63",
+    "DP-64",
+    "DP-65",
+    "DP-72",
+    "DP-99",
+]
+critical = [
+    "test_app.py::test_wf_deprecate_notify_dialog",
+    "test_app.py::test_wf_deprecate_notify_canvas_marks",
+    "test_app.py::test_downstream_owner_notices",
+    "test_app.py::test_notice_recipient_and_headers",
+    "test_app.py::test_deprecate_with_reason_single_winner",
+    "test_app.py::test_cancelled_notices_never_sent",
+]
+
+[[workflows]]
+id = "outage-recovery"
+requirements = [
+    "DP-66",
+    "DP-67",
+    "DP-68",
+    "DP-69",
+    "DP-70",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_wf_outage_recovery_verify_503",
+    "test_app.py::test_wf_outage_recovery_503_holds",
+    "test_app.py::test_wf_outage_recovery_503_keyboard",
+    "test_app.py::test_wf_outage_recovery_banners_mobile",
+    "test_app.py::test_wf_outage_recovery_queued_mail",
+    "test_app.py::test_queued_notices_delivered_once",
+    "test_app.py::test_evidence_outage_keeps_draft",
+]
+
+[[workflows]]
+id = "glossary"
+requirements = [
+    "DP-73",
+    "DP-74",
+    "DP-75",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_wf_glossary_live_rename",
+    "test_app.py::test_wf_glossary_stale_edit",
+    "test_app.py::test_glossary_terms_and_revisions",
+]
+
+[[workflows]]
+id = "lineage-ingest"
+requirements = [
+    "DP-04",
+    "DP-77",
+    "DP-78",
+    "DP-79",
+    "DP-80",
+]
+critical = [
+    "test_app.py::test_wf_lineage_ingest_live_edge",
+    "test_app.py::test_wf_lineage_ingest_search_join",
+    "test_app.py::test_single_winner_for_ingestion",
+    "test_app.py::test_limits_count_code_points",
+]
+
+[[workflows]]
+id = "live-activity"
+requirements = [
+    "DP-05",
+    "DP-81",
+    "DP-82",
+    "DP-83",
+    "DP-84",
+]
+critical = [
+    "test_app.py::test_wf_live_activity_held_rows",
+    "test_app.py::test_wf_live_activity_held_rows_phone",
+    "test_app.py::test_stream_visibility_from_role_history",
+    "test_app.py::test_stream_resume_and_fanout",
+    "test_app.py::test_streams_release_resources",
+]
+
+[[workflows]]
+id = "point-in-time"
+requirements = [
+    "DP-51",
+    "DP-86",
+    "DP-87",
+    "DP-88",
+]
+critical = [
+    "test_app.py::test_wf_point_in_time_seq_link",
+    "test_app.py::test_wf_point_in_time_business_time",
+    "test_app.py::test_wf_point_in_time_viewer_zone",
+    "test_app.py::test_point_in_time_reads",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-89",
+    "DP-90",
+    "DP-91",
+    "DP-92",
+    "DP-93",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_breakpoints",
+    "test_app.py::test_wf_cross_cutting_closed_panels",
+    "test_app.py::test_run_manifest_and_health",
+]
+checkpoints = [
+    "B1",
+    "B4",
+    "B9",
+]

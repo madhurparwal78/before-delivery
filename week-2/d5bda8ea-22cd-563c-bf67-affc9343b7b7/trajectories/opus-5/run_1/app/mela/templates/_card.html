@@ -1,0 +1,142 @@
+{# One Registration card renders every state; the server picks the one shown. #}
+{% macro card_button(label, action) -%}
+{% if viewer %}
+<button type="button" class="pill-accent" @click="act('{{ action }}')"
+        :disabled="busy">{{ label }}</button>
+{% else %}
+<form method="get" action="/signin" class="signin-form">
+  <input type="hidden" name="next" value="/{{ event.slug }}">
+  <button type="submit" class="pill-accent"
+          data-mela-intent="{{ action }}">{{ label }}</button>
+</form>
+{% endif %}
+{%- endmacro %}
+
+<h2 id="registration-heading" class="card-label">Registration</h2>
+<section class="reg-card" aria-labelledby="registration-heading" tabindex="-1"
+         :class="busy && 'is-busy'" :aria-busy="busy ? 'true' : 'false'">
+  <p class="sr-only" role="status" aria-label="Registration status"
+     x-text="announcement"></p>
+
+  {% if event.is_host %}
+  <div class="card-state">
+    <a class="pill-accent" href="/manage/{{ event.slug }}">Manage Event</a>
+  </div>
+  {% else %}
+
+  <div class="card-state" :hidden="state !== 'open'"
+       {% if state != 'open' %}hidden{% endif %}>
+    {% if event.require_approval %}
+    <h3 class="card-title">Approval Required</h3>
+    <p>The host reviews every request before confirming a place.</p>
+    <p>Save your place below.</p>
+    {{ card_button('Request to Join', 'request') }}
+    {% else %}
+    <p>Save your place below.</p>
+    {{ card_button('Register', 'register') }}
+    {% endif %}
+  </div>
+
+  <div class="card-state" :hidden="state !== 'full'"
+       {% if state != 'full' %}hidden{% endif %}>
+    <h3 class="card-title">Event Full</h3>
+    {% if event.waitlist %}
+    <p>This event is at capacity. You can join the waitlist.</p>
+    {{ card_button('Join Waitlist', 'waitlist') }}
+    {% else %}
+    <p>This event is at capacity.</p>
+    {% endif %}
+  </div>
+
+  <div class="card-state" :hidden="state !== 'pending'"
+       {% if state != 'pending' %}hidden{% endif %}>
+    <h3 class="card-title">Pending Approval</h3>
+    <p>We will let you know when the host approves your registration.</p>
+    {{ card_button('Cancel Request', 'cancel') }}
+  </div>
+
+  <div class="card-state" :hidden="state !== 'approved'"
+       {% if state != 'approved' %}hidden{% endif %}>
+    <h3 class="card-title">You&rsquo;re In</h3>
+    <p :hidden="!movedUp" {% if not event.viewer_moved_up %}hidden{% endif %}>A place
+      opened up, so you moved up from the waitlist.</p>
+    {{ card_button('Cancel Registration', 'cancel') }}
+  </div>
+
+  <div class="card-state" :hidden="state !== 'declined'"
+       {% if state != 'declined' %}hidden{% endif %}>
+    <h3 class="card-title">Registration Declined</h3>
+    <p>The host was not able to approve your registration.</p>
+  </div>
+
+  <div class="card-state" :hidden="state !== 'waitlisted'"
+       {% if state != 'waitlisted' %}hidden{% endif %}>
+    <h3 class="card-title">On the Waitlist</h3>
+    <p>You will move up if a place opens.</p>
+    <p>You are <span x-text="ordinal">{{ position }}</span> in line.</p>
+    {{ card_button('Leave Waitlist', 'cancel') }}
+  </div>
+
+  <div class="card-state" :hidden="state !== 'closed'"
+       {% if state != 'closed' %}hidden{% endif %}>
+    <h3 class="card-title">Registration Closed</h3>
+    <p>The host has stopped taking registrations for this event. You can still
+      contact the host.</p>
+  </div>
+
+  <div class="card-state" :hidden="state !== 'code_only'"
+       {% if state != 'code_only' %}hidden{% endif %}>
+    <h3 class="card-title">Access Code Needed</h3>
+    <p>This event is open only to guests with an access code. Enter yours below to
+      register.</p>
+    {% if viewer %}
+    <button type="button" class="pill-accent" :hidden="codeOpen"
+            @click="openCode()">I have an access code</button>
+    <div class="code-row" :hidden="!codeOpen" hidden>
+      <label class="field">
+        <span class="field-label">Access code</span>
+        <input type="text" x-ref="code" x-model="code" autocomplete="off"
+               aria-describedby="access-code-error"
+               :aria-invalid="codeError ? 'true' : 'false'"
+               @keydown.enter.prevent="submitCode()">
+      </label>
+      <button type="button" class="pill-accent" @click="submitCode()"
+              :disabled="busy">Submit Code</button>
+    </div>
+    <p class="field-error" id="access-code-error" role="alert" x-text="codeError"
+       :hidden="!codeError" hidden></p>
+    {% else %}
+    <form method="get" action="/signin" class="signin-form">
+      <input type="hidden" name="next" value="/{{ event.slug }}">
+      <button type="submit" class="pill-accent">I have an access code</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <div class="card-state" :hidden="state !== 'past'"
+       {% if state != 'past' %}hidden{% endif %}>
+    <h3 class="card-title">Past Event</h3>
+    <p>{{ past_body }}</p>
+  </div>
+
+  <p class="field-error card-error" role="alert" x-text="error" :hidden="!error"
+     hidden></p>
+  {% endif %}
+
+  {% if event.capacity %}
+  <div class="meter-wrap" :hidden="!showMeter"
+       {% if not show_meter %}hidden{% endif %}>
+    <p class="meter-line">
+      <span id="meter-label" x-text="meterLine">{{ meter_line }}</span>
+      <span class="meter-left" x-text="placesLeft">{{ places_left_text }}</span>
+    </p>
+    <div class="meter" role="meter" aria-labelledby="meter-label" aria-valuemin="0"
+         aria-valuemax="{{ event.capacity }}" :aria-valuemax="ev.capacity"
+         aria-valuenow="{{ event.going_count }}" :aria-valuenow="ev.going_count">
+      <span class="meter-fill" :style="`width: ${meterPercent}%`"
+            style="width: {{ (100 * event.going_count / event.capacity)
+              | round(2) }}%"></span>
+    </div>
+  </div>
+  {% endif %}
+</section>

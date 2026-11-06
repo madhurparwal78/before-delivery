@@ -1,0 +1,1747 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 99
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "write-log",
+    "time-travel",
+    "graph-language",
+    "ingest-validation",
+    "keyword-search",
+    "concurrency",
+    "provisioning",
+    "role-gating",
+    "api-keys",
+    "org-isolation",
+    "authentication",
+    "members-audit",
+    "sessions",
+    "feedback-limits",
+    "billing",
+    "landing-page",
+    "accessibility-motion",
+    "contact-and-twins",
+    "deployment-storage",
+    "issued-tokens",
+    "scope-and-restore",
+    "export-import",
+    "exact-contract",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 71
+services = [
+    { name = "postgres", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Tessel <notices@tessel.example>" } },
+]
+outages = []
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 5
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[requirements]]
+id = "DP-01"
+title = "Write log numbering"
+text = "Each accepted source becomes exactly one write log entry with the next log sequence number of its database, in request order, starting at 1 and never reused or skipped, and ingesting an existing id creates its next version."
+kind = "behavior"
+primary = "pytest"
+workflow = "write-log"
+tests = [
+    "test_app.py::test_wf_write_log_numbering",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Reads see pending writes"
+text = "Every read sees every accepted write at once, folded or pending, and compaction never changes a search result, graph answer, relation or history list."
+kind = "behavior"
+primary = "pytest"
+workflow = "write-log"
+tests = [
+    "test_app.py::test_reads_see_pending_writes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Inline ingest row"
+text = "An editor ingests a source with facts from the inline ingest row of the Sources table, sees it tagged In write log until Compact folds it to Indexed, and reads the same graph answers before and after."
+kind = "behavior"
+primary = "workflow"
+workflow = "write-log"
+tests = [
+    "test_app.py::test_wf_write_log_ui_ingest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Stale edits refused"
+text = "A stale if_version refuses the whole ingest with 409 VERSION_CONFLICT naming the live version, and the console keeps what was typed beside the conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency"
+tests = [
+    "test_app.py::test_stale_if_version",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Single source with ETag"
+text = "A single source reads with its version as an ETag, and a matching If-None-Match answers 304."
+kind = "behavior"
+primary = "pytest"
+workflow = "write-log"
+tests = [
+    "test_app.py::test_source_etag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Seeded launch database"
+text = "The seed holds both launch_brain databases exactly as pinned in Seed data, and the worked graph statements answer the pinned rows as of each moment."
+kind = "behavior"
+primary = "pytest"
+workflow = "time-travel"
+tests = [
+    "test_app.py::test_wf_time_travel_seed_answers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Supersession and relations"
+text = "The active fact for a subject and predicate is the one with the greatest valid_from not after the moment, ties broken by log sequence number, and relations and history list in the pinned order with case-insensitive lookups."
+kind = "behavior"
+primary = "pytest"
+workflow = "time-travel"
+tests = [
+    "test_app.py::test_wf_time_travel_restore_ties",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Graph route"
+text = "The graph route answers every edge active at a moment, filtered by predicates when asked, ordered as pinned and capped at 1000 edges."
+kind = "behavior"
+primary = "pytest"
+workflow = "time-travel"
+tests = [
+    "test_app.py::test_graph_route",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Entity tab"
+text = "The Entity tab looks up an entity's outgoing and incoming relations and its history by predicate, with superseded moments and current facts marked."
+kind = "behavior"
+primary = "workflow"
+workflow = "time-travel"
+tests = [
+    "test_app.py::test_entity_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Explore tab"
+text = "The Explore tab draws the graph true at its timeline position, filters by predicate, finds and inspects nodes, and moves between nodes and moments by keyboard."
+kind = "behavior"
+primary = "workflow"
+workflow = "time-travel"
+tests = [
+    "test_app.py::test_wf_time_travel_explore",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Addresses carry state"
+text = "Every workspace tab and its inputs live in the address, so opening, choosing and reloading an address shows the same answered tab without a full reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "time-travel"
+tests = [
+    "test_app.py::test_addresses_carry_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Read-only graph language"
+text = "The graph language answers the pinned grammar with rows in the pinned order, refuses write keywords, bad syntax and unbound variables with their codes, and answers the seed quickly."
+kind = "behavior"
+primary = "pytest"
+workflow = "graph-language"
+tests = [
+    "test_app.py::test_wf_graph_language_statements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "WHERE and count"
+text = "The graph language understands WHERE conditions joined by AND, NOT, and RETURN count(*), refusing count(*) mixed with other items."
+kind = "behavior"
+primary = "pytest"
+workflow = "graph-language"
+tests = [
+    "test_app.py::test_where_and_count",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Graph query tab"
+text = "The Graph query tab runs a statement by button or Ctrl+Enter, shows the served-from line, offers example statements and keeps the last results under an error."
+kind = "behavior"
+primary = "workflow"
+workflow = "graph-language"
+tests = [
+    "test_app.py::test_wf_graph_language_query_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Waiting and failing states"
+text = "Every console panel marks itself busy with its button's waiting label while the server answers, shows the generic failure line beside the control on a bare error, and announces results in the live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "accessibility-motion"
+tests = [
+    "test_app.py::test_wf_accessibility_motion_busy_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Errors beside their field"
+text = "A rejected ingest keeps every typed value and names the error beside the field and fact row it belongs to."
+kind = "behavior"
+primary = "pytest"
+workflow = "ingest-validation"
+tests = [
+    "test_app.py::test_wf_ingest_validation_ui_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Keyword scoring"
+text = "Keyword search ranks the latest version of every live source in the requested collections by the pinned scoring rule, rounded half up to 4 decimals, ties by id."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyword-search"
+tests = [
+    "test_app.py::test_wf_keyword_search_scoring",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Search operators"
+text = "Quoted phrases must appear in order, words with a leading minus exclude sources, and ties break by id and then collection."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyword-search"
+tests = [
+    "test_app.py::test_search_operators",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Search tab and feedback"
+text = "A viewer searches on the Search tab, reads ids, titles, scores and snippets, and sends Not useful feedback, and a write made by another member shows on the next search."
+kind = "behavior"
+primary = "workflow"
+workflow = "keyword-search"
+tests = [
+    "test_app.py::test_wf_keyword_search_tab_feedback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Typed text kept literally"
+text = "Typed text, wildcards, quotes and markup included, is stored, matched, filtered and shown exactly as typed and never as markup."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyword-search"
+tests = [
+    "test_app.py::test_literal_text",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Whole-request validation"
+text = "An ingest is validated whole before anything is written, every limit is accepted at its boundary and refused one past it with the dotted field path, and timestamps use the pinned UTC form."
+kind = "behavior"
+primary = "pytest"
+workflow = "ingest-validation"
+tests = [
+    "test_app.py::test_wf_ingest_validation_boundaries",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Idempotent retries"
+text = "Writes honouring Idempotency-Key replay the first answer with the replay header and write nothing, and the same key with another body is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency"
+tests = [
+    "test_app.py::test_wf_concurrency_retries_and_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Unicode entity keys"
+text = "Entity keys are formed after NFC normalization and Unicode lowercasing, while storage bytes count UTF-8 bytes."
+kind = "behavior"
+primary = "pytest"
+workflow = "ingest-validation"
+tests = [
+    "test_app.py::test_wf_ingest_validation_unicode_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Concurrent writes hold"
+text = "Racing ingests get gapless sequence numbers, racing creations respect the plan limit, racing keyed retries, compactions and restores write once, and a double press writes once."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency"
+tests = [
+    "test_app.py::test_concurrent_writes_hold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Provisioning lifecycle"
+text = "A new database reports provisioning for 2 seconds of server time and then ready, refusing ingest and compaction until then, under a validated unique name."
+kind = "behavior"
+primary = "pytest"
+workflow = "provisioning"
+tests = [
+    "test_app.py::test_provisioning_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Plan database limits"
+text = "Ship allows 3 databases and Scale 20, the next creation is refused with PLAN_LIMIT, and a downgrade past 3 databases is blocked."
+kind = "behavior"
+primary = "pytest"
+workflow = "provisioning"
+tests = [
+    "test_app.py::test_plan_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Inline create row"
+text = "An owner creates a database from the inline create row of the console table and watches its row turn from a yellow shimmering provisioning badge to ready without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "provisioning"
+tests = [
+    "test_app.py::test_wf_provisioning_inline_create",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Plan switch and notices"
+text = "Switching the plan takes effect at once and emails every owner the pinned notice once, and nothing for a switch to the plan in force."
+kind = "behavior"
+primary = "pytest"
+workflow = "provisioning"
+tests = [
+    "test_app.py::test_plan_switch_notices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Empty collections"
+text = "An editor can delete an empty collection other than default, and full, default and unknown collections are refused with their codes."
+kind = "behavior"
+primary = "pytest"
+workflow = "scope-and-restore"
+tests = [
+    "test_app.py::test_empty_collections",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Role gating on every route"
+text = "Every signed-in route answers each role, key, anonymous and versionless caller with the pinned status and code and changes no domain record on a refusal."
+kind = "behavior"
+primary = "pytest"
+workflow = "role-gating"
+tests = [
+    "test_app.py::test_wf_role_gating_matrix",
+    "test_app.py::test_wf_role_gating_demotion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Empty states and access pages"
+text = "Every list shows its empty state in words, owner-only panels read You do not have access to this page for others, and a foreign database reads Database not found."
+kind = "behavior"
+primary = "pytest"
+workflow = "role-gating"
+tests = [
+    "test_app.py::test_wf_role_gating_access_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Delete database dialog"
+text = "Deleting a database opens a modal dialog that traps focus, enables Delete database only once the name is typed and returns focus to the row's Delete."
+kind = "behavior"
+primary = "pytest"
+workflow = "accessibility-motion"
+tests = [
+    "test_app.py::test_wf_accessibility_motion_delete_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "API keys never act as owner"
+text = "API keys carry editor or viewer rights only, their secret shows once and is never stored readable, and a revoked key stops working."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-keys"
+tests = [
+    "test_app.py::test_key_never_owner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Key scope, rotation and detail"
+text = "A scoped key sees only its databases, a rotation retires the old secret at once, and the key detail records scope, last use and rotation."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-keys"
+tests = [
+    "test_app.py::test_key_rotation_detail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Organization isolation"
+text = "Another organization's databases, members, jobs, keys and audit events answer not found, even under a shared database name."
+kind = "behavior"
+primary = "pytest"
+workflow = "org-isolation"
+tests = [
+    "test_app.py::test_wf_org_isolation_deleted_name",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Version header and envelope"
+text = "Every /api/v2 route checks API-Version before the credential, and every answer but a bodyless 304 or an audit CSV carries the envelope with a fresh lowercase version 4 request id; in the audit CSV every field starting with =, +, -, @, tab or carriage return gets a leading single quote before quoting, while the JSON answer is unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "exact-contract"
+tests = [
+    "test_app.py::test_version_before_credential",
+    "test_app.py::test_audit_csv_formulas",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Sign in with bearer tokens"
+text = "Seeded members sign in with their roles, bad credentials are refused alike, sign out revokes the token, and ten failed sign-ins pause one email."
+kind = "behavior"
+primary = "pytest"
+workflow = "authentication"
+tests = [
+    "test_app.py::test_sign_in_bearer_tokens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Two-step sign-in"
+text = "A member turns on two-step sign-in with RFC 6238 codes, after which sign in needs a fresh code or an unused recovery code."
+kind = "behavior"
+primary = "pytest"
+workflow = "authentication"
+tests = [
+    "test_app.py::test_wf_authentication_two_step",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Security headers"
+text = "HTML answers carry the pinned security headers, API and console answers are not cached, and no page carries a secret beyond the pinned one-time displays."
+kind = "behavior"
+primary = "pytest"
+workflow = "exact-contract"
+tests = [
+    "test_app.py::test_wf_exact_contract_headers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Members and the last owner"
+text = "Owners add, re-role and remove members, a new member is emailed once, and an organization always keeps at least one owner under racing demotions."
+kind = "behavior"
+primary = "pytest"
+workflow = "members-audit"
+tests = [
+    "test_app.py::test_wf_members_audit_attribution",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Audit events"
+text = "Every successful administrative action writes exactly one audit event, and none for a refusal or a replay."
+kind = "behavior"
+primary = "pytest"
+workflow = "members-audit"
+tests = [
+    "test_app.py::test_audit_one_event_per_action",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Settings security controls"
+text = "Settings offers Sign out everywhere, a password change, two-step sign-in set up and turned off, and links to keys and billing for owners only."
+kind = "behavior"
+primary = "workflow"
+workflow = "sessions"
+tests = [
+    "test_app.py::test_settings_controls",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Feedback"
+text = "Feedback must name a successful query of the same organization and stops at 100 records in a rolling minute with Retry-After."
+kind = "behavior"
+primary = "pytest"
+workflow = "feedback-limits"
+tests = [
+    "test_app.py::test_feedback_lookup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Contact message limit"
+text = "One email address may store at most 3 contact messages in a rolling 60 minutes."
+kind = "behavior"
+primary = "pytest"
+workflow = "contact-and-twins"
+tests = [
+    "test_app.py::test_wf_contact_and_twins_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "List limits and filters"
+text = "Audit pages, search result limits and graph predicate filters accept their range and refuse every value outside it."
+kind = "behavior"
+primary = "pytest"
+workflow = "feedback-limits"
+tests = [
+    "test_app.py::test_wf_feedback_limits_list_ranges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Usage bill"
+text = "The usage bill follows the pricing arithmetic in whole cents with the plan minimum as a floor, and the console list, Stats, billing page and daily series agree with it."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing"
+tests = [
+    "test_app.py::test_wf_billing_incurred_usage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Price calculator"
+text = "The landing calculator computes Ship and Scale estimates by the same arithmetic and refuses malformed values beside the field."
+kind = "behavior"
+primary = "pytest"
+workflow = "landing-page"
+tests = [
+    "test_app.py::test_wf_landing_page_calculator",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Key query rate limits"
+text = "API key queries are limited per key by the current plan with rate limit headers, while sessions are not."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-keys"
+tests = [
+    "test_app.py::test_wf_api_keys_rotation_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Sign in and sign out"
+text = "Signed-out console routes land on sign in carrying the page as next, the session survives a reload, and sign out returns home."
+kind = "behavior"
+primary = "workflow"
+workflow = "sessions"
+tests = [
+    "test_app.py::test_sign_in_and_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Console surfaces"
+text = "The console is a sidebar-nav workspace with table-first lists, and every action answers with a toast carrying its outcome."
+kind = "behavior"
+primary = "pytest"
+workflow = "accessibility-motion"
+tests = [
+    "test_app.py::test_console_surfaces",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Ending sessions"
+text = "Sign out everywhere ends every session of the member, and a password change ends every other session."
+kind = "behavior"
+primary = "pytest"
+workflow = "sessions"
+tests = [
+    "test_app.py::test_wf_sessions_end_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Password reset by email"
+text = "A member resets a forgotten password from a single-use emailed link, and the request reveals nothing about unknown emails."
+kind = "behavior"
+primary = "pytest"
+workflow = "sessions"
+tests = [
+    "test_app.py::test_wf_sessions_password_reset",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Landing page content"
+text = "The landing page and the contact page carry every pinned section, copy and figure of the captured site, recast."
+kind = "behavior"
+primary = "pytest"
+workflow = "landing-page"
+tests = [
+    "test_app.py::test_wf_landing_page_content",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Hero views"
+text = "The hero switches between the Text view and a Graph view of 21 nodes and 20 lines by arrow keys, and its heading holds on two lines."
+kind = "behavior"
+primary = "pytest"
+workflow = "landing-page"
+tests = [
+    "test_app.py::test_hero_views",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Header, menu and star chip"
+text = "The header links to the sections, marks the section in view, opens the Resources menu by pointer and keys, and shows the star count from the saved code host answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "landing-page"
+tests = [
+    "test_app.py::test_header_menu_star",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Night notebook look"
+text = "Pages are near-black with a hairline grid, one monospaced face in the closed type scale, one signal orange, frosted glass and capsule buttons."
+kind = "visual"
+primary = "rubric"
+workflow = "landing-page"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Responsive layouts"
+text = "Phone, tablet and desktop layouts place the header, plans, architecture panels, benchmark cells and console rows as pinned."
+kind = "visual"
+primary = "pytest"
+workflow = "landing-page"
+tests = [
+    "test_app.py::test_wf_landing_page_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "View this page as"
+text = "Both public pages offer the View this page as switch that opens a markdown reader with the size and token estimate."
+kind = "behavior"
+primary = "pytest"
+workflow = "contact-and-twins"
+tests = [
+    "test_app.py::test_view_page_as",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Accessibility contract"
+text = "Every page meets WCAG 2.2 AA, offers a skip link first and a keyboard-only focus ring, and never scrolls sideways."
+kind = "behavior"
+primary = "pytest"
+workflow = "accessibility-motion"
+tests = [
+    "test_app.py::test_accessibility_contract",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Motion moments"
+text = "Every listed motion moment runs as a browser-reported animation on its own trigger, and decorative loops move only position."
+kind = "visual"
+primary = "pytest"
+workflow = "accessibility-motion"
+tests = [
+    "test_app.py::test_wf_accessibility_motion_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Reduced motion"
+text = "Under reduced motion every loop stops and every transition happens in the same frame as its trigger."
+kind = "visual"
+primary = "pytest"
+workflow = "accessibility-motion"
+tests = [
+    "test_app.py::test_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Contact form"
+text = "The contact form stores valid messages only, thanks robots caught by the website trap without storing them, and keeps typed text on a refusal."
+kind = "behavior"
+primary = "workflow"
+workflow = "contact-and-twins"
+tests = [
+    "test_app.py::test_wf_contact_and_twins_scriptless",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Not-found answers"
+text = "Unknown pages answer a custom 404 page with a link home, unknown API routes answer 404 ROUTE_NOT_FOUND in the envelope, and bodies over 2 MB are refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "exact-contract"
+tests = [
+    "test_app.py::test_not_found_answers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Markdown twins"
+text = "The landing and contact pages each answer a markdown twin with the pinned front matter, headings and navigation tail."
+kind = "behavior"
+primary = "pytest"
+workflow = "contact-and-twins"
+tests = [
+    "test_app.py::test_wf_contact_and_twins_markdown",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Health and deployment"
+text = "The app answers the health route in the envelope, keeps serving for the whole run, and sends data only to its own address."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment-storage"
+tests = [
+    "test_app.py::test_health_and_origin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "PostgreSQL holds every record"
+text = "Every pinned table and column lives in PostgreSQL, every secret but the two-step sign-in secret is stored only as a digest, and the store rules hold after any mix of writes."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment-storage"
+tests = [
+    "test_app.py::test_wf_deployment_storage_store_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Code host mock"
+text = "GET /api/code-host/repo answers the saved full_name and stargazers_count and never calls the public code host."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment-storage"
+tests = [
+    "test_app.py::test_code_host_mock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Declared facts only"
+text = "There is no self sign-up and no fact extraction: only declared facts enter the graph."
+kind = "source"
+primary = "rubric"
+workflow = "deployment-storage"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Performance at scale"
+text = "A keyword search and the source list answer within 1 second with 2000 sources, and the audit log pages within 500 milliseconds with 1000 events."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment-storage"
+tests = [
+    "test_app.py::test_wf_deployment_storage_performance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Mail through Mailpit"
+text = "Every notice travels over SMTP to Mailpit at SMTP_HOST and SMTP_PORT."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment-storage"
+tests = [
+    "test_app.py::test_mail_through_mailpit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Role changes apply at once"
+text = "Role changes and removals take effect on the very next request of every issued token and on the next console page."
+kind = "behavior"
+primary = "pytest"
+workflow = "issued-tokens"
+tests = [
+    "test_app.py::test_wf_issued_tokens_removed_member",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Key notices"
+text = "Rotating or revoking a key emails every owner the pinned notice once."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-keys"
+tests = [
+    "test_app.py::test_key_notices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Recovery codes"
+text = "Each recovery code signs in once and is never stored readable."
+kind = "behavior"
+primary = "pytest"
+workflow = "authentication"
+tests = [
+    "test_app.py::test_recovery_codes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Audit page"
+text = "The audit page lists events newest first 20 at a time with Load more and keeps its action and actor filters in the address."
+kind = "behavior"
+primary = "workflow"
+workflow = "members-audit"
+tests = [
+    "test_app.py::test_audit_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Deleting a database"
+text = "Deleting a database removes everything it holds at once and frees its name, as qualified in Business rules, and racing creations of one name make one database."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment-storage"
+tests = [
+    "test_app.py::test_delete_database_frees_name",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Source scope"
+text = "A source is addressed by database, collection and id together."
+kind = "behavior"
+primary = "pytest"
+workflow = "scope-and-restore"
+tests = [
+    "test_app.py::test_source_scope",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Restore a deleted source"
+text = "A deleted source comes back exactly as it was in one restore entry, from the API or the Undo of its toast."
+kind = "behavior"
+primary = "pytest"
+workflow = "scope-and-restore"
+tests = [
+    "test_app.py::test_wf_scope_and_restore_undo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Replace and delete end state"
+text = "A source replaced by a new version and then deleted leaves search, history, counters and the write log in the exact pinned state."
+kind = "behavior"
+primary = "pytest"
+workflow = "scope-and-restore"
+tests = [
+    "test_app.py::test_wf_scope_and_restore_collections",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Export jobs"
+text = "An owner exports a ready database as a job that moves by server time to succeeded, snapshots the database at its lsn and emails the requester once."
+kind = "behavior"
+primary = "pytest"
+workflow = "export-import"
+tests = [
+    "test_app.py::test_wf_export_import_roundtrip",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Import"
+text = "An owner imports an export document as a new database whose answers equal the original's under the pinned equivalence rules, every source at version 1."
+kind = "behavior"
+primary = "pytest"
+workflow = "export-import"
+tests = [
+    "test_app.py::test_import_equivalence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Live region and toast stack"
+text = "The live region announces the pinned result lines, and toasts stack newest on top, at most three, each leaving after 6 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "accessibility-motion"
+tests = [
+    "test_app.py::test_live_region_toasts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Pinned refusal messages"
+text = "Every refusal carries the exact code, status, message and field of the refusal catalogue in the exact envelope."
+kind = "behavior"
+primary = "pytest"
+workflow = "exact-contract"
+tests = [
+    "test_app.py::test_wf_exact_contract_envelope",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Exact shapes"
+text = "Every successful enveloped answer carries exactly the named keys in data, meta and error."
+kind = "behavior"
+primary = "pytest"
+workflow = "exact-contract"
+tests = [
+    "test_app.py::test_exact_shapes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Audit log paging and CSV"
+text = "The audit log pages newest first by a stable cursor that never repeats or skips, and answers the same rows as CSV."
+kind = "behavior"
+primary = "pytest"
+workflow = "members-audit"
+tests = [
+    "test_app.py::test_wf_members_audit_csv_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Racing deletes and guarded ingests"
+text = "Of simultaneous deletes of one source exactly one succeeds and the rest answer 404 SOURCE_NOT_FOUND, and of simultaneous ingests carrying the same live if_version exactly one is accepted and the rest answer 409 VERSION_CONFLICT, with one write log entry each time."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency"
+tests = [
+    "test_app.py::test_wf_concurrency_racing_writes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Unstorable characters and NFC lengths"
+text = "Every length limit counts code points after NFC normalization while the value is stored as typed, and any string holding NUL, a C0 control other than tab, line feed or carriage return, or a lone surrogate is refused on its dotted path with nothing stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "ingest-validation"
+tests = [
+    "test_app.py::test_unstorable_and_nfc",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-87"
+title = "Plan switch racing creation"
+text = "Plan switches and database creations racing in one organization are decided one at a time, so an organization never holds more than 3 databases while on Ship and each real plan change writes one audit event and one email per owner."
+kind = "behavior"
+primary = "pytest"
+workflow = "provisioning"
+tests = [
+    "test_app.py::test_wf_provisioning_plan_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-88"
+title = "Unpublished methods refused"
+text = "A published /api path called with a method it does not publish answers 405 METHOD_NOT_ALLOWED in the envelope with an Allow header listing its methods, before the version, credential and role checks."
+kind = "behavior"
+primary = "pytest"
+workflow = "role-gating"
+tests = [
+    "test_app.py::test_unpublished_methods",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-89"
+title = "Emptied key scope sees nothing"
+text = "Deleting a database removes it from every key scope at once, and a key whose scope is emptied lists no database and gets 404 for every database, never all of them."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-keys"
+tests = [
+    "test_app.py::test_wf_api_keys_scope",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-90"
+title = "Derived surfaces stay in the organization"
+text = "Idempotency keys, audit filters, usage figures and feedback lookups belong to one organization, so equal key values or names in another organization never replay, reveal or move anything."
+kind = "behavior"
+primary = "pytest"
+workflow = "org-isolation"
+tests = [
+    "test_app.py::test_wf_org_isolation_shared_names",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-91"
+title = "Unknown and removed emails look alike"
+text = "Sign-in answers for an unknown email, a removed member's email and a wrong password are identical in status, body shape and headers, including the pause after ten failures."
+kind = "behavior"
+primary = "pytest"
+workflow = "authentication"
+tests = [
+    "test_app.py::test_wf_authentication_identical_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-92"
+title = "Bounded feedback bodies"
+text = "Feedback metadata and ground truth are bounded in entries, key pattern, value length and id count at every depth, and a refused feedback body spends none of the organization's feedback quota."
+kind = "behavior"
+primary = "pytest"
+workflow = "feedback-limits"
+tests = [
+    "test_app.py::test_wf_feedback_limits_bounded_bodies",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-93"
+title = "Bill keeps incurred usage"
+text = "Deleting a database or source keeps the tokens already ingested in the bill and the daily series while storage drops, and the bill, the daily series and every Stats figure stay consistent after each write."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing"
+tests = [
+    "test_app.py::test_wf_billing_deleted_database",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-94"
+title = "Plain console return paths"
+text = "After sign in, with or without scripts, the next value is honoured only when it is a plain /console path under the pinned rule, and every other value lands on /console."
+kind = "behavior"
+primary = "pytest"
+workflow = "sessions"
+tests = [
+    "test_app.py::test_wf_sessions_return_paths",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-95"
+title = "Unparseable bodies and scriptless contact"
+text = "A body that is not valid JSON answers 400 MALFORMED_JSON in the envelope, no answer is ever a server error or carries internals, and the contact form stores and thanks or refuses beside its field with scripts off."
+kind = "behavior"
+primary = "pytest"
+workflow = "contact-and-twins"
+tests = [
+    "test_app.py::test_malformed_json",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-96"
+title = "Deleted database leaves no copy"
+text = "A deleted database leaves no title, text, fact, query, export or idempotency record of it in PostgreSQL, keeping only its token rows and audit events, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment-storage"
+tests = [
+    "test_app.py::test_wf_deployment_storage_delete_scrub",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-97"
+title = "Audit attribution outlives the actor"
+text = "Audit events keep their actor email, detail, id and time unchanged after the actor is re-roled, removed or re-added, and no route edits or deletes them."
+kind = "behavior"
+primary = "pytest"
+workflow = "issued-tokens"
+tests = [
+    "test_app.py::test_wf_issued_tokens_audit_immutable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-98"
+title = "Restore keeps original sequence numbers"
+text = "Restored facts keep the log sequence numbers they were ingested with, so ties and history read exactly as before the delete, and only the restore entry takes a new number."
+kind = "behavior"
+primary = "pytest"
+workflow = "scope-and-restore"
+tests = [
+    "test_app.py::test_restore_keeps_lsn",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-99"
+title = "Import checks identities inside the document"
+text = "An import refuses a repeated source id within a collection, a repeated collection name, an unknown key and a bad version at their exact document path before any database is created."
+kind = "behavior"
+primary = "pytest"
+workflow = "export-import"
+tests = [
+    "test_app.py::test_wf_export_import_document_faults",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json holds \"_schema\": \"run-manifest-v1\" and string install, build and serve commands whose serve starts no development server or reload mode, /app ships no Dockerfile, and no compose file in /app sets volumes, container names or networks."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/USER_README.md lists every seeded account with the password deku-demo-pw-2026, and the reserved .browser_screenshots/ and .downloads/ directories exist at the app root, empty."
+tests = [
+    "test_app.py::test_if_user_readme",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "/app/fixtures/code-host-repo.json holds the saved code host response that GET /api/code-host/repo answers."
+tests = [
+    "test_app.py::test_if_code_host_fixture",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package with its version and licence, where shipped packages means the production dependency tree that install puts into .venv from the pinned requirements, excluding any development-only group."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Every shipped package carries an MIT, BSD, Apache-2.0, ISC, PSF or MPL-2.0 licence."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The app uses no datastore besides the PostgreSQL at DATABASE_URL (no SQLite file, no embedded key-value store) and sends mail only through SMTP_HOST and SMTP_PORT."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "write-log"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-05",
+]
+critical = [
+    "test_app.py::test_wf_write_log_ui_ingest",
+    "test_app.py::test_wf_write_log_numbering",
+]
+
+[[workflows]]
+id = "time-travel"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_wf_time_travel_seed_answers",
+    "test_app.py::test_wf_time_travel_explore",
+    "test_app.py::test_wf_time_travel_restore_ties",
+]
+
+[[workflows]]
+id = "graph-language"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_graph_language_statements",
+    "test_app.py::test_wf_graph_language_query_tab",
+]
+
+[[workflows]]
+id = "ingest-validation"
+requirements = [
+    "DP-16",
+    "DP-21",
+    "DP-23",
+    "DP-86",
+]
+critical = [
+    "test_app.py::test_wf_ingest_validation_boundaries",
+    "test_app.py::test_wf_ingest_validation_ui_errors",
+]
+
+[[workflows]]
+id = "keyword-search"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_keyword_search_scoring",
+    "test_app.py::test_wf_keyword_search_tab_feedback",
+]
+
+[[workflows]]
+id = "concurrency"
+requirements = [
+    "DP-04",
+    "DP-22",
+    "DP-24",
+    "DP-85",
+]
+critical = [
+    "test_app.py::test_wf_concurrency_racing_writes",
+    "test_app.py::test_wf_concurrency_retries_and_conflict",
+]
+
+[[workflows]]
+id = "provisioning"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-87",
+]
+critical = [
+    "test_app.py::test_wf_provisioning_inline_create",
+    "test_app.py::test_wf_provisioning_plan_race",
+]
+
+[[workflows]]
+id = "role-gating"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-88",
+]
+critical = [
+    "test_app.py::test_wf_role_gating_matrix",
+    "test_app.py::test_wf_role_gating_demotion",
+]
+
+[[workflows]]
+id = "api-keys"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-48",
+    "DP-72",
+    "DP-89",
+]
+critical = [
+    "test_app.py::test_wf_api_keys_scope",
+    "test_app.py::test_wf_api_keys_rotation_limits",
+]
+
+[[workflows]]
+id = "org-isolation"
+requirements = [
+    "DP-35",
+    "DP-90",
+]
+critical = [
+    "test_app.py::test_wf_org_isolation_shared_names",
+    "test_app.py::test_wf_org_isolation_deleted_name",
+]
+
+[[workflows]]
+id = "authentication"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-73",
+    "DP-91",
+]
+critical = [
+    "test_app.py::test_wf_authentication_identical_refusals",
+    "test_app.py::test_wf_authentication_two_step",
+]
+
+[[workflows]]
+id = "members-audit"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-74",
+    "DP-84",
+]
+critical = [
+    "test_app.py::test_wf_members_audit_attribution",
+    "test_app.py::test_wf_members_audit_csv_paging",
+]
+
+[[workflows]]
+id = "sessions"
+requirements = [
+    "DP-42",
+    "DP-49",
+    "DP-51",
+    "DP-52",
+    "DP-94",
+]
+critical = [
+    "test_app.py::test_wf_sessions_return_paths",
+    "test_app.py::test_wf_sessions_password_reset",
+    "test_app.py::test_wf_sessions_end_sessions",
+]
+
+[[workflows]]
+id = "feedback-limits"
+requirements = [
+    "DP-43",
+    "DP-45",
+    "DP-92",
+]
+critical = [
+    "test_app.py::test_wf_feedback_limits_bounded_bodies",
+    "test_app.py::test_wf_feedback_limits_list_ranges",
+]
+
+[[workflows]]
+id = "billing"
+requirements = [
+    "DP-46",
+    "DP-93",
+]
+critical = [
+    "test_app.py::test_wf_billing_incurred_usage",
+    "test_app.py::test_wf_billing_deleted_database",
+]
+
+[[workflows]]
+id = "landing-page"
+requirements = [
+    "DP-47",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+]
+critical = [
+    "test_app.py::test_wf_landing_page_calculator",
+    "test_app.py::test_wf_landing_page_content",
+    "test_app.py::test_wf_landing_page_layouts",
+]
+
+[[workflows]]
+id = "accessibility-motion"
+requirements = [
+    "DP-15",
+    "DP-32",
+    "DP-50",
+    "DP-59",
+    "DP-60",
+    "DP-61",
+    "DP-81",
+]
+critical = [
+    "test_app.py::test_wf_accessibility_motion_busy_states",
+    "test_app.py::test_wf_accessibility_motion_delete_dialog",
+]
+
+[[workflows]]
+id = "contact-and-twins"
+requirements = [
+    "DP-44",
+    "DP-58",
+    "DP-62",
+    "DP-64",
+    "DP-95",
+]
+critical = [
+    "test_app.py::test_wf_contact_and_twins_scriptless",
+    "test_app.py::test_wf_contact_and_twins_limits",
+]
+
+[[workflows]]
+id = "deployment-storage"
+requirements = [
+    "DP-65",
+    "DP-66",
+    "DP-67",
+    "DP-68",
+    "DP-69",
+    "DP-70",
+    "DP-75",
+    "DP-96",
+]
+critical = [
+    "test_app.py::test_wf_deployment_storage_delete_scrub",
+    "test_app.py::test_wf_deployment_storage_store_rules",
+]
+
+[[workflows]]
+id = "issued-tokens"
+requirements = [
+    "DP-71",
+    "DP-97",
+]
+critical = [
+    "test_app.py::test_wf_issued_tokens_removed_member",
+    "test_app.py::test_wf_issued_tokens_audit_immutable",
+]
+
+[[workflows]]
+id = "scope-and-restore"
+requirements = [
+    "DP-29",
+    "DP-76",
+    "DP-77",
+    "DP-78",
+    "DP-98",
+]
+critical = [
+    "test_app.py::test_wf_scope_and_restore_undo",
+    "test_app.py::test_wf_scope_and_restore_collections",
+]
+
+[[workflows]]
+id = "export-import"
+requirements = [
+    "DP-79",
+    "DP-80",
+    "DP-99",
+]
+critical = [
+    "test_app.py::test_wf_export_import_roundtrip",
+    "test_app.py::test_wf_export_import_document_faults",
+]
+
+[[workflows]]
+id = "exact-contract"
+requirements = [
+    "DP-36",
+    "DP-39",
+    "DP-63",
+    "DP-82",
+    "DP-83",
+]
+critical = [
+    "test_app.py::test_wf_exact_contract_envelope",
+    "test_app.py::test_wf_exact_contract_headers",
+    "test_app.py::test_audit_csv_formulas",
+]

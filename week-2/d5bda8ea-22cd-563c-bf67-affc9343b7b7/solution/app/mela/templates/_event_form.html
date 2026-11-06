@@ -1,0 +1,119 @@
+{# The create and edit form: one set of fields, sent as JSON by the eventForm component. #}
+{% from "_icons.html" import icon %}
+{% from "_ui.html" import cover with context %}
+{% set start = fmt.local(event.start_at, event.timezone) %}
+{% set end = fmt.local(event.end_at, event.timezone) %}
+{% macro error(field) %}<p class="field-error" id="err-{{ field }}" data-error="{{ field }}" hidden></p>{% endmacro %}
+<form class="event-form {{ mode }}" novalidate x-data="eventForm('{{ mode }}', '{{ event.slug }}')" @submit.prevent="submit()" data-themes="{{ themes|join(',') }}">
+  <div class="form-preview">
+    <div class="preview-frame" x-ref="preview">{{ cover(event, "cover-preview", decorative=True) }}</div>
+    <div class="theme-row">
+      <div class="field compact">
+        <label for="field-theme">Theme</label>
+        <select id="field-theme" name="theme" data-field="theme" x-model="theme" aria-describedby="err-theme">
+          {% for theme in themes %}<option value="{{ theme }}"{% if theme == event.theme %} selected{% endif %}>{{ theme|capitalize }}</option>{% endfor %}
+        </select>
+      </div>
+      <button type="button" class="pill-button quiet" @click="shuffle()">{{ icon("sparkle", 16) }}Shuffle Theme</button>
+    </div>
+    {{ error("theme") }}
+  </div>
+
+  <div class="form-fields">
+    <div class="field-pair">
+      <div class="field compact">
+        <label for="field-calendar">Calendar</label>
+        <select id="field-calendar" name="calendar" data-field="calendar" aria-describedby="err-calendar">
+          <option value="">Personal Calendar</option>
+          {% for calendar in calendars %}<option value="{{ calendar.slug }}"{% if calendar.slug == event.calendar_slug %} selected{% endif %}>{{ calendar.name }}</option>{% endfor %}
+        </select>
+        {{ error("calendar") }}
+      </div>
+      <div class="field compact">
+        <label for="field-visibility">Visibility</label>
+        <select id="field-visibility" name="visibility" data-field="visibility" aria-describedby="err-visibility">
+          <option value="public"{% if event.visibility == "public" %} selected{% endif %}>Public</option>
+          <option value="private"{% if event.visibility == "private" %} selected{% endif %}>Private</option>
+        </select>
+        {{ error("visibility") }}
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="field-name">Event Name</label>
+      <input id="field-name" class="input-xl" name="name" type="text" maxlength="140" data-field="name" value="{{ event.name }}"
+             x-model="name" aria-describedby="err-name" autocomplete="off">
+      {{ error("name") }}
+    </div>
+
+    <fieldset class="when-fields">
+      <legend class="sr-only">When</legend>
+      <div class="when-grid">
+        <span class="when-label">Start</span>
+        <div class="field compact"><label class="sr-only" for="start-date">Start date</label>
+          <input id="start-date" type="date" data-part="start-date" value="{{ start.date().isoformat() }}" aria-describedby="err-start_at"></div>
+        <div class="field compact"><label class="sr-only" for="start-time">Start time</label>
+          <input id="start-time" type="time" data-part="start-time" value="{{ '%02d:%02d' % (start.hour, start.minute) }}" aria-describedby="err-start_at"></div>
+        <span class="when-label">End</span>
+        <div class="field compact"><label class="sr-only" for="end-date">End date</label>
+          <input id="end-date" type="date" data-part="end-date" value="{{ end.date().isoformat() }}" aria-describedby="err-end_at"></div>
+        <div class="field compact"><label class="sr-only" for="end-time">End time</label>
+          <input id="end-time" type="time" data-part="end-time" value="{{ '%02d:%02d' % (end.hour, end.minute) }}" aria-describedby="err-end_at"></div>
+      </div>
+      {{ error("start_at") }}{{ error("end_at") }}
+      <div class="field compact zone-tile">
+        <label for="field-timezone">{{ icon("globe", 16) }}Time zone</label>
+        <select id="field-timezone" name="timezone" data-field="timezone" aria-describedby="err-timezone">
+          {% for zone, label in zones %}<option value="{{ zone }}" data-offset="{{ label[3:9] }}"{% if zone == event.timezone %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        {{ error("timezone") }}
+      </div>
+    </fieldset>
+
+    <fieldset class="form-group">
+      <legend class="group-title">Add Event Location</legend>
+      <div class="field compact">
+        <label for="field-location-type">Location type</label>
+        <select id="field-location-type" name="location_type" data-field="location_type" x-model="locationType" aria-describedby="err-location_type">
+          <option value="offline"{% if event.location_type == "offline" %} selected{% endif %}>Offline</option>
+          <option value="virtual"{% if event.location_type == "virtual" %} selected{% endif %}>Virtual</option>
+        </select>
+        {{ error("location_type") }}
+      </div>
+      <div class="offline-fields" x-show="locationType === 'offline'"{% if event.location_type != "offline" %} hidden{% endif %}>
+        <div class="field"><label for="field-venue">Venue name</label>
+          <input id="field-venue" name="venue_name" type="text" maxlength="200" data-field="venue_name" value="{{ event.venue_name }}" aria-describedby="err-venue_name">{{ error("venue_name") }}</div>
+        <div class="field"><label for="field-street">Street address</label>
+          <input id="field-street" name="street_address" type="text" maxlength="200" data-field="street_address" value="{{ event.street_address }}" autocomplete="street-address" aria-describedby="err-street_address">{{ error("street_address") }}</div>
+        <div class="field"><label for="field-city">City</label>
+          <input id="field-city" name="city" type="text" maxlength="80" data-field="city" value="{{ event.city }}" autocomplete="address-level2" aria-describedby="err-city">{{ error("city") }}</div>
+      </div>
+      <div class="virtual-fields" x-show="locationType === 'virtual'"{% if event.location_type != "virtual" %} hidden{% endif %}>
+        <div class="field"><label for="field-link">Virtual link</label>
+          <input id="field-link" name="virtual_link" type="url" maxlength="500" data-field="virtual_link" value="{{ event.virtual_link }}" placeholder="https://" aria-describedby="err-virtual_link">{{ error("virtual_link") }}</div>
+      </div>
+    </fieldset>
+
+    <fieldset class="form-group">
+      <legend class="group-title">Add Description</legend>
+      <div class="field"><label for="field-description">Description</label>
+        <textarea id="field-description" name="description" rows="5" maxlength="5000" data-field="description" aria-describedby="err-description">{{ event.description }}</textarea>{{ error("description") }}</div>
+    </fieldset>
+
+    <fieldset class="form-group options">
+      <legend class="group-title">Event Options</legend>
+      <div class="option-row"><span class="option-label">Ticket Price</span><span class="option-value">Free</span></div>
+      <div class="option-row"><label for="field-approval" class="option-label">Require Approval</label>
+        <input id="field-approval" class="switch-input" type="checkbox" role="switch" data-field="require_approval"{% if event.require_approval %} checked{% endif %}></div>
+      <div class="option-row"><label for="field-capacity" class="option-label">Capacity</label>
+        <input id="field-capacity" class="capacity-input" type="text" inputmode="numeric" placeholder="Unlimited" data-field="capacity"
+               value="{{ event.capacity if event.capacity is not none else '' }}" aria-describedby="err-capacity"></div>
+      {{ error("capacity") }}
+      <div class="option-row"><label for="field-waitlist" class="option-label">Waitlist Enabled</label>
+        <input id="field-waitlist" class="switch-input" type="checkbox" role="switch" data-field="waitlist"{% if event.waitlist %} checked{% endif %}></div>
+    </fieldset>
+
+    <template x-if="outage"><p class="form-alert" role="alert" x-text="outageMessage"></p></template>
+    <button type="submit" class="pill-button dark wide" :disabled="busy">{{ "Create Event" if mode == "create" else "Save Changes" }}</button>
+  </div>
+</form>

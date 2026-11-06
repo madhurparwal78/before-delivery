@@ -1,0 +1,1833 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 99
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "cross-cutting",
+    "player-roster",
+    "owner-checkout",
+    "owner-suspension",
+    "player-build",
+    "player-vehicles",
+    "party-chapters",
+    "table-seating",
+    "chess-play",
+    "table-clock-settlement",
+    "cards-and-four",
+    "spectate-history",
+    "friends-invites",
+    "coin-top-up",
+    "trading",
+    "leaderboards-achievements",
+    "inventory-crafting",
+    "weather",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 81
+solo_criteria = []
+services = [
+    { name = "mailpit", env = { MAIL_FROM = "Plotwright <no-reply@plotwright.test>" } },
+    { name = "killbill", env = {} },
+    { name = "minio", env = {} },
+    { name = "postgres", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 5
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mail-down"
+port = 4176
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "slow-billing"
+port = 4177
+url_env = "APP_SLOW_BILLING_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:4191"
+
+[[outages]]
+id = "storage-partial"
+port = 4178
+url_env = "APP_STORAGE_PARTIAL_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:4192"
+
+[[outages]]
+id = "short-timer"
+port = 4179
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+BILLING_GRACE_SECONDS = "20"
+INVITE_TTL_SECONDS = "20"
+WEATHER_PERIOD_SECONDS = "15"
+DAY_CYCLE_SECONDS = "120"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health check"
+text = "`/app/run.json` installs, builds and serves the app, and the health endpoint answers as specified in Deployment even when a provider is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_on_every_instance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Configuration from the environment"
+text = "Every Postgres, MinIO, Kill Bill and mail address and credential, the port and the public base address are read from the environment at start, as qualified in Configuration and secrets, and never appear in source, browser code or any response."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Same-origin server boundary"
+text = "The server applies the body, content-type, origin and file-exposure rules in Server boundary to every request."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "One error shape and precedence"
+text = "Every error response uses the one JSON shape, the one precedence order and the Retry-After rules stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_precedence_retry_after",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Conditional writes with ETags"
+text = "Every server, world, table and character read returns a strong ETag, and every PUT or PATCH needs a matching If-Match, answering 428 or 412 as stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_etags_conditional_writes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Field limits and unknown fields"
+text = "Every text field accepts its published maximum length and refuses one more with its published field error, and any unknown body field, including names of built-in object members, answers 422 unknown_field."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_field_limits_and_unknown_fields",
+]
+criteria = []
+parameter_cases = [
+    "character_name",
+    "chat_text",
+    "party_name",
+    "world_name",
+    "server_name",
+    "display_name",
+    "constructor",
+    "__proto__",
+    "toString",
+    "hasOwnProperty",
+]
+
+[[requirements]]
+id = "DP-07"
+title = "Game reads need a session and membership"
+text = "Game state, legal moves, move logs, replays, history, leaderboards and event streams answer 401 without a session, 404 to non-members and 403 not_your_turn for legal moves asked by anyone but the seated player on turn."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_game_reads_need_session_and_membership",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Event streams resume without gaps"
+text = "Every event stream numbers its events, and a reconnect with Last-Event-ID receives every missed event in order before live events, with no duplicates, as stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_event_stream_resume_without_gaps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Times in UTC, shown in the server's zone"
+text = "The API sends every time as a UTC instant with milliseconds, and screens show times and labels in the server's own time zone setting."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_times_utc_and_server_zone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Sign-in lands on your servers"
+text = "A seeded player signs in with handle and passcode and lands on the servers list, or on the protected page they first asked for, and a reload keeps them there."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Sound cues and the Sound toggle"
+text = "The published game sounds are generated in the browser only while the account's Sound setting is on, and the setting is remembered on the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_sound",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Look and feel"
+text = "Screens show the surveyed, tactile and candid look and the typeface and accent rules in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Server-only game authority"
+text = "Move legality, clocks, shuffles, settlement, trades and billing status are decided only in server code, each in one place, and browser code renders server state without deciding it."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Character roster within the limits"
+text = "A member creates characters with a name, an appearance and a loadout within the roster, loadout and plan limits in Business rules, with names unique per server."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-roster"
+tests = [
+    "test_app.py::test_character_roster_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Roster by keyboard"
+text = "The New character dialog and the character picker work with the keyboard alone, with the focus order, error summary and announcements in Interactions and Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-roster"
+tests = [
+    "test_app.py::test_wf_player_roster_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Roster screen layouts"
+text = "The roster screen shows its published single-column, two-column and card-grid layouts at the three published widths."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-roster"
+tests = [
+    "test_app.py::test_roster_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Adding members by handle"
+text = "The owner adds an existing account as a member by handle within the plan's member limit, and refusals follow the published order."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-roster"
+tests = [
+    "test_app.py::test_wf_player_roster_add_member",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Rent a server in three steps"
+text = "An owner rents a server through the three-step checkout, Back keeps entered values, and Rent server lands on the new server's billing route showing PENDING, which a reload keeps."
+kind = "behavior"
+primary = "workflow"
+workflow = "owner-checkout"
+tests = [
+    "test_app.py::test_wf_owner_checkout_rent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Checkout opens a provider account"
+text = "Checkout creates the server in pending approval together with its Kill Bill account, auto-pay-off tag and plan subscription, and a replayed idempotency key returns the stored response without a second account."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-checkout"
+tests = [
+    "test_app.py::test_checkout_creates_provider_records_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Active only on provider-confirmed payment"
+text = "Approve payment pays each unpaid invoice in Kill Bill with an external payment, and a server becomes active only when Kill Bill confirms its plan invoice paid, never on a client action, redirect or query string."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-checkout"
+tests = [
+    "test_app.py::test_approve_payment_activates_only_on_provider",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Slow provider leaves the payment pending"
+text = "When Kill Bill does not answer a payment within 5 seconds, Approve payment answers 202 with PAYMENT PENDING, and a background settler later confirms exactly that payment, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-checkout"
+tests = [
+    "test_app.py::test_slow_provider_leaves_payment_pending",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "One payment per invoice"
+text = "However many Approve payment requests arrive at once, on however many instances, Kill Bill records exactly one payment per invoice and every other request gets its published answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-checkout"
+tests = [
+    "test_app.py::test_parallel_approvals_one_payment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Billing provider outage"
+text = "With Kill Bill unreachable, checkout, payment, plan change and the statement are refused and change nothing, and the billing page shows the outage copy over the last confirmed status."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-checkout"
+tests = [
+    "test_app.py::test_wf_owner_checkout_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Plan change pending until confirmed"
+text = "A plan change is made in Kill Bill at once, but the server keeps its old plan and limits, with the plan-change-pending notice, until Kill Bill confirms the change is paid."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-checkout"
+tests = [
+    "test_app.py::test_plan_change_pending_until_confirmed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Plan change on the billing page"
+text = "An owner picks a new plan, sees the pending notice, approves payment and sees the new plan as PAID, on the billing route throughout and after a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "owner-checkout"
+tests = [
+    "test_app.py::test_wf_owner_plan_change_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Billing statement"
+text = "The owner downloads a billing statement whose rows, order, amounts and running balance follow Kill Bill exactly and whose bytes repeat when nothing changed."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-checkout"
+tests = [
+    "test_app.py::test_wf_owner_plan_change_statement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Overdue grace window decided by the server"
+text = "An unpaid invoice moves an active server to past due, and only the server moves it to suspended once the grace window set by BILLING_GRACE_SECONDS has passed."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-suspension"
+tests = [
+    "test_app.py::test_wf_owner_suspension_grace",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Suspended servers refuse play"
+text = "A suspended or not-yet-active server refuses every play, trade, purchase and save action with 423, and a provider-confirmed payment reactivates it."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-suspension"
+tests = [
+    "test_app.py::test_inactive_server_refuses_play",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Banners show the server's status"
+text = "Every page of a past-due or suspended server shows its published banner word for word, with the status and suspension time the API returns whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-suspension"
+tests = [
+    "test_app.py::test_wf_owner_suspension_banner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Suspension abandons live play"
+text = "Suspension abandons every game in play with stakes returned, frees its seats and spectators, pauses chapter runs, and a move racing it is either in the abandoned game's log or refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-suspension"
+tests = [
+    "test_app.py::test_suspension_abandons_live_play",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Billing mail"
+text = "The owner receives the published overdue warning and a receipt for each confirmed payment, each exactly once."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-suspension"
+tests = [
+    "test_app.py::test_wf_owner_suspension_receipt",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "World saves are all or nothing"
+text = "A world save stores its snapshot, manifest and row together or nothing, and a failed save shows and announces the save-not-written copy, never a success."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-suspension"
+tests = [
+    "test_app.py::test_world_save_all_or_nothing",
+    "test_app.py::test_wf_owner_saves_export_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Restore a world from a save"
+text = "The owner restores a world to a stored save, recorded as a new save whose snapshot is a byte copy, and the map then matches it."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-suspension"
+tests = [
+    "test_app.py::test_restore_world_from_save",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Reproducible owner export"
+text = "The owner exports the latest save of every world as one archive, also while suspended, holding only that server's worlds, byte-identical when nothing changed."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-suspension"
+tests = [
+    "test_app.py::test_export_reproducible",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Export storage failure partway"
+text = "When storage fails partway through an export, the request answers 503, no export object remains, and the admin screen shows the export-not-written copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-suspension"
+tests = [
+    "test_app.py::test_wf_owner_saves_export_partial",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "World map grid and tile cursor"
+text = "The world map is a keyboard grid with one roving tile cursor, labelled tiles, the published key bindings and a tile inspector."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-build"
+tests = [
+    "test_app.py::test_wf_player_build_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Walking on the map"
+text = "A character walks one tile per step onto passable tiles only, by API, by Shift with an arrow key or with Walk here on a neighbouring tile."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-build"
+tests = [
+    "test_app.py::test_walk_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Placing and breaking blocks"
+text = "A player places blocks from their inventory and breaks blocks into it on tiles next to their character, with each rule's published rejection."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-build"
+tests = [
+    "test_app.py::test_block_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "World announcements"
+text = "Each map action announces exactly one published message in the World announcements live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-build"
+tests = [
+    "test_app.py::test_wf_player_build_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "World chat per server"
+text = "Chat in a world stores and shows only that world's messages, oldest first, within the length limit."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-build"
+tests = [
+    "test_app.py::test_wf_player_build_chat",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Published breakpoints"
+text = "The world view switches between the drawer layout, the map with collapsible rail and the map with fixed rail and chat exactly at the breakpoints in Screens and layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-build"
+tests = [
+    "test_app.py::test_world_breakpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Full screen world view"
+text = "The Full screen button and F put the world view's root into full screen with the published full-screen layout, and leaving restores the previous layout and focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-build"
+tests = [
+    "test_app.py::test_world_full_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Block place and break motion"
+text = "A placed block grows in and a broken block bursts into shards within the published bands, and reduced motion swaps them instantly."
+kind = "visual"
+primary = "pytest"
+workflow = "player-build"
+tests = [
+    "test_app.py::test_block_place_and_break_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Parking cars and planes"
+text = "A vehicle's owner parks a car on a road tile reached along roads or a plane on a runway tile, and each trip's steps are stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-vehicles"
+tests = [
+    "test_app.py::test_parking_cars_and_planes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Parking by keyboard"
+text = "A keyboard player opens their vehicle's menu, moves the tile cursor in parking mode with guidance announcements, parks with Enter and cancels with Escape, sending the same requests as a pointer."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-vehicles"
+tests = [
+    "test_app.py::test_wf_player_vehicles_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Tap to park on a phone"
+text = "On a phone-sized touch screen a player taps Move on their plane, taps a runway tile and sees and hears it parked."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-vehicles"
+tests = [
+    "test_app.py::test_wf_player_vehicles_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Trip replay uses only stored steps"
+text = "Replaying a stored trip from its steps reproduces the stored final tile, whatever was built on the route afterwards."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-vehicles"
+tests = [
+    "test_app.py::test_trip_replay_uses_stored_steps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Vehicle drive motion"
+text = "A parked vehicle's sprite drives through every stored step in order within the published per-tile band, and reduced motion moves it at once."
+kind = "visual"
+primary = "pytest"
+workflow = "player-vehicles"
+tests = [
+    "test_app.py::test_vehicle_drive_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Parties and leadership succession"
+text = "Characters form, join and leave parties, leadership passes to the longest-standing member when the leader leaves, an empty party closes, and every member's party list updates live."
+kind = "behavior"
+primary = "pytest"
+workflow = "party-chapters"
+tests = [
+    "test_app.py::test_wf_party_chapters_succession",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Story chapter checkpoints"
+text = "A party leader starts a chapter run, members reach its checkpoints in order, and each checkpoint snapshot is stored completely or kept for retry, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "party-chapters"
+tests = [
+    "test_app.py::test_chapter_checkpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Chapter replay"
+text = "Replaying a chapter run from its stored walk log reproduces the stored positions and checkpoints."
+kind = "behavior"
+primary = "pytest"
+workflow = "party-chapters"
+tests = [
+    "test_app.py::test_chapter_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Game night"
+text = "Four people go from renting a server through invites, characters, a chapter checkpoint, a keyboard chess game with a spectator and its mail to a replay and an export, as told in Journeys."
+kind = "behavior"
+primary = "workflow"
+workflow = "party-chapters"
+tests = [
+    "test_app.py::test_wf_party_chapters_game_night",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Table settings in two steps"
+text = "The owner sets a table's stake and turn clock in a two-step form within the published limits, only while no seat is taken and only against the current version."
+kind = "behavior"
+primary = "pytest"
+workflow = "table-seating"
+tests = [
+    "test_app.py::test_table_settings_two_steps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Exactly one player wins a contested seat"
+text = "When several characters claim the last free seat at once, exactly one gets it and every other claim gets the table-full rejection."
+kind = "behavior"
+primary = "pytest"
+workflow = "table-seating"
+tests = [
+    "test_app.py::test_contested_last_seat",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Table full offers the spectator ring"
+text = "A player who loses the seat race sees and hears the table-full copy and focus moves to the Watch button."
+kind = "behavior"
+primary = "pytest"
+workflow = "table-seating"
+tests = [
+    "test_app.py::test_wf_table_seating_full",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Seat lands on the table route"
+text = "Taking a seat or watching opens the table panel on the table's own route with focus on its published target, and reloading or opening that address restores both."
+kind = "behavior"
+primary = "pytest"
+workflow = "table-seating"
+tests = [
+    "test_app.py::test_wf_table_seating_route",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Table draw-in"
+text = "After the server confirms a seat, the table tile grows into the board panel, the map dims, tokens slide to their places and the turn fuse drains, and closing reverses it back to the tile."
+kind = "visual"
+primary = "pytest"
+workflow = "table-seating"
+tests = [
+    "test_app.py::test_table_drawin_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Reduced-motion draw-in"
+text = "With reduced motion the panel appears at once over an already dimmed map, and the turn clock reads as a numeric countdown updated once a second."
+kind = "visual"
+primary = "pytest"
+workflow = "table-seating"
+tests = [
+    "test_app.py::test_reduced_motion_drawin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Full screen table panel"
+text = "The Full screen button and F put the table panel into full screen, where its clock, dialogs and live regions keep working, and leaving returns focus to the button."
+kind = "behavior"
+primary = "pytest"
+workflow = "table-seating"
+tests = [
+    "test_app.py::test_table_full_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Chess rules on the server"
+text = "The server accepts only legal chess moves, including castling, en passant and promotion, and declares check, checkmate and stalemate."
+kind = "behavior"
+primary = "pytest"
+workflow = "chess-play"
+tests = [
+    "test_app.py::test_chess_rules_on_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Automatic chess draws"
+text = "Threefold repetition and the fifty-move rule end a chess game as a draw automatically, with no claim needed."
+kind = "behavior"
+primary = "pytest"
+workflow = "chess-play"
+tests = [
+    "test_app.py::test_chess_threefold_repetition",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Move announcements"
+text = "Every accepted or rejected move is announced in the Game announcements live region with the published wording."
+kind = "behavior"
+primary = "pytest"
+workflow = "chess-play"
+tests = [
+    "test_app.py::test_wf_chess_play_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Keyboard-only chess"
+text = "A screen-reader player takes a seat, moves, castles, promotes and offers a rematch on the chess board grid with the keyboard only, and focus returns to the table tile when the panel closes."
+kind = "behavior"
+primary = "pytest"
+workflow = "chess-play"
+tests = [
+    "test_app.py::test_wf_chess_play_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Dialogs survive the turn clock"
+text = "The promotion picker and the forfeit dialog stay open and focused through clock ticks and server pushes until the player chooses or the server ends the turn."
+kind = "behavior"
+primary = "pytest"
+workflow = "chess-play"
+tests = [
+    "test_app.py::test_dialogs_survive_turn_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Rematch"
+text = "After a settled game, once every seated player accepts a rematch a new game starts at the same table with the first move passed on."
+kind = "behavior"
+primary = "pytest"
+workflow = "chess-play"
+tests = [
+    "test_app.py::test_rematch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Chess piece slide"
+text = "An accepted chess move slides the piece to its square and fades a captured piece within the published band, and reduced motion swaps at once."
+kind = "visual"
+primary = "pytest"
+workflow = "chess-play"
+tests = [
+    "test_app.py::test_chess_piece_slide",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Table lifecycle"
+text = "A table moves through open, seated, in play, finished and settled, and every illegal step is refused with its published error code."
+kind = "behavior"
+primary = "pytest"
+workflow = "table-clock-settlement"
+tests = [
+    "test_app.py::test_table_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Server turn clock and forfeit"
+text = "When the server's per-turn deadline passes, the player on turn forfeits and the stake settles, whatever the client shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "table-clock-settlement"
+tests = [
+    "test_app.py::test_turn_clock_forfeit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Turn clock shows server time"
+text = "The turn clock counts down from the remaining time the server reports, whatever the device clock says, and the timeout is announced to every viewer."
+kind = "behavior"
+primary = "pytest"
+workflow = "table-clock-settlement"
+tests = [
+    "test_app.py::test_wf_table_clock_settlement_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Stakes and zero-sum settlement"
+text = "Starting a game holds each seat's stake and each finished game writes one settlement entry, every ledger entry sums to zero and every wallet equals the sum of its lines."
+kind = "behavior"
+primary = "pytest"
+workflow = "table-clock-settlement"
+tests = [
+    "test_app.py::test_stakes_zero_sum_settlement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Settlement waits for a stored result"
+text = "A finished game settles only after its result bundle is stored, settles exactly once across retries and instances, and shows the waiting copy while storage is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "table-clock-settlement"
+tests = [
+    "test_app.py::test_settlement_waits_for_stored_result",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Coin counter motion"
+text = "After a settlement the coin balance counts to its new value within the published band and ends exactly on the ledger balance, and reduced motion jumps straight there."
+kind = "visual"
+primary = "pytest"
+workflow = "table-clock-settlement"
+tests = [
+    "test_app.py::test_wf_table_clock_settlement_coins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Game result mail"
+text = "Every seated player receives one game-result mail per settled game carrying only their own coin line."
+kind = "behavior"
+primary = "pytest"
+workflow = "table-clock-settlement"
+tests = [
+    "test_app.py::test_game_result_mail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Four in a row rules"
+text = "The server drops each disc to the lowest free cell, rejects full columns and out-of-turn drops, accepts exactly one of two simultaneous drops, and ends the game on four in a line or a full board."
+kind = "behavior"
+primary = "pytest"
+workflow = "cards-and-four"
+tests = [
+    "test_app.py::test_four_in_a_row_rules",
+    "test_app.py::test_wf_cards_and_four_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Trick game rules"
+text = "The server deals from a stored seed, enforces following suit, gives each trick to the highest card of the led suit and scores the hand."
+kind = "behavior"
+primary = "pytest"
+workflow = "cards-and-four"
+tests = [
+    "test_app.py::test_trick_game_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Hidden hands at the table"
+text = "During a hand a seated player's table view and game record show only their own cards, and no other player or spectator receives them."
+kind = "behavior"
+primary = "pytest"
+workflow = "cards-and-four"
+tests = [
+    "test_app.py::test_wf_cards_and_four_hidden_hands",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Disc drop and card deal motion"
+text = "Discs drop, cards deal and played cards flip within the published bands, and reduced motion shows each end state at once."
+kind = "visual"
+primary = "pytest"
+workflow = "cards-and-four"
+tests = [
+    "test_app.py::test_disc_and_card_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Live spectating"
+text = "Spectators join the ring at any table and see each change within the push delay in Business rules, without hidden cards."
+kind = "behavior"
+primary = "pytest"
+workflow = "spectate-history"
+tests = [
+    "test_app.py::test_wf_spectate_history_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Game replay reproduces the result"
+text = "Replaying a finished game from its stored log reproduces the stored final position, score and settlement."
+kind = "behavior"
+primary = "pytest"
+workflow = "spectate-history"
+tests = [
+    "test_app.py::test_game_replay_reproduces_result",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Game history search per server"
+text = "Game history search and its result count cover only the current server's games."
+kind = "behavior"
+primary = "pytest"
+workflow = "spectate-history"
+tests = [
+    "test_app.py::test_history_search_per_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Replay viewer by keyboard"
+text = "A spectator opens a game from history and steps through it with the published keys, hearing each move, to the exact final position, result and coin lines."
+kind = "behavior"
+primary = "pytest"
+workflow = "spectate-history"
+tests = [
+    "test_app.py::test_wf_spectate_history_replay_viewer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Hidden cards on every read path"
+text = "No game read, history list, event stream, replay or export sends a card in an unplayed hand to anyone but its holder until the hand ends."
+kind = "behavior"
+primary = "pytest"
+workflow = "spectate-history"
+tests = [
+    "test_app.py::test_hidden_hands_every_read_path",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Invites with a one-time join link"
+text = "A member invites a friend by email, and the mailed link lets the friend sign up and join once before it expires."
+kind = "behavior"
+primary = "pytest"
+workflow = "friends-invites"
+tests = [
+    "test_app.py::test_wf_friends_invites_join",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Latest invite wins, one mail per invite"
+text = "Re-inviting an email supersedes its earlier link, and each invite sends exactly one mail even under parallel requests."
+kind = "behavior"
+primary = "pytest"
+workflow = "friends-invites"
+tests = [
+    "test_app.py::test_invite_supersede_and_parallel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Held mail while mail is down"
+text = "While mail is unreachable every mail is held and shown as held, then sent exactly once when mail returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "friends-invites"
+tests = [
+    "test_app.py::test_wf_friends_invites_held",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Friends list with live presence"
+text = "The Friends dialog shows every member with ONLINE or OFFLINE and updates within the published push delay without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "friends-invites"
+tests = [
+    "test_app.py::test_wf_friends_invites_presence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-87"
+title = "Coin top-up in three steps"
+text = "A player buys a published coin pack through a three-step checkout, Back keeps the choices, and Pay lands on the purchase's own route."
+kind = "behavior"
+primary = "pytest"
+workflow = "coin-top-up"
+tests = [
+    "test_app.py::test_wf_coin_top_up_checkout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-88"
+title = "Coins only on confirmed payment"
+text = "A coin purchase credits coins with one ledger pair and a receipt mail only after Kill Bill confirms its payment, including after a slow answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "coin-top-up"
+tests = [
+    "test_app.py::test_coins_only_on_confirmed_payment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-89"
+title = "Daily purchase limit"
+text = "A player makes at most 5 coin purchases per server per day in the server's time zone, and parallel attempts never exceed it."
+kind = "behavior"
+primary = "pytest"
+workflow = "coin-top-up"
+tests = [
+    "test_app.py::test_daily_purchase_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-90"
+title = "Refund of unspent coins"
+text = "The owner refunds a purchase through Kill Bill only while its coins are unspent, writing one reversing ledger pair."
+kind = "behavior"
+primary = "pytest"
+workflow = "coin-top-up"
+tests = [
+    "test_app.py::test_wf_coin_top_up_refund",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-91"
+title = "Trade window with escrow"
+text = "Two players trade items and coins in a trade window where offers are held, both must accept the same contents within 60 seconds, and completion moves everything atomically in one zero-sum entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "trading"
+tests = [
+    "test_app.py::test_trade_escrow",
+    "test_app.py::test_wf_trading_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-92"
+title = "Accept races never complete unseen contents"
+text = "When accepts and changes race, a trade completes only with contents both players accepted, otherwise it resets and says so."
+kind = "behavior"
+primary = "pytest"
+workflow = "trading"
+tests = [
+    "test_app.py::test_trade_accept_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-93"
+title = "Trade window updates live"
+text = "Each side's offer and accept state reach the other player's open trade window within the published push delay."
+kind = "behavior"
+primary = "pytest"
+workflow = "trading"
+tests = [
+    "test_app.py::test_wf_trading_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-94"
+title = "Leaderboards and seasons"
+text = "Each server ranks characters per game by wins with shared competition ranks, updates live after each settlement, and resets when the owner starts a new season."
+kind = "behavior"
+primary = "pytest"
+workflow = "leaderboards-achievements"
+tests = [
+    "test_app.py::test_leaderboards_and_seasons",
+    "test_app.py::test_wf_leaderboards_achievements_season",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-95"
+title = "Achievements"
+text = "The eight published achievements unlock once each and show a toast for 5 seconds that never takes focus from an open dialog."
+kind = "behavior"
+primary = "pytest"
+workflow = "leaderboards-achievements"
+tests = [
+    "test_app.py::test_achievements_unlock_once",
+    "test_app.py::test_wf_leaderboards_achievements_toast",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-96"
+title = "Inventory grid by keyboard and pointer"
+text = "The inventory is a keyboard grid where an item moves by keyboard or by dragging with identical requests and published stack rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "inventory-crafting"
+tests = [
+    "test_app.py::test_wf_inventory_crafting_keyboard",
+    "test_app.py::test_inventory_stack_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-97"
+title = "Crafting"
+text = "Crafting a published recipe removes its inputs and adds its output in one step, or changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "inventory-crafting"
+tests = [
+    "test_app.py::test_crafting",
+    "test_app.py::test_wf_inventory_crafting_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-98"
+title = "Weather schedule and storm grounding"
+text = "The server decides the weather from the published schedule, refuses plane parking during a storm and pushes each change."
+kind = "behavior"
+primary = "pytest"
+workflow = "weather"
+tests = [
+    "test_app.py::test_weather_schedule_and_storm",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-99"
+title = "Weather badge and day tint"
+text = "The world view shows the server's weather in a badge with an announcement on change and darkens the map by the server's night level with the published motion."
+kind = "visual"
+primary = "pytest"
+workflow = "weather"
+tests = [
+    "test_app.py::test_wf_weather_badge",
+    "test_app.py::test_wf_weather_reduced",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve fields and \"_schema\":\"run-manifest-v1\", and the app starts with exactly those commands."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package with its licence, plus each bundled font and the Lucide icons with theirs; shipped packages means the production dependency tree reported by npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package's license field is MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0 or 0BSD; bundled fonts are OFL-1.1 and Lucide icons ISC."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The only datastores are the Postgres database at DATABASE_URL and the MinIO bucket at S3_BUCKET; no SQLite, embedded database, Redis or local file holds state, and Kill Bill is the only source of truth for billing."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Every font, image, sound and script is served from the app's own origin, and built pages make no request to any other host."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Any development service configuration provided in the repository's first commit (compose files and their seed jobs) is left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Application source is TypeScript, and package-lock.json is committed."
+tests = [
+    "test_app.py::test_if_typescript_and_lockfile",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+
+[[workflows]]
+id = "player-roster"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_player_roster_keyboard",
+    "test_app.py::test_wf_player_roster_add_member",
+    "test_app.py::test_character_roster_limits",
+    "test_app.py::test_roster_layouts",
+]
+
+[[workflows]]
+id = "owner-checkout"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_owner_checkout_rent",
+    "test_app.py::test_wf_owner_checkout_outage",
+    "test_app.py::test_approve_payment_activates_only_on_provider",
+    "test_app.py::test_parallel_approvals_one_payment",
+    "test_app.py::test_wf_owner_plan_change_ui",
+    "test_app.py::test_wf_owner_plan_change_statement",
+    "test_app.py::test_plan_change_pending_until_confirmed",
+    "test_app.py::test_slow_provider_leaves_payment_pending",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "owner-suspension"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_owner_suspension_grace",
+    "test_app.py::test_wf_owner_suspension_banner",
+    "test_app.py::test_wf_owner_suspension_receipt",
+    "test_app.py::test_inactive_server_refuses_play",
+    "test_app.py::test_suspension_abandons_live_play",
+    "test_app.py::test_wf_owner_saves_export_outage",
+    "test_app.py::test_wf_owner_saves_export_partial",
+    "test_app.py::test_world_save_all_or_nothing",
+    "test_app.py::test_export_reproducible",
+]
+
+[[workflows]]
+id = "player-build"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_player_build_keyboard",
+    "test_app.py::test_wf_player_build_announcements",
+    "test_app.py::test_wf_player_build_chat",
+    "test_app.py::test_world_breakpoints",
+    "test_app.py::test_block_place_and_break_motion",
+]
+checkpoints = [
+    "B1",
+    "B9",
+]
+
+[[workflows]]
+id = "player-vehicles"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_player_vehicles_keyboard",
+    "test_app.py::test_wf_player_vehicles_phone",
+    "test_app.py::test_vehicle_drive_motion",
+]
+
+[[workflows]]
+id = "party-chapters"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_party_chapters_game_night",
+    "test_app.py::test_wf_party_chapters_succession",
+    "test_app.py::test_chapter_checkpoints",
+]
+
+[[workflows]]
+id = "table-seating"
+requirements = [
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+]
+critical = [
+    "test_app.py::test_wf_table_seating_route",
+    "test_app.py::test_wf_table_seating_full",
+    "test_app.py::test_contested_last_seat",
+    "test_app.py::test_reduced_motion_drawin",
+]
+checkpoints = [
+    "B3",
+    "B4",
+]
+
+[[workflows]]
+id = "chess-play"
+requirements = [
+    "DP-60",
+    "DP-61",
+    "DP-62",
+    "DP-63",
+    "DP-64",
+    "DP-65",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_chess_play_keyboard",
+    "test_app.py::test_wf_chess_play_announcements",
+    "test_app.py::test_chess_rules_on_server",
+    "test_app.py::test_dialogs_survive_turn_clock",
+]
+
+[[workflows]]
+id = "table-clock-settlement"
+requirements = [
+    "DP-67",
+    "DP-68",
+    "DP-69",
+    "DP-70",
+    "DP-71",
+    "DP-72",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_table_clock_settlement_clock",
+    "test_app.py::test_wf_table_clock_settlement_coins",
+    "test_app.py::test_stakes_zero_sum_settlement",
+    "test_app.py::test_settlement_waits_for_stored_result",
+]
+
+[[workflows]]
+id = "cards-and-four"
+requirements = [
+    "DP-74",
+    "DP-75",
+    "DP-76",
+    "DP-77",
+]
+critical = [
+    "test_app.py::test_wf_cards_and_four_ui",
+    "test_app.py::test_wf_cards_and_four_hidden_hands",
+    "test_app.py::test_four_in_a_row_rules",
+    "test_app.py::test_disc_and_card_motion",
+]
+
+[[workflows]]
+id = "spectate-history"
+requirements = [
+    "DP-78",
+    "DP-79",
+    "DP-80",
+    "DP-81",
+    "DP-82",
+]
+critical = [
+    "test_app.py::test_wf_spectate_history_live",
+    "test_app.py::test_wf_spectate_history_replay_viewer",
+    "test_app.py::test_history_search_per_server",
+]
+
+[[workflows]]
+id = "friends-invites"
+requirements = [
+    "DP-83",
+    "DP-84",
+    "DP-85",
+    "DP-86",
+]
+critical = [
+    "test_app.py::test_wf_friends_invites_join",
+    "test_app.py::test_wf_friends_invites_held",
+    "test_app.py::test_wf_friends_invites_presence",
+    "test_app.py::test_invite_supersede_and_parallel",
+]
+
+[[workflows]]
+id = "coin-top-up"
+requirements = [
+    "DP-87",
+    "DP-88",
+    "DP-89",
+    "DP-90",
+]
+critical = [
+    "test_app.py::test_wf_coin_top_up_checkout",
+    "test_app.py::test_wf_coin_top_up_refund",
+    "test_app.py::test_coins_only_on_confirmed_payment",
+    "test_app.py::test_daily_purchase_limit",
+]
+
+[[workflows]]
+id = "trading"
+requirements = [
+    "DP-91",
+    "DP-92",
+    "DP-93",
+]
+critical = [
+    "test_app.py::test_wf_trading_live",
+    "test_app.py::test_wf_trading_cancel",
+    "test_app.py::test_trade_accept_race",
+    "test_app.py::test_trade_escrow",
+]
+
+[[workflows]]
+id = "leaderboards-achievements"
+requirements = [
+    "DP-94",
+    "DP-95",
+]
+critical = [
+    "test_app.py::test_wf_leaderboards_achievements_season",
+    "test_app.py::test_wf_leaderboards_achievements_toast",
+    "test_app.py::test_leaderboards_and_seasons",
+]
+
+[[workflows]]
+id = "inventory-crafting"
+requirements = [
+    "DP-96",
+    "DP-97",
+]
+critical = [
+    "test_app.py::test_wf_inventory_crafting_keyboard",
+    "test_app.py::test_wf_inventory_crafting_phone",
+    "test_app.py::test_crafting",
+]
+
+[[workflows]]
+id = "weather"
+requirements = [
+    "DP-98",
+    "DP-99",
+]
+critical = [
+    "test_app.py::test_wf_weather_badge",
+    "test_app.py::test_wf_weather_reduced",
+    "test_app.py::test_weather_schedule_and_storm",
+]

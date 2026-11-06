@@ -1,0 +1,1193 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "club-onboarding",
+    "event-setup",
+    "driver-registration",
+    "check-in-waiver",
+    "work-rota",
+    "timing-entry",
+    "live-results",
+    "corrections-audit",
+    "protests-finalize",
+    "publish-results",
+    "index-tables",
+    "season-standings",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 80
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "gotenberg", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Conecount Paddock <paddock@pylonworks.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "gotenberg-down"
+port = 4174
+url_env = "APP_GOTENBERG_DOWN_URL"
+
+[outages.env]
+GOTENBERG_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4176
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "short-window"
+port = 4177
+url_env = "APP_SHORT_WINDOW_URL"
+
+[outages.env]
+PROTEST_WINDOW_SECONDS = "5"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Health check"
+text = "GET /api/health answers 200 with {\"status\":\"ok\"} whenever Postgres is reachable, even while the PDF renderer, object storage or mail server is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Sign-in sessions"
+text = "Seeded and newly created users sign in with email and password, receive an HttpOnly session cookie, and sign out, as specified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "club-onboarding"
+tests = [
+    "test_app.py::test_session_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Role permissions"
+text = "Each action is limited to the roles listed for its endpoint, and any other signed-in user receives 403."
+kind = "behavior"
+primary = "pytest"
+workflow = "club-onboarding"
+tests = [
+    "test_app.py::test_role_permissions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Club onboarding"
+text = "The founder operator onboards a new club workspace from the operator screen, and the new chair can sign in and sees an empty Events screen for that club."
+kind = "behavior"
+primary = "workflow"
+workflow = "club-onboarding"
+tests = [
+    "test_app.py::test_wf_club_onboarding_happy",
+]
+criteria = [
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Tenant isolation"
+text = "A club's events, registrations, runs, results, corrections, PDFs and exports never appear to or respond for a user of another club, which gets 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "club-onboarding"
+tests = [
+    "test_app.py::test_wf_club_onboarding_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Operator delivery overview"
+text = "The operator sees per-club counts and the most recent renderer, storage or mail failure for each club, and never sees driver names or results."
+kind = "behavior"
+primary = "pytest"
+workflow = "club-onboarding"
+tests = [
+    "test_app.py::test_operator_overview",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Driver signup"
+text = "A driver creates their own account in a club through the club's join link and is signed in at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "driver-registration"
+tests = [
+    "test_app.py::test_driver_signup",
+    "test_app.py::test_signup_conflict_before_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Event setup rules"
+text = "The chair creates and edits draft events with heats, class-to-heat assignments, stations and a registration cutoff, with validation and stale-version rejection as specified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-setup"
+tests = [
+    "test_app.py::test_event_setup_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Event lifecycle"
+text = "Events move only along the published state machine, and every other move is rejected with 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-setup"
+tests = [
+    "test_app.py::test_wf_event_setup_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Event setup journey"
+text = "The chair creates an event in the browser, assigns every class to a heat, lists the stations, opens registration and sees it listed as open."
+kind = "behavior"
+primary = "workflow"
+workflow = "event-setup"
+tests = [
+    "test_app.py::test_wf_event_setup_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Registration cutoff"
+text = "The server rejects registrations at and after the event's cutoff in the club's time zone and reports the event as registration closed from that moment."
+kind = "behavior"
+primary = "pytest"
+workflow = "driver-registration"
+tests = [
+    "test_app.py::test_registration_cutoff",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Registration rules"
+text = "A driver registers once per event in a class the event runs, with a car number unique within that class, and of simultaneous registrations for the same number exactly one wins."
+kind = "behavior"
+primary = "pytest"
+workflow = "driver-registration"
+tests = [
+    "test_app.py::test_wf_driver_registration_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Registration confirmation email"
+text = "Each registration sends the driver a confirmation email with car number, class and run heat, retried until the mail server accepts it as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "driver-registration"
+tests = [
+    "test_app.py::test_registration_confirmation_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Server-reported registration status"
+text = "The event screen shows registration as open or closed from the server's status, even when the device clock is wrong."
+kind = "behavior"
+primary = "pytest"
+workflow = "driver-registration"
+tests = [
+    "test_app.py::test_server_registration_status",
+    "test_app.py::test_overview_rereads_after_refused_register",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Driver registration journey"
+text = "A new driver joins the club, registers a car for an open event on a phone and sees the registration confirmation with car number and run heat."
+kind = "behavior"
+primary = "workflow"
+workflow = "driver-registration"
+tests = [
+    "test_app.py::test_wf_driver_registration_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Waiver check-in"
+text = "Checking in renders the signed waiver PDF, stores it in object storage under its published key and only then marks the driver checked in."
+kind = "behavior"
+primary = "pytest"
+workflow = "check-in-waiver"
+tests = [
+    "test_app.py::test_waiver_check_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Check-in outages"
+text = "When the PDF renderer or object storage is down, check-in answers 503 with the published copy and the driver stays not checked in."
+kind = "behavior"
+primary = "pytest"
+workflow = "check-in-waiver"
+tests = [
+    "test_app.py::test_wf_check_in_waiver_outage",
+]
+criteria = []
+parameter_cases = [
+    "renderer",
+    "storage",
+]
+
+[[requirements]]
+id = "DP-18"
+title = "Phone check-in journey"
+text = "A registered driver on a phone opens the check-in dialog, types their name to sign and sees themselves checked in."
+kind = "behavior"
+primary = "workflow"
+workflow = "check-in-waiver"
+tests = [
+    "test_app.py::test_wf_check_in_waiver_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Station claim rules"
+text = "A driver may hold one station per event, never in the heat they drive in, and each station holds at most one worker."
+kind = "behavior"
+primary = "pytest"
+workflow = "work-rota"
+tests = [
+    "test_app.py::test_station_claim_rules",
+    "test_app.py::test_assign_locked_before_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Last-station race"
+text = "Of simultaneous claims for the same open station exactly one succeeds and every other claimant gets 409 with the station-taken copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "work-rota"
+tests = [
+    "test_app.py::test_wf_work_rota_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Unfilled station counters"
+text = "Each heat's open-station counter always equals the number of stations without a worker after claims, assignments, releases and withdrawals."
+kind = "behavior"
+primary = "pytest"
+workflow = "work-rota"
+tests = [
+    "test_app.py::test_unfilled_counters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Work-assignment email"
+text = "Every claim or assignment sends the worker an assignment email naming the station and heat, retried until accepted as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "work-rota"
+tests = [
+    "test_app.py::test_work_assignment_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Withdrawal"
+text = "A driver withdraws before the event starts, which frees their car number and their station."
+kind = "behavior"
+primary = "pytest"
+workflow = "work-rota"
+tests = [
+    "test_app.py::test_withdrawal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Rota journey"
+text = "The worker chief fills open stations from the rota screen and sees each heat's counter and station list change in place without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "work-rota"
+tests = [
+    "test_app.py::test_wf_work_rota_assign",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Run commit"
+text = "The timing chief commits each run as a time with cones, a DNF or a granted rerun, guarded by event state, running heat, check-in and run status."
+kind = "behavior"
+primary = "pytest"
+workflow = "timing-entry"
+tests = [
+    "test_app.py::test_run_commit_guards",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Indexed time"
+text = "The server computes each run's adjusted and indexed times once, at commit, by the published formula and returns them as three-decimal text."
+kind = "behavior"
+primary = "pytest"
+workflow = "timing-entry"
+tests = [
+    "test_app.py::test_indexed_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Commit replay"
+text = "A repeated commit with the same idempotency key returns the original response without recording a second run, and the key reused with a different body is rejected."
+kind = "behavior"
+primary = "pytest"
+workflow = "timing-entry"
+tests = [
+    "test_app.py::test_wf_timing_entry_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Keyboard run grid"
+text = "The run grid is fully operable by keyboard: arrow keys move between cells, typing enters values, Enter commits and Alt+G jumps into the grid from any control on the timing screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "timing-entry"
+tests = [
+    "test_app.py::test_wf_timing_entry_grid_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Timing announcements"
+text = "After each commit or correction the timing screen announces the published result sentence in its polite live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "timing-entry"
+tests = [
+    "test_app.py::test_timing_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Running heat and live strip"
+text = "The chair or timing chief sets which heat is running, and a thin orange strip reading the running heat shows on event screens only while the event is running."
+kind = "behavior"
+primary = "pytest"
+workflow = "timing-entry"
+tests = [
+    "test_app.py::test_running_heat_and_strip",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Heat timing journey"
+text = "The timing chief starts a heat, enters a full set of runs from the keyboard and the live results reflect every run."
+kind = "behavior"
+primary = "workflow"
+workflow = "timing-entry"
+tests = [
+    "test_app.py::test_wf_timing_entry_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Standings"
+text = "The standings API ranks entries by indexed, class and raw view with the published tie and no-time rules and carries each entry's latest rank-change text."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-results"
+tests = [
+    "test_app.py::test_standings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Live in-place standings"
+text = "The live results page applies each committed run within two seconds without a reload, keeping the scroll position, view and class filter."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-results"
+tests = [
+    "test_app.py::test_live_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Cone-to-rank settle"
+text = "On a committed run the entry's row plays the published settle sequence and ends in the server's order with the server's rank-change text."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-results"
+tests = [
+    "test_app.py::test_cone_to_rank_settle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Reduced-motion settle"
+text = "With reduced motion requested the settle shows its end state at once, with the rank-change badge, a static cone count and the same announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-results"
+tests = [
+    "test_app.py::test_wf_live_results_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Responsive layouts"
+text = "Live results show one card column at 375 by 812, two card columns at 768 by 1024 and the full timing table at 1280 by 800, and no screen scrolls sideways at those sizes."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Touch-reachable rows"
+text = "Every standings row has a runs button at least 44 by 44 pixels that a tap expands and collapses."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-results"
+tests = [
+    "test_app.py::test_runs_button_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Paddock results journey"
+text = "A driver on a phone opens live results, filters to their class, and watches their row update when their run is committed."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-results"
+tests = [
+    "test_app.py::test_wf_live_results_paddock",
+    "test_app.py::test_wf_live_results_phone_views",
+]
+criteria = [
+    "B9",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Run corrections"
+text = "Changing a committed run requires a written reason, recomputes its times with the event's stored factor and is refused once results are final."
+kind = "behavior"
+primary = "pytest"
+workflow = "corrections-audit"
+tests = [
+    "test_app.py::test_run_corrections",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Immutable correction log"
+text = "Every correction is recorded with who made it, when, the old and new values and the reason, and any attempt to change or delete an entry is rejected with 405."
+kind = "behavior"
+primary = "pytest"
+workflow = "corrections-audit"
+tests = [
+    "test_app.py::test_wf_corrections_audit_log",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Correction dialog keyboard"
+text = "The Correct run dialog opens with Enter on a recorded cell, keeps Tab and Shift+Tab inside it, closes with Escape and returns focus to that cell."
+kind = "behavior"
+primary = "pytest"
+workflow = "corrections-audit"
+tests = [
+    "test_app.py::test_wf_corrections_audit_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Server-timed protest window"
+text = "Posting provisional results opens a protest window that the server closes after the configured length, and setting results final is refused until then."
+kind = "behavior"
+primary = "pytest"
+workflow = "protests-finalize"
+tests = [
+    "test_app.py::test_wf_protests_finalize_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Protests"
+text = "Registered drivers file protests while the window is open, and the chair decides each one once, and results cannot go final while any protest is undecided."
+kind = "behavior"
+primary = "pytest"
+workflow = "protests-finalize"
+tests = [
+    "test_app.py::test_protests",
+    "test_app.py::test_protest_form_field_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Server-decided window on screen"
+text = "The event and protest screens show the protest window as open or closed from the server's status and keep Set results final disabled while the server says it is open, whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "protests-finalize"
+tests = [
+    "test_app.py::test_protest_window_on_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Protest decision journey"
+text = "A driver files a protest about a corrected run, and the chair reads the run's correction entries beside it, decides it and sets results final after the window closes."
+kind = "behavior"
+primary = "workflow"
+workflow = "protests-finalize"
+tests = [
+    "test_app.py::test_wf_protests_finalize_decision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Publish pipeline"
+text = "Publishing renders the final results PDF, stores it, records its checksum, has every checked-in driver's results email accepted and only then marks the event published."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-results"
+tests = [
+    "test_app.py::test_publish_pipeline",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Publish outages"
+text = "If rendering, storage or mail fails, publishing answers 503, the event stays final, no results link works and a retry completes without duplicate emails."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-results"
+tests = [
+    "test_app.py::test_wf_publish_results_outage",
+]
+criteria = []
+parameter_cases = [
+    "renderer",
+    "storage",
+    "mail",
+]
+
+[[requirements]]
+id = "DP-48"
+title = "Renderer outage banner"
+text = "While the PDF renderer is down the publish screen shows the published outage banner word for word and keeps the publish button disabled."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-results"
+tests = [
+    "test_app.py::test_renderer_outage_banner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Final results PDF"
+text = "The stored results PDF has one Raw, one Class and one Indexed section, each starting on its own page, listing every entry with its published values."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-results"
+tests = [
+    "test_app.py::test_results_pdf",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Publish journey"
+text = "The chair publishes final results from the publish screen and sees the published time, checksum and a working download link, and each driver receives the results email."
+kind = "behavior"
+primary = "workflow"
+workflow = "publish-results"
+tests = [
+    "test_app.py::test_wf_publish_results_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Index table loading"
+text = "The chair loads a dated index table, which the server validates and refuses when it would change factors already used by timed runs or drop classes later events use."
+kind = "behavior"
+primary = "pytest"
+workflow = "index-tables"
+tests = [
+    "test_app.py::test_wf_index_tables_rejections",
+    "test_app.py::test_index_table_conflict_before_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Dated factors"
+text = "Every event uses the index table in force on its date on every surface, so events before a new table's effective date keep their original factors."
+kind = "behavior"
+primary = "pytest"
+workflow = "index-tables"
+tests = [
+    "test_app.py::test_dated_factors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Index table journey"
+text = "The chair loads a mid-season index table from the index tables screen and sees an earlier event keep its factors while a later event shows the new ones."
+kind = "behavior"
+primary = "workflow"
+workflow = "index-tables"
+tests = [
+    "test_app.py::test_wf_index_tables_midseason",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Season points"
+text = "Season standings sum each driver's published-event points, computed from stored indexed times by the published formula."
+kind = "behavior"
+primary = "pytest"
+workflow = "season-standings"
+tests = [
+    "test_app.py::test_season_points",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Standings CSV"
+text = "The season standings CSV export has the published columns and neutralises every cell that begins with a formula character."
+kind = "behavior"
+primary = "pytest"
+workflow = "season-standings"
+tests = [
+    "test_app.py::test_wf_season_standings_csv",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Season standings journey"
+text = "The chair opens season standings after publishing an event, sees the points table and downloads the CSV for the club newsletter."
+kind = "behavior"
+primary = "workflow"
+workflow = "season-standings"
+tests = [
+    "test_app.py::test_wf_season_standings_export",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "API contract"
+text = "Every API error uses the published error shape and precedence, and request content type and body size are enforced as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_api_contract",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Server boundary"
+text = "The server is same-origin only, never serves source files, the run manifest or credentials, and starts even when the renderer, storage or mail server is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Credentials from environment"
+text = "Every service URL and credential is read from the published environment variables at start and never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Night timing look"
+text = "Screens use the published nocturnal look: near-black ground, orange only for live and penalty state, and right-aligned monospaced times to three decimals."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve fields and \"_schema\":\"run-manifest-v1\", and nothing else is needed to install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and every bundled font, each with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Shipped packages (the production dependency tree from npm ls --omit=dev --all --json) use only MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0 licences. Fonts use OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores state only in Postgres and MinIO: no SQLite, Redis, local JSON or other files as a datastore."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Fonts and scripts are self-hosted, and the browser makes no requests to third-party origins."
+tests = [
+    "test_app.py::test_if_self_hosted",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided development service configuration is left unchanged."
+tests = [
+    "test_app.py::test_if_dev_services_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "All app source is TypeScript, compiled with strict enabled."
+tests = [
+    "test_app.py::test_if_typescript_strict",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "club-onboarding"
+requirements = [
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+]
+critical = [
+    "test_app.py::test_wf_club_onboarding_happy",
+    "test_app.py::test_wf_club_onboarding_isolation",
+]
+checkpoints = [
+    "B10",
+    "B11",
+    "B12",
+]
+critical_checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "event-setup"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_event_setup_happy",
+    "test_app.py::test_wf_event_setup_lifecycle",
+]
+
+[[workflows]]
+id = "driver-registration"
+requirements = [
+    "DP-07",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_driver_registration_phone",
+    "test_app.py::test_wf_driver_registration_race",
+    "test_app.py::test_server_registration_status",
+    "test_app.py::test_registration_confirmation_email",
+    "test_app.py::test_signup_conflict_before_validation",
+    "test_app.py::test_overview_rereads_after_refused_register",
+]
+
+[[workflows]]
+id = "check-in-waiver"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_check_in_waiver_phone",
+    "test_app.py::test_wf_check_in_waiver_outage",
+    "test_app.py::test_waiver_check_in",
+]
+
+[[workflows]]
+id = "work-rota"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_work_rota_assign",
+    "test_app.py::test_wf_work_rota_race",
+    "test_app.py::test_unfilled_counters",
+    "test_app.py::test_assign_locked_before_validation",
+]
+
+[[workflows]]
+id = "timing-entry"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_timing_entry_keyboard",
+    "test_app.py::test_wf_timing_entry_replay",
+    "test_app.py::test_wf_timing_entry_grid_keys",
+    "test_app.py::test_timing_announcements",
+    "test_app.py::test_indexed_time",
+]
+
+[[workflows]]
+id = "live-results"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_live_results_paddock",
+    "test_app.py::test_wf_live_results_reduced_motion",
+    "test_app.py::test_wf_live_results_phone_views",
+]
+checkpoints = [
+    "B6",
+    "B9",
+]
+
+[[workflows]]
+id = "corrections-audit"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_corrections_audit_log",
+    "test_app.py::test_wf_corrections_audit_dialog",
+]
+
+[[workflows]]
+id = "protests-finalize"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_protests_finalize_decision",
+    "test_app.py::test_wf_protests_finalize_window",
+    "test_app.py::test_protest_window_on_screen",
+    "test_app.py::test_protest_form_field_errors",
+]
+
+[[workflows]]
+id = "publish-results"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_publish_results_happy",
+    "test_app.py::test_wf_publish_results_outage",
+    "test_app.py::test_renderer_outage_banner",
+]
+
+[[workflows]]
+id = "index-tables"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_index_tables_midseason",
+    "test_app.py::test_wf_index_tables_rejections",
+    "test_app.py::test_index_table_conflict_before_validation",
+]
+
+[[workflows]]
+id = "season-standings"
+requirements = [
+    "DP-54",
+    "DP-55",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_season_standings_export",
+    "test_app.py::test_wf_season_standings_csv",
+    "test_app.py::test_season_points",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-36",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_health",
+    "test_app.py::test_wf_cross_cutting_layouts",
+]

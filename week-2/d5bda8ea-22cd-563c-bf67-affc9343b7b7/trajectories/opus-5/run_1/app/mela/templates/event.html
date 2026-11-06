@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}{{ event.name }} — Mela{% endblock %}
+{% block body_class %}event-body{% endblock %}
+
+{% block main %}
+<div class="event-wash" aria-hidden="true"></div>
+
+<div class="event-grid" x-data="eventCard"
+     data-slug="{{ event.slug }}"
+     data-signed-in="{{ 'true' if viewer else 'false' }}"
+     data-state="{{ state }}"
+     data-position="{{ position or '' }}"
+     data-moved-up="{{ 'true' if event.viewer_moved_up else 'false' }}"
+     data-show-meter="{{ 'true' if show_meter else 'false' }}"
+     data-event='{{ event_payload | tojson }}'>
+
+  <div class="event-side">
+    <div class="event-cover-box">{{ parts.cover(event.name, event.theme,
+      'cover-hero') }}</div>
+
+    {% if event.calendar_slug %}
+    <div class="side-block presented">
+      <p class="label">Presented by</p>
+      <div class="presented-row">
+        <a class="text-link" href="/c/{{ event.calendar_slug }}">{{
+          event.calendar_name }}</a>
+        {{ parts.follow_button(calendar, viewer) }}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="side-block hosted">
+      <p class="label">Hosted By</p>
+      <div class="host-row">
+        <span class="avatar avatar-lg" aria-hidden="true">{{ event.host_name
+          | initials }}</span>
+        <span>{{ event.host_name }}</span>
+      </div>
+    </div>
+
+    <div class="side-block going">
+      <p class="going-count"><span x-text="ev.going_count">{{ event.going_count
+        }}</span> Going</p>
+    </div>
+
+    {% if faces %}
+    <div class="side-block guests">
+      <div class="face-stack">
+        {% for name in faces %}
+        <span class="avatar avatar-stacked" aria-hidden="true">{{ name
+          | initials }}</span>
+        {% endfor %}
+      </div>
+      <p class="meta">{{ guest_line }}</p>
+    </div>
+    {% endif %}
+
+    <div class="side-block quiet-links">
+      {% if viewer %}
+      <a class="quiet-link" href="#" x-ref="contactOpener"
+         @click.prevent="openDialog('contact')">Contact the Host</a>
+      <a class="quiet-link" href="#" x-ref="reportOpener"
+         @click.prevent="openDialog('report')">Report Event</a>
+      {% else %}
+      <a class="quiet-link" href="/signin?next=%2F{{ event.slug }}">Contact the Host</a>
+      <a class="quiet-link" href="/signin?next=%2F{{ event.slug }}">Report Event</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="event-main">
+    <div class="event-title-block">
+      {% if event.visibility == 'private' %}
+      <p class="chip">Private Event</p>
+      {% else %}
+      <p class="chip">Featured in {{ event.city }}</p>
+      {% endif %}
+      <h1 class="event-title">{{ event.name }}</h1>
+    </div>
+
+    <div class="event-when">
+      <div class="date-tile" aria-hidden="true">
+        <span class="date-tile-month">{{ start.strftime('%b') }}</span>
+        <span class="date-tile-day">{{ start.day }}</span>
+      </div>
+      <div class="when-text">
+        <p class="when-date">{{ long_date }}</p>
+        <p class="meta">{{ time_range }}</p>
+        {% if countdown %}
+        <p class="countdown" role="timer" aria-label="Starts in"
+           data-mela-countdown data-start="{{ start_iso }}" data-end="{{ end_iso }}">
+          <span class="label">Starts in</span>
+          <span data-mela-countdown-value>{{ countdown }}</span>
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="location-row">
+      {{ parts.pin() }}
+      <div class="location-body">
+        <div class="location-known" :hidden="!canSeeAddress"
+             {% if not show_address %}hidden{% endif %}>
+          {% if event.location_type == 'virtual' %}
+          <a class="text-link" {% if show_address %}href="{{ event.virtual_link }}"{%
+             endif %} :href="virtualLink" x-text="virtualLink">{% if show_address
+             %}{{ event.virtual_link }}{% endif %}</a>
+          {% else %}
+          <span>{{ event.venue_name }}</span>
+          <span class="location-street" x-text="street">{% if show_address
+            %}{{ event.street_address }}{% endif %}</span>
+          <span>{{ event.city }}</span>
+          {% endif %}
+        </div>
+        <div class="location-hidden" :hidden="canSeeAddress"
+             {% if show_address %}hidden{% endif %}>
+          <strong>Register to See Address</strong>
+          <span>{{ event.city }}</span>
+          <span class="meta">The exact address is shared with confirmed guests.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="registration-block">
+      {% include "_card.html" %}
+    </div>
+
+    <section class="event-section about">
+      <h2>About Event</h2>
+      <p class="prose">{{ event.description }}</p>
+    </section>
+
+    <section class="event-section location-section">
+      <h2>Location</h2>
+      <div :hidden="!canSeeAddress" {% if not show_address %}hidden{% endif %}>
+        {% if event.location_type == 'virtual' %}
+        <p><a class="text-link" {% if show_address %}href="{{ event.virtual_link }}"{%
+          endif %} :href="virtualLink" x-text="virtualLink">{% if show_address
+          %}{{ event.virtual_link }}{% endif %}</a></p>
+        {% else %}
+        <p class="venue-name">{{ event.venue_name }}</p>
+        <p x-text="street">{% if show_address %}{{ event.street_address }}{% endif %}</p>
+        <p>{{ event.city }}</p>
+        <p><a class="text-link arrow-link" {% if show_address
+          %}href="{{ maps_link }}"{% endif %} :href="mapsLink">Open in maps
+          {{ parts.arrow_up_right() }}</a></p>
+        {% endif %}
+      </div>
+      <div :hidden="canSeeAddress" {% if show_address %}hidden{% endif %}>
+        <p><strong>Register to See Address</strong></p>
+        <p>{{ event.city }}</p>
+        <p class="meta">The exact address is shared with confirmed guests.</p>
+      </div>
+    </section>
+  </div>
+
+  <dialog class="dialog" aria-label="Contact the Host" x-ref="contactDialog"
+          @close="afterClose()">
+    <form class="dialog-body" @submit.prevent="send('contact')">
+      <h2>Contact the Host</h2>
+      <label class="field">
+        <span class="field-label">Message</span>
+        <textarea x-model="message" rows="4" autofocus
+                  aria-describedby="contact-error"></textarea>
+      </label>
+      <p class="field-error" id="contact-error" role="alert" x-text="dialogError"
+         :hidden="!dialogError" hidden></p>
+      <div class="dialog-actions">
+        <button type="submit" class="pill-accent" :disabled="busy">Send</button>
+        <button type="button" class="quiet-button"
+                @click="closeDialog()">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="dialog" aria-label="Report Event" x-ref="reportDialog"
+          @close="afterClose()">
+    <form class="dialog-body" @submit.prevent="send('report')">
+      <h2>Report Event</h2>
+      <label class="field">
+        <span class="field-label">Reason</span>
+        <select x-model="reason" autofocus>
+          {% for value, label in report_reasons %}
+          <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">Details</span>
+        <textarea x-model="details" rows="3"
+                  aria-describedby="report-error"></textarea>
+      </label>
+      <p class="field-error" id="report-error" role="alert" x-text="dialogError"
+         :hidden="!dialogError" hidden></p>
+      <div class="dialog-actions">
+        <button type="submit" class="pill-accent"
+                :disabled="busy">Send Report</button>
+        <button type="button" class="quiet-button"
+                @click="closeDialog()">Close</button>
+      </div>
+    </form>
+  </dialog>
+</div>
+{% endblock %}

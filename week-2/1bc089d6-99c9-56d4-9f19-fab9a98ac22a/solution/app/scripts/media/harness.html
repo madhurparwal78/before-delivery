@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Stillhour media harness</title>
+<style>html,body{margin:0;background:#000}canvas{display:block}</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<canvas id="comp"></canvas>
+<script>
+/* Deterministic renderer for Stillhour's ritual clips and film. Driven frame by frame by render_media.py. */
+const PRELUDE = `#version 300 es
+precision highp float;
+uniform vec2 uRes; uniform float uTime; uniform float uLoop; uniform float uT; uniform float uFrame; uniform float uGrain;
+out vec4 fragColor;
+#define TAU 6.28318530718
+#define PI 3.14159265359
+const vec3 NIGHT=vec3(0.051,0.039,0.118);
+const vec3 VIOLET=vec3(0.173,0.141,0.345);
+const vec3 DUSK1=vec3(0.925,0.894,0.953);
+const vec3 DUSK3=vec3(0.773,0.702,0.863);
+const vec3 DUSK4=vec3(0.373,0.310,0.549);
+const vec3 EMBER=vec3(0.957,0.635,0.349);
+const vec3 MOON=vec3(0.953,0.937,0.906);
+float hash(vec2 p){ vec3 p3=fract(vec3(p.xyx)*0.1031); p3+=dot(p3,p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
+float hash1(float n){ return hash(vec2(n, n*0.371+1.7)); }
+float noise(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f);
+  return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),u.x), mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),u.x),u.y); }
+float fbm(vec2 p){ float v=0.0, a=0.5; for(int i=0;i<5;i++){ v+=a*noise(p); p=mat2(1.6,1.2,-1.2,1.6)*p+vec2(17.1,9.2); a*=0.5; } return v; }
+float phase(){ return fract(uTime/uLoop); }
+float loopFbm(vec2 p, vec2 vel){ float ph=phase(); return mix(fbm(p+vel*ph*uLoop), fbm(p+vel*(ph-1.0)*uLoop), ph); }
+float glow(float d, float r){ return exp(-d*d/(r*r)); }
+float fill(float d, float aa){ return 1.0-smoothstep(-aa, aa, d); }
+float sdBox(vec2 p, vec2 b){ vec2 d=abs(p)-b; return length(max(d,0.0))+min(max(d.x,d.y),0.0); }
+float sdSeg(vec2 p, vec2 a, vec2 b){ vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0); return length(pa-ba*h); }
+float sdTri(vec2 p, vec2 p0, vec2 p1, vec2 p2){
+  vec2 e0=p1-p0, e1=p2-p1, e2=p0-p2; vec2 v0=p-p0, v1=p-p1, v2=p-p2;
+  vec2 pq0=v0-e0*clamp(dot(v0,e0)/dot(e0,e0),0.0,1.0);
+  vec2 pq1=v1-e1*clamp(dot(v1,e1)/dot(e1,e1),0.0,1.0);
+  vec2 pq2=v2-e2*clamp(dot(v2,e2)/dot(e2,e2),0.0,1.0);
+  float s=sign(e0.x*e2.y-e0.y*e2.x);
+  vec2 d=min(min(vec2(dot(pq0,pq0), s*(v0.x*e0.y-v0.y*e0.x)), vec2(dot(pq1,pq1), s*(v1.x*e1.y-v1.y*e1.x))), vec2(dot(pq2,pq2), s*(v2.x*e2.y-v2.y*e2.x)));
+  return -sqrt(d.x)*sign(d.y); }
+vec3 finish(vec3 col, vec2 uv){
+  float v=smoothstep(1.25,0.3,length((uv-0.5)*vec2(uRes.x/uRes.y,1.0)));
+  col*=mix(0.7,1.0,v);
+  col+=(hash(gl_FragCoord.xy*0.73+vec2(mod(uFrame,61.0)*7.13, mod(uFrame,37.0)*3.71))-0.5)*uGrain;
+  return clamp(col,0.0,1.0); }
+`;
+
+const SHADERS = {
+lamps: `
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes; vec2 p=(gl_FragCoord.xy-0.5*uRes)/uRes.y;
+  float ph=phase();
+  float k=smoothstep(0.08,0.42,ph)*(1.0-smoothstep(0.72,0.98,ph));
+  float ceilL=mix(1.0,0.05,k); float lamp=mix(0.1,1.0,k);
+  float floorY=-0.28;
+  vec3 col=mix(NIGHT, VIOLET*0.95, smoothstep(-0.5,0.55,p.y));
+  if(p.y<floorY) col=mix(NIGHT*0.6, VIOLET*0.5, smoothstep(-0.5,floorY,p.y));
+  col+=DUSK4*0.08*fbm(p*vec2(3.0,9.0));
+  vec2 cpos=vec2(0.06,0.3);
+  float cd=length((p-cpos)*vec2(0.75,1.0));
+  col+=mix(DUSK1,MOON,0.5)*0.36*ceilL*glow(cd,0.45)+DUSK3*0.2*ceilL*glow(cd,1.05);
+  vec2 wq=p-vec2(0.63,0.1);
+  float win=sdBox(wq,vec2(0.1,0.15));
+  vec3 glass=mix(DUSK4*0.55, DUSK3*0.5, smoothstep(-0.15,0.15,wq.y))+MOON*0.12*glow(length(wq-vec2(0.04,0.08)),0.05);
+  col=mix(col, glass, fill(win,0.002));
+  float bars=min(abs(wq.x), abs(wq.y))-0.004;
+  col=mix(col, NIGHT*1.2, fill(max(bars,win),0.0015));
+  col=mix(col, NIGHT*1.25, fill(abs(win)-0.006,0.0015));
+  col+=DUSK3*0.06*glow(wq.x+wq.y*0.4-0.02,0.08)*smoothstep(0.2,-0.3,p.y)*step(p.y,0.05);
+  vec2 pq=p-vec2(0.24,0.2);
+  float frame=sdBox(pq,vec2(0.085,0.06));
+  vec3 art=mix(DUSK4*0.7, EMBER*0.6, smoothstep(-0.04,0.05,pq.x+pq.y*0.6))+0.1*fbm(pq*20.0);
+  art*=0.45+0.55*max(ceilL, lamp*0.7);
+  col=mix(col, art, fill(frame+0.008,0.0015));
+  col=mix(col, NIGHT*1.4+EMBER*lamp*0.08, fill(abs(frame+0.004)-0.004,0.0015));
+  col=mix(col, NIGHT*1.3, fill(sdSeg(p,vec2(0.06,0.5),vec2(0.06,0.335))-0.0018,0.0012));
+  float dome=max(length((p-vec2(0.06,0.315))*vec2(1.0,1.9))-0.055, -(p.y-0.315));
+  col=mix(col, mix(VIOLET*0.5, MOON*0.9, 0.2+0.8*ceilL), fill(dome,0.002));
+  col=mix(col, MOON*(0.3+0.7*ceilL), fill(sdBox(p-vec2(0.06,0.312),vec2(0.05,0.004)),0.002)*ceilL);
+  float table=min(sdBox(p-vec2(-0.2,-0.2),vec2(0.07,0.006)), sdBox(p-vec2(-0.2,-0.245),vec2(0.006,0.045)));
+  table=min(table, sdBox(p-vec2(-0.2,-0.276),vec2(0.04,0.004)));
+  float cup=sdBox(p-vec2(-0.18,-0.178),vec2(0.016,0.017))-0.004;
+  col=mix(col, NIGHT*1.0+EMBER*lamp*0.12, fill(min(table,cup),0.002));
+  vec2 lp=vec2(-0.42,0.02); vec2 q=p-lp;
+  float below=-(q.y+0.07); float above=q.y-0.07;
+  float cone=step(0.0,below)*smoothstep(0.03,-0.03,abs(q.x)-(0.11+below*0.85))*exp(-below*2.0);
+  float coneU=step(0.0,above)*smoothstep(0.03,-0.03,abs(q.x)-(0.065+above*0.55))*exp(-above*2.6);
+  float spill=length(q*vec2(0.8,1.0));
+  col+=EMBER*lamp*(0.5*glow(spill,0.3)+0.22*glow(spill,0.85)+0.32*cone+0.22*coneU);
+  if(p.y<floorY){ col+=EMBER*lamp*0.38*glow(length((p-vec2(-0.42,floorY-0.03))*vec2(0.55,2.4)),0.26); }
+  float chair=min(sdBox(p-vec2(0.24,-0.2),vec2(0.17,0.075))-0.035, sdBox(p-vec2(0.24,-0.05),vec2(0.14,0.11))-0.045);
+  chair=min(chair, sdBox(p-vec2(0.08,-0.15),vec2(0.03,0.09))-0.02);
+  chair=min(chair, sdBox(p-vec2(0.40,-0.15),vec2(0.03,0.09))-0.02);
+  col=mix(col, NIGHT*0.85+EMBER*lamp*0.07+DUSK3*0.03*ceilL, fill(chair,0.003));
+  float stand=min(sdSeg(p,vec2(-0.42,floorY),lp-vec2(0.0,0.07))-0.0045, sdBox(p-vec2(-0.42,floorY+0.004),vec2(0.065,0.006)));
+  col=mix(col, NIGHT*1.15+EMBER*lamp*0.05, fill(stand,0.002));
+  float hw=mix(0.11,0.065,clamp((q.y+0.07)/0.14,0.0,1.0));
+  float shade=max(abs(q.y)-0.07, abs(q.x)-hw);
+  vec3 shadeCol=mix(VIOLET*0.55, EMBER*1.12, lamp)+MOON*0.16*lamp*smoothstep(-0.07,0.07,q.y);
+  shadeCol*=0.85+0.15*smoothstep(0.0,0.08,hw-abs(q.x));
+  col=mix(col, shadeCol, fill(shade,0.002));
+  for(int i=0;i<20;i++){ float fi=float(i);
+    vec2 b=vec2(-0.42+(hash1(fi)-0.5)*0.55, -0.24+hash1(fi+7.0)*0.62);
+    b+=0.022*vec2(sin(TAU*(ph+hash1(fi+3.0))), cos(TAU*(2.0*ph+hash1(fi+5.0))));
+    col+=MOON*0.55*glow(length(p-b),0.0045)*lamp*glow(length(b-lp),0.36); }
+  fragColor=vec4(finish(col,uv),1.0);
+}`,
+shower: `
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes; vec2 p=(gl_FragCoord.xy-0.5*uRes)/uRes.y;
+  float ph=phase();
+  vec2 lp=vec2(0.05,0.55);
+  float light=0.25+0.75*glow(length((p-lp)*vec2(0.7,1.0)),0.7);
+  vec2 tile=p*vec2(7.5,7.5)+vec2(0.5,0.0); vec2 ti=floor(tile); vec2 tf=fract(tile)-0.5;
+  float grout=smoothstep(0.47,0.5,max(abs(tf.x),abs(tf.y)));
+  vec3 wall=mix(VIOLET*0.7, DUSK4*0.75, hash(ti)*0.35+0.3);
+  wall+=MOON*0.08*glow(length(tf-vec2(-0.2,0.25)),0.25);
+  wall=mix(wall, NIGHT*1.2, grout*0.8);
+  vec3 col=wall*light+EMBER*0.18*light*light;
+  col+=EMBER*0.22*glow(length(p-lp),0.4);
+  vec2 head=vec2(0.0,0.4);
+  col=mix(col, NIGHT*1.4, fill(sdSeg(p,head+vec2(0.02,0.012),vec2(0.7,0.47))-0.008,0.002));
+  float hd=max(length((p-head)*vec2(1.0,2.4))-0.05, p.y-head.y-0.012);
+  col=mix(col, mix(NIGHT*1.6, MOON*0.55, smoothstep(-0.03,0.03,p.x)*0.4), fill(hd,0.002));
+  float spread=0.05+(head.y-p.y)*0.42;
+  float u=p.x/spread;
+  float inCone=step(p.y,head.y-0.01)*(1.0-smoothstep(0.85,1.05,abs(u)));
+  for(int L=0;L<3;L++){ float fl=float(L);
+    float dens=9.0+fl*7.0; float x=u*dens+fl*13.7; float cell=floor(x); float fx=fract(x)-0.5;
+    float r=hash(vec2(cell,fl)); float k=2.0+floor(r*3.0);
+    float hpos=fract(r*7.31-ph*k); float yhead=mix(head.y,-0.62,hpos);
+    float len=0.1+0.16*hash(vec2(cell,fl+9.0)); float along=(p.y-yhead)/len;
+    float body=smoothstep(0.0,0.06,along)*(1.0-smoothstep(0.3,1.0,along));
+    float width=0.1+0.06*fl; float line=(1.0-smoothstep(width*0.25,width,abs(fx)))*body;
+    col+=mix(MOON,EMBER,0.35)*line*(0.22+0.12*fl)*light*inCone*step(0.25,r); }
+  float steam=loopFbm(p*vec2(2.0,1.5), vec2(0.0,-0.09));
+  steam=smoothstep(0.42,0.82,steam)*smoothstep(0.5,-0.5,p.y);
+  col=mix(col, mix(DUSK3,MOON,0.5)+EMBER*0.08, steam*0.5);
+  float steam2=loopFbm(p*vec2(1.2,0.9)+vec2(5.0,2.0), vec2(0.03,-0.06));
+  col=mix(col, DUSK1, smoothstep(0.5,0.9,steam2)*0.22);
+  for(int i=0;i<26;i++){ float fi=float(i);
+    vec2 dp=vec2((hash1(fi*3.1)-0.5)*1.6, (hash1(fi*7.7)-0.5)*1.0); float dr=0.006+0.012*hash1(fi*1.3);
+    float dd=length(p-dp);
+    col=mix(col, col*0.85+MOON*0.08, fill(dd-dr,0.002));
+    col+=MOON*0.35*(1.0-smoothstep(0.0,0.0025,abs(length(p-dp-vec2(-dr*0.3,dr*0.35))-dr*0.35)))*step(dd,dr); }
+  fragColor=vec4(finish(col,uv),1.0);
+}`,
+paper: `
+float pageText(vec2 q, float seed){
+  float rows=21.0; float r=floor(q.y*rows); float fy=fract(q.y*rows);
+  float rowOn=step(0.1,q.y)*step(q.y,0.9);
+  float lenR=0.6+0.38*hash(vec2(r,seed)); if(mod(r,7.0)==3.0) lenR*=0.4;
+  float xin=step(0.12,q.x)*step(q.x,0.12+0.76*lenR);
+  float wx=q.x*11.0+hash(vec2(r,seed+3.0))*3.0; float w=fract(wx);
+  float word=step(0.18+0.25*hash(vec2(floor(wx),r+seed)),w);
+  float line=smoothstep(0.2,0.1,abs(fy-0.5));
+  return rowOn*xin*word*line*0.75; }
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes; vec2 p=(gl_FragCoord.xy-0.5*uRes)/uRes.y;
+  float ph=phase();
+  vec3 col=mix(NIGHT*0.75, VIOLET*0.6, smoothstep(-0.5,0.5,p.y));
+  col+=DUSK4*0.06*fbm(p*vec2(14.0,2.0));
+  vec2 lamp=vec2(-0.58,0.52); float Lg=glow(length(p-lamp),0.6);
+  col+=EMBER*0.26*Lg+EMBER*0.1*glow(length(p-lamp),1.2);
+  float W=0.43, H=0.6; vec2 q=p-vec2(0.0,-0.04);
+  float inY=step(abs(q.y),H*0.5);
+  col*=1.0-0.55*fill(sdBox(q+vec2(-0.02,0.025),vec2(W+0.02,H*0.5+0.02))-0.02,0.06);
+  vec3 paperCol=mix(MOON*0.72, MOON*0.98, glow(length(p-lamp),0.95));
+  paperCol=mix(paperCol, EMBER*0.95+MOON*0.15, 0.2*Lg);
+  vec3 inkCol=VIOLET*0.95;
+  if(q.x<0.0 && q.x>-W && inY>0.5){ vec2 lq=vec2((q.x+W)/W,(q.y+H*0.5)/H);
+    col=paperCol*(0.8+0.2*smoothstep(0.0,0.14,-q.x/W)); col=mix(col, inkCol, pageText(lq,1.0)*0.5); }
+  if(q.x>=0.0 && q.x<W && inY>0.5){ vec2 rq=vec2(q.x/W,(q.y+H*0.5)/H);
+    col=paperCol*(0.8+0.2*smoothstep(0.0,0.14,q.x/W)); col=mix(col, inkCol, pageText(rq,2.0)*0.5); }
+  float theta=PI*smoothstep(0.16,0.8,ph);
+  float lift=sin(theta);
+  float curl=0.035*lift*(1.0-pow(2.0*abs(q.y)/H,2.0));
+  float e=W*cos(theta)+curl;
+  bool front=theta<PI*0.5;
+  float x0=min(0.0,e), x1=max(0.0,e);
+  if(front && q.x>x1 && inY>0.5 && q.x<W){ float s=clamp((q.x-x1)/(0.1*lift+1e-3),0.0,1.0); col*=1.0-0.38*lift*(1.0-s); }
+  if(!front && q.x<x0 && inY>0.5 && q.x>-W){ float s=clamp((x0-q.x)/(0.1*lift+1e-3),0.0,1.0); col*=1.0-0.38*lift*(1.0-s); }
+  if(inY>0.5 && q.x>x0 && q.x<x1){
+    float u=abs(q.x)/max(abs(e),1e-3);
+    vec2 tq=front? vec2(u,(q.y+H*0.5)/H) : vec2(1.0-u,(q.y+H*0.5)/H);
+    float shadeK=0.58+0.42*abs(cos(theta));
+    vec3 pc=paperCol*shadeK+MOON*0.14*pow(u,3.0)*lift;
+    float txt=front? pageText(tq,2.0) : pageText(tq,1.0);
+    col=mix(pc, inkCol*shadeK, txt*0.5); }
+  col=mix(col, MOON*0.95, fill(abs(q.x-e)-0.0015,0.0015)*inY*smoothstep(0.75,1.0,lift)*0.8);
+  col=mix(col, VIOLET*0.45, fill(abs(q.x)-0.0016,0.0016)*inY*0.6);
+  fragColor=vec4(finish(col,uv),1.0);
+}`,
+list: `
+float handY(float x, float i){ return 0.011*sin(x*58.0+i*2.1)*sin(x*13.0+i)+0.005*sin(x*131.0+i*5.0); }
+vec2 lineStart(float i){ return vec2(-0.2, 0.16-i*0.14); }
+float lineLen(float i){ return i<0.5? 0.42 : (i<1.5? 0.32 : 0.47); }
+float lineBegin(float i){ return 0.1+i*0.22; }
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes; vec2 p=(gl_FragCoord.xy-0.5*uRes)/uRes.y;
+  float ph=phase();
+  vec3 col=mix(NIGHT*0.8, VIOLET*0.62, smoothstep(-0.5,0.5,p.y));
+  col+=EMBER*0.28*glow(length(p-vec2(0.62,0.5)),0.6);
+  float a=-0.06; mat2 R=mat2(cos(a),-sin(a),sin(a),cos(a));
+  vec2 q=R*(p-vec2(0.0,-0.02));
+  float pad=sdBox(q,vec2(0.33,0.42))-0.012;
+  col*=1.0-0.5*fill(sdBox(q+vec2(-0.018,0.022),vec2(0.34,0.43))-0.02,0.05);
+  float inside=fill(pad,0.002);
+  vec3 paper=mix(MOON*0.8, MOON, glow(length(p-vec2(0.5,0.45)),0.9))+EMBER*0.06;
+  float rule=fill(abs(fract((q.y+0.4)*10.0)-0.5)*0.1-0.0012,0.0009)*step(q.y,0.34);
+  paper=mix(paper, DUSK3, rule*0.55);
+  paper=mix(paper, EMBER*0.9, fill(abs(q.x+0.24)-0.0012,0.0009)*0.45);
+  col=mix(col, paper, inside);
+  float fade=1.0-smoothstep(0.84,0.97,ph);
+  float ink=0.0;
+  for(int i=0;i<3;i++){ float fi=float(i);
+    vec2 s0=lineStart(fi); float len=lineLen(fi); float st=lineBegin(fi);
+    float d=clamp((ph-st)/0.18,0.0,1.0); float xe=s0.x+len*d;
+    float bd=abs(length(q-vec2(-0.255,s0.y+0.004))-0.011);
+    ink=max(ink, step(st-0.035,ph)*(1.0-smoothstep(0.0015,0.0042,bd)));
+    float wx=(q.x-s0.x)*9.0+fi*0.37; float gapW=step(0.16,fract(wx))+step(wx,0.16);
+    float amp=0.65+0.7*hash(vec2(floor(wx),fi));
+    if(q.x>s0.x && q.x<xe){ float yy=s0.y+handY(q.x,fi)*amp; ink=max(ink, (1.0-smoothstep(0.0021,0.0044,abs(q.y-yy)))*min(gapW,1.0)); } }
+  col=mix(col, vec3(0.14,0.11,0.32), ink*fade*inside);
+  vec2 rest=vec2(0.26,-0.3); vec2 tip=rest;
+  for(int i=0;i<3;i++){ float fi=float(i); vec2 s0=lineStart(fi); float st=lineBegin(fi);
+    vec2 prevEnd= i==0? rest : lineStart(fi-1.0)+vec2(lineLen(fi-1.0), handY(lineStart(fi-1.0).x+lineLen(fi-1.0),fi-1.0));
+    float prevT= i==0? 0.03 : lineBegin(fi-1.0)+0.18;
+    if(ph>=prevT && ph<st){ tip=mix(prevEnd, s0+vec2(0.0,handY(s0.x,fi)), smoothstep(prevT,st,ph)); }
+    if(ph>=st && ph<st+0.18){ float d=(ph-st)/0.18; float xe=s0.x+lineLen(fi)*d; tip=vec2(xe, s0.y+handY(xe,fi)); } }
+  vec2 lastEnd=lineStart(2.0)+vec2(lineLen(2.0), handY(lineStart(2.0).x+lineLen(2.0),2.0));
+  if(ph>=lineBegin(2.0)+0.18) tip=mix(lastEnd, rest, smoothstep(lineBegin(2.0)+0.18, 0.86, ph));
+  vec2 dir=normalize(vec2(0.45,0.85));
+  float pen=sdSeg(q, tip+dir*0.012, tip+dir*0.24)-0.011;
+  float penShadow=sdSeg(q-vec2(0.02,-0.025), tip+dir*0.012, tip+dir*0.24)-0.013;
+  col*=1.0-0.35*fill(penShadow,0.02);
+  vec3 penCol=mix(NIGHT*1.4, EMBER*0.8, smoothstep(-0.011,0.011, dot(q-tip, vec2(-dir.y,dir.x))) * 0.35);
+  col=mix(col, penCol, fill(pen,0.0015));
+  col=mix(col, NIGHT*1.6, fill(length(q-tip)-0.0035,0.0015));
+  fragColor=vec4(finish(col,uv),1.0);
+}`,
+stretch: `
+vec2 curveP(float s, float b){ float y=-0.34+s*0.62; float x=b*sin(s*PI*0.85)*(0.35+0.65*s); return vec2(x, y-b*b*0.22*s); }
+float ribbon(vec2 p, float b, out float sAt){ float dmin=1e3; sAt=0.0; vec2 prev=curveP(0.0,b);
+  for(int i=1;i<=28;i++){ float s=float(i)/28.0; vec2 cur=curveP(s,b); vec2 pa=p-prev, ba=cur-prev;
+    float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0); float d=length(pa-ba*h);
+    if(d<dmin){ dmin=d; sAt=s-(1.0-h)/28.0; } prev=cur; }
+  return dmin; }
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes; vec2 p=(gl_FragCoord.xy-0.5*uRes)/uRes.y;
+  float ph=phase();
+  vec3 col=mix(NIGHT, DUSK4*0.72, smoothstep(-0.6,0.62,p.y));
+  col+=EMBER*0.16*glow(p.y+0.38,0.12);
+  col=mix(col, NIGHT*0.8, smoothstep(-0.37,-0.39,p.y));
+  float b=0.42*(0.5-0.5*cos(TAU*ph));
+  float s; float d3=ribbon(p, 0.42*(0.5-0.5*cos(TAU*(ph-0.07))), s); col+=DUSK3*0.16*glow(d3,0.02+0.012*s);
+  float d2=ribbon(p, 0.42*(0.5-0.5*cos(TAU*(ph-0.035))), s); col+=DUSK3*0.24*glow(d2,0.018+0.012*s);
+  float d=ribbon(p,b,s);
+  float w=mix(0.032,0.012,s); vec3 rc=mix(EMBER, MOON, smoothstep(0.0,1.0,s));
+  col+=rc*0.32*glow(d,w*3.2);
+  col=mix(col, rc, 1.0-smoothstep(w*0.55,w,d));
+  vec2 tang=normalize(curveP(1.0,b)-curveP(0.94,b));
+  vec2 hp=curveP(1.0,b)+tang*0.05;
+  float hd=length(p-hp)-0.034;
+  col+=MOON*0.28*glow(max(hd,0.0),0.05); col=mix(col, MOON, fill(hd,0.003));
+  col*=1.0-0.35*fill(length((p-vec2(0.0,-0.385))*vec2(1.0,5.0))-0.14,0.05);
+  fragColor=vec4(finish(col,uv),1.0);
+}`,
+breathe: `
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes; vec2 p=(gl_FragCoord.xy-0.5*uRes)/uRes.y;
+  float ph=phase(); float t=ph*19.0;
+  float e=smoothstep(0.0,4.0,t)*(1.0-smoothstep(11.0,19.0,t));
+  float r=mix(0.1,0.28,e);
+  float hold=smoothstep(3.6,4.2,t)*(1.0-smoothstep(10.6,11.2,t));
+  float d=length(p);
+  vec3 col=mix(VIOLET*0.75, NIGHT, smoothstep(0.0,0.8,d));
+  col+=EMBER*0.1*e*glow(d,0.6);
+  col+=DUSK3*(0.18+0.18*hold)*(1.0-smoothstep(0.0015,0.0045,abs(d-0.28)));
+  col+=EMBER*0.22*glow(max(d-r,0.0),0.08+0.07*e);
+  float rel=clamp(d/r,0.0,1.0);
+  vec3 core=mix(MOON*0.98, EMBER*0.92, smoothstep(0.0,1.0,rel));
+  core*=0.975+0.025*cos(rel*TAU*2.0);
+  core+=MOON*0.12*glow(length(p/r-vec2(-0.3,0.35)),0.35);
+  col=mix(col, core, fill(d-r,0.004));
+  col+=MOON*0.25*(1.0-smoothstep(0.0,0.004,abs(d-r)))*0.6;
+  for(int i=0;i<12;i++){ float fi=float(i); float ang=TAU*(fi/12.0+ph);
+    vec2 pos=vec2(cos(ang),sin(ang))*(r+0.05+0.012*sin(TAU*ph*2.0+fi));
+    col+=MOON*0.5*glow(length(p-pos),0.0065); }
+  fragColor=vec4(finish(col,uv),1.0);
+}`,
+dusk: `
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes; vec2 p=(gl_FragCoord.xy-0.5*uRes)/uRes.y;
+  float T=uT; float hy=0.05;
+  vec3 sky=mix(EMBER*0.85, VIOLET, smoothstep(hy,hy+0.26,p.y));
+  sky=mix(sky, NIGHT, smoothstep(hy+0.2,0.55,p.y));
+  sky=mix(sky, mix(VIOLET,NIGHT,0.55), T*0.55*smoothstep(hy,hy+0.3,p.y));
+  vec2 sp=vec2(0.42, mix(0.17, hy-0.07, smoothstep(0.0,0.9,T)));
+  float sd=length(p-sp);
+  vec3 col=sky+EMBER*(0.55*glow(sd,0.11)+0.22*glow(sd,0.45))*(1.0-0.55*T);
+  col=mix(col, mix(EMBER*1.15, MOON, 0.45), fill(sd-0.055,0.003)*step(hy,p.y));
+  vec2 g=p*60.0; vec2 gi=floor(g); float h=hash(gi);
+  float star=step(0.986,h)*(1.0-smoothstep(0.0,0.14,length(fract(g)-0.5)));
+  col+=MOON*star*smoothstep(0.3,0.95,T)*step(hy+0.05,p.y)*(0.6+0.4*sin(uTime*2.0+h*50.0));
+  if(p.y<hy){
+    float z=0.2/(hy-p.y);
+    vec2 w=vec2(p.x*z*1.6, z+uTime*0.12);
+    float hgt=fbm(w*0.75)*1.5+0.35*fbm(w*2.1);
+    float v=hgt*10.0; float fw=fwidth(v);
+    float c=abs(fract(v-0.5)-0.5)/max(fw,1e-4);
+    float line=(1.0-smoothstep(0.0,1.6,c))*(0.75+0.25*step(4.0, mod(floor(v),5.0)));
+    float fade=exp(-z*0.1);
+    vec3 lc=mix(EMBER, DUSK3, smoothstep(0.1,0.9,T));
+    vec3 ground=mix(NIGHT, VIOLET*0.55, fade*0.5);
+    ground+=lc*line*fade*(0.95-0.35*T);
+    ground=mix(ground, sky, smoothstep(hy-0.07,hy,p.y)*0.85);
+    col=ground; }
+  fragColor=vec4(finish(col,uv),1.0);
+}`,
+city: `
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes; vec2 p=(gl_FragCoord.xy-0.5*uRes)/uRes.y;
+  float T=uT;
+  vec3 col=mix(VIOLET*0.75, NIGHT, smoothstep(-0.25,0.5,p.y));
+  col+=EMBER*0.12*(1.0-0.7*T)*glow(p.y+0.12,0.16);
+  vec2 mp=vec2(0.52,0.3); float md=length(p-mp);
+  col+=MOON*0.12*glow(md,0.15); col=mix(col, MOON*0.95, fill(md-0.028,0.002));
+  vec2 g=p*70.0; float h=hash(floor(g));
+  col+=MOON*0.7*step(0.99,h)*(1.0-smoothstep(0.0,0.15,length(fract(g)-0.5)))*step(0.0,p.y);
+  for(int l=0;l<3;l++){ float L=float(l);
+    float density= L<0.5? 9.0 : (L<1.5? 5.5 : 3.4); float pan=uTime*0.004*(L+1.0);
+    float x=(p.x+pan)*density+L*31.0; float cell=floor(x); float fx=fract(x);
+    float hgt=0.06+0.26*hash(vec2(cell,L*7.0));
+    float topY=-0.12-L*0.1+hgt*(0.7+L*0.55);
+    float gap=0.05+0.04*hash(vec2(cell,L+11.0));
+    float inB=step(p.y,topY)*step(gap,fx)*step(fx,1.0-gap);
+    vec3 bcol= L<0.5? mix(VIOLET*0.9, col, 0.35) : (L<1.5? VIOLET*0.55 : NIGHT*1.05);
+    bcol*=0.92+0.12*smoothstep(0.0,0.4,fx);
+    col=mix(col, bcol, inB);
+    float N= L<0.5? 3.0 : floor(3.0+hash(vec2(cell,L+3.0))*2.0);
+    float rowH=0.013+0.011*L;
+    float wy=(topY-p.y)/rowH; float row=floor(wy);
+    float wx=fract((fx-gap)/(1.0-2.0*gap)*N); float colI=floor((fx-gap)/(1.0-2.0*gap)*N);
+    float inW=inB*step(1.0,row)*step(0.32,fract(wy))*step(fract(wy),0.74)*step(0.24,wx)*step(wx,0.76);
+    float id=hash(vec2(cell*13.0+colI, row+L*100.0));
+    float dark=smoothstep(0.06+L*0.22, 0.4+L*0.22, T);
+    float lit=step(id, 0.55*(1.0-dark));
+    if(L>1.5 && cell==64.0 && colI==1.0 && row==3.0) lit=1.0;
+    vec3 wc=mix(EMBER, MOON, hash(vec2(id,4.0))*0.6)*(0.85+0.15*sin(uTime*3.0+id*40.0));
+    wc*= L<0.5? 0.55 : (L<1.5? 0.8 : 1.0);
+    col=mix(col, wc, inW*lit);
+    col=mix(col, bcol*1.35, inW*(1.0-lit)*0.4); }
+  fragColor=vec4(finish(col,uv),1.0);
+}`,
+lake: `
+const vec2 MP=vec2(-0.22,0.27);
+float hillY(float x){ return -0.02+0.035*fbm(vec2(x*3.0,1.0))+0.02*fbm(vec2(x*9.0,4.0)); }
+vec3 sky(vec2 q, float disc){
+  vec3 s=mix(VIOLET*0.78, NIGHT, smoothstep(-0.02,0.5,q.y));
+  s+=DUSK4*0.25*glow(q.y+0.02,0.12);
+  float md=length(q-MP);
+  s+=MOON*(0.32*glow(md,0.12)+0.12*glow(md,0.5));
+  s=mix(s, MOON, fill(md-0.045,0.003)*disc);
+  vec2 g=q*60.0; float h=hash(floor(g));
+  s+=MOON*0.8*step(0.988,h)*(1.0-smoothstep(0.0,0.14,length(fract(g)-0.5)));
+  return s; }
+float boat(vec2 q){
+  float hw=mix(0.05,0.088,clamp((q.y+0.018)/0.036,0.0,1.0));
+  float hull=max(abs(q.y)-0.018, abs(q.x)-hw);
+  float sail=sdTri(q, vec2(-0.05,0.016), vec2(0.05,0.016), vec2(0.0,0.088));
+  return min(hull, sail); }
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes; vec2 p=(gl_FragCoord.xy-0.5*uRes)/uRes.y;
+  float T=uT; float hy=-0.02;
+  float amp=mix(0.034,0.0025,smoothstep(0.0,0.9,T));
+  vec3 hillCol=NIGHT*1.15+VIOLET*0.12;
+  vec3 col;
+  float rip=0.0;
+  if(p.y>=hy){ col=sky(p,1.0); if(p.y<hillY(p.x)) col=hillCol; }
+  else {
+    float depth=hy-p.y;
+    rip=noise(vec2(p.x*16.0, p.y*110.0/(depth*7.0+0.25)+uTime*1.1))-0.5;
+    vec2 rq=vec2(p.x+rip*amp*1.4, 2.0*hy-p.y+rip*amp*3.0*(0.3+depth*3.0));
+    vec3 refl=sky(rq,0.0); if(rq.y<hillY(rq.x)) refl=hillCol*1.1;
+    refl+=MOON*0.35*glow(length((vec2(p.x+rip*amp*2.0, p.y)-vec2(MP.x, 2.0*hy-MP.y))*vec2(1.0,0.45)),0.035);
+    col=refl*0.68+VIOLET*0.07;
+    float streak=glow((p.x-MP.x)*(1.0+rip*amp*30.0), 0.025+amp*1.5)*smoothstep(-0.5,hy,p.y);
+    col+=MOON*0.22*streak*(0.6+0.4*noise(vec2(p.x*40.0,p.y*200.0+uTime*3.0)));
+    col*=mix(1.0,0.75,smoothstep(0.0,0.45,depth)); }
+  float bx=mix(0.34,0.03,smoothstep(0.0,1.0,T));
+  vec2 bp=vec2(bx, hy-0.06+amp*0.25*sin(uTime*2.0));
+  vec2 q=p-bp;
+  for(int i=0;i<3;i++){ float fi=float(i); float rr=fract(uTime*0.25+fi/3.0)*0.26;
+    float ring=abs(length(q*vec2(1.0,4.2))-rr); col+=MOON*0.12*(1.0-smoothstep(0.0,0.004,ring))*(1.0-rr/0.26)*step(p.y,hy)*(amp/0.034+0.15); }
+  vec2 rq=vec2(q.x+rip*amp*1.2, -q.y-0.036);
+  float br=boat(rq);
+  col=mix(col, mix(col, MOON*0.6, 0.5), fill(br,0.004)*0.5*step(p.y,bp.y-0.018));
+  float bd=boat(q);
+  vec3 bc=q.x<0.0? MOON*0.82+DUSK3*0.08 : MOON*0.97;
+  bc=mix(bc, DUSK3*0.9, smoothstep(-0.004,0.0,bd)*0.6);
+  bc+=EMBER*0.08*smoothstep(0.0,0.08,q.y);
+  col=mix(col, bc, fill(bd,0.0015));
+  fragColor=vec4(finish(col,uv),1.0);
+}`,
+flowers: `
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes; vec2 p=(gl_FragCoord.xy-0.5*uRes)/uRes.y;
+  float T=uT;
+  vec3 col=mix(NIGHT, VIOLET*0.78, smoothstep(-0.6,0.5,p.y));
+  col+=DUSK4*0.12*smoothstep(0.55,0.8,fbm(p*vec2(2.0,4.0)+vec2(uTime*0.02,0.0)));
+  for(int i=0;i<9;i++){ float fi=float(i); vec2 bpos=vec2(-0.85+1.7*hash1(fi*1.9+2.0), -0.1+0.5*hash1(fi*3.7));
+    col+=DUSK4*0.12*fill(length(p-bpos)-0.04-0.03*hash1(fi),0.02); }
+  float grass=-0.34+0.045*fbm(vec2(p.x*24.0,0.0))+0.03*noise(vec2(p.x*90.0,1.0));
+  for(int i=0;i<7;i++){ float fi=float(i);
+    vec2 c=vec2(-0.66+fi*0.22+0.05*(hash1(fi)-0.5), -0.06+0.22*(hash1(fi+3.0)-0.5));
+    float size=0.07+0.04*hash1(fi+5.0);
+    float delay=hash1(fi+9.0)*0.35;
+    float open=1.0-smoothstep(0.08+delay,0.5+delay,T);
+    float stem=sdSeg(p, c, vec2(c.x+0.04*sin(fi*2.0),-0.62))-0.0045;
+    col=mix(col, VIOLET*0.45, fill(stem,0.002));
+    vec2 q=p-c; float sway=0.04*sin(uTime*0.6+fi);
+    float pd=1e3;
+    for(int k=0;k<6;k++){ float fk=float(k);
+      float base=TAU*fk/6.0+fi*0.7+sway;
+      float ang=mix(PI*0.5+(fk-2.5)*0.11, base, open);
+      float len=size*mix(0.72,1.0,open); float wid=size*mix(0.15,0.33,open);
+      vec2 dd=vec2(cos(ang),sin(ang)); vec2 nn=vec2(-dd.y,dd.x);
+      vec2 l=vec2(dot(q,dd)-len*0.5, dot(q,nn));
+      pd=min(pd, (length(l/vec2(len*0.5,wid))-1.0)*wid); }
+    col+=MOON*0.12*open*glow(length(q),size*1.7);
+    vec3 pc=mix(DUSK3, MOON, 0.55+0.45*open)*(0.68+0.32*smoothstep(size,0.0,length(q)));
+    col=mix(col, pc, fill(pd,0.0018));
+    col=mix(col, EMBER, fill(length(q)-size*0.13*open,0.002)*open); }
+  if(p.y<grass) col=mix(NIGHT*0.7, VIOLET*0.3, smoothstep(-0.6,grass,p.y));
+  for(int i=0;i<16;i++){ float fi=float(i);
+    vec2 pos=vec2(-0.8+1.6*hash1(fi*2.3), -0.33+0.62*hash1(fi*5.1))+0.05*vec2(sin(uTime*0.7+fi*1.7), cos(uTime*0.5+fi*2.9));
+    float b=0.5+0.5*sin(uTime*2.2+fi*3.1);
+    col+=EMBER*1.2*b*glow(length(p-pos),0.007)+EMBER*0.22*b*glow(length(p-pos),0.03); }
+  fragColor=vec4(finish(col,uv),1.0);
+}`,
+moon: `
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes; vec2 p=(gl_FragCoord.xy-0.5*uRes)/uRes.y;
+  vec3 col=NIGHT+VIOLET*0.3*smoothstep(0.45,0.85,fbm(p*2.2+vec2(uTime*0.01,0.0)));
+  vec2 g=p*70.0; float h=hash(floor(g));
+  col+=MOON*0.8*step(0.989,h)*(1.0-smoothstep(0.0,0.15,length(fract(g)-0.5)))*(0.7+0.3*sin(uTime*1.7+h*40.0));
+  float r=0.27; vec2 q=p/r; float d=length(q);
+  float phi=mix(2.3,-2.3,smoothstep(0.0,1.0,uT));
+  vec3 Ld=normalize(vec3(sin(phi),0.12,cos(phi)));
+  float frac=0.5*(1.0+cos(phi));
+  col+=MOON*0.2*frac*glow(max(length(p)-r,0.0),0.11)+DUSK3*0.08*frac*glow(max(length(p)-r,0.0),0.4);
+  if(d<1.0){
+    vec3 n=vec3(q, sqrt(1.0-d*d));
+    float ndl=dot(n,Ld);
+    float lit=smoothstep(-0.04,0.1,ndl);
+    vec2 m=n.xy/(0.6+0.4*n.z)*1.2+vec2(uTime*0.006,0.0);
+    float maria=fbm(m*0.9+vec2(3.0,1.0));
+    float dark=smoothstep(0.48,0.62,maria);
+    vec2 cc=m*5.0; vec2 ci=floor(cc); vec2 cf=fract(cc)-0.5;
+    float cr=0.18+0.18*hash(ci); float has=step(0.7,hash(ci+7.0));
+    float cd=length(cf-0.15*(vec2(hash(ci+1.0),hash(ci+2.0))-0.5));
+    float crater=has*(smoothstep(cr,cr-0.05,cd)*0.06 - smoothstep(cr*0.75,cr*0.5,cd)*0.05);
+    vec3 alb=mix(MOON*0.96, mix(DUSK3,MOON,0.4)*0.74, dark)+crater+0.04*(noise(m*18.0)-0.5);
+    alb=mix(alb, EMBER*0.85+MOON*0.2, 0.06);
+    vec3 earth=VIOLET*0.42*(0.6+0.4*maria);
+    vec3 mc=mix(earth, alb*(0.5+0.5*max(ndl,0.0)), lit);
+    col=mix(col, mc, fill((d-1.0)*r,0.0018)); }
+  fragColor=vec4(finish(col,uv),1.0);
+}`,
+lantern: `
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes; vec2 p=(gl_FragCoord.xy-0.5*uRes)/uRes.y;
+  float T=uT;
+  float f=1.0-smoothstep(0.3,0.84,T);
+  float I=f*(0.92+0.08*sin(uTime*13.0)*sin(uTime*7.3+1.0));
+  vec3 col=mix(NIGHT*0.55, VIOLET*0.45, smoothstep(-0.6,0.6,p.y))*(0.5+0.5*f);
+  col+=DUSK4*0.12*glow(length(p-vec2(-0.75,0.6)),0.75);
+  vec2 lc=vec2(0.0,-0.02);
+  col+=EMBER*I*(0.45*glow(length((p-lc)*vec2(0.8,1.0)),0.25)+0.18*glow(length(p-lc),0.78));
+  float tableY=-0.215;
+  if(p.y<tableY){ col=mix(NIGHT*0.6, VIOLET*0.3, smoothstep(-0.6,tableY,p.y))*(0.6+0.4*f);
+    col+=EMBER*I*0.32*glow(length((p-vec2(0.0,tableY))*vec2(0.5,3.0)),0.32); }
+  vec2 q=p-lc;
+  float body=sdBox(q,vec2(0.085,0.125))-0.035;
+  float ribs=0.5+0.5*cos(q.y*TAU*9.0);
+  vec3 paper=mix(VIOLET*0.45, EMBER*1.1, I*0.9)+MOON*0.28*I*glow(length(q-vec2(0.0,-0.04)),0.08);
+  paper*=mix(1.0,0.8,smoothstep(0.7,1.0,ribs));
+  paper*=mix(0.72,1.0,smoothstep(0.0,-0.05,body));
+  col=mix(col, paper, fill(body,0.002));
+  float capT=sdBox(q-vec2(0.0,0.17),vec2(0.07,0.012))-0.004;
+  float capB=sdBox(q-vec2(0.0,-0.17),vec2(0.075,0.012))-0.004;
+  float handle=max(abs(length((q-vec2(0.0,0.195))*vec2(1.0,1.3))-0.06)-0.0045, -(q.y-0.195));
+  col=mix(col, NIGHT*1.3+EMBER*I*0.1, fill(min(min(capT,capB),handle),0.002));
+  vec2 fq=q-vec2(0.0,-0.06);
+  float fl=length(fq*vec2(1.0,0.55+0.1*sin(uTime*9.0)));
+  col+=mix(EMBER,MOON,0.6)*I*1.2*glow(fl,0.03*f+0.001);
+  float smoke=smoothstep(0.8,0.9,T);
+  vec2 sq=q-vec2(0.0,0.21);
+  float wisp=fbm(vec2(sq.x*14.0+sin(sq.y*12.0-uTime*1.5)*0.6, sq.y*4.0-uTime*0.8));
+  col+=DUSK3*0.22*smoke*smoothstep(0.55,0.8,wisp)*glow(sq.x+sin(sq.y*9.0+uTime)*0.02,0.035)*smoothstep(0.0,0.05,sq.y)*smoothstep(0.38,0.05,sq.y);
+  fragColor=vec4(finish(col,uv),1.0);
+}`,
+end: `
+void main(){
+  vec2 uv=gl_FragCoord.xy/uRes; vec2 p=(gl_FragCoord.xy-0.5*uRes)/uRes.y;
+  vec3 col=mix(NIGHT*0.45, VIOLET*0.28, glow(length(p-vec2(0.0,0.05)),0.55));
+  fragColor=vec4(finish(col,uv),1.0);
+}`,
+};
+
+let gl, glCanvas, comp, ctx, quad;
+const programs = {};
+const VERT = `#version 300 es
+in vec2 aPos; void main(){ gl_Position=vec4(aPos,0.0,1.0); }`;
+
+function setup(w, h) {
+  glCanvas = document.getElementById("gl");
+  comp = document.getElementById("comp");
+  glCanvas.width = w; glCanvas.height = h; comp.width = w; comp.height = h;
+  if (!gl) {
+    gl = glCanvas.getContext("webgl2", { preserveDrawingBuffer: true, antialias: false });
+    quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+  }
+  gl.viewport(0, 0, w, h);
+  ctx = comp.getContext("2d");
+  return true;
+}
+
+function compile(type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
+  return shader;
+}
+
+function program(name) {
+  if (programs[name]) return programs[name];
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, PRELUDE + SHADERS[name]));
+  gl.bindAttribLocation(prog, 0, "aPos");
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  programs[name] = prog;
+  return prog;
+}
+
+function draw(name, u) {
+  const prog = program(name);
+  gl.useProgram(prog);
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.uniform2f(gl.getUniformLocation(prog, "uRes"), glCanvas.width, glCanvas.height);
+  for (const [key, value] of Object.entries(u)) gl.uniform1f(gl.getUniformLocation(prog, key), value);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+function renderClip(name, time, loop, frame) {
+  draw(name, { uTime: time, uLoop: loop, uT: time / loop, uFrame: frame, uGrain: 0.03 });
+  ctx.globalAlpha = 1;
+  ctx.drawImage(glCanvas, 0, 0);
+  return comp.toDataURL("image/png");
+}
+
+/* The film: scenes with 0.8 s crossfades, title cards and a story clock stamp. */
+const FADE = 0.8;
+const FILM = [
+  { scene: "dusk", start: 0.0, end: 7.0, stamp: "21:00" },
+  { scene: "city", start: 6.2, end: 13.0, stamp: "21:10" },
+  { scene: "lake", start: 12.2, end: 19.5, stamp: "21:25" },
+  { scene: "flowers", start: 18.7, end: 25.5, stamp: "21:38" },
+  { scene: "moon", start: 24.7, end: 31.5, stamp: "21:45" },
+  { scene: "lantern", start: 30.7, end: 36.5, stamp: "21:55" },
+  { scene: "end", start: 35.7, end: 40.0, stamp: "" },
+];
+const TITLES = [
+  { text: "21:00", sub: "the hour before sleep", start: 0.9, end: 5.2 },
+  { text: "Let the day settle.", sub: "", start: 14.0, end: 18.3 },
+  { text: "22:00 · Goodnight.", sub: "", start: 36.4, end: 40.6, mark: true },
+];
+// The Stillhour mark (src/story/components/Mark.tsx): a crescent inside a thin circle, on a 64-unit grid.
+const MARK_CRESCENT = new Path2D("M30.34 18.50 A14.5 14.5 0 1 0 43.93 37.04 A11.5 11.5 0 0 1 30.34 18.50 Z");
+
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const envelope = (start, end, t, fade) => smooth(start, start + fade, t) * (1 - smooth(end - fade, end, t));
+
+function drawMark(x, y, scale, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x - 32 * scale, y - 32 * scale);
+  ctx.scale(scale, scale);
+  ctx.strokeStyle = "#f4a259"; ctx.fillStyle = "#f4a259"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(32, 32, 29, 0, Math.PI * 2); ctx.stroke();
+  ctx.fill(MARK_CRESCENT);
+  ctx.restore();
+}
+
+function renderFilm(frame) {
+  const t = frame / 30;
+  const W = comp.width, H = comp.height;
+  ctx.globalAlpha = 1; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+  FILM.forEach((seg, index) => {
+    if (t < seg.start || t > seg.end) return;
+    const alpha = index === 0 ? 1 : smooth(seg.start, seg.start + FADE, t);
+    draw(seg.scene, { uTime: t, uLoop: 1, uT: (t - seg.start) / (seg.end - seg.start), uFrame: frame, uGrain: 0.018 });
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(glCanvas, 0, 0);
+  });
+  const seg = [...FILM].reverse().find((s) => t >= s.start && t <= s.end);
+  if (seg && seg.stamp) {
+    const a = envelope(seg.start + 0.4, seg.end, t, 0.6) * 0.8;
+    const shade = ctx.createLinearGradient(0, H - 150, 0, H);
+    shade.addColorStop(0, "rgba(13,10,30,0)");
+    shade.addColorStop(1, "rgba(13,10,30,0.55)");
+    ctx.globalAlpha = a; ctx.fillStyle = shade; ctx.fillRect(0, H - 150, 320, 150);
+    ctx.globalAlpha = a; ctx.fillStyle = "#f3efe7";
+    ctx.font = "500 22px Mono"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+    ctx.fillText(seg.stamp, 56, H - 52);
+    ctx.fillRect(56, H - 44, 40, 1.5);
+  }
+  for (const title of TITLES) {
+    const a = envelope(title.start, title.end, t, 0.9);
+    if (a <= 0) continue;
+    const rise = (1 - smooth(title.start, title.start + 1.4, t)) * 12;
+    ctx.globalAlpha = a; ctx.fillStyle = "#f3efe7"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.shadowColor = "rgba(13,10,30,0.55)"; ctx.shadowBlur = 24;
+    const y = title.mark ? H * 0.58 : H * 0.36;
+    ctx.font = `300 ${title.text.length > 8 ? 68 : 96}px Fraunces`;
+    ctx.fillText(title.text, W / 2, y + rise);
+    if (title.sub) { ctx.font = "400 24px Hanken"; ctx.globalAlpha = a * 0.85; ctx.fillText(title.sub, W / 2, y + 78 + rise); }
+    ctx.shadowBlur = 0;
+    if (title.mark) drawMark(W / 2, H * 0.36, 1.6, a);
+  }
+  const out = 1 - smooth(39.3, 40.0, t);
+  if (out < 1) { ctx.globalAlpha = 1 - out; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); }
+  return comp.toDataURL("image/jpeg", 0.95);
+}
+
+const FONT_DIR = "../../public/fonts";
+const faces = [
+  new FontFace("Fraunces", `url(${FONT_DIR}/fraunces-latin-full-normal.woff2)`, { weight: "100 900" }),
+  new FontFace("Hanken", `url(${FONT_DIR}/hanken-grotesk-latin-wght-normal.woff2)`, { weight: "100 900" }),
+  new FontFace("Mono", `url(${FONT_DIR}/hanken-grotesk-latin-wght-normal.woff2)`, { weight: "100 900" }),
+];
+window.ready = Promise.all(faces.map((face) => face.load().then((loaded) => document.fonts.add(loaded)))).then(() => true);
+</script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+{{define "console.html"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rollout console · Rungmark Rollout Ladder</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="console-body">
+<main class="page console">
+<p class="crumb"><a href="/">Rungmark Rollout Ladder</a></p>
+<h1>Rollout console</h1>
+<p class="console-status" role="status" aria-label="Console status" id="console-status"></p>
+
+<div class="flag-columns">
+{{range .Flags}}
+<section class="flag" aria-labelledby="flag-heading-{{.FlagCode}}" data-flag="{{.FlagCode}}">
+	<h2 id="flag-heading-{{.FlagCode}}">{{.FlagLabel}}</h2>
+	<ul class="ladder" aria-label="Ladder" data-role="ladder"></ul>
+	<div class="controls">
+		<p class="field">
+			<label for="cohort-{{.FlagCode}}">Target cohort</label>
+			<select id="cohort-{{.FlagCode}}" data-role="cohort">
+				{{range $.Cohorts}}<option value="{{.CohortCode}}">{{.CohortLabel}}</option>{{end}}
+			</select>
+		</p>
+		<p class="field">
+			<label for="reference-{{.FlagCode}}">Attestation reference</label>
+			<input type="text" id="reference-{{.FlagCode}}" data-role="reference" autocomplete="off"
+				aria-describedby="reference-help-{{.FlagCode}}">
+			<span class="helper" id="reference-help-{{.FlagCode}}">Up to 64 characters</span>
+		</p>
+		<p class="buttons">
+			<button type="button" class="button-promote" data-action="promote">Promote</button>
+			<button type="button" class="button-force" data-action="force-enable">Force enable</button>
+			<button type="button" class="button-rollback" data-action="rollback">Roll back</button>
+		</p>
+		<p class="alert" role="alert" data-role="alert"></p>
+	</div>
+</section>
+{{end}}
+</div>
+
+<form class="panel" aria-label="Record adverse event" id="adverse-event-form">
+	<h2>Record adverse event</h2>
+	<p class="field">
+		<label for="event-code">Event code</label>
+		<input type="text" id="event-code" autocomplete="off" aria-describedby="event-code-help">
+		<span class="helper" id="event-code-help">Up to 32 letters, digits or hyphens</span>
+	</p>
+	<p class="field">
+		<label for="event-device">Device</label>
+		<select id="event-device">{{range .Devices}}<option value="{{.DeviceCode}}">{{.DeviceCode}}</option>{{end}}</select>
+	</p>
+	<p class="field">
+		<label for="event-flag">Flag</label>
+		<select id="event-flag">{{range .Flags}}<option value="{{.FlagCode}}">{{.FlagLabel}}</option>{{end}}</select>
+	</p>
+	<p class="field">
+		<label for="event-band">Severity band</label>
+		<select id="event-band">{{range .Bands}}<option value="{{.}}">{{.}}</option>{{end}}</select>
+	</p>
+	<p class="field">
+		<label for="event-minutes">Occurred at (minutes)</label>
+		<input type="number" id="event-minutes" step="1" min="0" value="0">
+	</p>
+	<p class="buttons"><button type="submit" class="button-promote" id="event-submit">Record adverse event</button></p>
+	<p class="alert" role="alert" id="event-alert"></p>
+</form>
+
+<section class="panel" aria-labelledby="settings-heading" id="settings">
+	<h2 id="settings-heading">Settings</h2>
+	{{range .Flags}}
+	<fieldset class="setting" aria-labelledby="setting-flag-{{.FlagCode}}">
+		<legend id="setting-flag-{{.FlagCode}}">{{.FlagLabel}}</legend>
+		<p class="field">
+			<label for="maximum-{{.FlagCode}}">Maximum adverse rate (basis points)</label>
+			<input type="number" id="maximum-{{.FlagCode}}" step="1" min="0" max="10000"
+				value="{{.MaxAdverseRateBP}}" aria-describedby="maximum-help-{{.FlagCode}}">
+			<span class="helper" id="maximum-help-{{.FlagCode}}">0 to 10000 basis points</span>
+		</p>
+		<p class="buttons"><button type="button" data-save-flag="{{.FlagCode}}">Save maximum</button></p>
+	</fieldset>
+	{{end}}
+	{{range .Cohorts}}
+	<fieldset class="setting" aria-labelledby="setting-cohort-{{.CohortCode}}">
+		<legend id="setting-cohort-{{.CohortCode}}">{{.CohortLabel}}</legend>
+		<p class="field">
+			<label for="soak-{{.CohortCode}}">Minimum soak (minutes)</label>
+			<input type="number" id="soak-{{.CohortCode}}" step="1" min="0" max="525600"
+				value="{{.MinSoakMinutes}}" aria-describedby="soak-help-{{.CohortCode}}">
+			<span class="helper" id="soak-help-{{.CohortCode}}">0 to 525600 minutes</span>
+		</p>
+		<p class="buttons"><button type="button" data-save-cohort="{{.CohortCode}}">Save soak</button></p>
+	</fieldset>
+	{{end}}
+	<p class="alert" role="alert" id="settings-alert"></p>
+</section>
+
+<section class="panel" aria-labelledby="evidence-heading">
+	<h2 id="evidence-heading">Evidence pack</h2>
+	<div class="scroll-frame" tabindex="0">
+		<table>
+			<caption>Evidence pack</caption>
+			<thead><tr>
+				<th scope="col">Flag</th>
+				<th scope="col">Highest rung</th>
+				<th scope="col">Gap rungs</th>
+				<th scope="col">Soak satisfied rungs</th>
+				<th scope="col">Rate satisfied rungs</th>
+			</tr></thead>
+			<tbody id="evidence-rows"></tbody>
+		</table>
+	</div>
+</section>
+
+<section class="panel" aria-labelledby="history-heading">
+	<h2 id="history-heading">Promotion history</h2>
+	<div class="scroll-frame" tabindex="0">
+		<table>
+			<caption>Promotion history</caption>
+			<thead><tr>
+				<th scope="col">Promotion</th>
+				<th scope="col">Flag</th>
+				<th scope="col">Cohort</th>
+				<th scope="col">Promoted at minute</th>
+				<th scope="col">Demoted at minute</th>
+				<th scope="col">Attestation reference</th>
+			</tr></thead>
+			<tbody id="history-rows"></tbody>
+		</table>
+	</div>
+</section>
+</main>
+<script src="/static/console.js"></script>
+</body>
+</html>
+{{end}}

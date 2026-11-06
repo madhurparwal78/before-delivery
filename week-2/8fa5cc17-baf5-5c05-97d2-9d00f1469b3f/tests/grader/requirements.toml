@@ -1,0 +1,1680 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 94
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "sign-in",
+    "device-sessions",
+    "object-types",
+    "block-editing",
+    "revisions-undo",
+    "quoting",
+    "daily-notes",
+    "live-sync",
+    "backlinks-graph",
+    "queries-search",
+    "board",
+    "collections-sharing",
+    "share-lifecycle",
+    "attachments",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 83
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 5
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-timer"
+port = 4175
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+QUIRE_LOCKOUT_WINDOW_SECONDS = "20"
+QUIRE_SESSION_IDLE_SECONDS = "20"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Owner sign-in"
+text = "The seeded owner signs in with email and password on the sign-in screen and gets a fresh device session, as qualified in API and Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_sign_in_fresh_session",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Sign-in lockout"
+text = "Repeated failed sign-ins for one email or one client address lock sign-in with the published refusal and the same published message whether or not the account exists, the lock lifts on the published schedule, and the sign-in screen shows only what the server's latest answer decided."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_sign_in_lockout_email",
+    "test_app.py::test_sign_in_lockout_client_address",
+    "test_app.py::test_wf_sign_in_lockout_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "CSRF token on every change"
+text = "Every state-changing workspace request except sign-in is refused unless it carries the session's CSRF token."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_csrf_required",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Device sessions"
+text = "Settings lists every live device session, and the owner signs out any other device by keyboard alone, which ends that device's requests and live sync channel at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "device-sessions"
+tests = [
+    "test_app.py::test_device_session_revoke_api",
+    "test_app.py::test_wf_device_sessions_keyboard_signout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Password change signs out other devices"
+text = "Changing the password ends every other device session and its live sync channel at once, while the current device stays signed in on a new session id."
+kind = "behavior"
+primary = "pytest"
+workflow = "device-sessions"
+tests = [
+    "test_app.py::test_wf_device_sessions_password_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Idle session end"
+text = "A device session that makes no request for the configured idle period ends, and its next request is refused as unauthenticated."
+kind = "behavior"
+primary = "pytest"
+workflow = "device-sessions"
+tests = [
+    "test_app.py::test_idle_session_end",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Object types with typed fields"
+text = "The owner defines object types with named typed fields and creates objects of those types, whose properties show and save in the margin."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-types"
+tests = [
+    "test_app.py::test_wf_object_types_new_type_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Typed property validation"
+text = "Property values are checked against their field kind, options and required flag, and bad values are refused with a per-field message."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-types"
+tests = [
+    "test_app.py::test_property_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Relation properties are links"
+text = "A relation property value is a link edge that counts as a backlink on its target and appears in the backlink rail and the graph."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-types"
+tests = [
+    "test_app.py::test_relation_backlinks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Block edits merge in commit order"
+text = "Block edits sent as operations are transformed in commit order against every later revision and merged, and only the published overlap cases and edits over an intervening full replacement are refused with the current block, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "block-editing"
+tests = [
+    "test_app.py::test_block_ops_merge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Edit conflict choice"
+text = "When a save is refused as a conflict, the editor keeps the owner's text and lets them keep either their own version or the other device's version without losing either."
+kind = "behavior"
+primary = "pytest"
+workflow = "block-editing"
+tests = [
+    "test_app.py::test_wf_block_editing_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Rich text allowlist"
+text = "Block text keeps only the published allowlist of marks and link schemes, on write and on render, in the workspace and on share pages."
+kind = "behavior"
+primary = "pytest"
+workflow = "block-editing"
+tests = [
+    "test_app.py::test_wf_block_editing_allowlist",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Quote picker"
+text = "Typing two opening parentheses in a block opens the quote picker, and choosing a block from another object by keyboard inserts it as a quote with its origin chip once the server has confirmed it."
+kind = "behavior"
+primary = "pytest"
+workflow = "quoting"
+tests = [
+    "test_app.py::test_wf_quoting_keyboard_quote",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "One body per quoted block"
+text = "A quoted block has one stored body, so an edit made in any host or in its origin shows in every place that quotes it and is recorded once in the origin's history."
+kind = "behavior"
+primary = "pytest"
+workflow = "quoting"
+tests = [
+    "test_app.py::test_quote_single_body",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Backlink counts match link edges"
+text = "Backlink counts equal the stored link edges in the margin, the graph, type pages, saved query results and the API after every quote, unquote, relation change, block move and deletion, including when quotes are made at the same moment, and open screens show the server's count, never a local estimate."
+kind = "behavior"
+primary = "pytest"
+workflow = "quoting"
+tests = [
+    "test_app.py::test_backlink_counts_consistent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Unquoting and deleting"
+text = "Removing a quote drops its link edge, and deleting an object removes the quotes of its blocks and clears the relation values that point at it, while a quoted block cannot be deleted from its origin, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "quoting"
+tests = [
+    "test_app.py::test_unquote_and_delete",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Daily note by home clock"
+text = "Today's daily note is chosen by the server's current time on the workspace home clock, never by the server's UTC day or the device clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "daily-notes"
+tests = [
+    "test_app.py::test_wf_daily_notes_home_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Phone capture replay"
+text = "A capture that the phone sends again after a network failure carries the same idempotency key and shows its block once, and a different body under that key is refused as a conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "daily-notes"
+tests = [
+    "test_app.py::test_wf_daily_notes_capture_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Home clock setting"
+text = "The owner changes the home clock in Settings, and from then on today's note and every shown expiry follow the new zone, while existing notes keep their dates."
+kind = "behavior"
+primary = "pytest"
+workflow = "daily-notes"
+tests = [
+    "test_app.py::test_home_clock_setting",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Empty daily note prompt"
+text = "A daily note with no blocks shows the published empty prompt."
+kind = "behavior"
+primary = "pytest"
+workflow = "daily-notes"
+tests = [
+    "test_app.py::test_wf_daily_notes_empty_prompt",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Live sync across tabs and devices"
+text = "Every committed change, including merged block edits with their operations, appears in the owner's other open tabs and devices within the published delay, without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_live_sync_events",
+    "test_app.py::test_wf_live_sync_capture_home_day",
+    "test_app.py::test_wf_live_sync_session_ended",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Backlink rail"
+text = "The margin lists every backlink of the open object with its kind, and the published shortcut reaches the list from any control in the note column."
+kind = "behavior"
+primary = "pytest"
+workflow = "backlinks-graph"
+tests = [
+    "test_app.py::test_backlink_rail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Link graph by keyboard"
+text = "Every graph node has a button in title order that the arrow keys, Home and End move between, focusing a node selects it, and Enter opens it."
+kind = "behavior"
+primary = "pytest"
+workflow = "backlinks-graph"
+tests = [
+    "test_app.py::test_wf_backlinks_graph_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Saved queries"
+text = "The owner saves, opens and deletes queries over one type, and each result row shows the matching object with its live backlink count."
+kind = "behavior"
+primary = "pytest"
+workflow = "queries-search"
+tests = [
+    "test_app.py::test_saved_queries_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Collections and the never-share override"
+text = "Objects belong to collections, and an object set to never share stays out of every share link even when its collection is shared."
+kind = "behavior"
+primary = "pytest"
+workflow = "collections-sharing"
+tests = [
+    "test_app.py::test_never_share_override",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Share link creation in home clock"
+text = "The owner creates a share link for a collection with an expiry minute that is entered and shown on the home clock, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "collections-sharing"
+tests = [
+    "test_app.py::test_share_link_create",
+    "test_app.py::test_wf_collections_sharing_create_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Share scope"
+text = "A share link shows only the shareable objects of its collection and never reveals an object outside that scope through properties, backlinks, graph neighbours, quoted blocks or attachments."
+kind = "behavior"
+primary = "pytest"
+workflow = "collections-sharing"
+tests = [
+    "test_app.py::test_share_scope",
+    "test_app.py::test_wf_collections_sharing_allowlist",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Server-decided share expiry"
+text = "A share link works until its expiry minute and is refused from that minute onward, judged by the server's clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-lifecycle"
+tests = [
+    "test_app.py::test_share_expiry_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Revoke and regenerate"
+text = "Revoking ends a link at once, regenerating replaces it with a new link and ends the old one, and both actions are refused for a link that is no longer active."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-lifecycle"
+tests = [
+    "test_app.py::test_share_revoke_regenerate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Open share page follows the server"
+text = "An open share page switches to the inactive state within the published delay after revocation or expiry, using only the status the server returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-lifecycle"
+tests = [
+    "test_app.py::test_wf_share_lifecycle_open_page_revoked",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Read-only share surface and its layouts"
+text = "Share pages refuse every change, ignore the owner's session, send the published strict content security policy and place backlinks as published at each viewport."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-lifecycle"
+tests = [
+    "test_app.py::test_wf_share_lifecycle_read_only_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Cached share rendering"
+text = "Each shared object page that is served is cached as sanitised markup in the object store under the published key, and the cache of a revoked or regenerated link is removed."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-lifecycle"
+tests = [
+    "test_app.py::test_share_cache",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Attachment blocks"
+text = "The owner attaches images and PDFs to an object, each stored under the published key and size limit and shown as an attachment block."
+kind = "behavior"
+primary = "pytest"
+workflow = "attachments"
+tests = [
+    "test_app.py::test_attachment_blocks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Storage outage and recovery"
+text = "With the object store unreachable, Quire still starts, text editing keeps working, attachments show the published outage copy, and the workspace keeps checking storage on the published schedule so attachments return without a restart, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "attachments"
+tests = [
+    "test_app.py::test_wf_attachments_outage",
+    "test_app.py::test_storage_recovery_without_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Three published layouts"
+text = "The workspace shows three panes on a laptop, two panes and a library drawer on a tablet, and one column with a drawer and a bottom sheet on a phone, at the published viewports and with no horizontal overflow."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Keyboard-complete dialogs and sheets"
+text = "Every dialog, drawer, sheet, picker and the command palette keeps Tab and Shift+Tab inside it, closes on Escape and returns focus to the control that opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dialog_focus_traps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Quote announcements"
+text = "After each confirmed quote and unquote, the polite announcement region reads the published text with the backlink count the server returned."
+kind = "behavior"
+primary = "pytest"
+workflow = "quoting"
+tests = [
+    "test_app.py::test_wf_quoting_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Margin Tether motion"
+text = "Quoting runs the card morph, the tether draw and the numeral roll to the server's count in that order with the published timings, and unquoting runs them in reverse."
+kind = "visual"
+primary = "pytest"
+workflow = "quoting"
+tests = [
+    "test_app.py::test_quote_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Reduced-motion Margin Tether"
+text = "With reduced motion, the quote, the tether and the numeral reach their end state in one frame, with the same announcement."
+kind = "visual"
+primary = "pytest"
+workflow = "quoting"
+tests = [
+    "test_app.py::test_quote_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Book-page visual design"
+text = "The workspace reads as a printed book page in the published palette, type and composition."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Margin Tether craft"
+text = "Quoted blocks, margin chips and tethers read as one annotated system that shows each quote's origin at a glance."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from the run manifest and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_serving",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Credentials from the environment"
+text = "Every service credential and URL is read from the environment at start and is never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Server boundary"
+text = "The server refuses oversized and wrongly typed bodies, serves no source files or credentials, and keeps workspace state behind the owner's session."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Return to the requested page after sign-in"
+text = "A signed-out visit to a workspace page leads to sign-in and then back to that page, while an unsafe return address lands on Today, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_wf_sign_in_return_to_page",
+    "test_app.py::test_wf_sign_in_unsafe_return",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Live device sessions list"
+text = "An open Settings page adds and removes device sessions in place within the published delay without a reload, and an open sign-out confirmation stays open through those changes, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "device-sessions"
+tests = [
+    "test_app.py::test_wf_device_sessions_live_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Latest picker search wins"
+text = "The quote picker only ever lists results for the text now in its search box, even when an earlier search answers later, and its status reads the published count of the options shown."
+kind = "behavior"
+primary = "pytest"
+workflow = "quoting"
+tests = [
+    "test_app.py::test_wf_quoting_latest_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Literal plain-text search"
+text = "Block search and the query language's text conditions match the typed text literally and case-insensitively against plain text, never against markup or as wildcards, within the published length cap."
+kind = "behavior"
+primary = "pytest"
+workflow = "queries-search"
+tests = [
+    "test_app.py::test_block_search_literal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Server-confirmed Margin Tether"
+text = "A quote figure, its tether and a numeral change appear only after the server confirms the quote, showing the server's count, and a refused quote leaves nothing behind but the published alert."
+kind = "behavior"
+primary = "pytest"
+workflow = "quoting"
+tests = [
+    "test_app.py::test_wf_quoting_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Replay before any check"
+text = "An idempotent replay returns the first stored response before any resource, state or date check, with bodies compared as parsed JSON and keys scoped to their endpoint, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "daily-notes"
+tests = [
+    "test_app.py::test_idempotent_replay_before_checks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Resumable live sync"
+text = "Every workspace event carries a rising id stored in PostgreSQL, and a reconnecting device receives every missed event or a reset that makes it refetch the open screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_live_sync_resume",
+    "test_app.py::test_wf_live_sync_reconnect",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Live updates keep the owner's place"
+text = "Incoming live changes never close open dialogs, sheets, pickers, the palette, block history, conflict panels, a lasso, card or node drags or flipped cards, never move focus or the graph camera, and never disturb the focused block's caret or unsaved text, which is rebased instead."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_wf_live_sync_rebase",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Scope changes reach open share pages"
+text = "Within the published delay after an object leaves or enters a link's scope, an open share page shows the change and the affected cached renderings are deleted, as qualified in Business rules and Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-lifecycle"
+tests = [
+    "test_app.py::test_wf_share_lifecycle_scope_change_open_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "One winner for revoke and regenerate"
+text = "Of simultaneous revoke and regenerate requests on one active link, exactly one succeeds and at most one new link is created."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-lifecycle"
+tests = [
+    "test_app.py::test_share_one_winner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Uploads checked by content"
+text = "An upload is accepted only when its leading bytes match its declared allowed type, its filename is reduced to a safe base name, and its download returns the exact bytes with the published headers."
+kind = "behavior"
+primary = "pytest"
+workflow = "attachments"
+tests = [
+    "test_app.py::test_upload_content_checks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "No unconfirmed attachment"
+text = "No attachment figure or saved message shows until the object store has confirmed the write, the upload status and announcement follow the published sequence, and a failed write leaves no block and no stored key."
+kind = "behavior"
+primary = "pytest"
+workflow = "attachments"
+tests = [
+    "test_app.py::test_wf_attachments_upload_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Closed drawers and sheets are unavailable"
+text = "A closed library drawer or margin sheet cannot be focused, clicked or found by assistive technology, and while one is open the rest of the page is unavailable in the same way."
+kind = "behavior"
+primary = "pytest"
+workflow = "backlinks-graph"
+tests = [
+    "test_app.py::test_wf_backlinks_graph_tablet_drawer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Saved query in the address"
+text = "A chosen saved query has its own address that survives reload and Back, and its results update in place when backlink counts change."
+kind = "behavior"
+primary = "pytest"
+workflow = "queries-search"
+tests = [
+    "test_app.py::test_wf_queries_search_saved_query_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Graph scene and draw calls"
+text = "The graph draws each object as a sphere at its settled layout position with the published size, and each frame makes exactly the published draw calls with the published shader inputs."
+kind = "visual"
+primary = "pytest"
+workflow = "backlinks-graph"
+tests = [
+    "test_app.py::test_graph_scene_draws",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Graph camera controls"
+text = "Dragging, the wheel and the published keys orbit and zoom the graph camera by the published steps within the published limits, without scrolling the page."
+kind = "behavior"
+primary = "pytest"
+workflow = "backlinks-graph"
+tests = [
+    "test_app.py::test_graph_camera_controls",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Graph labels and picking"
+text = "Each node's label follows its projected point on every frame, and clicking a node's projected sphere selects the nearest node without any extra draw."
+kind = "behavior"
+primary = "pytest"
+workflow = "backlinks-graph"
+tests = [
+    "test_app.py::test_graph_labels_and_picking",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Graph fly-to"
+text = "Selecting a node flies the camera to the published pose over the published time and curve, and Escape flies home."
+kind = "visual"
+primary = "pytest"
+workflow = "backlinks-graph"
+tests = [
+    "test_app.py::test_graph_fly_to",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Graph idle rotation"
+text = "With nothing selected and motion allowed, the graph turns at the published rate, stops on any input, resumes after the published idle time, and a drag during a fly-to continues from the current pose."
+kind = "visual"
+primary = "pytest"
+workflow = "backlinks-graph"
+tests = [
+    "test_app.py::test_graph_idle_rotation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Graph list fallback"
+text = "Without WebGL the graph shows the published node list with the same keyboard, filter and address behaviour."
+kind = "behavior"
+primary = "pytest"
+workflow = "backlinks-graph"
+tests = [
+    "test_app.py::test_graph_list_fallback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Graph filters in the address"
+text = "The graph's type and collection filters live in the address, survive reload and Back, and hidden nodes are neither drawn nor listed."
+kind = "behavior"
+primary = "pytest"
+workflow = "backlinks-graph"
+tests = [
+    "test_app.py::test_wf_backlinks_graph_filters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Live graph growth"
+text = "An open graph reheats its layout, grows a node to its new size and draws a new edge in from its source with the published timings after another device's change, without moving selection, focus or the camera."
+kind = "visual"
+primary = "pytest"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_live_graph_growth",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Share scope highlight in the graph"
+text = "Choosing a share link in the graph dims out-of-scope nodes and their edges using the server's scope flag and labels them not shared, and a link that stops being active clears the highlight with the published alert."
+kind = "behavior"
+primary = "pytest"
+workflow = "collections-sharing"
+tests = [
+    "test_app.py::test_wf_collections_sharing_scope_graph",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Object card flip"
+text = "Type pages show objects as cards that turn to a back face of properties with the published timing, row stagger, reversible interruption and unavailable hidden face."
+kind = "visual"
+primary = "pytest"
+workflow = "object-types"
+tests = [
+    "test_app.py::test_wf_object_types_card_flip",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Card layout by container width"
+text = "Each object card picks its wide or narrow layout from its own width at the published threshold, never from the viewport width."
+kind = "visual"
+primary = "pytest"
+workflow = "object-types"
+tests = [
+    "test_app.py::test_wf_object_types_card_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Animated reorder of results and blocks"
+text = "Query result rows and the blocks below a removed block slide to their new places with the published timing, continuing from their current position when interrupted, and keep focus."
+kind = "visual"
+primary = "pytest"
+workflow = "queries-search"
+tests = [
+    "test_app.py::test_query_results_reorder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Scroll-locked margin and reading progress"
+text = "Origin chips and tethers stay level with their quoted blocks at every scroll position, the library rail stays at the top, and the reading-progress rule follows the published formula."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_scroll_locked_margin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Lamplight theme"
+text = "The owner switches between the Paper and Lamplight themes in Settings, the choice is stored and reaches every open tab within the published delay, and every colour including the graph comes from the published tokens."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_theme",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Daily note reveal"
+text = "Moving to a daily note within the app reveals it from the left with the published visible width over the published time and curve, or a short fade with reduced motion in which all of it stays visible."
+kind = "visual"
+primary = "pytest"
+workflow = "daily-notes"
+tests = [
+    "test_app.py::test_daily_reveal",
+    "test_app.py::test_wf_daily_notes_phone_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Interrupted motion never jumps"
+text = "A quote removed mid-tether reverses from its current state, and a drawer or sheet reopened while closing ends open and stays open with no earlier close step hiding it again."
+kind = "visual"
+primary = "pytest"
+workflow = "quoting"
+tests = [
+    "test_app.py::test_wf_quoting_interrupted",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Remote carets"
+text = "While another of the owner's devices has a selection in a block, a labelled caret marks that device's position in the block within the published tolerance and moves through the same transform as the text."
+kind = "behavior"
+primary = "pytest"
+workflow = "block-editing"
+tests = [
+    "test_app.py::test_wf_block_editing_remote_caret",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Undo and redo per tab"
+text = "Undo and redo in the text column follow the published steps and coalescing rule, go through the server so remote edits are never overwritten, and announce their published results or refusals."
+kind = "behavior"
+primary = "pytest"
+workflow = "revisions-undo"
+tests = [
+    "test_app.py::test_wf_revisions_undo_typing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Block history and word diff"
+text = "Every committed text edit is kept as a revision with its device label up to the published count, the history compares two revisions with the published word diff, and a deleted note's history answers not found."
+kind = "behavior"
+primary = "pytest"
+workflow = "revisions-undo"
+tests = [
+    "test_app.py::test_revision_history_and_diff",
+    "test_app.py::test_wf_revisions_undo_deleted_note",
+    "test_app.py::test_wf_revisions_undo_quote_edit_history",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Restore a revision"
+text = "Restoring a revision saves a new version whose body equals that revision byte for byte, is refused when the block moved on since the owner's base version, and is announced with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "revisions-undo"
+tests = [
+    "test_app.py::test_restore_api",
+    "test_app.py::test_wf_revisions_undo_restore",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Board view transform"
+text = "The collection board pans, zooms about the pointer within the published limits and exposes its view transform as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "board"
+tests = [
+    "test_app.py::test_board_view_transform",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Moving board cards"
+text = "Board cards move by pointer, lasso selection or keyboard on the published grid, save to the server with the published announcements, and slide back with the published alert when a save is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "board"
+tests = [
+    "test_app.py::test_wf_board_keyboard_nudge",
+    "test_app.py::test_board_pointer_moves",
+    "test_app.py::test_wf_board_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Board arrows"
+text = "Each link edge between two board cards is drawn as an arrow between the closest pair of side midpoints under the published tie rule, recomputed on every frame."
+kind = "behavior"
+primary = "pytest"
+workflow = "board"
+tests = [
+    "test_app.py::test_board_arrows",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Live board"
+text = "Cards moved on another device slide to their new positions in an open board within the published delay and timing, leaving local drags, focus and selection untouched."
+kind = "behavior"
+primary = "pytest"
+workflow = "board"
+tests = [
+    "test_app.py::test_wf_board_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Saved-query language"
+text = "Saved queries are written in the published query language, checked as the owner types with the first error and its column, and evaluated with the published type, null and literal-matching rules within the published caps."
+kind = "behavior"
+primary = "pytest"
+workflow = "queries-search"
+tests = [
+    "test_app.py::test_query_language",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Query grouping and sort"
+text = "Query results can be grouped by one field and sorted by up to three keys, with each group's count equal to its rows and the published tie-break."
+kind = "behavior"
+primary = "pytest"
+workflow = "queries-search"
+tests = [
+    "test_app.py::test_query_group_sort",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Ranked note search"
+text = "The command palette's note results come from the published ranking with typo tolerance and home-clock recency, in the published order with highlighted snippets."
+kind = "behavior"
+primary = "pytest"
+workflow = "queries-search"
+tests = [
+    "test_app.py::test_note_search_ranking",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Command palette"
+text = "The published shortcut opens the command palette from anywhere in the workspace, which lists commands by the published fuzzy score and notes for the latest search, with a status that counts what is shown."
+kind = "behavior"
+primary = "pytest"
+workflow = "queries-search"
+tests = [
+    "test_app.py::test_wf_queries_search_palette",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-87"
+title = "Timeline momentum and snap"
+text = "The daily timeline scrolls one for one under a drag, coasts with the published decay after release and snaps to a day column with the published timing."
+kind = "visual"
+primary = "pytest"
+workflow = "daily-notes"
+tests = [
+    "test_app.py::test_timeline_coast_snap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-88"
+title = "Timeline heat strip"
+text = "Each timeline day shows a heat band whose number equals that day's block count and whose colour follows the published mix of theme tokens, updated live."
+kind = "visual"
+primary = "pytest"
+workflow = "daily-notes"
+tests = [
+    "test_app.py::test_timeline_heat",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-89"
+title = "Moving blocks between days"
+text = "A block moves to another day's note by drag or by keyboard with focus kept and the move announced, its link edges follow it, and the published refusals apply."
+kind = "behavior"
+primary = "pytest"
+workflow = "daily-notes"
+tests = [
+    "test_app.py::test_timeline_keyboard_move",
+    "test_app.py::test_block_move_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-90"
+title = "Force-settled graph layout"
+text = "Graph nodes start from their published seeded shell positions and settle by the published integrator, and a change in nodes or edges reheats the layout at the published rate."
+kind = "behavior"
+primary = "pytest"
+workflow = "backlinks-graph"
+tests = [
+    "test_app.py::test_graph_layout_settled",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-91"
+title = "Pinning graph nodes"
+text = "Dragging a node or pressing the published key pins it in place while it still pushes and pulls the others, and releasing with Alt or pressing the key again frees it, with the published announcements."
+kind = "behavior"
+primary = "pytest"
+workflow = "backlinks-graph"
+tests = [
+    "test_app.py::test_graph_pinning",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-92"
+title = "Graph depth fog and label detail"
+text = "Every graph draw carries the published fog inputs, and each node label shows its text only at the published projected size unless the node is selected or focused."
+kind = "visual"
+primary = "pytest"
+workflow = "backlinks-graph"
+tests = [
+    "test_app.py::test_graph_label_detail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-93"
+title = "Spring drawers and sheet"
+text = "The library drawer and margin sheet move by the published critically damped spring, carry their velocity into every retarget and are unavailable while closing."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_drawer_spring",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-94"
+title = "Card-to-page title transition"
+text = "Opening an object from a board card or a type-page card moves its title from the card into the page heading with the published timing, or a short fade with reduced motion."
+kind = "visual"
+primary = "pytest"
+workflow = "board"
+tests = [
+    "test_app.py::test_wf_board_title_transition",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string fields install, build, serve and \"_schema\":\"run-manifest-v1\", and nothing else is required to start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package and every bundled font with its name, version and licence; shipped packages are the production dependency tree reported by npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and bundled font uses only the MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1 licence."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Durable state lives only in PostgreSQL and MinIO; there is no SQLite, Redis, other datastore or state file on disk, and no setting kept only in browser storage."
+tests = [
+    "test_app.py::test_if_durable_state_only_postgres_minio",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Server and browser code is written in TypeScript, and package-lock.json is committed."
+tests = [
+    "test_app.py::test_if_typescript_and_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided PostgreSQL and MinIO dev service configuration is left unchanged."
+tests = [
+    "test_app.py::test_if_dev_services_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "At runtime the app makes no requests to third-party hosts; fonts, scripts, styles and any 3D library are all served by the app itself."
+tests = [
+    "test_app.py::test_if_no_third_party_requests",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "sign-in"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_sign_in_return_to_page",
+    "test_app.py::test_wf_sign_in_unsafe_return",
+    "test_app.py::test_wf_sign_in_lockout_screen",
+    "test_app.py::test_sign_in_lockout_email",
+]
+
+[[workflows]]
+id = "device-sessions"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_device_sessions_keyboard_signout",
+    "test_app.py::test_wf_device_sessions_live_list",
+    "test_app.py::test_wf_device_sessions_password_change",
+]
+
+[[workflows]]
+id = "object-types"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-68",
+    "DP-69",
+]
+critical = [
+    "test_app.py::test_wf_object_types_new_type_ui",
+    "test_app.py::test_wf_object_types_card_flip",
+    "test_app.py::test_wf_object_types_card_layout",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "block-editing"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-75",
+]
+critical = [
+    "test_app.py::test_wf_block_editing_conflict",
+    "test_app.py::test_wf_block_editing_allowlist",
+    "test_app.py::test_block_ops_merge",
+]
+
+[[workflows]]
+id = "revisions-undo"
+requirements = [
+    "DP-76",
+    "DP-77",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_revisions_undo_restore",
+    "test_app.py::test_wf_revisions_undo_quote_edit_history",
+    "test_app.py::test_wf_revisions_undo_deleted_note",
+]
+
+[[workflows]]
+id = "quoting"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-47",
+    "DP-49",
+    "DP-74",
+]
+critical = [
+    "test_app.py::test_wf_quoting_keyboard_quote",
+    "test_app.py::test_wf_quoting_announcements",
+    "test_app.py::test_wf_quoting_latest_search",
+    "test_app.py::test_wf_quoting_refused",
+    "test_app.py::test_wf_quoting_interrupted",
+]
+
+[[workflows]]
+id = "daily-notes"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-50",
+    "DP-73",
+    "DP-87",
+    "DP-88",
+    "DP-89",
+]
+critical = [
+    "test_app.py::test_wf_daily_notes_home_clock",
+    "test_app.py::test_wf_daily_notes_capture_replay",
+    "test_app.py::test_wf_daily_notes_empty_prompt",
+    "test_app.py::test_wf_daily_notes_phone_reduced_motion",
+    "test_app.py::test_timeline_keyboard_move",
+]
+
+[[workflows]]
+id = "live-sync"
+requirements = [
+    "DP-21",
+    "DP-51",
+    "DP-52",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_live_sync_reconnect",
+    "test_app.py::test_wf_live_sync_rebase",
+    "test_app.py::test_wf_live_sync_session_ended",
+    "test_app.py::test_wf_live_sync_capture_home_day",
+]
+
+[[workflows]]
+id = "backlinks-graph"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-57",
+    "DP-59",
+    "DP-60",
+    "DP-61",
+    "DP-62",
+    "DP-63",
+    "DP-64",
+    "DP-65",
+    "DP-90",
+    "DP-91",
+    "DP-92",
+]
+critical = [
+    "test_app.py::test_wf_backlinks_graph_keyboard",
+    "test_app.py::test_wf_backlinks_graph_tablet_drawer",
+    "test_app.py::test_wf_backlinks_graph_filters",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "queries-search"
+requirements = [
+    "DP-24",
+    "DP-48",
+    "DP-58",
+    "DP-70",
+    "DP-83",
+    "DP-84",
+    "DP-85",
+    "DP-86",
+]
+critical = [
+    "test_app.py::test_wf_queries_search_saved_query_ui",
+    "test_app.py::test_wf_queries_search_palette",
+    "test_app.py::test_query_group_sort",
+    "test_app.py::test_block_search_literal",
+]
+
+[[workflows]]
+id = "board"
+requirements = [
+    "DP-79",
+    "DP-80",
+    "DP-81",
+    "DP-82",
+    "DP-94",
+]
+critical = [
+    "test_app.py::test_wf_board_keyboard_nudge",
+    "test_app.py::test_wf_board_refused",
+    "test_app.py::test_wf_board_live",
+]
+
+[[workflows]]
+id = "collections-sharing"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_collections_sharing_scope_graph",
+    "test_app.py::test_wf_collections_sharing_allowlist",
+    "test_app.py::test_share_scope",
+]
+
+[[workflows]]
+id = "share-lifecycle"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-53",
+    "DP-54",
+]
+critical = [
+    "test_app.py::test_wf_share_lifecycle_open_page_revoked",
+    "test_app.py::test_wf_share_lifecycle_scope_change_open_page",
+    "test_app.py::test_wf_share_lifecycle_read_only_layouts",
+    "test_app.py::test_share_expiry_server",
+    "test_app.py::test_share_revoke_regenerate",
+    "test_app.py::test_share_one_winner",
+]
+
+[[workflows]]
+id = "attachments"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-55",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_attachments_upload_ui",
+    "test_app.py::test_wf_attachments_outage",
+    "test_app.py::test_upload_content_checks",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-71",
+    "DP-72",
+    "DP-93",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_layouts",
+    "test_app.py::test_wf_cross_cutting_theme",
+]
+checkpoints = [
+    "B5",
+    "B7",
+]

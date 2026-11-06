@@ -1,0 +1,80 @@
+{# One Registration card template renders every card state. #}
+<section class="reg-card" id="registration" role="region" aria-labelledby="reg-heading"
+         tabindex="-1" data-card-region>
+  <h2 class="reg-title" id="reg-heading">Registration</h2>
+  <p class="reg-status" role="status" aria-label="Registration status" data-announce></p>
+  <div data-card-body x-data='regCard({ slug: {{ event.slug | tojson }}, state: {{ state | tojson }}} )'>
+
+  {% if state == 'host' %}
+    <a class="primary-btn" href="/manage/{{ event.slug }}">Manage Event</a>
+  {% elif state == 'approval' %}
+    <h3 class="state-title">Approval Required</h3>
+    <p>The host reviews every request before confirming a place.</p>
+    <p>Save your place below.</p>
+    <button class="primary-btn" type="button" data-card-action="request"
+            @click="act('request', $event)" :disabled="busy">Request to Join</button>
+  {% elif state == 'open' %}
+    <p>Save your place below.</p>
+    <button class="primary-btn" type="button" data-card-action="register"
+            @click="act('register', $event)" :disabled="busy">Register</button>
+  {% elif state == 'full_waitlist' %}
+    <h3 class="state-title">Event Full</h3>
+    <p>This event is at capacity. You can join the waitlist.</p>
+    <button class="primary-btn" type="button" data-card-action="waitlist"
+            @click="act('waitlist', $event)" :disabled="busy">Join Waitlist</button>
+  {% elif state == 'full' %}
+    <h3 class="state-title">Event Full</h3>
+    <p>This event is at capacity.</p>
+  {% elif state == 'pending' %}
+    <h3 class="state-title">Pending Approval</h3>
+    <p>We will let you know when the host approves your registration.</p>
+    <button class="primary-btn" type="button" data-card-action="cancel_request"
+            @click="act('cancel_request', $event)" :disabled="busy">Cancel Request</button>
+  {% elif state == 'approved' %}
+    <h3 class="state-title">You're In</h3>
+    {% if moved_up %}<p>A place opened up, so you moved up from the waitlist.</p>{% endif %}
+    <p>Your place is confirmed. We look forward to seeing you.</p>
+    <button class="primary-btn" type="button" data-card-action="cancel"
+            @click="act('cancel', $event)" :disabled="busy">Cancel Registration</button>
+  {% elif state == 'declined' %}
+    <h3 class="state-title">Registration Declined</h3>
+    <p>The host was not able to approve your registration.</p>
+  {% elif state == 'waitlisted' %}
+    <h3 class="state-title">On the Waitlist</h3>
+    <p>You will move up if a place opens.</p>
+    <p data-queue-line>You are <span data-ordinal>{{ ordinal }}</span> in line.</p>
+    <button class="primary-btn" type="button" data-card-action="leave_waitlist"
+            @click="act('leave_waitlist', $event)" :disabled="busy">Leave Waitlist</button>
+  {% elif state == 'closed' %}
+    <h3 class="state-title">Registration Closed</h3>
+    <p>The host has stopped taking registrations for this event. You can still contact the host.</p>
+  {% elif state == 'code' %}
+    <h3 class="state-title">Access Code Needed</h3>
+    <p>This event is open only to guests with an access code. Enter yours below to register.</p>
+    <button class="primary-btn" type="button" data-card-action="show_code"
+            x-show="!codeShown" @click="showCode()" data-code-toggle>I have an access code</button>
+    <form class="code-form" x-show="codeShown" x-cloak @submit.prevent="submitCode()"
+          data-alert-holder>
+      <label class="field-label" for="access-code">Access code</label>
+      <input class="text-input" id="access-code" name="access_code" type="text" x-ref="code"
+             autocomplete="off" aria-describedby="code-error">
+      <p class="field-error" id="code-error" data-code-error x-show="codeError" x-text="codeError" x-cloak></p>
+      <button class="primary-btn" type="submit" :disabled="busy">Submit Code</button>
+    </form>
+  {% elif state == 'past' %}
+    <h3 class="state-title">Past Event</h3>
+    <p>{% if days_ago == 0 %}This event ended today.{% elif days_ago == 1 %}This event ended 1 day ago.{% else %}This event ended {{ days_ago }} days ago.{% endif %}</p>
+  {% endif %}
+
+  {% if meter and state not in ('declined', 'closed', 'code', 'past') %}
+    <div class="capacity-meter">
+      <p class="meter-line"><span data-meter-taken>{{ meter.taken_line }}</span>
+        <span class="meter-left" data-meter-left>{{ meter.left_line }}</span></p>
+      <div class="meter" role="meter" aria-valuemin="0" aria-valuemax="{{ event.capacity }}"
+           aria-valuenow="{{ event.going_count }}" aria-label="{{ meter.taken_line }}">
+        <div class="meter-fill" data-meter-fill style="width: {{ meter.percent }}%"></div>
+      </div>
+    </div>
+  {% endif %}
+  </div>
+</section>

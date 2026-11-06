@@ -1,0 +1,915 @@
+/* Tracewell reads as a ruled ledger sheet: warm paper, ink numerals, hairlines. */
+
+@font-face {
+  font-family: 'Archivo';
+  src: url('/fonts/archivo-500.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Archivo';
+  src: url('/fonts/archivo-600.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('/fonts/plex-sans-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('/fonts/plex-sans-600.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/plex-mono-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/plex-mono-500.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+}
+
+:root {
+  --paper: #f7f3e8;
+  --ink: #17191f;
+  --rule: #9b9384;
+  --accent: #2440c8;
+  --stale: #9a4210;
+
+  --text-body: 1rem;
+  --text-h3: 1.333rem;
+  --text-h2: 1.777rem;
+  --text-h1: 2.369rem;
+  --text-numeral: 2.333rem;
+
+  --space-1: 0.5rem;
+  --space-2: 1rem;
+  --space-3: 1.5rem;
+  --space-4: 2.5rem;
+  --touch: 44px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-size: var(--text-body);
+  line-height: 1.55;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+.site-wordmark {
+  font-family: 'Archivo', system-ui, sans-serif;
+  font-weight: 600;
+  margin: 0 0 var(--space-1);
+  letter-spacing: 0.01em;
+}
+
+h1 {
+  font-size: var(--text-h1);
+}
+h2 {
+  font-size: var(--text-h2);
+}
+h3 {
+  font-size: var(--text-h3);
+}
+
+p {
+  margin: 0 0 var(--space-1);
+}
+
+a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.numeric,
+.tile-numeral,
+input,
+select,
+textarea,
+.history-table td,
+.audit-table td,
+.trace-exhibit td,
+.trace-provenance,
+.unspool-chip-asof,
+.trace-input-asof,
+.operator-tape,
+.operator-clock {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+button,
+.staff-action,
+.clock-details,
+.trace-input-button,
+.trace-close {
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-size: var(--text-body);
+  min-height: var(--touch);
+  min-width: var(--touch);
+  padding: 0 var(--space-2);
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  cursor: pointer;
+}
+
+button:disabled {
+  color: #56514a;
+  border-color: var(--rule);
+  cursor: default;
+}
+
+input,
+select,
+textarea {
+  min-height: var(--touch);
+  padding: 0 var(--space-1);
+  background: var(--paper);
+  color: var(--ink);
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--text-body);
+  width: 100%;
+}
+
+textarea {
+  padding: var(--space-1);
+  line-height: 1.5;
+}
+
+:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* --- Header and footer --- */
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--rule);
+}
+
+.site-company {
+  font-weight: 600;
+  margin: 0;
+}
+
+.site-wordmark {
+  font-size: var(--text-h3);
+  margin: 0;
+}
+
+.site-ticker,
+.staff-user {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.site-staff-link,
+.site-header .staff-signout {
+  margin-left: auto;
+  font-size: 0.875rem;
+  padding-block: 0.6rem;
+  display: inline-block;
+}
+
+.site-footer {
+  padding: var(--space-3);
+  border-top: 1px solid var(--rule);
+  font-size: 0.875rem;
+}
+
+/* --- Notices and live regions --- */
+
+.notices,
+.board-updates,
+.staff-updates {
+  padding: 0 var(--space-3);
+  min-height: 1.6rem;
+  font-size: 0.9375rem;
+}
+
+.notices:not(:empty) {
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--rule);
+  color: var(--stale);
+}
+
+/* --- Board layout --- */
+
+.board-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  max-width: 100%;
+}
+
+.board-main {
+  min-width: 0;
+}
+
+.clock-rail {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: var(--space-2);
+}
+
+.clock-item {
+  min-width: 0;
+  padding-right: var(--space-1);
+}
+
+.clock-name {
+  font-weight: 600;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.clock-short {
+  margin: 0;
+  font-size: 0.9375rem;
+}
+
+.clock-full {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.clock-item.clock-stale .clock-full,
+.clock-item.clock-stale .clock-short {
+  color: var(--stale);
+}
+
+.clock-details {
+  margin-top: var(--space-1);
+  font-size: 0.8125rem;
+  padding: 0 var(--space-1);
+  width: 100%;
+}
+
+/* --- Figure grid --- */
+
+.figure-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+.figure-tile {
+  position: relative;
+  padding: var(--space-2) 0;
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.tile-label {
+  font-size: var(--text-h3);
+  margin: 0 0 var(--space-1);
+  /* Two lines of label keep every tile's hairline rule on the same baseline. */
+  min-height: calc(2 * var(--text-h3) * 1.2);
+}
+
+.tile-numeral {
+  /* Full size wherever the column allows it, shrunk to the column otherwise. */
+  font-size: min(var(--text-numeral), 10.4cqw);
+  font-weight: 500;
+  margin: 0;
+  text-align: right;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.tile-numeral.numeral-split {
+  display: none;
+}
+
+.tile-rule {
+  border-bottom: 1px solid var(--rule);
+  margin: var(--space-1) 0;
+  transition: border-bottom-width 100ms ease-out, border-color 100ms ease-out;
+}
+
+.figure-tile:has(.tile-activate:hover) .tile-rule,
+.figure-tile:has(.tile-activate:active) .tile-rule {
+  border-bottom-width: 2px;
+  border-color: var(--ink);
+}
+
+.tile-asof,
+.tile-citation {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.tile-activate {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.tile-chip-host {
+  position: relative;
+  z-index: 2;
+}
+
+.clock-badge {
+  display: inline-block;
+  border: 1px solid var(--ink);
+  padding: 0 0.35rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+/* --- Weekly history --- */
+
+.history-region {
+  margin-top: var(--space-4);
+  overflow-x: auto;
+}
+
+.history-table,
+.audit-table,
+.restatement-list,
+.trace-exhibit {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.history-table th,
+.audit-table th,
+.restatement-list th,
+.trace-exhibit th {
+  text-align: left;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-weight: 600;
+  padding: var(--space-1) var(--space-1) var(--space-1) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.history-table td,
+.audit-table td,
+.restatement-list td,
+.trace-exhibit td {
+  padding: var(--space-1) var(--space-1) var(--space-1) 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+.history-table td.numeric,
+.audit-table td.numeric,
+.trace-exhibit td.numeric {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.restated-marker {
+  display: block;
+  font-weight: 600;
+}
+
+.restated-line {
+  display: block;
+  font-size: 0.8125rem;
+}
+
+.history-table td[data-label='Status'],
+.history-table th:last-child {
+  min-width: 10rem;
+}
+
+.history-table td[data-label='Week ending'] {
+  white-space: nowrap;
+}
+
+.history-table td[data-label='Exhibit'] a {
+  overflow-wrap: anywhere;
+}
+
+.history-table td a,
+.restatement-list td a {
+  display: inline-block;
+  min-width: var(--touch);
+  padding-block: 0.7rem;
+}
+
+/* --- Unspool chips, threads and panel --- */
+
+.unspool-chips,
+.unspool-list-area {
+  margin-top: var(--space-1);
+}
+
+.unspool-formula {
+  font-size: 0.8125rem;
+  margin: 0 0 var(--space-1);
+}
+
+.unspool-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+
+.unspool-list {
+  margin: 0;
+  padding-left: 1.5rem;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.unspool-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-height: var(--touch);
+  min-width: var(--touch);
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--rule);
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: opacity 250ms cubic-bezier(0.2, 0.9, 0.3, 1),
+    transform 250ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.chips-open .unspool-chip {
+  opacity: 1;
+  transform: none;
+}
+
+.unspool-chip[data-sets-as-of='true'] {
+  border: 2px solid var(--stale);
+}
+
+.unspool-chip.chip-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.unspool-chip-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.unspool-chip-asof,
+.unspool-chip-tick,
+.unspool-chip-source {
+  font-size: 0.75rem;
+}
+
+.unspool-operator {
+  align-self: center;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 1rem;
+}
+
+.unspool-threads {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.unspool-thread {
+  stroke: var(--accent);
+  stroke-width: 2;
+  fill: none;
+}
+
+.trace-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 50vw;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 50;
+  padding: var(--space-3);
+  background: var(--paper);
+  border-left: 1px solid var(--rule);
+  transform: translateX(100%);
+  transition: transform 250ms cubic-bezier(0.2, 0.9, 0.3, 1) 167ms;
+}
+
+.trace-panel.trace-open {
+  transform: translateX(0);
+}
+
+.trace-panel.trace-reduced {
+  transition: none;
+}
+
+.trace-inputs {
+  list-style: none;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.trace-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: var(--space-1);
+}
+
+.trace-input-button[aria-pressed='true'] {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.trace-input-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.8125rem;
+}
+
+.trace-sets-asof {
+  border: 2px solid var(--stale);
+  color: var(--stale);
+  padding: 0 0.3rem;
+  font-size: 0.75rem;
+}
+
+.trace-selected-detail {
+  font-size: 0.8125rem;
+  min-height: 1.4rem;
+}
+
+.trace-exhibit {
+  margin-bottom: var(--space-2);
+}
+
+.trace-exhibit-row[aria-current='true'] {
+  border-left: 3px solid var(--accent);
+  background: rgba(36, 64, 200, 0.1);
+}
+
+.trace-provenance {
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.trace-exhibit-link,
+.trace-cite-link {
+  display: inline-block;
+  padding-block: 0.7rem;
+  margin-right: var(--space-2);
+}
+
+.trace-download-status {
+  font-size: 0.875rem;
+  min-height: 1.4rem;
+}
+
+.trace-close {
+  margin-top: var(--space-2);
+}
+
+body.trace-sheet-open {
+  overflow: hidden;
+}
+
+/* The side panel reserves its own width, so the board stays fully visible. */
+body.trace-panel-open {
+  padding-right: 50vw;
+}
+
+/* --- Citation page --- */
+
+.citation-main {
+  padding: var(--space-3);
+}
+
+.citation-markers {
+  margin-bottom: var(--space-2);
+}
+
+.provisional-marker {
+  color: var(--stale);
+  font-size: 0.9375rem;
+}
+
+.citation-tile-host {
+  max-width: 24rem;
+}
+
+/* --- Staff screens --- */
+
+.signin-main {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4) var(--space-3);
+}
+
+.signin-form {
+  width: min(22rem, 100%);
+  display: grid;
+  gap: var(--space-1);
+}
+
+.staff-main {
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.staff-actions,
+.editor-actions > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.field {
+  display: grid;
+  gap: 0.2rem;
+  margin-bottom: var(--space-1);
+}
+
+.field label,
+.signin-form label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.editor-rows {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+}
+
+.editor-event {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: var(--space-1);
+  margin-bottom: var(--space-1);
+}
+
+.editor-errors[role='alert'] {
+  border: 2px solid var(--stale);
+  padding: var(--space-2);
+}
+
+.editor-errors ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.exhibit-state {
+  font-weight: 600;
+}
+
+.exhibit-upload-status,
+.operator-status,
+.signin-status {
+  min-height: 1.4rem;
+  font-size: 0.9375rem;
+}
+
+.review-checklist {
+  display: grid;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.review-checklist label,
+.dialog-body label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.9375rem;
+}
+
+.review-checklist input[type='checkbox'],
+.dialog-body input[type='checkbox'] {
+  width: var(--touch);
+  height: var(--touch);
+  flex: 0 0 var(--touch);
+}
+
+.audit-scroll {
+  overflow-x: auto;
+}
+
+/* --- Dialogs --- */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(23, 25, 31, 0.35);
+  opacity: 0;
+  transition: opacity 167ms ease-out;
+}
+
+.dialog-backdrop.dialog-open {
+  opacity: 1;
+}
+
+.dialog-backdrop.dialog-reduced {
+  transition: none;
+}
+
+.dialog-panel {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding: var(--space-3);
+  background: var(--paper);
+  border: 1px solid var(--ink);
+}
+
+.dialog-body {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.dialog-body > div {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+/* --- Breakpoints: exactly 768 px and 1280 px --- */
+
+@media (max-width: 767.98px) {
+  .history-table thead,
+  .restatement-list thead {
+    display: none;
+  }
+
+  .history-table tr,
+  .restatement-list tr,
+  .audit-table tr {
+    display: block;
+    border-bottom: 1px solid var(--rule);
+    padding: var(--space-1) 0;
+  }
+
+  .history-table td,
+  .restatement-list td,
+  .audit-table td {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--space-1) var(--space-2);
+    border-bottom: 0;
+    padding: 0.15rem 0;
+    min-width: 0;
+  }
+
+  .history-table td[data-label='Status'] {
+    min-width: 0;
+  }
+
+  .history-table td[data-label='Status'] .restated-line {
+    flex: 1 1 100%;
+  }
+
+  .history-table td::before,
+  .restatement-list td::before,
+  .audit-table td::before {
+    content: attr(data-label);
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-weight: 600;
+  }
+
+  .history-table td.numeric,
+  .audit-table td.numeric {
+    text-align: right;
+  }
+
+  .trace-panel {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 85vh;
+    border-left: 0;
+    border-top: 1px solid var(--rule);
+    transform: translateY(100%);
+    transition: transform 250ms cubic-bezier(0.2, 0.9, 0.3, 1) 167ms;
+  }
+
+  .trace-panel.trace-open {
+    transform: translateY(0);
+  }
+}
+
+@media (min-width: 768px) {
+  .figure-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .editor-rows {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .editor-event {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+    align-items: end;
+  }
+}
+
+@media (min-width: 1280px) {
+  .figure-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .board-layout {
+    grid-template-columns: 13rem minmax(0, 1fr);
+    align-items: start;
+    padding-inline: var(--space-2);
+  }
+
+  .clock-rail {
+    position: sticky;
+    top: var(--space-2);
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+    border-bottom: 0;
+    border-right: 1px solid var(--rule);
+    padding-bottom: 0;
+    padding-right: var(--space-2);
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+
+  .history-table {
+    font-size: 0.75rem;
+  }
+
+  .history-table th,
+  .history-table td {
+    padding-right: 0.4rem;
+  }
+
+  .trace-panel {
+    width: 33.333vw;
+  }
+
+  body.trace-panel-open {
+    padding-right: 33.333vw;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0ms !important;
+  }
+}

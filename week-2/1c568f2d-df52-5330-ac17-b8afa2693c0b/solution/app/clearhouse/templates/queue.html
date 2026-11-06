@@ -1,0 +1,82 @@
+{% extends "_staff.html" %}
+{% from "_macros.html" import icon, chip, review_mark, empty %}
+{% from "_search.html" import search_well %}
+{% block title %}Queue{% endblock %}
+{% block bar_search %}{{ search_well("Search pieces", "queue-search", chosen.q, "Title or maker", 'data-queue-search aria-controls=queue-results') }}{% endblock %}
+{% block main %}
+<div class="queue" data-queue data-base="/">
+  <button type="button" class="btn disclosure" aria-expanded="false" aria-controls="queue-filters" data-disclosure>Filters {{ icon("caret") }}</button>
+  <aside class="sheet sidebar" id="queue-filters" aria-label="Filters">
+    <h2 class="sidebar__title">States</h2>
+    <ul class="states">
+      {% for s in states %}
+      <li><a href="{{ state_href[s] }}"{% if chosen.state == s %} aria-current="true"{% endif %}><span>{{ s }}</span><span class="count mono">{{ counts[s] }}</span></a></li>
+      {% endfor %}
+    </ul>
+    <div class="toggles">
+      <label class="check"><input type="checkbox" name="mine" value="1" data-queue-filter{% if chosen.mine %} checked{% endif %}> Only mine</label>
+      <label class="check"><input type="checkbox" name="needs" value="1" data-queue-filter{% if chosen.needs %} checked{% endif %}{% if account.role == "auditor" %} disabled{% endif %}> Needs my decision</label>
+    </div>
+    <button type="button" class="btn btn--quiet" data-clear-filters>Clear filters</button>
+  </aside>
+  <section class="sheet queue__main" aria-labelledby="queue-title">
+    <div class="queue__head">
+      <h1 id="queue-title">Clearance queue</h1>
+      {% if account.role == "maker" %}<button type="button" class="btn btn--primary queue__new" data-new-piece>New piece</button>{% endif %}
+      <div class="queue__tools">
+        <label class="inline-select">Sort by
+          <select name="sort" data-queue-filter>
+            {% for value, label in (("newest", "Newest first"), ("oldest", "Oldest first"), ("title", "Title A to Z"), ("fee", "Fee high to low")) %}
+            <option value="{{ value }}"{% if chosen.sort == value %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <p class="result-line" id="result-line"><span class="mono">{{ total }}</span> of <span class="mono">{{ all_total }}</span> pieces</p>
+      </div>
+    </div>
+    <div id="queue-results" class="list" data-region="queue-results" aria-busy="false">
+      <table class="queue-table">
+        <caption class="sr-only">Pieces in the clearance queue</caption>
+        <thead><tr>
+          <th scope="col">Title</th><th scope="col">Maker</th><th scope="col">State</th>
+          <th scope="col">Licence</th><th scope="col">Accessibility</th>
+          <th scope="col" class="col-wide num">Fee</th><th scope="col" class="col-wide">Updated</th>
+        </tr></thead>
+        <tbody>
+          {% for r in rows %}
+          {% set waiting = r.state == "in_review" and (r.licence_review == "pass" or r.accessibility_review == "pass") %}
+          <tr>
+            <td class="cell-title"><a href="/pieces/{{ r.id }}">{{ r.title }}</a></td>
+            <td class="cell-maker">{{ r.owner_name }}</td>
+            <td class="cell-state">{{ chip(r.state) }}</td>
+            <td class="cell-mark"><span class="sr-only">Licence review </span>{{ review_mark(r.licence_review, waiting and not r.licence_review) }}</td>
+            <td class="cell-mark"><span class="sr-only">Accessibility review </span>{{ review_mark(r.accessibility_review, waiting and not r.accessibility_review) }}</td>
+            <td class="col-wide mono num">{{ r.fee_cents | money }}</td>
+            <td class="col-wide mono"><time datetime="{{ r.updated_at.isoformat() }}" title="{{ r.updated_at | stamp }}">{{ r.updated_at | when(prefs.date_display) }}</time></td>
+          </tr>
+          {% else %}
+          <tr class="row-empty"><td colspan="7">{{ empty("No pieces match that search" if filtered else "Nothing is waiting. Submitted pieces appear here", "search" if filtered else "dash") }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <nav class="pager" aria-label="Pages">
+        {% if pager.previous %}<a href="{{ pager.previous }}" data-queue-page>Previous page</a>{% else %}<span class="pager__off">Previous page</span>{% endif %}
+        <span class="mono">Page {{ chosen.page }}</span>
+        {% if pager.next %}<a href="{{ pager.next }}" data-queue-page>Next page</a>{% else %}<span class="pager__off">Next page</span>{% endif %}
+      </nav>
+    </div>
+  </section>
+</div>
+{% if account.role == "maker" %}
+<template id="new-piece">
+  <div class="desk desk--new" data-region="desk" data-new-desk>
+    <section class="sheet desk__main" aria-labelledby="piece-title">
+      <div class="alert" role="alert" data-panel-alert hidden></div>
+      <h1 id="piece-title" tabindex="-1">New piece</h1>
+      <p class="muted">Maker: {{ account.name }}</p>
+      {% include "_piece_form.html" %}
+    </section>
+  </div>
+</template>
+{% endif %}
+{% endblock %}

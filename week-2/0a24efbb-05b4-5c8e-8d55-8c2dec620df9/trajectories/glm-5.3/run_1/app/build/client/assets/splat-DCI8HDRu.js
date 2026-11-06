@@ -1,0 +1,1 @@
+import{w as o,x as t,A as n}from"./chunk-6KYCQHYJ-CW14n2Oe.js";import{j as s}from"./jsx-runtime-D_zvdyIk.js";import{R as u}from"./ErrorPages-CCoxEvta.js";const i=t(function(){return s.jsx(u,{error:n()})}),m=o(function(){return null});export{i as ErrorBoundary,m as default};

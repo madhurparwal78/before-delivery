@@ -1,0 +1,1234 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "public-site-trial",
+    "members-seats",
+    "agent-access",
+    "scene-authoring",
+    "object-locks",
+    "op-log-rewind",
+    "asset-uploads",
+    "comments-review",
+    "review-links",
+    "scheduled-publish",
+    "checkout-plans",
+    "invoices-payments",
+    "dunning",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 85
+services = [
+    { name = "postgres", env = {} },
+    { name = "pocketbase", env = {} },
+    { name = "minio", env = {} },
+    { name = "killbill", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Orrery Studio <studio@orrery-labs.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 3
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 1
+S1 = 5
+S2 = 5
+S3 = 5
+S4 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-clock"
+port = 4176
+url_env = "APP_SHORT_CLOCK_URL"
+
+[outages.env]
+TRIAL_LENGTH_SECONDS = "20"
+DUNNING_DAY_SECONDS = "5"
+TOKEN_WARNING_LEAD_SECONDS = "15"
+
+[[requirements]]
+id = "DP-01"
+title = "Public site and plan comparison"
+text = "Show a public home page with numbered sections and a pricing page that compares the Team and Business plans for monthly and annual billing at the prices in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site-trial"
+tests = [
+    "test_app.py::test_public_home_and_pricing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Start a trial"
+text = "A site visitor starts a trial from the public site, which creates a workspace, makes them its owner, signs them in and lands them on a dashboard that shows when the trial ends."
+kind = "behavior"
+primary = "workflow"
+workflow = "public-site-trial"
+tests = [
+    "test_app.py::test_wf_public_site_trial_happy",
+    "test_app.py::test_wf_public_site_trial_form_errors",
+    "test_app.py::test_wf_public_site_trial_billing_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Sign-in and sessions"
+text = "Members sign in with email and password into a session cookie, agents authenticate with bearer tokens, and every non-public API route gives the unauthenticated answer from API without a valid credential."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site-trial"
+tests = [
+    "test_app.py::test_sessions_and_credentials",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Server-decided trial end"
+text = "A trial ends at the instant the server computes from the workspace's creation, as qualified in Business rules, and the workspace is then read-only until a paid plan starts."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site-trial"
+tests = [
+    "test_app.py::test_trial_end_short_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Invite and join"
+text = "An admin or billing manager invites a person by email, the invitation reaches the inbox, and the invitee joins with the chosen role and appears in the members list."
+kind = "behavior"
+primary = "workflow"
+workflow = "members-seats"
+tests = [
+    "test_app.py::test_wf_members_seats_invite_join",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Role permissions enforced by the server"
+text = "Every action in the permission table in Business rules is refused by the server with the forbidden answer for any caller the table does not allow, whatever the interface shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "members-seats"
+tests = [
+    "test_app.py::test_role_permissions_forbidden",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Seat accounting and the last seat"
+text = "Seats used counts members and open invitations and never exceeds seats purchased, and of several simultaneous invitations for the last seat exactly one succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "members-seats"
+tests = [
+    "test_app.py::test_last_seat_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Offboarding a member"
+text = "Removing a member ends their sessions at once, frees their seat and releases their object locks."
+kind = "behavior"
+primary = "pytest"
+workflow = "members-seats"
+tests = [
+    "test_app.py::test_offboarding",
+    "test_app.py::test_wf_members_seats_offboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Audit trail"
+text = "Every audited action writes exactly one attributed entry, and owners and admins can read the entries newest first."
+kind = "behavior"
+primary = "pytest"
+workflow = "members-seats"
+tests = [
+    "test_app.py::test_audit_trail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Workspace dashboard totals"
+text = "The dashboard shows seats used, seats purchased, scene counts and subscription state, computed only from the caller's own workspace."
+kind = "behavior"
+primary = "pytest"
+workflow = "members-seats"
+tests = [
+    "test_app.py::test_dashboard_totals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Agent token lifecycle"
+text = "Admins issue agent tokens with a name, scope and expiry, see the secret once and revoke tokens; the server stops accepting a token at its expiry instant and emails a warning ahead of it, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "agent-access"
+tests = [
+    "test_app.py::test_agent_token_lifecycle",
+    "test_app.py::test_wf_agent_access_issue_revoke_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Agent scope limits"
+text = "An agent token can do only what its scope allows in the permission table, and an edit-scope token can never publish, change billing or seats, refund or issue tokens, however the request is shaped."
+kind = "behavior"
+primary = "pytest"
+workflow = "agent-access"
+tests = [
+    "test_app.py::test_agent_scope_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Agent batch session"
+text = "An edit-scope agent reads a scene graph, applies a batch of operations and sets a named camera view, and an editor with the scene open sees the result credited to the agent within the realtime delay."
+kind = "behavior"
+primary = "workflow"
+workflow = "agent-access"
+tests = [
+    "test_app.py::test_wf_agent_access_batch_session",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Scene library and search"
+text = "Members list, create and search scenes and assets, and search returns only results from the searcher's own workspace."
+kind = "behavior"
+primary = "pytest"
+workflow = "scene-authoring"
+tests = [
+    "test_app.py::test_scene_library_and_search",
+    "test_app.py::test_wf_scene_authoring_new_scene_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Scene graph operations"
+text = "Every scene change is an operation from the operation table in API, validated, applied all-or-nothing per batch, and stored with its inverse."
+kind = "behavior"
+primary = "pytest"
+workflow = "scene-authoring"
+tests = [
+    "test_app.py::test_op_inverses_roundtrip",
+    "test_app.py::test_op_validation_atomic",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "States, transitions and camera views"
+text = "Editors and agents define named states with per-object overrides, hover, click and scroll transitions between states, and named camera views, and the editor previews each state."
+kind = "behavior"
+primary = "pytest"
+workflow = "scene-authoring"
+tests = [
+    "test_app.py::test_states_transitions_camera_views",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Build a scene in the editor"
+text = "An editor opens a scene in the three-column editor, selects objects in the hierarchy, changes transforms and material layers in the inspector, and sees each change in the viewport and on the timeline."
+kind = "behavior"
+primary = "workflow"
+workflow = "scene-authoring"
+tests = [
+    "test_app.py::test_wf_scene_authoring_build",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Keyboard-complete editing"
+text = "Every core editing job works from the keyboard alone, using the keys listed in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "scene-authoring"
+tests = [
+    "test_app.py::test_keyboard_editing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "One holder per object lock"
+text = "Each object has at most one lock holder, exactly one of several simultaneous claims wins, and a change from a non-holder is rejected with the lock conflict answer and never merged."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-locks"
+tests = [
+    "test_app.py::test_lock_single_winner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Live presence and lock indicators"
+text = "Every open editor shows who is in the scene, what each person or agent has selected, and which objects are locked and by whom, within the realtime delay."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-locks"
+tests = [
+    "test_app.py::test_wf_object_locks_presence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Pending transforms that roll back"
+text = "An inspector change shows at once and is marked pending, and when the server rejects it the value visibly returns to the server's value with an announced reason."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-locks"
+tests = [
+    "test_app.py::test_pending_rollback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Two editors and a takeover"
+text = "When an editor tries to change an object the editor already shows as held by another author, a takeover prompt appears; confirming it moves the lock to them, applies the change and tells the previous holder."
+kind = "behavior"
+primary = "workflow"
+workflow = "object-locks"
+tests = [
+    "test_app.py::test_wf_object_locks_takeover",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Attributed operation log"
+text = "The operation log lists every operation in order with its author (person or agent), its server time and its inverse, and never shows author emails."
+kind = "behavior"
+primary = "pytest"
+workflow = "op-log-rewind"
+tests = [
+    "test_app.py::test_operation_log_attribution",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Per-author undo and redo"
+text = "Undo and redo act only on the caller's own batches, by appending stored inverse operations, and work the same for people and agent tokens."
+kind = "behavior"
+primary = "pytest"
+workflow = "op-log-rewind"
+tests = [
+    "test_app.py::test_per_author_undo_redo",
+    "test_app.py::test_wf_op_log_rewind_undo_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Graph replay and hash"
+text = "The server replays operations 0 to N into a scene graph and its hash, and the viewport exposes the hash of the graph it renders, which matches the server's."
+kind = "behavior"
+primary = "pytest"
+workflow = "op-log-rewind"
+tests = [
+    "test_app.py::test_graph_replay_hash",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Op-log rewind timeline"
+text = "Dragging or stepping the timeline playhead re-renders the scene as of that operation, outlines changed objects, counts inspector values, fades later ticks and announces the operation, in the order and timing given in Motion and effects."
+kind = "visual"
+primary = "pytest"
+workflow = "op-log-rewind"
+tests = [
+    "test_app.py::test_rewind_timeline",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Rewind with reduced motion"
+text = "When reduced motion is requested, the playhead jumps, values switch instantly and a plain-text list of changes replaces the highlight animation."
+kind = "visual"
+primary = "pytest"
+workflow = "op-log-rewind"
+tests = [
+    "test_app.py::test_rewind_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Rewind and restore"
+text = "An editor rewinds to a past operation and restores it as new operations; the scene's current hash then equals the hash at that past operation and earlier history is unchanged."
+kind = "behavior"
+primary = "workflow"
+workflow = "op-log-rewind"
+tests = [
+    "test_app.py::test_wf_op_log_rewind_restore",
+    "test_app.py::test_restore_lock_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Upload a model and texture"
+text = "An editor uploads a binary glTF model and a texture, sees both in the asset list, and adds the model to the scene as a mesh."
+kind = "behavior"
+primary = "workflow"
+workflow = "asset-uploads"
+tests = [
+    "test_app.py::test_wf_asset_uploads_model_texture",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Upload content and size checks"
+text = "Uploads are judged by their actual bytes against the type and size rules in Business rules, and a rejected file never reaches the object store."
+kind = "behavior"
+primary = "pytest"
+workflow = "asset-uploads"
+tests = [
+    "test_app.py::test_upload_checks",
+]
+criteria = []
+parameter_cases = [
+    "model_ok",
+    "model_upper_ext",
+    "model_at_limit",
+    "model_over_limit",
+    "texture_png_ok",
+    "texture_jpeg_ok",
+    "texture_at_limit",
+    "texture_over_limit",
+    "glb_wrong_length",
+    "glb_wrong_version",
+    "model_wrong_ext",
+    "png_as_model",
+    "svg_texture",
+    "png_named_jpg",
+    "glb_named_png",
+    "traversal_name",
+    "backslash_name",
+    "long_name",
+    "texture_too_wide",
+    "name_before_size",
+    "size_before_type",
+    "unknown_kind",
+]
+
+[[requirements]]
+id = "DP-31"
+title = "File storage outage"
+text = "While the object store is unreachable, including at start, uploads, versions and exports give the storage outage answer, editing keeps working and a notice names file storage."
+kind = "behavior"
+primary = "pytest"
+workflow = "asset-uploads"
+tests = [
+    "test_app.py::test_wf_asset_uploads_storage_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Comments pinned to objects"
+text = "Members post comment threads pinned to an object, see the pin in the viewport and resolve threads, and comments reach every open editor within the realtime delay."
+kind = "behavior"
+primary = "pytest"
+workflow = "comments-review"
+tests = [
+    "test_app.py::test_wf_comments_review_live_comments",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Mention picker"
+text = "Typing @ in a comment offers only active members of the scene's own workspace."
+kind = "behavior"
+primary = "pytest"
+workflow = "comments-review"
+tests = [
+    "test_app.py::test_mention_picker",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Foreign IDs answer not found"
+text = "An ID belonging to another workspace, anywhere in a path or a request body, gets the same not-found answer as an ID that never existed."
+kind = "behavior"
+primary = "pytest"
+workflow = "comments-review"
+tests = [
+    "test_app.py::test_foreign_ids_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Review and approve a version"
+text = "An editor saves a version and submits it for review, and a viewer reviews its states, comments on objects and approves it."
+kind = "behavior"
+primary = "workflow"
+workflow = "comments-review"
+tests = [
+    "test_app.py::test_wf_comments_review_approve",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Draft review links"
+text = "Editors create unguessable, read-only review links for one unpublished version, and a link stops working when revoked, regenerated, expired, turned off by the owner or once the version is published, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-links"
+tests = [
+    "test_app.py::test_review_links_lifecycle",
+    "test_app.py::test_wf_review_links_settings_off",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Outside reviewer journey"
+text = "A person outside the workspace opens a review link without signing in, orbits the scene and switches its states, and sees no comments, operation log or author details."
+kind = "behavior"
+primary = "workflow"
+workflow = "review-links"
+tests = [
+    "test_app.py::test_wf_review_links_outside_reviewer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Version lifecycle"
+text = "Scene versions move only along the legal transitions in Business rules, and any other move is rejected with the transition conflict answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "scheduled-publish"
+tests = [
+    "test_app.py::test_version_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Scheduled publish on the server clock"
+text = "An approved, scheduled version goes live by the server's clock, never early and within the delay set in Business rules, and the confirmation and publish-notice emails are sent."
+kind = "behavior"
+primary = "pytest"
+workflow = "scheduled-publish"
+tests = [
+    "test_app.py::test_scheduled_publish_server_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Published embed"
+text = "The public embed page renders the scene's published version in 3D, runs its hover, click and scroll transitions, turns slowly when idle, and falls back to a still image when WebGL is unavailable."
+kind = "behavior"
+primary = "pytest"
+workflow = "scheduled-publish"
+tests = [
+    "test_app.py::test_embed_renders_and_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Published copies carry only published data"
+text = "The embed, the export bundle and the publish-notice email contain only the published version's geometry, materials, states and asset files, never comments, later states, author details or the operation log."
+kind = "behavior"
+primary = "pytest"
+workflow = "scheduled-publish"
+tests = [
+    "test_app.py::test_published_copies_only_published_data",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Schedule a launch"
+text = "An editor schedules an approved version in the workspace time zone, sees it go live, opens the embed and downloads the export bundle."
+kind = "behavior"
+primary = "workflow"
+workflow = "scheduled-publish"
+tests = [
+    "test_app.py::test_wf_scheduled_publish_launch",
+    "test_app.py::test_wf_scheduled_publish_billing_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Checkout from trial"
+text = "A billing manager picks a plan, a period and extra seats, pays by card, and sees the active plan, the paid invoice and the receipt."
+kind = "behavior"
+primary = "workflow"
+workflow = "checkout-plans"
+tests = [
+    "test_app.py::test_wf_checkout_plans_checkout",
+    "test_app.py::test_wf_checkout_plans_declined",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Idempotent billing requests"
+text = "Billing requests carry an idempotency key; a replay returns the original answer and a reused key with a different body is refused, so each key produces at most one charge, one invoice and one receipt."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-plans"
+tests = [
+    "test_app.py::test_billing_idempotency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Plan changes with gateway proration"
+text = "Upgrades take effect immediately and charge the prorated amount from the gateway's invoice, downgrades take effect at the end of the term, and a preview shows the gateway's amount beforehand."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-plans"
+tests = [
+    "test_app.py::test_plan_change_proration",
+    "test_app.py::test_wf_checkout_plans_upgrade_preview",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Seat purchases"
+text = "Billing managers add seats immediately with a prorated charge and remove seats at the end of the term, never below seats used."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-plans"
+tests = [
+    "test_app.py::test_seat_purchases",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Billing outage"
+text = "While the billing gateway is unreachable, including at start, billing actions give the billing outage answer and nothing is charged, while editing and publishing keep working."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-plans"
+tests = [
+    "test_app.py::test_billing_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "All-or-nothing invoice payment"
+text = "Paying an invoice records the gateway payment, stores the invoice document and emails the receipt all together or not at all."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoices-payments"
+tests = [
+    "test_app.py::test_payment_all_or_nothing",
+    "test_app.py::test_wf_invoices_payments_storage_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Gateway webhook ledger"
+text = "Signed payment events from the gateway are processed once per event ID, and a replayed event changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoices-payments"
+tests = [
+    "test_app.py::test_webhook_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Refunds"
+text = "Owners and billing managers refund all or part of a payment; the refund is recorded in the gateway and confirmed by email."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoices-payments"
+tests = [
+    "test_app.py::test_refunds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Pay an invoice"
+text = "A billing manager opens the invoices table, pays an unpaid invoice, downloads its document and finds the receipt in the inbox."
+kind = "behavior"
+primary = "workflow"
+workflow = "invoices-payments"
+tests = [
+    "test_app.py::test_wf_invoices_payments_pay_invoice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Dunning notices and grace period"
+text = "A failed payment makes the subscription past due, sends notices at each grace-period step, and suspends publishing when the grace period ends, all by the server's clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "dunning"
+tests = [
+    "test_app.py::test_dunning_short_clock",
+    "test_app.py::test_failed_payment_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Suspended and cancelled workspaces"
+text = "A suspended or cancelled workspace is read-only for scene work while billing, sign-in and offboarding keep working, and cancellation is final."
+kind = "behavior"
+primary = "pytest"
+workflow = "dunning"
+tests = [
+    "test_app.py::test_suspended_cancelled_read_only",
+    "test_app.py::test_wf_dunning_cancel_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Recover from a failed payment"
+text = "A billing manager sees the past-due notice and pays the overdue invoice, and the workspace returns to active with publishing restored."
+kind = "behavior"
+primary = "workflow"
+workflow = "dunning"
+tests = [
+    "test_app.py::test_wf_dunning_recover",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from its run manifest on the stated port and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Server boundary"
+text = "The server accepts state changes only from its own origin, enforces body limits, never serves source or credentials, and starts while dependencies are down and connects to each once it first becomes reachable, as qualified in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Real wiring from the environment"
+text = "Service URLs and credentials come only from the environment, every provider effect is a real call to that provider, and the viewport, review page and embed draw the actual scene graph with WebGL."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Responsive layout"
+text = "Every screen works without horizontal scrolling at 375 by 812, 768 by 1024 and 1280 by 800, using the arrangements in Screens and layout."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_responsive",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-59"
+title = "Interface motion and feedback"
+text = "Hover, press, focus, panel and dialog feedback follow the timings and reduced-motion rules in Motion and effects, with no unnamed decorative loops."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_interface_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Visual identity"
+text = "The product looks like a drafting table: a warm paper ground, ink text, cobalt actions, vermilion alerts, a faint ruled grid, the stated typefaces and tabular figures."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\", and nothing else is needed to start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package with its version and licence; shipped packages means the production dependency tree reported by npm ls --omit=dev --all --json; it also lists every bundled font and asset."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and bundled font or asset is licensed under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, OFL-1.1 or CC0-1.0."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in the five provided services; no SQLite, Redis, embedded database, or files on disk used as a datastore."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and seeded service credentials stay unmodified."
+tests = [
+    "test_app.py::test_if_service_config",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Fonts, scripts, styles and 3D libraries are served from the app's own origin, and no page loads anything from a third-party host at runtime."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Server and browser source is TypeScript with strict mode on, and package-lock.json is committed."
+tests = [
+    "test_app.py::test_if_typescript_strict",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "public-site-trial"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_public_site_trial_happy",
+    "test_app.py::test_wf_public_site_trial_billing_down",
+    "test_app.py::test_trial_end_short_clock",
+]
+checkpoints = [
+    "B1",
+    "B3",
+]
+
+[[workflows]]
+id = "members-seats"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_members_seats_invite_join",
+    "test_app.py::test_wf_members_seats_offboard",
+    "test_app.py::test_last_seat_race",
+    "test_app.py::test_role_permissions_forbidden",
+    "test_app.py::test_dashboard_totals",
+    "test_app.py::test_offboarding",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "agent-access"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_agent_access_batch_session",
+    "test_app.py::test_agent_scope_limits",
+    "test_app.py::test_agent_token_lifecycle",
+]
+
+[[workflows]]
+id = "scene-authoring"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_scene_authoring_build",
+    "test_app.py::test_keyboard_editing",
+    "test_app.py::test_scene_library_and_search",
+    "test_app.py::test_op_validation_atomic",
+]
+checkpoints = [
+    "B6",
+    "B7",
+]
+critical_checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "object-locks"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_object_locks_takeover",
+    "test_app.py::test_lock_single_winner",
+    "test_app.py::test_pending_rollback",
+]
+
+[[workflows]]
+id = "op-log-rewind"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_op_log_rewind_restore",
+    "test_app.py::test_rewind_timeline",
+    "test_app.py::test_restore_lock_race",
+    "test_app.py::test_per_author_undo_redo",
+]
+checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "asset-uploads"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_asset_uploads_model_texture",
+    "test_app.py::test_wf_asset_uploads_storage_down",
+    "test_app.py::test_upload_checks",
+]
+
+[[workflows]]
+id = "comments-review"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_comments_review_approve",
+    "test_app.py::test_foreign_ids_not_found",
+    "test_app.py::test_mention_picker",
+]
+
+[[workflows]]
+id = "review-links"
+requirements = [
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_review_links_outside_reviewer",
+    "test_app.py::test_review_links_lifecycle",
+]
+
+[[workflows]]
+id = "scheduled-publish"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_scheduled_publish_launch",
+    "test_app.py::test_wf_scheduled_publish_billing_down",
+    "test_app.py::test_scheduled_publish_server_clock",
+    "test_app.py::test_published_copies_only_published_data",
+    "test_app.py::test_version_lifecycle",
+]
+
+[[workflows]]
+id = "checkout-plans"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_checkout_plans_checkout",
+    "test_app.py::test_billing_idempotency",
+    "test_app.py::test_billing_outage",
+    "test_app.py::test_plan_change_proration",
+]
+
+[[workflows]]
+id = "invoices-payments"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_invoices_payments_pay_invoice",
+    "test_app.py::test_wf_invoices_payments_storage_down",
+    "test_app.py::test_payment_all_or_nothing",
+    "test_app.py::test_webhook_ledger",
+]
+
+[[workflows]]
+id = "dunning"
+requirements = [
+    "DP-52",
+    "DP-53",
+    "DP-54",
+]
+critical = [
+    "test_app.py::test_wf_dunning_recover",
+    "test_app.py::test_dunning_short_clock",
+    "test_app.py::test_failed_payment_replay",
+    "test_app.py::test_suspended_cancelled_read_only",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_health",
+    "test_app.py::test_wf_cross_cutting_responsive",
+]

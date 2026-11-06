@@ -1,0 +1,114 @@
+{% extends "base_console.html" %}
+{% block main %}
+<header class="console-head">
+  <h1>Databases</h1>
+</header>
+
+{% if member.role == 'owner' %}
+<div class="panel import-panel">
+  <button type="button" class="capsule" id="import-toggle" aria-expanded="false"
+          aria-controls="import-row">Import database</button>
+  <form method="post" action="/console" class="inline-form" id="import-row"
+        data-panel="import" {% if not open_import %}hidden{% endif %}>
+    <input type="hidden" name="action" value="import-database">
+    <input type="hidden" name="nonce" value="{{ nonce }}">
+    <div class="field">
+      <label for="import-document">Export document</label>
+      <textarea id="import-document" name="document" rows="4"
+                aria-describedby="import-document-error">{{ values.document }}</textarea>
+      <p class="field-error" id="import-document-error" {% if not errors.document %}hidden{% endif %}>{{ errors.document }}</p>
+    </div>
+    <div class="field">
+      <label for="import-name">New name</label>
+      <input type="text" id="import-name" name="name" value="{{ values.import_name }}"
+             aria-describedby="import-name-error">
+      <p class="field-error" id="import-name-error" {% if not errors.import_name %}hidden{% endif %}>{{ errors.import_name }}</p>
+    </div>
+    <button type="submit" class="capsule capsule-primary" data-waiting="Importing...">Import</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="table-wrap" data-poll="{{ 'provisioning' if provisioning else '' }}">
+  <table class="data-table" id="databases-table">
+    <caption class="visually-hidden">Databases of {{ member.organization }}</caption>
+    <thead>
+      <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Status</th>
+        <th scope="col">Collections</th>
+        <th scope="col">Sources</th>
+        <th scope="col">Pending log entries</th>
+        <th scope="col">Index generation</th>
+        <th scope="col">Created</th>
+        {% if member.role == 'owner' %}<th scope="col">Actions</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% if member.role == 'owner' %}
+      <tr class="create-row">
+        <td colspan="{{ 8 if member.role == 'owner' else 7 }}">
+          <form method="post" action="/console" class="inline-form create-form">
+            <input type="hidden" name="action" value="create-database">
+            <input type="hidden" name="nonce" value="{{ nonce }}">
+            <div class="field">
+              <label for="create-name">Name</label>
+              <input type="text" id="create-name" name="name" value="{{ values.name }}"
+                     aria-describedby="create-name-help create-name-error">
+              <p class="field-help" id="create-name-help">Lowercase letters, digits and underscores; 3 to 32 characters; starts with a letter</p>
+              <p class="field-error" id="create-name-error" {% if not errors.name %}hidden{% endif %}>{{ errors.name }}</p>
+            </div>
+            <button type="submit" class="capsule capsule-primary" data-waiting="Creating...">Create</button>
+          </form>
+        </td>
+      </tr>
+      {% endif %}
+      {% for row in databases %}
+      <tr class="database-row{% if row.flash %} row-flash{% endif %}">
+        <td data-label="Name"><a href="/console/db/{{ row.name }}">{{ row.name }}</a></td>
+        <td data-label="Status">
+          {% if row.status == 'provisioning' %}
+          <span class="badge badge-provisioning">provisioning</span>
+          {% else %}
+          <span class="badge badge-ready">ready</span>
+          {% endif %}
+        </td>
+        <td data-label="Collections">{{ count(row.collections) }}</td>
+        <td data-label="Sources">{{ count(row.sources) }}</td>
+        <td data-label="Pending log entries">{{ count(row.wal_pending) }}</td>
+        <td data-label="Index generation">{{ count(row.index_generation) }}</td>
+        <td data-label="Created"><time>{{ row.created_at }}</time></td>
+        {% if member.role == 'owner' %}
+        <td data-label="Actions">
+          <button type="button" class="capsule delete-database" data-name="{{ row.name }}">Delete</button>
+        </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+      {% if not databases %}
+      <tr><td colspan="{{ 8 if member.role == 'owner' else 7 }}" class="empty-state">No databases yet</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+{% if member.role == 'owner' %}
+<div class="dialog-backdrop" id="delete-dialog" hidden>
+  <div class="dialog panel" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title">
+    <h2 id="delete-dialog-title">Delete database <span id="delete-dialog-name"></span></h2>
+    <form method="post" action="/console" id="delete-dialog-form">
+      <input type="hidden" name="action" value="delete-database">
+      <input type="hidden" name="name" id="delete-dialog-target" value="">
+      <div class="field">
+        <label for="delete-confirm">Type the database name to confirm</label>
+        <input type="text" id="delete-confirm" name="confirm" value="" autocomplete="off">
+      </div>
+      <div class="dialog-actions">
+        <button type="submit" class="capsule capsule-primary" id="delete-dialog-submit" disabled>Delete database</button>
+        <button type="button" class="capsule" id="delete-dialog-cancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

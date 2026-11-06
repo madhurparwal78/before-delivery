@@ -1,0 +1,93 @@
+{%- from "macros.njk" import icon, label, field_error, err_attrs, stop_card -%}
+{%- set FIELDS = [['address', 'Address', 'street-address'], ['city', 'City', 'address-level2'], ['region', 'State or Province', 'address-level1'], ['postal_code', 'Postal Code', 'postal-code'], ['country', 'Country', 'country-name']] -%}
+{%- set action = ['/requests/new', '/requests/new/stops', '/requests/new/review'][step - 1] -%}
+<form id="step-form" class="form step-form step-{{ step }}" novalidate hx-post="{{ action }}" hx-target="this" data-busy-form
+      data-typed="{{ 'true' if draft.tour_name or draft.transport_type or draft.trucks_requested else 'false' }}">
+{% if step == 1 %}
+  <div class="field">
+    <label for="tour_name">Tour name</label>
+    <input id="tour_name" name="tour_name" type="text" maxlength="200" autocomplete="off" value="{{ draft.tour_name }}"{{ err_attrs(errors, 'tour_name', 'tour_name') }}>
+    {{ field_error(errors, 'tour_name', 'tour_name') }}
+  </div>
+  <fieldset class="field radio-group"{% if errors.transport_type %} aria-describedby="transport_type-error"{% endif %}>
+    <legend>Type of transportation</legend>
+    <div class="radio-row">
+      {% for value, word in LABELS.type %}
+      <label class="radio">
+        <input type="radio" name="transport_type" value="{{ value }}"{% if draft.transport_type == value %} checked{% endif %}>
+        <span class="radio-check">{{ icon('check') }}</span>
+        <span class="radio-label">{{ word }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    {{ field_error(errors, 'transport_type', 'transport_type') }}
+  </fieldset>
+  <div class="field field-narrow">
+    <label for="trucks_requested">Number of trucks</label>
+    <div class="stepper">
+      <button type="button" class="btn btn-icon" data-step="-1" aria-label="One truck fewer" aria-controls="trucks_requested">{{ icon('minus') }}</button>
+      <input id="trucks_requested" name="trucks_requested" type="number" inputmode="numeric" min="1" max="8" step="1" value="{{ draft.trucks_requested }}" aria-describedby="trucks_requested-hint{% if errors.trucks_requested %} trucks_requested-error{% endif %}"{% if errors.trucks_requested %} aria-invalid="true"{% endif %}>
+      <button type="button" class="btn btn-icon" data-step="1" aria-label="One truck more" aria-controls="trucks_requested">{{ icon('plus') }}</button>
+    </div>
+    <p class="hint" id="trucks_requested-hint">From 1 to 8 trucks.</p>
+    {{ field_error(errors, 'trucks_requested', 'trucks_requested') }}
+  </div>
+{% elif step == 2 %}
+  <div class="stop-grid">
+  {% for kind, legend in LABELS.stop %}
+    {% set s = draft.stops[kind] %}
+    <fieldset class="stop-fieldset">
+      <legend><span class="stop-index" aria-hidden="true">( {{ loop.index }} )</span> {{ legend }}</legend>
+      {% set key = 'stops.' + kind + '.date' %}{% set fid = kind + '-date' %}
+      <div class="field">
+        <label for="{{ fid }}">Date <span class="optional">(optional)</span></label>
+        <input id="{{ fid }}" name="{{ kind }}.date" type="text" inputmode="numeric" autocomplete="off" maxlength="10" value="{{ s.date }}" aria-describedby="{{ fid }}-hint{% if errors[key] %} {{ fid }}-error{% endif %}"{% if errors[key] %} aria-invalid="true"{% endif %}>
+        <p class="hint" id="{{ fid }}-hint">YYYY-MM-DD</p>
+        {{ field_error(errors, key, fid) }}
+      </div>
+      {% for f in FIELDS %}
+        {% set key = 'stops.' + kind + '.' + f[0] %}{% set fid = kind + '-' + f[0] %}
+        <div class="field">
+          <label for="{{ fid }}">{{ f[1] }}</label>
+          <input id="{{ fid }}" name="{{ kind }}.{{ f[0] }}" type="text" maxlength="200" autocomplete="section-{{ kind }} {{ f[2] }}" value="{{ s[f[0]] }}"{{ err_attrs(errors, key, fid) }}>
+          {{ field_error(errors, key, fid) }}
+        </div>
+      {% endfor %}
+    </fieldset>
+  {% endfor %}
+  </div>
+{% else %}
+  <input type="hidden" name="draft_id" value="{{ draft.draft_id }}">
+  {% for key in ['tour_name', 'transport_type', 'trucks_requested'] %}<input type="hidden" name="{{ key }}" value="{{ draft[key] }}">{% endfor %}
+  {% for kind, s in draft.stops %}{% for name, value in s %}<input type="hidden" name="{{ kind }}.{{ name }}" value="{{ value }}">{% endfor %}{% endfor %}
+  <section class="review-block" aria-labelledby="review-tour">
+    <h2 id="review-tour" class="section-title">Tour details</h2>
+    <dl class="facts">
+      <div><dt>Tour name</dt><dd class="wrap">{{ draft.tour_name }}</dd></div>
+      <div><dt>Type of transportation</dt><dd>{{ LABELS.type[draft.transport_type] }}</dd></div>
+      <div><dt>Number of trucks</dt><dd>{{ draft.trucks_requested }}</dd></div>
+    </dl>
+  </section>
+  <section class="review-block" aria-labelledby="review-stops">
+    <h2 id="review-stops" class="section-title">Stops</h2>
+    <ol class="stop-cards">
+    {% for kind, legend in LABELS.stop %}{{ stop_card(loop.index, kind, draft.stops[kind]) }}{% endfor %}
+    </ol>
+  </section>
+  <div class="field">
+    <label for="notes">Notes <span class="optional">(optional)</span></label>
+    <textarea id="notes" name="notes" rows="4" maxlength="600" aria-describedby="notes-hint{% if errors.notes %} notes-error{% endif %}"{% if errors.notes %} aria-invalid="true"{% endif %}>{{ draft.notes }}</textarea>
+    <p class="hint" id="notes-hint">Up to 500 characters, such as load-in times or dock access.</p>
+    {{ field_error(errors, 'notes', 'notes') }}
+  </div>
+{% endif %}
+  <div class="actions">
+    {% if step > 1 %}<button type="button" class="btn btn-secondary" hx-post="{{ action }}" hx-vals='{"action": "back"}' hx-swap="none">{{ label('Back') }}</button>{% endif %}
+    {% if step < 3 %}
+    <button type="submit" class="btn btn-primary" name="action" value="next">{{ label('Next') }}{{ icon('arrow') }}</button>
+    {% else %}
+    <button type="submit" class="btn btn-primary" name="action" value="submit">{{ label('Submit request') }}{{ icon('arrow') }}</button>
+    {% endif %}
+    <button type="button" class="btn btn-secondary" data-cancel>{{ label('Cancel') }}</button>
+  </div>
+</form>

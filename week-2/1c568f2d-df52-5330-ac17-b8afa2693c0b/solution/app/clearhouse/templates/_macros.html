@@ -1,0 +1,69 @@
+{% macro icon(name, label=None) -%}
+<svg class="icon icon--{{ name }}" viewBox="0 0 24 24" {% if label %}role="img" aria-label="{{ label }}"{% else %}aria-hidden="true" focusable="false"{% endif %}><use href="#i-{{ name }}"></use></svg>
+{%- endmacro %}
+
+{% macro chip(state) -%}
+<span class="chip chip--{{ state }}">{{ state }}</span>
+{%- endmacro %}
+
+{% macro review_mark(result, waiting=False) -%}
+{% set m = mark(result, waiting) %}<span class="mark mark--{{ m.tone }}">{{ icon(m.icon) }}<span>{{ m.word }}</span></span>
+{%- endmacro %}
+
+{% macro art(o, w, h, label=True) -%}
+{% set t = tone(o.id) %}
+{% set k = [0.68 * w / o.mask_w, 0.6 * h / o.mask_h] | min %}
+{% set sw = o.mask_w * k %}{% set sh = o.mask_h * k %}
+<svg class="cut__art" {% if label %}role="img" aria-label="{{ o.title }}"{% else %}aria-hidden="true" focusable="false"{% endif %} width="{{ w }}" height="{{ h }}" viewBox="0 0 {{ w }} {{ h }}">
+  <rect width="{{ w }}" height="{{ h }}" rx="{{ ([w, h] | min * 0.12) | round(1) }}" fill="{{ t.fill }}"/>
+  <rect x="{{ ((w - sw) / 2) | round(1) }}" y="{{ ((h - sh) / 2) | round(1) }}" width="{{ sw | round(1) }}" height="{{ sh | round(1) }}" rx="{{ ([sw, sh] | min * o.mask_b / 50) | round(1) }}" fill="#ffffff" fill-opacity=".22" stroke="#ffffff" stroke-opacity=".5" stroke-width="1"/>
+</svg>
+{%- endmacro %}
+
+{% macro still(o, w, h) -%}
+{% set tiny = [w, h] | min < 80 %}
+<span class="cut cut--large{% if tiny %} cut--tiny{% endif %}" style="--w:{{ w }}px;--hh:{{ h }}px;">
+  {{ art(o, w, h) }}
+  {% if tiny %}<span class="cut__caption cut__caption--below" aria-hidden="true">{{ o.title }}</span>{% else %}<span class="cut__caption" style="color:{{ tone(o.id).ink }}" aria-hidden="true">{{ o.title }}</span>{% endif %}
+</span>
+{%- endmacro %}
+
+{% macro cutout(item) -%}
+{% set o = item.object %}{% set t = tone(o.id) %}
+{% if usable(o) %}
+{% set tiny = [item.w, item.h] | min < 56 %}
+<a class="cut{% if tiny %} cut--tiny{% endif %}" href="/catalogue/{{ o.id }}" aria-label="{{ o.title }}" data-object-id="{{ o.id }}" style="{{ item.style }}--w:{{ item.w }}px;--hh:{{ item.h }}px;">
+  {{ art(o, item.w, item.h) }}
+  <span class="cut__caption" style="color:{{ t.ink }}" aria-hidden="true">{{ o.title }}</span>
+  <span class="cut__strip" aria-hidden="true">{% if tiny %}<span class="cut__strip-title">{{ o.title }}</span>{% endif %}<span>{{ o.artist or "Not recorded" }}</span><span>{{ o.license }}</span></span>
+</a>
+{% else %}
+<span class="cut cut--blocked" role="img" aria-label="{{ o.title }}, licence not cleared for reuse" style="{{ item.style }}--w:{{ item.w }}px;--hh:{{ item.h }}px;">
+  {{ icon("lock") }}<span>Licence not cleared for reuse</span>
+</span>
+{% endif %}
+{%- endmacro %}
+
+{% macro board(layout) -%}
+<div class="board-wrap"><div class="board" style="{{ layout.style }}">
+  {% for item in layout["items"] %}{{ cutout(item) }}{% endfor %}
+</div></div>
+{%- endmacro %}
+
+{% macro cover(titles) -%}
+{% set n = [titles | length, 1] | max %}{% set span = (284 - (n - 1) * 12) / n %}
+<svg class="cover" aria-hidden="true" focusable="false" viewBox="0 0 320 150" preserveAspectRatio="xMidYMid slice">
+  <rect width="320" height="150" fill="#f3e6c8"/>
+  {% for o in titles %}{% set t = tone(o.id) %}{% set i = loop.index0 %}{% set x = 18 + i * (span + 12) %}{% set cx = x + span / 2 %}{% set words = o.title.split() %}
+  <clipPath id="tile-{{ o.id }}-{{ i }}"><rect x="{{ x | round(1) }}" y="22" width="{{ span | round(1) }}" height="106" rx="12"/></clipPath>
+  <rect x="{{ x | round(1) }}" y="{{ 22 + (i % 2) * 10 }}" width="{{ span | round(1) }}" height="{{ 106 - (i % 2) * 10 }}" rx="12" fill="{{ t.fill }}"/>
+  <text clip-path="url(#tile-{{ o.id }}-{{ i }})" x="{{ cx | round(1) }}" y="{{ 79 + (i % 2) * 5 - (words | length - 1) * 7 }}" text-anchor="middle" font-size="13" font-weight="600" fill="{{ t.ink }}">{% for word in words %}<tspan x="{{ cx | round(1) }}" dy="{{ 0 if loop.first else 15 }}">{{ word }}</tspan>{% endfor %}</text>
+  {% else %}
+  <text x="160" y="80" text-anchor="middle" font-size="13" fill="#5b6470">No cited objects</text>
+  {% endfor %}
+</svg>
+{%- endmacro %}
+
+{% macro empty(sentence, glyph="dash") -%}
+<div class="empty">{{ icon(glyph) }}<p>{{ sentence }}</p></div>
+{%- endmacro %}

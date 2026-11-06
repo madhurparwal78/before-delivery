@@ -1,0 +1,1319 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 56
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "desk-access",
+    "public-site",
+    "clients-and-jobs",
+    "script-breakdown",
+    "frame-uploads",
+    "board-editor",
+    "reel-timeline",
+    "on-screen-lines",
+    "music-cues",
+    "preview-renders",
+    "cuts-and-compare",
+    "review-page",
+    "notes",
+    "sign-off",
+    "calls",
+    "delivery-package",
+    "fee-letters",
+    "closing-a-client",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B14",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 98
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B14 = 3
+B3 = 3
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 5
+B10 = 3
+B11 = 5
+B12 = 5
+B13 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Noor Bakker Boards <desk@noorbakkerboards.example>"
+
+[[services]]
+name = "gotenberg"
+
+[services.env]
+
+[[services]]
+name = "wiremock"
+
+[services.env]
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_storage"
+S3_BUCKET = "${S3_BUCKET}-storage"
+CLOSURE_WAIT_SECONDS = "5"
+
+[[outages]]
+id = "gotenberg-down"
+port = 4175
+url_env = "APP_GOTENBERG_DOWN_URL"
+
+[outages.env]
+GOTENBERG_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_render"
+S3_BUCKET = "${S3_BUCKET}-render"
+
+[[outages]]
+id = "short-timers"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+REVIEW_PAGE_SECONDS = "20"
+SIGN_OFF_PAGE_SECONDS = "20"
+FEE_PAGE_SECONDS = "20"
+REMINDER_AFTER_SECONDS = "10"
+UNDO_SECONDS = "6"
+ENQUIRY_RATE_WINDOW_SECONDS = "30"
+REVIEW_LINK_RATE_WINDOW_SECONDS = "30"
+FILE_RATE_WINDOW_SECONDS = "30"
+CUE_CACHE_SECONDS = "10"
+CLOSURE_WAIT_SECONDS = "20"
+
+[[outages]]
+id = "short-session"
+port = 4177
+url_env = "APP_SESSION_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_session"
+S3_BUCKET = "${S3_BUCKET}-session"
+SESSION_SECONDS = "20"
+
+[[requirements]]
+id = "DP-01"
+title = "Starting a desk and signing in."
+text = "A new desk signs up; a wrong password gets 401 and the right one signs in; signing out gets 401 from the session endpoint; changing the password gets 401 on that person's other session and the new password signs in; and the browser's sign-in form lands on the published route with a live session and signs out."
+kind = "behavior"
+primary = "workflow"
+workflow = "desk-access"
+tests = [
+    "test_app.py::test_wf_desk_access_sign_in_journey",
+    "test_app.py::test_wf_desk_access_password_ends_other_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Keeping clients."
+text = "The artist creates, reads, renames and deletes a client, a deleted client answers 404 from then on, and a client of another desk answers 404 exactly like an unknown id in the same shape."
+kind = "behavior"
+primary = "workflow"
+workflow = "desk-access"
+tests = [
+    "test_app.py::test_wf_desk_access_client_lifecycle",
+    "test_app.py::test_wf_desk_access_other_desk_is_unknown",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Public site journey."
+text = "Each page's heading reveals line by line with one whole accessible name; routes change by the two-phase wipe with the old page inert, focus on the new heading and the new title, Back during a wipe ending on the newest address and Back restoring scroll, with no wipe under reduced motion; the reel filter is a radio group in the URL whose items move as the same elements, with the reel grid's columns as published on each side of 1100 px and at 768x1024 and 375x812; the client strip passes, pauses, stops and wraps as published; accordions open one at a time with the open one in the URL; city links land below the sticky header with focus on the heading; Copy address works with the clipboard allowed and refused; the header is solid from its published scroll depth, also straight after a reload; and its own screen and enquiry endpoint are checked for the earlier error of the ladder, whole-second instants and SR1 to SR24 with its accordion, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim and its precision rule (the enquiry limit and the width at which columns change), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_wf_public_site_wipe_and_heading",
+    "test_app.py::test_wf_public_site_reel_grid_and_strip",
+    "test_app.py::test_wf_public_site_accordion_city_copy",
+    "test_app.py::test_wf_public_site_enquiry_keyboard_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Enquiries."
+text = "An enquiry answers 202 with the published thanks and sends one mail to the artist, and the sixth enquiry in a window for one address given answers 429 with Retry-After."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_enquiry_mail_and_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Jobs list journey."
+text = "The artist filters and sorts Jobs, each committed change one history entry; pages by cursor; opens a job and presses Back to find the same filters, sort, page and scroll with focus on the link of the job just left; opens the row menu on the last row of a table scrolling in its frame uncut at 375 and 1280 with each item pressable where it shows; archives a job and finds focus on the level-one heading; searches after the published pause with the latest input winning; reads the Ad-ID refusals; and its own screen and job endpoint are checked for the earlier error of the ladder, whole-second instants, the session cookie's attributes and SR1 to SR24 with its row menu and Filters sheet, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim and its precision rule (the folding table and the Ad-ID shape), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "clients-and-jobs"
+tests = [
+    "test_app.py::test_wf_clients_and_jobs_filters_and_back",
+    "test_app.py::test_wf_clients_and_jobs_row_menu_archive",
+    "test_app.py::test_wf_clients_and_jobs_search_latest",
+    "test_app.py::test_wf_clients_and_jobs_screen_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Paging and desk boundaries of the Jobs list."
+text = "Pages hold at most 25 whatever limit asks for, the next-page cursor never repeats or skips a job while new ones arrive, and search, its totals and every list never name or count another desk's data."
+kind = "behavior"
+primary = "pytest"
+workflow = "clients-and-jobs"
+tests = [
+    "test_app.py::test_jobs_paging_cap_and_cursor",
+    "test_app.py::test_search_keeps_to_the_desk",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Script journey."
+text = "The artist brings in a script file with a byte order mark and CRLF, reads a preview of new, matched and refused rows with row numbers and reasons before anything is saved, and saves it with refused rows never blocking the others; at 375 the preview scrolls in its own focusable, named frame with Save in the bottom bar; and its own screen and save endpoint are checked for the earlier error of the ladder, whole-second instants, the session cookie's attributes and SR1 to SR24 with its file dialog-free form and Problems summary, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim and its precision rule (frames from seconds at each rate), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "script-breakdown"
+tests = [
+    "test_app.py::test_wf_script_breakdown_journey",
+    "test_app.py::test_wf_script_breakdown_refusals_and_rates",
+    "test_app.py::test_wf_script_breakdown_screen_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Script rows."
+text = "Rows match on shot, saving the same file twice changes nothing, quoted commas survive, script text is stored exactly as written, and a refused file's error body holds no call stack, SQL, path or library name."
+kind = "behavior"
+primary = "pytest"
+workflow = "script-breakdown"
+tests = [
+    "test_app.py::test_script_rows_match_and_stay_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Frame upload journey."
+text = "The artist uploads several files by the file field, each row going through its own states with a per-file Try again and one refused file never stopping the others; a 120-character file name with no spaces wraps; and its own screen and upload endpoint are checked for the earlier error of the ladder, whole-second instants, the session cookie's attributes and SR1 to SR24, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim on the MinIO-down copy and its precision rule (the size counted on the file alone), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "frame-uploads"
+tests = [
+    "test_app.py::test_wf_frame_uploads_journey",
+    "test_app.py::test_wf_frame_uploads_outage",
+    "test_app.py::test_wf_frame_uploads_screen_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Judging a frame file."
+text = "A file is judged by its own header bytes and by its width and height read on the server, is limited on the file alone as qualified in Business rules, answers 413 as JSON also with no session, is stored in MinIO byte for byte and shows Stored only after MinIO has confirmed."
+kind = "behavior"
+primary = "pytest"
+workflow = "frame-uploads"
+tests = [
+    "test_app.py::test_frame_files_are_judged",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Board editor journey."
+text = "The board is one composite with a single Tab stop for moving, extending, selecting all and clearing; Alt+Left, Alt+Right and the Move buttons keep focus on the moved frame's control, move the same elements and announce the move; the first frame's Move earlier stays focusable and aria-disabled; `Actions for frame <number>` opens uncut; a change arriving while the Edit dialog is open is refused on save with the dialog as typed; and its own screen and move endpoint are checked for the earlier error of the ladder, whole-second instants, the session cookie's attributes and SR1 to SR24 with its dialog and menu, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim and its precision rule (a fixed frame number apart from its position), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "board-editor"
+tests = [
+    "test_app.py::test_wf_board_editor_keyboard",
+    "test_app.py::test_wf_board_editor_stale_and_menu",
+    "test_app.py::test_wf_board_editor_screen_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "The Undo window."
+text = "Remove opens an Undo window the server ends; holding the Undo control keeps it working past UNDO_SECONDS, Undo restores the frame in its exact place with focus on it, a refresh in the window never brings the frame back, and with the page closed the server still removes it."
+kind = "behavior"
+primary = "pytest"
+workflow = "board-editor"
+tests = [
+    "test_app.py::test_undo_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Slate strip journey."
+text = "Every clip is 2 CSS pixels per frame with its published data attributes and the playhead's position matches the timecode; `[` and `]` trim by a frame, Shift by a nominal second and the target reads as published; Left, Right, Home, End and Space work in the single-Tab-stop composite; pausing shows the same timecode as data-position; scrubbing keeps working outside the strip until release; Enter grows the frame and Escape returns it with focus on the clip; the tip stays when the pointer moves onto it and closes on Escape without moving focus; at 375 the strip scrolls in its own frame, keeps the playhead's clip in view and the bottom bar holds Earlier, Play and Later; and its own screen and frame endpoint are checked for the earlier error of the ladder, whole-second instants, the session cookie's attributes and SR1 to SR24 with its large view and tip, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim and its precision rule (timecode and half-up seconds), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "reel-timeline"
+tests = [
+    "test_app.py::test_wf_reel_timeline_keyboard",
+    "test_app.py::test_wf_reel_timeline_touch_and_scrub",
+    "test_app.py::test_wf_reel_timeline_screen_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Timecode and length arithmetic."
+text = "Timecode, real seconds, target frames and frame rate conversion follow the exact arithmetic printed in Business rules at each of the three rates, including every worked example printed there."
+kind = "behavior"
+primary = "pytest"
+workflow = "reel-timeline"
+tests = [
+    "test_app.py::test_timecode_and_length_arithmetic",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Strip motion."
+text = "Trimming moves the later clips as the same elements, changing the frame rate moves clip widths, numerals and playhead together for their published times, a change mid-way carries on with no jump, a refresh with no new data starts no motion and replaces no element, and under reduced motion everything changes at once while playback still steps."
+kind = "behavior"
+primary = "pytest"
+workflow = "reel-timeline"
+tests = [
+    "test_app.py::test_strip_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "On-screen lines journey."
+text = "The artist places a line by arrow keys and by drag at 1280, switches market through a radio group in the URL with typed text kept unsaved until Save, and reads an Arabic line right aligned and right to left inside the Lines frame; and its own screen and line endpoint are checked for the earlier error of the ladder, whole-second instants, the session cookie's attributes and SR1 to SR24 with its form and Problems summary, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim and its precision rule (reading time), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "on-screen-lines"
+tests = [
+    "test_app.py::test_wf_on_screen_lines_journey",
+    "test_app.py::test_wf_on_screen_lines_refusals",
+    "test_app.py::test_wf_on_screen_lines_screen_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Line geometry and reading time."
+text = "A line outside the safe area and a line with too little reading time are refused with their published copy, each with its exact number, and spanning enough clips passes."
+kind = "behavior"
+primary = "pytest"
+workflow = "on-screen-lines"
+tests = [
+    "test_app.py::test_line_geometry_and_reading_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Music cue journey."
+text = "The Add cue dialog's combobox works with Up, Down and Enter, is a full-height sheet at 375, shows the latest input when an earlier search answers later and sends the cursor on `More results`, and a library failure shows the published copy with nothing changed; and its own screen and cue endpoint are checked for the earlier error of the ladder, whole-second instants, the session cookie's attributes and SR1 to SR24 with its dialog and list, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim and its precision rule (provider call count in the WireMock journal), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "music-cues"
+tests = [
+    "test_app.py::test_wf_music_cues_journey",
+    "test_app.py::test_wf_music_cues_library_failure",
+    "test_app.py::test_wf_music_cues_device_clock",
+    "test_app.py::test_wf_music_cues_screen_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Library prices and licence state."
+text = "A cue exists only after the library's 201 and keeps its fee, a price row of today applies to new licences while a row of tomorrow does not, earlier licences keep theirs, the same search text calls the library once within CUE_CACHE_SECONDS, and licence state arrives from the server whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "music-cues"
+tests = [
+    "test_app.py::test_library_prices_and_cache",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Preview film journey."
+text = "The artist asks for a film on a cut and reads its progress, Ready state and `Download film`; the busy, incomplete, unavailable and `Outdated` states show as published; and its own screen and render endpoint are checked for the earlier error of the ladder, whole-second instants, the session cookie's attributes and SR1 to SR24 with its dialog, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim also with a device clock hours wrong and its precision rule (provider call count in the WireMock journal), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "preview-renders"
+tests = [
+    "test_app.py::test_wf_preview_renders_journey",
+    "test_app.py::test_wf_preview_renders_rare_states",
+    "test_app.py::test_wf_preview_renders_screen_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Render service calls."
+text = "Asking sends the published body and repeat key header, the same cut and settings make no second POST while other settings make one, the server polls one render at most once per 5 seconds with no screen open and obeys Retry-After, and Ready shows only after size and SHA-256 match and MinIO has confirmed an object equal to the film."
+kind = "behavior"
+primary = "pytest"
+workflow = "preview-renders"
+tests = [
+    "test_app.py::test_render_service_calls",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Cuts and compare journey."
+text = "The artist makes numbered cuts, reads the difference list in its published order and moves the wipe slider by arrow keys with its value in the URL and aria-valuetext while the same elements reveal; at 375 one frame shows at a time with the wipe in the bottom bar; and its own screen and cut endpoint are checked for the earlier error of the ladder, whole-second instants, the session cookie's attributes and SR1 to SR24 with its row menu and dialogs, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim and its precision rule (frame differences by number), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "cuts-and-compare"
+tests = [
+    "test_app.py::test_wf_cuts_and_compare_journey",
+    "test_app.py::test_wf_cuts_and_compare_row_menu_refusals",
+    "test_app.py::test_wf_cuts_and_compare_screen_rules",
+    "test_app.py::test_wf_cuts_and_compare_differences",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Bringing a cut back and the job history."
+text = "Bringing an earlier cut back makes the board equal to it, frames included, while later cuts stay exactly as they were, and the job history lists who did what and when in order with no way to change it."
+kind = "behavior"
+primary = "pytest"
+workflow = "cuts-and-compare"
+tests = [
+    "test_app.py::test_bring_back_and_history",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Review page journey."
+text = "A producer works the page at 375x812 in each language with the matching `lang`, in Arabic `dir=\"rtl\"` with Left moving to the next step on the steps while on the film strip Left still moves earlier; from 768 px the Notes sheet comes from the left in Arabic and the right otherwise; every string of the copy table renders character for character; a tap places a pin and by keyboard the crosshair starts at the centre and moves in the direction pressed; the name is asked once; a draft survives a reload and with storage refused the page works and says its copy; pressing Send notes twice sends once; and its own screen and notes endpoint are checked for the earlier error of the ladder, whole-second instants and SR1 to SR24 with its Notes sheet, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim and its precision rule (the edge instant), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "review-page"
+tests = [
+    "test_app.py::test_wf_review_page_touch_journey",
+    "test_app.py::test_wf_review_page_copy_languages",
+    "test_app.py::test_wf_review_page_keyboard_and_rtl",
+    "test_app.py::test_wf_review_page_screen_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "What a private page reveals."
+text = "The review mail holds the private address and the due date in the producer's language with no fee and no other client's or producer's name, no private response holds a field beyond its published list, the private address gives no rights on any desk endpoint, and `Ask for a new link` answers the same for known and unknown addresses within its limit."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-page"
+tests = [
+    "test_app.py::test_private_page_reveals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Private page lifetime."
+text = "A review page ends at its published instant, a request at that instant finding it ended, a new address ends the old one, the artist's ending applies on the next request, an ended page answers 410 with its language's copy, and exactly one reminder goes out only if no note was sent."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-page"
+tests = [
+    "test_app.py::test_private_page_lifetime",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Suggested lengths."
+text = "A suggested length typed the local way is stored exactly and shows in frames at the job's rate, and the other language's form is refused with that language's number copy, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-page"
+tests = [
+    "test_app.py::test_suggested_lengths",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Notes journey."
+text = "A new note reaches the open Notes screen within the refresh in place with its published copy while an expanded row stays expanded; filters by state and producer live in the URL; a moved frame's note shows its new position and a removed frame shows its published copy; marking a note Done when the filter hides it moves focus to the level-one heading; and its own screen and note endpoint are checked for the earlier error of the ladder, whole-second instants, the session cookie's attributes and SR1 to SR24 with its Filters sheet and expanded row, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim and its precision rule (the note's local time in the producer's town), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "notes"
+tests = [
+    "test_app.py::test_wf_notes_arrival",
+    "test_app.py::test_wf_notes_filters_and_moves",
+    "test_app.py::test_wf_notes_screen_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Marking many notes."
+text = "The header checkbox is indeterminate for a partial selection, Shift+click selects a range, and `Mark <count> notes done` is all or none on the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "notes"
+tests = [
+    "test_app.py::test_marking_many_notes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Sign-off journey."
+text = "The producer gets a private sign-off page by mail in their language and signs off by typing their name, a wrong name is refused, and the artist's screen shows the sign-off within the refresh; and its own screen and sign endpoint are checked for the earlier error of the ladder, whole-second instants and SR1 to SR24, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim with the name and local time and its precision rule (the folding table on typed names and the edge instant), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "sign-off"
+tests = [
+    "test_app.py::test_wf_sign_off_journey",
+    "test_app.py::test_wf_sign_off_two_windows",
+    "test_app.py::test_wf_sign_off_screen_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Sign-off rules."
+text = "Signing a replaced cut answers 409 with its published copy, two presses from two windows sign off once with the second reading its published copy, the page ends at its instant with 410, and a signed-off cut refuses every change."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-off"
+tests = [
+    "test_app.py::test_sign_off_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Calls journey."
+text = "The artist books, moves and cancels a call and reads both times in the published form; an overlapping call shows its published copy with the dialog as typed; the week view is a grid with a roving Tab stop from 1100 px, a two-column agenda at 768x1024 and one column at 375x812; and its own screen and call endpoint are checked for the earlier error of the ladder, whole-second instants, the session cookie's attributes and SR1 to SR24 with its dialog, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim and its precision rule (local wall time across a clock change), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "calls"
+tests = [
+    "test_app.py::test_wf_calls_journey",
+    "test_app.py::test_wf_calls_layouts",
+    "test_app.py::test_wf_calls_screen_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Wall-clock calls."
+text = "A call keeps its local time on each side of the next clock change in New York or Amsterdam, a time the change skips is refused, one that happens twice takes the first, and two bookings of one slot give one winner."
+kind = "behavior"
+primary = "pytest"
+workflow = "calls"
+tests = [
+    "test_app.py::test_wall_clock_calls",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Calendar files."
+text = "Each call mails a calendar file with CRLF line ends, lines folded at 75 octets without splitting a character, escapes, UTC times with Z, the same UID with a higher SEQUENCE after a move, METHOD:REQUEST and METHOD:CANCEL after a cancel."
+kind = "behavior"
+primary = "pytest"
+workflow = "calls"
+tests = [
+    "test_app.py::test_calendar_files",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Delivery journey."
+text = "From a signed-off cut the artist makes the package and downloads its three files, Ready showing only as qualified in Services; and its own screen and package endpoint are checked for the earlier error of the ladder, whole-second instants, the session cookie's attributes and SR1 to SR24, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim with the cue name and date, and its precision rule (edit decision list columns and the shot list cell), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "delivery-package"
+tests = [
+    "test_app.py::test_wf_delivery_package_journey",
+    "test_app.py::test_wf_delivery_package_outages",
+    "test_app.py::test_wf_delivery_package_screen_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Delivery file formats."
+text = "The boards PDF has six frames a page with captions matching the screen, the edit decision list matches its published columns byte for byte at 29.97 and 25 with CRLF and folded ASCII, and the shot list quotes every field, ends lines with CRLF and prefixes the published leading characters with an apostrophe."
+kind = "behavior"
+primary = "pytest"
+workflow = "delivery-package"
+tests = [
+    "test_app.py::test_delivery_file_formats",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Package refusals and outages."
+text = "On the Gotenberg-down and MinIO-down copies the published copy shows and nothing is half-written, a cue whose licence has ended refuses the package, and the sixth download in a window answers 429 with its published copy, keyed on the desk."
+kind = "behavior"
+primary = "pytest"
+workflow = "delivery-package"
+tests = [
+    "test_app.py::test_package_refusals_and_download_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Fee letter journey."
+text = "The artist writes and sends a fee letter, and the producer reads and accepts it on a private fee page by typing their name, which locks the letter, with a letter changed meanwhile refused by its published copy; and its own screen and letter endpoint are checked for the earlier error of the ladder, whole-second instants, the session cookie's attributes and SR1 to SR24 with its form and Problems summary, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim and its precision rule (milestone cents and tax half up), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "fee-letters"
+tests = [
+    "test_app.py::test_wf_fee_letters_journey",
+    "test_app.py::test_wf_fee_letters_stale",
+    "test_app.py::test_wf_fee_letters_screen_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Fee letter arithmetic."
+text = "Milestones sum exactly to the fee, tax is half up on each milestone by the client's place, amounts print in their published form, extra body fields change nothing, and the PDF is kept only after Gotenberg has answered and MinIO has confirmed, with the same amounts in its text."
+kind = "behavior"
+primary = "pytest"
+workflow = "fee-letters"
+tests = [
+    "test_app.py::test_fee_letter_arithmetic",
+    "test_app.py::test_fee_letter_outages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Closing a client journey."
+text = "The artist closes a client from its screen, reads the wait and brings it back; and its own screen and close endpoint are checked for the earlier error of the ladder, whole-second instants, the session cookie's attributes and SR1 to SR24 with its dialog, a keyboard-only journey and a 375x812 touch journey with the per-action checks, its rare-state copy verbatim with `Erasing` on the MinIO-down copy, and its precision rule (the MinIO deletions behind `Erased` and the wait's edge instant), and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "closing-a-client"
+tests = [
+    "test_app.py::test_wf_closing_a_client_journey",
+    "test_app.py::test_wf_closing_a_client_erasing_outage",
+    "test_app.py::test_wf_closing_a_client_screen_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Bring back and erasure."
+text = "A client brought back within the wait returns exactly as it was, and after the wait its producers, frames, notes, letters and files are gone with the MinIO objects deleted, `Erased` showing only then and every address under it answering 404, private pages included."
+kind = "behavior"
+primary = "pytest"
+workflow = "closing-a-client"
+tests = [
+    "test_app.py::test_bring_back_and_erasure",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Starting data."
+text = "An untouched copy starts with exactly the published seed data and nothing else."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_seed_data",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Route sweep."
+text = "SR4, SR5, SR6, SR14, SR15 and SR16 hold on every signed-in screen and private page."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_route_sweep",
+]
+criteria = []
+parameter_cases = [
+    "jobs",
+    "clients",
+    "client",
+    "calls",
+    "board",
+    "script",
+    "reel",
+    "lines",
+    "cues",
+    "cuts",
+    "compare",
+    "notes",
+    "delivery",
+    "letter",
+    "review",
+    "signOff",
+    "fee",
+]
+
+[[requirements]]
+id = "DP-44"
+title = "Motion system."
+text = "Every motion is a browser-run transition or animation of exactly the published durations, never frames timed by script, playback steps excepted."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_system",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Landing routes and the Menu sheet."
+text = "Each create action with its own address lands there with its published heading, title and focus, and below 1100 px the Menu sheet is hidden and inert when closed."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_landing_routes_and_menu_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Foreign origins."
+text = "A state-changing request with a foreign Origin answers 403 and no response echoes a foreign Origin with credentials allowed."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_foreign_origins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "A session that ends mid-form."
+text = "The server answers 401 session_ended for that cookie, the open dialog stays as typed with the published copy announced, and signing in again returns to the same address with the draft kept."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_session_ends_mid_form",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "One API shape."
+text = "One key convention, one error shape, one precedence ladder and whole-second UTC instants hold on every endpoint, and only the published endpoints exist."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_one_api_shape",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Run manifest and health."
+text = "The app installs, builds and serves from its run manifest on the published port and answers the health path with the published JSON."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_run_manifest_and_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Copies start safely."
+text = "Several copies starting together each apply their schema and seed once on their own database and bucket, start with MinIO or Gotenberg down, and each deliver their own pending mail."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_copies_start_safely",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Credentials stay on the server."
+text = "Every service credential and address is read from its environment variable at start, is never hard-coded and never reaches the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "The striped card beside the room."
+text = "The home page shows the split hero as described in Visual design, with one enormous red slanted bar cropped by the viewport over a drawn frame, beside the grey printed card with its clapstick band."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B14",
+    "B3",
+    "B4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Working screens in one language."
+text = "Working screens carry the slanted motif on buttons and masks, banded table rows, the cropped-bar empty state and the red-bar error mark as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "The look of the Slate strip."
+text = "The strip appears as the one full black band of a job, with a slanted red playhead and steady tabular numerals as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B9",
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "The mirrored private page."
+text = "In Arabic the page's layout and slant mirror while the film strip, its playhead and every timecode stay left to right, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Procedural imagery only."
+text = "All imagery is generated or uploaded, with no video element, no codec and no stock image in the source."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with string `install`, `build`, `serve` and `\"_schema\":\"run-manifest-v1\"`."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` lists every shipped package and font with its licence, where shipped packages means the production dependency tree (`npm ls --omit=dev --all --json`)."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Shipped packages (`npm ls --omit=dev --all --json`) use only MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, CC0-1.0, Unlicense or, for fonts, OFL-1.1 licences."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "No datastore or broker is added beyond Postgres and MinIO, and the only other services are Mailpit, Gotenberg and WireMock."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The WireMock baseline and the service settings you were given stay untouched, and the app has no admin access to WireMock."
+tests = [
+    "test_app.py::test_if_wiremock_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The app is written in TypeScript and its source holds no video element, no codec and no stock image."
+tests = [
+    "test_app.py::test_if_typescript_and_no_video",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Libre Franklin and Source Serif 4 ship with the app, and no page loads anything from another origin."
+tests = [
+    "test_app.py::test_if_fonts_and_same_origin",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "desk-access"
+requirements = [
+    "DP-01",
+    "DP-02",
+]
+critical = [
+    "test_app.py::test_wf_desk_access_sign_in_journey",
+    "test_app.py::test_wf_desk_access_password_ends_other_sessions",
+    "test_app.py::test_wf_desk_access_client_lifecycle",
+    "test_app.py::test_wf_desk_access_other_desk_is_unknown",
+]
+
+[[workflows]]
+id = "public-site"
+requirements = [
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_public_site_wipe_and_heading",
+    "test_app.py::test_wf_public_site_reel_grid_and_strip",
+    "test_app.py::test_wf_public_site_accordion_city_copy",
+    "test_app.py::test_wf_public_site_enquiry_keyboard_touch",
+    "test_app.py::test_enquiry_mail_and_limit",
+]
+
+[[workflows]]
+id = "clients-and-jobs"
+requirements = [
+    "DP-05",
+    "DP-06",
+]
+critical = [
+    "test_app.py::test_wf_clients_and_jobs_filters_and_back",
+    "test_app.py::test_wf_clients_and_jobs_row_menu_archive",
+    "test_app.py::test_wf_clients_and_jobs_search_latest",
+    "test_app.py::test_wf_clients_and_jobs_screen_rules",
+    "test_app.py::test_jobs_paging_cap_and_cursor",
+    "test_app.py::test_search_keeps_to_the_desk",
+]
+
+[[workflows]]
+id = "script-breakdown"
+requirements = [
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_wf_script_breakdown_journey",
+    "test_app.py::test_wf_script_breakdown_refusals_and_rates",
+    "test_app.py::test_wf_script_breakdown_screen_rules",
+    "test_app.py::test_script_rows_match_and_stay_exact",
+]
+
+[[workflows]]
+id = "frame-uploads"
+requirements = [
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_frame_uploads_journey",
+    "test_app.py::test_wf_frame_uploads_outage",
+    "test_app.py::test_wf_frame_uploads_screen_rules",
+    "test_app.py::test_frame_files_are_judged",
+]
+
+[[workflows]]
+id = "board-editor"
+requirements = [
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_board_editor_keyboard",
+    "test_app.py::test_wf_board_editor_stale_and_menu",
+    "test_app.py::test_wf_board_editor_screen_rules",
+    "test_app.py::test_undo_window",
+]
+
+[[workflows]]
+id = "reel-timeline"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_reel_timeline_keyboard",
+    "test_app.py::test_wf_reel_timeline_touch_and_scrub",
+    "test_app.py::test_wf_reel_timeline_screen_rules",
+    "test_app.py::test_timecode_and_length_arithmetic",
+    "test_app.py::test_strip_motion",
+]
+
+[[workflows]]
+id = "on-screen-lines"
+requirements = [
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_on_screen_lines_journey",
+    "test_app.py::test_wf_on_screen_lines_refusals",
+    "test_app.py::test_wf_on_screen_lines_screen_rules",
+    "test_app.py::test_line_geometry_and_reading_time",
+]
+
+[[workflows]]
+id = "music-cues"
+requirements = [
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_music_cues_journey",
+    "test_app.py::test_wf_music_cues_library_failure",
+    "test_app.py::test_wf_music_cues_device_clock",
+    "test_app.py::test_wf_music_cues_screen_rules",
+    "test_app.py::test_library_prices_and_cache",
+]
+
+[[workflows]]
+id = "preview-renders"
+requirements = [
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_preview_renders_journey",
+    "test_app.py::test_wf_preview_renders_rare_states",
+    "test_app.py::test_wf_preview_renders_screen_rules",
+    "test_app.py::test_render_service_calls",
+]
+
+[[workflows]]
+id = "cuts-and-compare"
+requirements = [
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_wf_cuts_and_compare_journey",
+    "test_app.py::test_wf_cuts_and_compare_row_menu_refusals",
+    "test_app.py::test_wf_cuts_and_compare_screen_rules",
+    "test_app.py::test_wf_cuts_and_compare_differences",
+    "test_app.py::test_bring_back_and_history",
+]
+
+[[workflows]]
+id = "review-page"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_review_page_touch_journey",
+    "test_app.py::test_wf_review_page_copy_languages",
+    "test_app.py::test_wf_review_page_keyboard_and_rtl",
+    "test_app.py::test_wf_review_page_screen_rules",
+    "test_app.py::test_private_page_reveals",
+    "test_app.py::test_private_page_lifetime",
+    "test_app.py::test_suggested_lengths",
+]
+
+[[workflows]]
+id = "notes"
+requirements = [
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_notes_arrival",
+    "test_app.py::test_wf_notes_filters_and_moves",
+    "test_app.py::test_wf_notes_screen_rules",
+    "test_app.py::test_marking_many_notes",
+]
+
+[[workflows]]
+id = "sign-off"
+requirements = [
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_sign_off_journey",
+    "test_app.py::test_wf_sign_off_two_windows",
+    "test_app.py::test_wf_sign_off_screen_rules",
+    "test_app.py::test_sign_off_rules",
+]
+
+[[workflows]]
+id = "calls"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_calls_journey",
+    "test_app.py::test_wf_calls_layouts",
+    "test_app.py::test_wf_calls_screen_rules",
+    "test_app.py::test_wall_clock_calls",
+    "test_app.py::test_calendar_files",
+]
+
+[[workflows]]
+id = "delivery-package"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_delivery_package_journey",
+    "test_app.py::test_wf_delivery_package_outages",
+    "test_app.py::test_wf_delivery_package_screen_rules",
+    "test_app.py::test_delivery_file_formats",
+    "test_app.py::test_package_refusals_and_download_limit",
+]
+
+[[workflows]]
+id = "fee-letters"
+requirements = [
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_fee_letters_journey",
+    "test_app.py::test_wf_fee_letters_stale",
+    "test_app.py::test_wf_fee_letters_screen_rules",
+    "test_app.py::test_fee_letter_arithmetic",
+    "test_app.py::test_fee_letter_outages",
+]
+
+[[workflows]]
+id = "closing-a-client"
+requirements = [
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_closing_a_client_journey",
+    "test_app.py::test_wf_closing_a_client_erasing_outage",
+    "test_app.py::test_wf_closing_a_client_screen_rules",
+    "test_app.py::test_bring_back_and_erasure",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_seed_data",
+    "test_app.py::test_route_sweep",
+    "test_app.py::test_motion_system",
+    "test_app.py::test_landing_routes_and_menu_sheet",
+    "test_app.py::test_foreign_origins",
+    "test_app.py::test_session_ends_mid_form",
+    "test_app.py::test_one_api_shape",
+    "test_app.py::test_run_manifest_and_health",
+    "test_app.py::test_copies_start_safely",
+]
+checkpoints = [
+    "B1",
+    "B9",
+    "B12",
+]
+critical_checkpoints = [
+    "B9",
+]

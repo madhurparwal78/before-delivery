@@ -1,0 +1,61 @@
+import type { Role, Tag } from '../../shared/domain.ts';
+
+export const COPY = {
+  signingIn: 'Signing in...',
+  sessionEnded: 'Your session ended. Sign in again.',
+  searching: 'Searching...',
+  matching: (total: number): string => `Matching assets: ${total}`,
+  searchUnavailable: 'Search is unavailable. Try again.',
+  saving: 'Saving...',
+  tagAdded: (tag: Tag, columnId: string): string => `${tag} tag added to ${columnId}.`,
+  tagWithdrawn: (tag: Tag, columnId: string, reach: number): string =>
+    reach === 0
+      ? `${tag} tag withdrawn from ${columnId}.`
+      : `${tag} tag withdrawn from ${columnId}. Still reaches ${reach} columns through other paths.`,
+  suppressed: (tag: Tag, columnId: string): string => `${tag} suppressed on ${columnId}.`,
+  suppressionLifted: (tag: Tag, columnId: string): string => `${tag} suppression lifted on ${columnId}.`,
+  bulkApplied: (tag: Tag, applied: number, requested: number): string =>
+    `${tag} applied to ${applied} of ${requested} columns.`,
+  bulkUndone: (restored: number): string => `Bulk tag undone on ${restored} columns.`,
+  tracing: 'Tracing...',
+  traceUnavailable: 'Trace is unavailable. Try again.',
+  lineageChanged: 'Lineage changed since this trace. Trace again to include it.',
+  nodeChosen: (columnId: string, hop: number): string => `${columnId}, hop ${hop}`,
+  uploadingEvidence: 'Uploading evidence...',
+  verified: (filename: string): string => `Verified. Evidence stored as ${filename}.`,
+  deprecated: (queued: number): string => `Deprecated. Downstream owner notices queued: ${queued}.`,
+  reinstated: (cancelled: number): string => `Reinstated to draft. Unsent notices cancelled: ${cancelled}.`,
+  termSaved: 'Term saved.',
+  roleUpdated: (name: string, role: Role): string => `Role updated: ${name} is now ${role}.`,
+  userCreated: (name: string): string => `User created: ${name}.`,
+  passwordReset: (name: string, sessions: number): string =>
+    `Password reset: ${name} was signed out of ${sessions} sessions.`,
+  pointInTimeMalformed: 'Use YYYY-MM-DDTHH:mm:ss in America/Chicago time.',
+  resolving: 'Resolving...',
+  checking: 'Checking...',
+  chainIntact: (seq: number): string => `Audit chain intact through seq ${seq}.`,
+  chainBroken: (seq: number): string => `Audit chain broken at seq ${seq}.`,
+  loading: 'Loading...',
+  rowsShown: (shown: number, total: number): string => `Showing ${shown} of ${total}.`,
+  newAuditRows: (count: number): string => `${count} new audit rows.`,
+  showNewAuditRows: (count: number): string => `Show ${count} new audit rows`,
+  ownRoleChanged: (role: Role): string => `Your role changed to ${role}.`,
+  termRenamed: (oldName: string, newName: string): string =>
+    `Term renamed: ${oldName} is now ${newName}.`,
+  emptySearch: 'No assets match these filters. Clear a filter or search a broader term.',
+  deprecatedUpstreamBefore: 'Upstream ',
+  deprecatedUpstreamAfter: ' is deprecated. Values here may stop updating.',
+  evidenceOutage: 'Evidence storage is unreachable. Verification is paused; everything else works.',
+  mailOutage:
+    'The mail relay is unreachable. Deprecation notices are queued and will send when it returns.',
+  queuedNotices: 'Queued notices:',
+  pointInTimeHeading: (seq: number): string => `Catalog as of audit seq ${seq}. Later changes are not shown.`,
+  pointInTimeRecorded: (seq: number, time: string): string => `Seq ${seq} was recorded at ${time}.`,
+  pointInTimeSeedState: 'Seq 0 is the seeded first-run state.',
+  pointInTimeNewer: (count: number, seq: number): string => `${count} newer changes since seq ${seq}.`,
+  tagSourceInherited: (tag: Tag, sourceId: string): string => `${tag} inherited from ${sourceId}`,
+  tagSourceDirect: (tag: Tag): string => `${tag} set directly`,
+  hopSourceLine: (tag: Tag, sources: readonly string[]): string => `${tag} from ${sources.join(', ')}`,
+  noAssetOpen: 'Pick an asset to see its lineage.',
+  adminOnly: 'Admin only',
+};

@@ -1,0 +1,96 @@
+{% extends "_staff.html" %}
+{% from "_macros.html" import icon, empty %}
+{% from "_dialogs.html" import close_button %}
+{% block title %}Schedule{% endblock %}
+{% block main %}
+{% set lead = account.role == "lead" %}
+<div class="schedule" data-region="schedule">
+  <section class="sheet today-panel" role="region" aria-labelledby="today-title">
+    <h2 id="today-title">Today</h2>
+    <p class="mono muted">{{ today.isoformat() }}</p>
+    {% if featured %}
+      <p class="today-panel__title"><a href="/pieces/{{ featured.id }}">{{ featured.title }}</a></p>
+      <p class="muted">{{ featured.owner_name }} · {{ featured.state }}</p>
+      <p class="visitors"><span class="mono">{{ featured.view_count }}</span> {{ "visitor" if featured.view_count == 1 else "visitors" }} opened this piece</p>
+    {% else %}
+      {{ empty("No piece is featured today") }}
+    {% endif %}
+  </section>
+  <section class="sheet month" aria-labelledby="month-title">
+    <div class="month__head">
+      <h1 id="month-title">{{ month_name }}</h1>
+      <div class="month__nav">
+        <form method="get" action="/schedule"><input type="hidden" name="month" value="{{ previous_month }}"><button type="submit" class="btn">{{ icon("chevron") }}<span>Previous month</span></button></form>
+        <form method="get" action="/schedule"><input type="hidden" name="month" value="{{ next_month }}"><button type="submit" class="btn">Next month {{ icon("chevron") }}</button></form>
+      </div>
+    </div>
+    <div class="alert" role="alert" data-panel-alert hidden></div>
+    <table class="grid" role="grid" aria-label="{{ month_name }}">
+      <thead><tr>{% for d in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun") %}<th scope="col">{{ d }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for week in weeks %}
+        <tr>
+          {% for day in week %}
+          {% set slot = slots.get(day) %}
+          {% set label = day.isoformat() ~ ", " ~ (slot.title if slot else "free") %}
+          {% set in_month = day.month == first.month %}
+          {% set active = lead and in_month and ((not slot and day >= today) or (slot and slot.state == "scheduled")) %}
+          <td role="gridcell" class="day{% if not in_month %} day--out{% endif %}{% if day == today %} day--today{% endif %}{% if slot %} day--booked{% endif %}"{% if day == today %} aria-current="date"{% endif %}>
+            {% if in_month %}
+              {% if active %}
+              <button type="button" class="day__button" {% if slot %}data-unbook="{{ day.isoformat() }}" data-piece-title="{{ slot.title }}" data-piece-id="{{ slot.id }}" data-version="{{ slot.version }}"{% else %}data-book="{{ day.isoformat() }}"{% endif %}>
+              {% endif %}
+                <span class="sr-only">{{ label }}</span>
+                <span class="day__num mono" aria-hidden="true">{{ day.day }}<span class="day__dow"> {{ day.strftime("%a") }}</span></span>
+                {% if day == today %}<span class="day__today" aria-hidden="true">Today</span>{% endif %}
+                {% if slot %}<span class="day__title" aria-hidden="true">{{ slot.title }}</span>{% endif %}
+              {% if active %}</button>{% endif %}
+            {% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% if lead %}
+  <dialog class="dialog" id="dialog-book" aria-labelledby="dialog-book-title">
+    <form class="dialog__form" data-book-form novalidate>
+      <h2 id="dialog-book-title">Book a day</h2>
+      <p class="mono muted" data-book-day></p>
+      <div class="alert" role="alert" data-panel-alert hidden></div>
+      {% if cleared %}
+      <div class="pick-list" role="group" aria-label="Cleared pieces">
+        <div class="pick-list__head" aria-hidden="true"><span>Title</span><span>Maker</span><span>Fee</span></div>
+        {% for p in cleared %}
+        <button type="button" class="pick" aria-pressed="false" aria-label="{{ p.title }}" data-pick="{{ p.id }}" data-version="{{ p.version }}" data-title="{{ p.title }}">
+          <span class="pick__title">{{ p.title }}</span><span class="pick__maker">{{ p.owner_name }}</span><span class="mono">{{ p.fee_cents | money }}</span>
+        </button>
+        {% endfor %}
+      </div>
+      {% else %}
+      {{ empty("No cleared piece is waiting for a day") }}
+      {% endif %}
+      <div class="dialog__actions">
+        <button type="submit" class="btn btn--primary">Confirm</button>
+        <button type="button" class="btn" data-close>Cancel</button>
+      </div>
+      {{ close_button() }}
+    </form>
+  </dialog>
+  <dialog class="dialog" id="dialog-unbook" aria-labelledby="dialog-unbook-title">
+    <form class="dialog__form" data-unbook-form novalidate>
+      <h2 id="dialog-unbook-title">Featured day</h2>
+      <p class="mono muted" data-unbook-day></p>
+      <p data-unbook-title></p>
+      <div class="alert" role="alert" data-panel-alert hidden></div>
+      <div class="dialog__actions">
+        <button type="submit" class="btn btn--primary">Unschedule</button>
+        <button type="button" class="btn" data-close>Cancel</button>
+      </div>
+      {{ close_button() }}
+    </form>
+  </dialog>
+  {% endif %}
+</div>
+{% endblock %}

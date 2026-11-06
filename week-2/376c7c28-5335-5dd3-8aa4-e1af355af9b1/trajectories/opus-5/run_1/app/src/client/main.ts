@@ -1,0 +1,31 @@
+import { registerRoute, registerSignIn, startApp } from './app.ts';
+import { renderCredit } from './screens/credit.ts';
+import { renderDashboard } from './screens/dashboard.ts';
+import { renderIntake } from './screens/intake.ts';
+import { renderJoin } from './screens/join.ts';
+import { renderLogPiece } from './screens/log-piece.ts';
+import { renderMembers } from './screens/members.ts';
+import { renderMyPieces } from './screens/my-pieces.ts';
+import { renderPassport } from './screens/passport.ts';
+import { renderPlanner } from './screens/planner.ts';
+import { renderRates } from './screens/rates.ts';
+import { renderReports } from './screens/reports.ts';
+import { renderSettings } from './screens/settings.ts';
+import { renderSignIn } from './screens/signin.ts';
+
+registerRoute('/signin', renderSignIn, false);
+registerRoute('/invite/:token', renderJoin, false);
+registerRoute('/pieces', renderMyPieces);
+registerRoute('/pieces/new', renderLogPiece);
+registerRoute('/pieces/:id', renderPassport);
+registerRoute('/credit', renderCredit);
+registerRoute('/intake', renderIntake);
+registerRoute('/planner', renderPlanner);
+registerRoute('/dashboard', renderDashboard);
+registerRoute('/rates', renderRates);
+registerRoute('/members', renderMembers);
+registerRoute('/reports', renderReports);
+registerRoute('/settings', renderSettings);
+registerSignIn(renderSignIn);
+
+startApp();

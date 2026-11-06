@@ -1,0 +1,1207 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "dial-reading",
+    "place-hold",
+    "confirm-booking",
+    "recurring-bookings",
+    "check-in-out",
+    "cancellation-policy",
+    "hour-packs",
+    "document-upload",
+    "compliance-review",
+    "inspection-links",
+    "invoicing",
+    "bookings-search-export",
+    "keyboard-booking",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 85
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 5
+B5 = 5
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 1
+S1 = 5
+S2 = 5
+S3 = 5
+S4 = 5
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+
+[[services]]
+name = "killbill"
+
+[services.env]
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Stationkeeper at Larder Row Kitchen <bookings@larderrow.test>"
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health check"
+text = "The run manifest installs, builds and serves the app, and the health path answers, as specified in Deployment."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_serve_manifest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Sign-in and roles"
+text = "Seeded people sign in with email and password, and each role reaches exactly the actions the API role column allows, with everything else refused as stated there."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_sign_in_and_session",
+    "test_app.py::test_role_matrix",
+    "test_app.py::test_wf_cross_cutting_signin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "One error shape"
+text = "Every API error uses the single error body and the single precedence order defined at the top of API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Server boundary"
+text = "The server enforces the same-origin, body-size and never-served rules in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Start and recover without billing or storage"
+text = "With Kill Bill or MinIO unreachable, the app still starts, serves the dial and every action that does not need the missing service, refuses affected actions with the outage responses in Services, and resumes them without a restart once the service returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_billing_outage_scope",
+    "test_app.py::test_storage_outage_scope",
+    "test_app.py::test_recovery_without_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read from the environment variables in Configuration and secrets, never hard-coded and never sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Real provider records"
+text = "Charges, credits, payments, files and emails come from real calls to Kill Bill, MinIO and the SMTP server, never simulated or reported only by the app."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Dial day API"
+text = "`GET /api/dial` returns every station's blocks for one kitchen day in wall-clock minutes, as specified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "dial-reading"
+tests = [
+    "test_app.py::test_dial_day",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Anonymous blocks for other tenants"
+text = "Tenant users see other tenants' holds and bookings only as anonymous booked blocks with the published fields, while the operator sees full detail."
+kind = "behavior"
+primary = "pytest"
+workflow = "dial-reading"
+tests = [
+    "test_app.py::test_tenant_dial_projection",
+    "test_app.py::test_wf_dial_reading_operator",
+    "test_app.py::test_wf_dial_reading_tenant_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Kitchen time zone"
+text = "The dial, today, the current minute, cutoffs, check-in windows, document validity and invoice periods all follow the kitchen's time zone, whatever zone the browser is in."
+kind = "behavior"
+primary = "pytest"
+workflow = "dial-reading"
+tests = [
+    "test_app.py::test_kitchen_time_zone",
+    "test_app.py::test_wf_dial_reading_timezone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Service dial control"
+text = "The dial is a slider that dragging, the wheel and the arrow keys move in fixed steps across the kitchen day, with the angle, keys and accessible value text defined in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "dial-reading"
+tests = [
+    "test_app.py::test_dial_keyboard_and_wheel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Station states by pattern and label"
+text = "Each floor-plan station shows free, booked, held or cleaning with its own pattern and a visible text label as well as colour, at the contrast stated in Visual design."
+kind = "behavior"
+primary = "pytest"
+workflow = "dial-reading"
+tests = [
+    "test_app.py::test_station_states_by_pattern_and_label",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Place and release a hold"
+text = "Tenant users and the operator place a hold on a free station within the length, step and booking-window rules in Business rules, and can release it."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-hold"
+tests = [
+    "test_app.py::test_place_and_release_hold",
+    "test_app.py::test_wf_place_hold_form",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Cleaning buffer"
+text = "A hold that would start or end inside the cleaning buffer of another tenant's block on the same station is refused, while one tenant may book back to back."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-hold"
+tests = [
+    "test_app.py::test_cleaning_buffer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "One winner per slot"
+text = "When several overlapping holds on one station arrive at the same moment, exactly one is placed and every other gets the slot conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-hold"
+tests = [
+    "test_app.py::test_one_winner_per_slot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Hold expiry edge"
+text = "The server judges hold expiry at the exact instant stated in Business rules: from that instant it refuses confirmation and the slot is free again."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-hold"
+tests = [
+    "test_app.py::test_hold_expiry_edge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Draw a hold on the dial"
+text = "With a free station selected, dragging along the ring draws an arc that becomes a server-confirmed hold, or that snaps back with the conflict copy when the server refuses it."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-hold"
+tests = [
+    "test_app.py::test_wf_place_hold_arc",
+    "test_app.py::test_wf_place_hold_arc_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Confirm a hold"
+text = "Confirming a live hold turns each of its bookings into a confirmed booking under the cancellation policy in force at that moment, paid from the account or the hour pack."
+kind = "behavior"
+primary = "pytest"
+workflow = "confirm-booking"
+tests = [
+    "test_app.py::test_confirm_account_booking",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Repeat-safe confirm"
+text = "A confirm repeated with the same `Idempotency-Key` returns the original response and changes nothing, and the same key with a different body is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "confirm-booking"
+tests = [
+    "test_app.py::test_repeat_safe_confirm",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "All-or-nothing confirmation"
+text = "The bookings, their Kill Bill charges and the confirmation email all happen or none of them does, and a refused confirm leaves the hold as it was, within the failure model in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "confirm-booking"
+tests = [
+    "test_app.py::test_confirm_all_or_nothing",
+    "test_app.py::test_wf_confirm_booking_billing_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Booking confirmation email"
+text = "Each successful confirm sends one email to the tenant owner, with the subject and contents in Services and nothing about any other tenant."
+kind = "behavior"
+primary = "pytest"
+workflow = "confirm-booking"
+tests = [
+    "test_app.py::test_booking_confirmation_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Book a station end to end"
+text = "A tenant owner signs in, finds a free gap on the dial, holds it, confirms it, and sees the booking on the dial and in Bookings."
+kind = "behavior"
+primary = "workflow"
+workflow = "confirm-booking"
+tests = [
+    "test_app.py::test_wf_confirm_booking_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Weekly repeats"
+text = "A hold may repeat weekly for a set number of weeks, and it is placed only if every occurrence is free."
+kind = "behavior"
+primary = "pytest"
+workflow = "recurring-bookings"
+tests = [
+    "test_app.py::test_weekly_repeats",
+    "test_app.py::test_wf_recurring_bookings_weekly",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Wall-clock time across DST changes"
+text = "Each weekly occurrence keeps the same local start and end across clock changes, and skipped or repeated local hours follow the rule in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "recurring-bookings"
+tests = [
+    "test_app.py::test_dst_wall_clock",
+    "test_app.py::test_wf_recurring_bookings_dst",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Check-in and no-show"
+text = "Staff check in only inside the check-in window and only while their business is active, and the operator marks a confirmed booking as a no-show only once it has started."
+kind = "behavior"
+primary = "pytest"
+workflow = "check-in-out"
+tests = [
+    "test_app.py::test_check_in_and_no_show",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Hold-over at check-out"
+text = "Check-out records the cook's reported minutes past the booked end and stores the billed hold-over once, using the grace period and rounding in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "check-in-out"
+tests = [
+    "test_app.py::test_holdover_at_check_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Hold-over charge and notice"
+text = "Billed hold-over is recorded as one Kill Bill charge and one notice email to the tenant owner, together with the check-out, or the check-out is refused, within the failure model in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "check-in-out"
+tests = [
+    "test_app.py::test_wf_check_in_out_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Cook shift journey"
+text = "A tenant staff cook signs in, sees the business's shifts, checks in, checks out with hold-over, and sees the stored hold-over on the booking."
+kind = "behavior"
+primary = "workflow"
+workflow = "check-in-out"
+tests = [
+    "test_app.py::test_wf_check_in_out_cook_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Cancellation policy versions"
+text = "The operator saves a new cancellation policy version that applies only to bookings confirmed afterwards, and every booking keeps and shows the version it was confirmed under."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancellation-policy"
+tests = [
+    "test_app.py::test_policy_versions",
+    "test_app.py::test_wf_cancellation_policy_stale",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Cancellation charges and fee refunds"
+text = "Cancelling uses the booking's own policy version to decide between a free and a late cancellation and records the matching credit, fee or hour return, and the operator can refund an uninvoiced late fee once."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancellation-policy"
+tests = [
+    "test_app.py::test_cancellation_charges_and_refunds",
+    "test_app.py::test_wf_cancellation_policy_policy_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Buy an hour pack"
+text = "A tenant owner buys an hour pack, and it is recorded once as a Kill Bill payment before the hours appear in the balance."
+kind = "behavior"
+primary = "pytest"
+workflow = "hour-packs"
+tests = [
+    "test_app.py::test_buy_hour_pack",
+    "test_app.py::test_wf_hour_packs_buy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Hour ledger balance"
+text = "Every hour-pack movement is two opposite ledger entries, the balance always equals the sum of the tenant's entries, and it never goes below zero."
+kind = "behavior"
+primary = "pytest"
+workflow = "hour-packs"
+tests = [
+    "test_app.py::test_hour_ledger_pairs_and_concurrency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Pay with an hour pack"
+text = "Confirming with the hour pack debits the elapsed minutes of every booking in the hold at once, or is refused when the balance is too small."
+kind = "behavior"
+primary = "pytest"
+workflow = "hour-packs"
+tests = [
+    "test_app.py::test_pay_with_hour_pack",
+    "test_app.py::test_wf_hour_packs_pay_with_pack",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Upload a compliance document"
+text = "A tenant owner uploads a certificate of insurance, food handler card or health permit with its expiry date, and the file is stored in MinIO before its record exists."
+kind = "behavior"
+primary = "pytest"
+workflow = "document-upload"
+tests = [
+    "test_app.py::test_upload_document",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Accepted file content"
+text = "Uploads are accepted only when their bytes are a PDF, JPEG or PNG within the size cap in Business rules, whatever the file name or declared type."
+kind = "behavior"
+primary = "pytest"
+workflow = "document-upload"
+tests = [
+    "test_app.py::test_upload_content_rules",
+]
+criteria = []
+parameter_cases = [
+    "pdf_named_txt",
+    "jpeg",
+    "png",
+    "svg_named_png",
+    "html_named_pdf",
+    "zip_archive",
+    "exact_cap",
+    "over_cap",
+]
+
+[[requirements]]
+id = "DP-36"
+title = "Documents stay with their tenant"
+text = "A tenant user who asks for another tenant's document record or file by ID gets the not-found response."
+kind = "behavior"
+primary = "pytest"
+workflow = "document-upload"
+tests = [
+    "test_app.py::test_documents_stay_with_tenant",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Upload journey"
+text = "A tenant owner uploads a document from Documents and sees it listed as awaiting review with its expiry date."
+kind = "behavior"
+primary = "workflow"
+workflow = "document-upload"
+tests = [
+    "test_app.py::test_wf_document_upload_happy",
+    "test_app.py::test_wf_document_upload_wrong_type",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Review documents"
+text = "The operator approves a pending document only after reading its stored file back, or rejects it with a reason, and the tenant owner is emailed either way."
+kind = "behavior"
+primary = "pytest"
+workflow = "compliance-review"
+tests = [
+    "test_app.py::test_review_documents",
+    "test_app.py::test_wf_compliance_review_reject",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Document validity edge"
+text = "A document stops counting at the start of the kitchen day after its expiry date, which blocks bookings past that point and suspends the business, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "compliance-review"
+tests = [
+    "test_app.py::test_document_validity_edge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Expiry reminders"
+text = "Each approved document triggers one reminder email to the tenant owner once it falls within the reminder lead time in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "compliance-review"
+tests = [
+    "test_app.py::test_expiry_reminders",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Tenant lifecycle"
+text = "A tenant moves through applied, documents review, active, suspended and offboarded only along the legal edges in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "compliance-review"
+tests = [
+    "test_app.py::test_tenant_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Reinstatement journey"
+text = "A suspended tenant's owner uploads a renewed certificate, the operator approves it, and the business shows as active and can place a hold again."
+kind = "behavior"
+primary = "workflow"
+workflow = "compliance-review"
+tests = [
+    "test_app.py::test_wf_compliance_review_reinstatement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Issue an inspection link"
+text = "The operator issues an expiring read-only link for one tenant, which replaces any earlier link for that tenant."
+kind = "behavior"
+primary = "pytest"
+workflow = "inspection-links"
+tests = [
+    "test_app.py::test_issue_inspection_link",
+    "test_app.py::test_wf_inspection_links_issue_revoke",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Inspector view"
+text = "Without an account, the link shows only that tenant's name, its current approved and valid documents, and their files."
+kind = "behavior"
+primary = "pytest"
+workflow = "inspection-links"
+tests = [
+    "test_app.py::test_inspector_view",
+    "test_app.py::test_wf_inspection_links_inspector_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Link revoke, expiry and read-only"
+text = "A revoked, replaced or expired link stops working at once, and no request through any link can change anything."
+kind = "behavior"
+primary = "pytest"
+workflow = "inspection-links"
+tests = [
+    "test_app.py::test_inspection_link_dead_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Storage shelves"
+text = "The operator assigns walk-in storage shelves to tenants, and each assigned shelf is billed once per monthly period."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoicing"
+tests = [
+    "test_app.py::test_storage_shelves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Monthly invoice lines and tax"
+text = "Issuing an invoice gathers the tenant's uninvoiced items for a kitchen-time month and totals them with sales tax in exact cents, by the rule in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoicing"
+tests = [
+    "test_app.py::test_invoice_gathers_items",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Invoice PDF and notice"
+text = "An issued invoice has its PDF stored in MinIO, its shelf and tax charges recorded in Kill Bill, and a notice email queued, all together or not at all."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoicing"
+tests = [
+    "test_app.py::test_invoice_issue_atomic",
+    "test_app.py::test_wf_invoicing_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Pay an invoice"
+text = "A tenant owner pays an issued invoice once, it is recorded as one Kill Bill payment, and a receipt email follows."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoicing"
+tests = [
+    "test_app.py::test_pay_invoice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Month-end billing journey"
+text = "The operator assigns a shelf and issues a tenant's invoice, and the tenant owner opens it, downloads its PDF and pays it."
+kind = "behavior"
+primary = "workflow"
+workflow = "invoicing"
+tests = [
+    "test_app.py::test_wf_invoicing_month_end",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Booking search"
+text = "Booking search returns only the caller's own business's bookings for tenant users, and all bookings for the operator."
+kind = "behavior"
+primary = "pytest"
+workflow = "bookings-search-export"
+tests = [
+    "test_app.py::test_booking_search_scope",
+    "test_app.py::test_wf_bookings_search_export_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Booking export"
+text = "The CSV export contains every booking matching the same filters as search, without the search row cap, and only the columns the caller's role permits."
+kind = "behavior"
+primary = "pytest"
+workflow = "bookings-search-export"
+tests = [
+    "test_app.py::test_booking_export",
+    "test_app.py::test_wf_bookings_search_export_export",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Bookings and invoices by ID"
+text = "A tenant user who asks for, or acts on, another tenant's booking, hold or invoice by ID gets the not-found response."
+kind = "behavior"
+primary = "pytest"
+workflow = "bookings-search-export"
+tests = [
+    "test_app.py::test_cross_tenant_ids",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Keyboard-only booking"
+text = "A tenant staff cook can turn the dial, pick a station, place a hold and confirm it with the keyboard alone."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-booking"
+tests = [
+    "test_app.py::test_wf_keyboard_booking_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Dialog focus"
+text = "Every dialog takes focus when it opens, keeps Tab inside, closes on Escape, and returns focus to the control that opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-booking"
+tests = [
+    "test_app.py::test_wf_keyboard_booking_dialog_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Responsive layout"
+text = "Every screen fits the 375x812, 768x1024 and 1280x800 viewports without horizontal scrolling, in the arrangement in Screens and layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layout",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-57"
+title = "Visual direction"
+text = "The app reads as a stainless spec sheet: a pale grey ground, hairline rules, one signal-orange accent, a grotesque display face and mono numerals, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Dial motion"
+text = "Each dial step moves the handle and the orange spoke, then cross-fades the station tiles, then rolls the readout, in that order and within the timings in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dial_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Reduced motion"
+text = "When reduced motion is requested, tiles and readout switch at once, and a time listbox with start and end selects replaces the arc drag."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Feedback states"
+text = "Every async action shows its pending, success, error and outage copy in the named live regions, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_feedback",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists, is valid JSON with string install, build and serve, and has _schema set to run-manifest-v1."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package by name, version and licence, plus every bundled font; shipped packages are the production dependency tree as reported by npm ls --omit=dev --all --json or the lockfile's non-dev packages."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and bundled font uses one of these licences: MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The only datastores are the provided PostgreSQL, MinIO bucket and Kill Bill; there is no SQLite, Redis, in-memory store standing in for records, or local files used as records."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service definitions and their development credentials are left unchanged."
+tests = [
+    "test_app.py::test_if_service_definitions",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "All hand-written application source is TypeScript; plain JavaScript appears only as build output or tool configuration."
+tests = [
+    "test_app.py::test_if_typescript_only",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "dial-reading"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_dial_reading_operator",
+    "test_app.py::test_wf_dial_reading_tenant_view",
+    "test_app.py::test_tenant_dial_projection",
+    "test_app.py::test_kitchen_time_zone",
+    "test_app.py::test_station_states_by_pattern_and_label",
+]
+
+[[workflows]]
+id = "place-hold"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_place_hold_arc",
+    "test_app.py::test_wf_place_hold_form",
+    "test_app.py::test_one_winner_per_slot",
+    "test_app.py::test_hold_expiry_edge",
+    "test_app.py::test_place_and_release_hold",
+]
+
+[[workflows]]
+id = "confirm-booking"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_confirm_booking_happy",
+    "test_app.py::test_repeat_safe_confirm",
+    "test_app.py::test_confirm_all_or_nothing",
+]
+
+[[workflows]]
+id = "recurring-bookings"
+requirements = [
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_recurring_bookings_weekly",
+    "test_app.py::test_wf_recurring_bookings_dst",
+    "test_app.py::test_dst_wall_clock",
+    "test_app.py::test_weekly_repeats",
+]
+
+[[workflows]]
+id = "check-in-out"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_check_in_out_cook_journey",
+    "test_app.py::test_wf_check_in_out_outage",
+    "test_app.py::test_check_in_and_no_show",
+    "test_app.py::test_holdover_at_check_out",
+]
+
+[[workflows]]
+id = "cancellation-policy"
+requirements = [
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_cancellation_policy_policy_change",
+    "test_app.py::test_policy_versions",
+    "test_app.py::test_cancellation_charges_and_refunds",
+]
+
+[[workflows]]
+id = "hour-packs"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_hour_packs_buy",
+    "test_app.py::test_buy_hour_pack",
+    "test_app.py::test_hour_ledger_pairs_and_concurrency",
+]
+
+[[workflows]]
+id = "document-upload"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_document_upload_happy",
+    "test_app.py::test_upload_content_rules",
+    "test_app.py::test_documents_stay_with_tenant",
+    "test_app.py::test_upload_document",
+]
+
+[[workflows]]
+id = "compliance-review"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_compliance_review_reinstatement",
+    "test_app.py::test_document_validity_edge",
+    "test_app.py::test_expiry_reminders",
+    "test_app.py::test_review_documents",
+]
+
+[[workflows]]
+id = "inspection-links"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_inspection_links_issue_revoke",
+    "test_app.py::test_inspection_link_dead_states",
+    "test_app.py::test_inspector_view",
+]
+
+[[workflows]]
+id = "invoicing"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_invoicing_month_end",
+    "test_app.py::test_storage_shelves",
+    "test_app.py::test_invoice_gathers_items",
+    "test_app.py::test_pay_invoice",
+    "test_app.py::test_invoice_issue_atomic",
+]
+
+[[workflows]]
+id = "bookings-search-export"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_bookings_search_export_search",
+    "test_app.py::test_booking_export",
+    "test_app.py::test_booking_search_scope",
+    "test_app.py::test_cross_tenant_ids",
+]
+
+[[workflows]]
+id = "keyboard-booking"
+requirements = [
+    "DP-54",
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_keyboard_booking_keyboard",
+    "test_app.py::test_wf_keyboard_booking_dialog_focus",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_signin",
+    "test_app.py::test_health_and_serve_manifest",
+]

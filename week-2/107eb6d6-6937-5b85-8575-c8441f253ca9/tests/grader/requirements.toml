@@ -1,0 +1,965 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 47
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "sign-in",
+    "seeded-desk",
+    "submit-request",
+    "request-list",
+    "assign-and-confirm",
+    "decline",
+    "concurrency",
+    "dispatch-access",
+    "maintenance",
+    "members",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 85
+services = [
+    { name = "postgres", env = {} },
+]
+outages = []
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 5
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[requirements]]
+id = "DP-01"
+title = "Seeded sign-in"
+text = "Each seeded member exchanges their email and password at `POST /api/auth/login` for a bearer token and their user, `GET /api/auth/me` describes them, and `POST /api/auth/logout` revokes the token."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_seeded_sign_in",
+]
+criteria = []
+parameter_cases = [
+    "admin",
+    "dispatcher",
+    "manager",
+    "milo",
+]
+
+[[requirements]]
+id = "DP-02"
+title = "Refused sign-in and missing sessions"
+text = "A wrong password and an unknown email both answer `401` with the same copy until the DP-39 throttle applies, and repeated failures for one address are throttled with `429`, while every JSON route except health and login answers `401` without a valid token, as stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_refused_sign_in_and_missing_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Sign-in in the browser"
+text = "A signed-out page request lands on the sign-in page with its `next` path and returns there after sign-in, the session survives a reload, `Sign out` ends it, and a throttled sign-in shows its message and keeps the email."
+kind = "behavior"
+primary = "workflow"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_wf_sign_in_next_and_reload",
+    "test_app.py::test_wf_sign_in_refused_keeps_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Seeded fleet"
+text = "The ten seeded trucks are listed in id order with their depot, state and open request, the list narrows by state, and `/fleet` shows the fleet summary line."
+kind = "behavior"
+primary = "pytest"
+workflow = "seeded-desk"
+tests = [
+    "test_app.py::test_wf_seeded_desk_fleet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Seeded requests and stops"
+text = "The four seeded requests are stored once each with the statuses, trucks, decisions, four ordered stops and activity given in Seed data."
+kind = "behavior"
+primary = "pytest"
+workflow = "seeded-desk"
+tests = [
+    "test_app.py::test_seeded_requests",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Dispatch board"
+text = "The board lists submitted requests oldest first with a summary of the count waiting, the trucks still needed and the trucks available, computed from stored rows."
+kind = "behavior"
+primary = "pytest"
+workflow = "seeded-desk"
+tests = [
+    "test_app.py::test_wf_seeded_desk_board",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Request validation"
+text = "A request with a bad tour name, type, truck count, stop, note, draft id or out-of-order stop dates is refused with `422` and nothing is stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "submit-request"
+tests = [
+    "test_app.py::test_request_validation",
+]
+criteria = []
+parameter_cases = [
+    "tour-name-blank",
+    "tour-name-long",
+    "type-unknown",
+    "trucks-zero",
+    "trucks-nine",
+    "trucks-fraction",
+    "stop-missing",
+    "address-blank",
+    "city-blank",
+    "region-blank",
+    "postal-blank",
+    "country-blank",
+    "date-invalid",
+    "delivery-before-pickup",
+    "last-before-first",
+    "notes-long",
+    "draft-malformed",
+]
+
+[[requirements]]
+id = "DP-08"
+title = "Stored submission"
+text = "A valid request is stored `submitted` with the next consecutive `LR-` id, its four stops and one `submitted` activity entry reading its requested truck count, and fields such as status or requester sent in the body are ignored."
+kind = "behavior"
+primary = "pytest"
+workflow = "submit-request"
+tests = [
+    "test_app.py::test_stored_submission",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "New request in the browser"
+text = "A tour manager walks the three New request steps, lands on the `Request submitted` page and follows `View request` to the stored request."
+kind = "behavior"
+primary = "workflow"
+workflow = "submit-request"
+tests = [
+    "test_app.py::test_wf_submit_request_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Step rules in the browser"
+text = "`Back` keeps what was typed, a refused step keeps its input and shows the reason, a later step opened early returns to the earliest unfinished step, and `Cancel` on a typed step asks to discard."
+kind = "behavior"
+primary = "workflow"
+workflow = "submit-request"
+tests = [
+    "test_app.py::test_wf_submit_request_step_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Request list API"
+text = "`GET /api/requests` lists requests newest first in pages of at most 100 with an `X-Next-Cursor` header while more follow, narrows by `status` and `q`, and refuses a bad `status`, `limit` or `cursor` with `400`."
+kind = "behavior"
+primary = "pytest"
+workflow = "request-list"
+tests = [
+    "test_app.py::test_request_list_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Search, filter and paging in the page"
+text = "The `Search requests` field and the `Status` select narrow the list in place and are reflected in the address, an empty search offers `Clear search`, and `Show more requests` appends the next page under the same filters."
+kind = "behavior"
+primary = "workflow"
+workflow = "request-list"
+tests = [
+    "test_app.py::test_wf_request_list_search_filter_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Request visibility"
+text = "A tour manager lists and reads only their own requests, with `404` for anyone else's by id, while dispatchers and admins read every request."
+kind = "behavior"
+primary = "pytest"
+workflow = "request-list"
+tests = [
+    "test_app.py::test_request_visibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Not-found pages"
+text = "A hidden or missing request and any unknown address show their not-found copy with a real not-found status and a way back to requests."
+kind = "behavior"
+primary = "pytest"
+workflow = "request-list"
+tests = [
+    "test_app.py::test_wf_request_list_not_found",
+]
+criteria = []
+parameter_cases = [
+    "unknown-path",
+    "package-json",
+    "run-json",
+    "env-file",
+    "server-source",
+    "missing-request",
+]
+
+[[requirements]]
+id = "DP-15"
+title = "Request page"
+text = "A request page shows its four numbered stop cards, its trucks with the count line and its activity timeline, and a timeline that fails to load offers `Try again`."
+kind = "behavior"
+primary = "pytest"
+workflow = "request-list"
+tests = [
+    "test_app.py::test_request_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Truck assignment"
+text = "A dispatcher assigns one available truck at a time to a submitted request, which marks the truck assigned in storage and writes `truck_assigned` activity."
+kind = "behavior"
+primary = "pytest"
+workflow = "assign-and-confirm"
+tests = [
+    "test_app.py::test_truck_assignment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Assignment conflicts"
+text = "A busy or parked truck and a truck beyond the requested count are refused with `409` and their copy, an unknown truck with `422`, and nothing changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "assign-and-confirm"
+tests = [
+    "test_app.py::test_assignment_conflicts",
+]
+criteria = []
+parameter_cases = [
+    "busy",
+    "maintenance",
+    "full",
+    "unknown",
+]
+
+[[requirements]]
+id = "DP-18"
+title = "Truck release"
+text = "Releasing a truck from a submitted request makes it available again with `truck_released` activity, and releasing an existing truck not on a submitted request answers `404`, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "assign-and-confirm"
+tests = [
+    "test_app.py::test_truck_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Confirmation"
+text = "Confirming a fully assigned request with a note records the decider, the time and the note, while confirming with too few trucks answers `409`."
+kind = "behavior"
+primary = "pytest"
+workflow = "assign-and-confirm"
+tests = [
+    "test_app.py::test_confirmation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Decline and decided once"
+text = "Declining releases every truck and records the note, a bad decision is refused with `422`, and any assignment, release or decision on a decided request answers `409`."
+kind = "behavior"
+primary = "pytest"
+workflow = "decline"
+tests = [
+    "test_app.py::test_decline_and_decided_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "One winner"
+text = "Two simultaneous assignments of one truck, or two simultaneous decisions on one request, produce exactly one success and one `409`."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency"
+tests = [
+    "test_app.py::test_one_winner_assignment",
+    "test_app.py::test_one_winner_decision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Dispatch in the browser"
+text = "A dispatcher reads the board summary, opens a request, assigns two trucks from `Assign truck`, writes a note, confirms and lands on `Decision recorded`."
+kind = "behavior"
+primary = "workflow"
+workflow = "assign-and-confirm"
+tests = [
+    "test_app.py::test_wf_assign_and_confirm_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Dispatch panel feedback"
+text = "Assigning or releasing shows its notice and updates the trucks, count line and timeline in place, while an early confirm or a decline without a note shows its reason and leaves the request submitted."
+kind = "behavior"
+primary = "pytest"
+workflow = "assign-and-confirm"
+tests = [
+    "test_app.py::test_wf_assign_and_confirm_panel_feedback",
+    "test_app.py::test_wf_decline_note_required",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Tour managers kept out of dispatch"
+text = "A tour manager is refused the board, the fleet, every assignment and every decision with `403` at the API, a role sent in a body grants nothing, and the pages show no dispatch controls."
+kind = "behavior"
+primary = "pytest"
+workflow = "dispatch-access"
+tests = [
+    "test_app.py::test_wf_dispatch_access_manager_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Fleet maintenance"
+text = "Only an admin moves an available truck into maintenance and back, and a truck on a request is refused with `409`."
+kind = "behavior"
+primary = "pytest"
+workflow = "maintenance"
+tests = [
+    "test_app.py::test_fleet_maintenance",
+    "test_app.py::test_wf_maintenance_refused_on_request",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Maintenance in the browser"
+text = "An admin chooses `Start maintenance` on `TR-108` on the fleet page and sees `Truck updated` with the truck in maintenance and the fleet summary line updated."
+kind = "behavior"
+primary = "workflow"
+workflow = "maintenance"
+tests = [
+    "test_app.py::test_wf_maintenance_start_and_end",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Closed membership"
+text = "Members are listed and changed by admins only, there is no sign-up endpoint or page, and no quote, upload or password reset surface exists."
+kind = "behavior"
+primary = "pytest"
+workflow = "members"
+tests = [
+    "test_app.py::test_closed_membership",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Role changes"
+text = "An admin's role change is stored, only the role is read from the body, and demoting the only admin is refused with `409`."
+kind = "behavior"
+primary = "pytest"
+workflow = "members"
+tests = [
+    "test_app.py::test_role_changes",
+    "test_app.py::test_wf_members_last_admin_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Role change in the browser"
+text = "An admin makes Milo Manager a dispatcher on the members page and sees `Role saved`."
+kind = "behavior"
+primary = "workflow"
+workflow = "members"
+tests = [
+    "test_app.py::test_wf_members_role_saved_and_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Accessibility"
+text = "The sign-in page and the signed-in pages meet WCAG 2.2 AA with no serious or critical violation, keyboard focus reaches the navigation with a visible ring, and the current navigation item is marked."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_accessibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Phone width"
+text = "At a 360 pixel viewport no page scrolls sideways and the sidebar folds behind a `Menu` button."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_phone_width",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Motion"
+text = "Button labels roll on hover, page headline lines rise one after another, the slogan rail drifts on its named loop and a ring spinner turns while the timeline loads, as described in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Reduced motion"
+text = "Under the system reduced-motion preference, or with the remembered `Reduce motion` switch on, no motion runs and every final state shows at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion",
+]
+criteria = []
+parameter_cases = [
+    "system",
+    "switch",
+]
+
+[[requirements]]
+id = "DP-34"
+title = "No outside hosts"
+text = "The pages contact no host other than the app's own origin."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_no_outside_hosts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Health and production serving"
+text = "`GET /api/health` answers `{\"status\": \"ok\"}` without a session from a production server once the database is ready, and the sign-in page arrives server-rendered."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_server_rendered",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Stage-dark look"
+text = "The desk follows the near-black canvas, condensed display type, status chips, line icons, violet-blue actions and closing band described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Desk layouts"
+text = "The request page, the three steps, the submission confirmation and the phone cards follow the arrangement described in Screens and layout."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Source integrity"
+text = "The database address comes from the environment, roles are read from stored members, every multi-row write lands whole or not at all, and every record lives in PostgreSQL."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Sign-in throttle"
+text = "After five failed sign-ins for one address within the lockout window, every further sign-in for that address answers `429` with `Retry-After`, counted in PostgreSQL the same way for known and unknown emails, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_sign_in_throttle_unknown_address",
+    "test_app.py::test_sign_in_success_resets_count",
+    "test_app.py::test_sign_in_throttle_persists_and_locks_known_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "One count of the fleet"
+text = "Each request's trucks and count, the board's trucks needed and available, each truck's request and the fleet summary agree with the stored assignment rows after any sequence of writes."
+kind = "behavior"
+primary = "pytest"
+workflow = "seeded-desk"
+tests = [
+    "test_app.py::test_one_count_of_the_fleet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Stable request pages"
+text = "Paging the request list with its cursor never repeats or skips a request while new requests arrive, and filters and ownership apply to every page."
+kind = "behavior"
+primary = "pytest"
+workflow = "request-list"
+tests = [
+    "test_app.py::test_stable_paging_while_new_arrive",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Honest panel after a stale page"
+text = "A refused panel action shows the server's message in the status region and redraws the trucks, count line, `Assign truck` options and status chip from stored rows."
+kind = "behavior"
+primary = "pytest"
+workflow = "assign-and-confirm"
+tests = [
+    "test_app.py::test_wf_assign_and_confirm_stale_panel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Declined requests hold no trucks"
+text = "After a decline its trucks are gone from the request on every surface and free at once, and a racing assignment or release never leaves a truck on a declined request or a request confirmed short."
+kind = "behavior"
+primary = "pytest"
+workflow = "decline"
+tests = [
+    "test_app.py::test_wf_decline_from_panel",
+    "test_app.py::test_decline_against_assignment_race",
+    "test_app.py::test_decline_against_release_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "One request per draft"
+text = "A repeated `draft_id` from the same member returns the stored request with `200`, two simultaneous posts of one draft store exactly one request, and simultaneous distinct posts get consecutive ids without errors."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency"
+tests = [
+    "test_app.py::test_one_request_per_draft",
+    "test_app.py::test_wf_concurrency_second_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Ownership on every derived surface"
+text = "A tour manager's search, paging, activity, confirmation pages and fragment addresses never reveal another manager's request and answer exactly as a missing id does."
+kind = "behavior"
+primary = "pytest"
+workflow = "dispatch-access"
+tests = [
+    "test_app.py::test_wf_dispatch_access_ownership",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Maintenance against assignment"
+text = "Starting or ending maintenance on a truck while it is being assigned yields exactly one winner and a consistent fleet row."
+kind = "behavior"
+primary = "pytest"
+workflow = "maintenance"
+tests = [
+    "test_app.py::test_maintenance_against_assignment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Role changes apply at once and keep one admin"
+text = "A role change applies on the member's very next request, including tokens and pages issued before it, and two admins demoting each other at once leave exactly one admin."
+kind = "behavior"
+primary = "pytest"
+workflow = "members"
+tests = [
+    "test_app.py::test_role_change_applies_at_once",
+    "test_app.py::test_two_admins_demoting_each_other",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with `\"_schema\": \"run-manifest-v1\"` and string `install`, `build` and `serve` commands, and nothing else is needed to start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`/app/USER_README.md` lists every seeded account email beside the password `deku-demo-pw-2026`."
+tests = [
+    "test_app.py::test_if_user_readme",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Shipped packages, meaning the production dependency tree reported by `npm ls --omit=dev --all --json`, include no second datastore, cache, queue or embedded database package, and no database file sits in the app tree."
+tests = [
+    "test_app.py::test_if_no_second_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "`/app/THIRD_PARTY_NOTICES.md` names every shipped package (the production dependency tree from `npm ls --omit=dev --all --json`) with its version and licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Every shipped package (the production dependency tree from `npm ls --omit=dev --all --json`) is under MIT, ISC, 0BSD, BSD-2-Clause, BSD-3-Clause or Apache-2.0."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service configuration is left as given, and the app reaches PostgreSQL only through `DATABASE_URL`."
+tests = [
+    "test_app.py::test_if_database_from_environment",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "sign-in"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_sign_in_next_and_reload",
+    "test_app.py::test_wf_sign_in_refused_keeps_email",
+    "test_app.py::test_seeded_sign_in",
+    "test_app.py::test_sign_in_throttle_persists_and_locks_known_address",
+]
+
+[[workflows]]
+id = "seeded-desk"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-40",
+]
+critical = [
+    "test_app.py::test_wf_seeded_desk_fleet",
+    "test_app.py::test_wf_seeded_desk_board",
+    "test_app.py::test_one_count_of_the_fleet",
+]
+
+[[workflows]]
+id = "submit-request"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_submit_request_happy",
+    "test_app.py::test_wf_submit_request_step_rules",
+    "test_app.py::test_stored_submission",
+]
+
+[[workflows]]
+id = "request-list"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_request_list_search_filter_paging",
+    "test_app.py::test_wf_request_list_not_found",
+    "test_app.py::test_stable_paging_while_new_arrive",
+    "test_app.py::test_request_visibility",
+]
+
+[[workflows]]
+id = "assign-and-confirm"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-22",
+    "DP-23",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_assign_and_confirm_happy",
+    "test_app.py::test_wf_assign_and_confirm_panel_feedback",
+    "test_app.py::test_wf_assign_and_confirm_stale_panel",
+    "test_app.py::test_truck_assignment",
+]
+
+[[workflows]]
+id = "decline"
+requirements = [
+    "DP-20",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_decline_from_panel",
+    "test_app.py::test_decline_against_assignment_race",
+    "test_app.py::test_decline_against_release_race",
+]
+
+[[workflows]]
+id = "concurrency"
+requirements = [
+    "DP-21",
+    "DP-44",
+]
+critical = [
+    "test_app.py::test_wf_concurrency_second_tab",
+    "test_app.py::test_one_winner_decision",
+    "test_app.py::test_one_winner_assignment",
+    "test_app.py::test_one_request_per_draft",
+]
+
+[[workflows]]
+id = "dispatch-access"
+requirements = [
+    "DP-24",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_dispatch_access_manager_refused",
+    "test_app.py::test_wf_dispatch_access_ownership",
+]
+
+[[workflows]]
+id = "maintenance"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_maintenance_start_and_end",
+    "test_app.py::test_wf_maintenance_refused_on_request",
+    "test_app.py::test_maintenance_against_assignment",
+    "test_app.py::test_fleet_maintenance",
+]
+
+[[workflows]]
+id = "members"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_members_role_saved_and_live",
+    "test_app.py::test_wf_members_last_admin_refused",
+    "test_app.py::test_two_admins_demoting_each_other",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_health_and_server_rendered",
+]

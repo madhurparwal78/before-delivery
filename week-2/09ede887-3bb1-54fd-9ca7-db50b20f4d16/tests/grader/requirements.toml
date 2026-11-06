@@ -1,0 +1,1293 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 70
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "accounts",
+    "agenda",
+    "booking",
+    "organiser",
+    "contest",
+    "pages",
+    "platform",
+    "experience",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 77
+services = [
+    { name = "postgres", env = {} },
+]
+
+[criterion_weights]
+B1 = 3
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+S4 = 5
+Q1 = 3
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "postgres-down"
+port = 4174
+url_env = "APP_POSTGRES_DOWN_URL"
+
+[outages.env]
+DATABASE_URL = "postgresql://gf_app:unreachable@127.0.0.1:9/gf_dev"
+
+[[requirements]]
+id = "DP-01"
+title = "Signup"
+text = "Signup creates an `attendee` account from a valid name, email and password whatever role or other extra fields the request carries, and refuses bad or taken input storing nothing, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_signup_ignores_role_and_refuses_bad_input",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Sign in and sign out"
+text = "Sign-in exchanges an email and password for a bearer token that survives reloads and restarts until sign-out, after which the token is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_token_survives_restart_until_logout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Safe return after sign-in"
+text = "Sign-in and signup return the visitor to the `next` address only when it is a same-origin path, keeping its query, and otherwise land on `/agenda`."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_safe_next_redirect",
+]
+criteria = []
+parameter_cases = [
+    "filtered-board",
+    "protocol-relative",
+    "encoded-slashes",
+    "backslash",
+    "absolute",
+    "javascript",
+    "empty",
+    "missing",
+]
+
+[[requirements]]
+id = "DP-04"
+title = "Sign-in throttle"
+text = "After five failed sign-ins for one email within the throttle window every further sign-in for that email is refused with a retry delay, counted in PostgreSQL across all running instances, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_signin_throttle_shared_across_instances",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "No account disclosure at sign-in"
+text = "Sign-in answers an unknown email and a wrong password with the same status, byte-identical body, the same header names, comparable timing and the same throttle, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_signin_does_not_disclose_accounts",
+    "test_app.py::test_wf_accounts_wrong_password",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Account journey"
+text = "A visitor sent to sign in from a filtered agenda board creates an account through `Create an account`, lands back on the same filtered address signed in as an attendee, signs out, and signs in again."
+kind = "behavior"
+primary = "workflow"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_wf_accounts_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Agenda listing"
+text = "The agenda API returns the eighteen sessions filtered by day, stage and format in the published order, and refuses an unknown filter value."
+kind = "behavior"
+primary = "pytest"
+workflow = "agenda"
+tests = [
+    "test_app.py::test_agenda_listing_order_and_filters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Workshop filter"
+text = "Day 1 narrowed to AI Builder Lab workshops shows exactly the three published sessions, and a combination with no match shows the empty-filter line beside `Clear filters`."
+kind = "behavior"
+primary = "pytest"
+workflow = "agenda"
+tests = [
+    "test_app.py::test_wf_agenda_empty_filter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Filters in the address"
+text = "The chosen day, stage, format and search live in the `/agenda` address in the published key order, each applied change adds one history entry, a reload reproduces the same board, and an unknown value falls back to All."
+kind = "behavior"
+primary = "pytest"
+workflow = "agenda"
+tests = [
+    "test_app.py::test_wf_agenda_address_history",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Venue time in any browser zone"
+text = "Every page shows session times, hold end times and the contest cut-off in Port Ashby time whatever the browser's own time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "agenda"
+tests = [
+    "test_app.py::test_venue_time_in_other_zone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Daylight time ends between the days"
+text = "Each session's UTC instants and each day's venue-time line come from the venue zone's rules, so Day 1 reads ADT three hours behind UTC and Day 2 reads AST four hours behind UTC."
+kind = "behavior"
+primary = "pytest"
+workflow = "agenda"
+tests = [
+    "test_app.py::test_instants_follow_zone_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Calendar file"
+text = "`Download Agenda` and the calendar endpoint deliver a strictly valid calendar of the on-screen sessions with UTC start and end instants, and an empty filtered list gets no file, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "agenda"
+tests = [
+    "test_app.py::test_calendar_file_strict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Speakers"
+text = "The speakers list and wall show every speaker once in order of first appearance, with company, sessions and rendered bio."
+kind = "behavior"
+primary = "pytest"
+workflow = "agenda"
+tests = [
+    "test_app.py::test_speakers_in_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Speaker bio formatting"
+text = "Speaker bios are rendered by the published CommonMark subset exactly as its delimiter, code span, link and line-break rules and the fifteen published input and output pairs require."
+kind = "behavior"
+primary = "pytest"
+workflow = "agenda"
+tests = [
+    "test_app.py::test_bio_rendering_pairs",
+]
+criteria = []
+parameter_cases = [
+    "p01",
+    "p02",
+    "p03",
+    "p04",
+    "p05",
+    "p06",
+    "p07",
+    "p08",
+    "p09",
+    "p10",
+    "p11",
+    "p12",
+    "p13",
+    "p14",
+    "p15",
+]
+
+[[requirements]]
+id = "DP-15"
+title = "Bios cannot inject markup"
+text = "No bio can create an element, attribute or link beyond those the published subset produces, and only `http:` and `https:` destinations ever become links."
+kind = "behavior"
+primary = "pytest"
+workflow = "agenda"
+tests = [
+    "test_app.py::test_bio_cannot_inject_markup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Session search"
+text = "The v2 session search follows the published query grammar, matching titles, speaker names and companies without regard to case or accents, combined with the day, stage and format filters."
+kind = "behavior"
+primary = "pytest"
+workflow = "agenda"
+tests = [
+    "test_app.py::test_search_grammar",
+]
+criteria = []
+parameter_cases = [
+    "agent",
+    "agent-minus-wallet",
+    "phrase-tidewater",
+    "and-operator",
+    "or-accent",
+    "precedence",
+    "group-negation",
+    "apostrophe-phrase",
+    "lowercase-and",
+    "caps-cafe",
+    "plain-cafe",
+    "accent-cafe",
+    "caps-accent-cafe",
+]
+
+[[requirements]]
+id = "DP-17"
+title = "Malformed searches recover"
+text = "A malformed search is never refused and is read by the published recovery rules, giving the published result for each of the eight published malformed queries."
+kind = "behavior"
+primary = "pytest"
+workflow = "agenda"
+tests = [
+    "test_app.py::test_malformed_search_recovers",
+]
+criteria = []
+parameter_cases = [
+    "open-phrase",
+    "open-group",
+    "trailing-or",
+    "leading-or",
+    "stray-close",
+    "double-operator",
+    "lone-minus",
+    "empty-pieces",
+]
+
+[[requirements]]
+id = "DP-18"
+title = "Search time budget"
+text = "Every search of up to 2,048 characters, including the three published worst-case queries, is answered within 500 milliseconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "agenda"
+tests = [
+    "test_app.py::test_search_time_budget",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Browse journey"
+text = "A visitor narrows `/agenda` to Day 1 AI Builder Lab workshops, reads three sessions in Port Ashby time, downloads the matching calendar, then switches to Day 2 and reads its AST venue-time line and times."
+kind = "behavior"
+primary = "workflow"
+workflow = "agenda"
+tests = [
+    "test_app.py::test_wf_agenda_browse",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Saving and My Agenda"
+text = "Saving and unsaving are idempotent, and `/my-agenda` lists an attendee's reserved, held, waitlisted and saved sessions under their headings with a line in words when one is empty, while the organiser sees the attendee-only copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking"
+tests = [
+    "test_app.py::test_saving_and_my_agenda",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Booking refusals"
+text = "A reservation, waitlist, claim or release that fails a check is refused with its code in the published order and stores nothing, and only attendees may reserve, claim, save, join waitlists or guess."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking"
+tests = [
+    "test_app.py::test_booking_refusals_in_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Overlapping seats"
+text = "An attendee never holds two overlapping seats, holds or a mix of both, touching times are allowed, and a refused overlap names the conflicting session."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking"
+tests = [
+    "test_app.py::test_overlap_refused_touching_allowed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "The last seat"
+text = "Of simultaneous reservations for the last open seat exactly one succeeds, and one attendee's simultaneous duplicate reservations store one reservation."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking"
+tests = [
+    "test_app.py::test_last_seat_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Counts from stored rows"
+text = "Seats left, reserved, held, waitlist counts and waitlist positions are computed from stored reservations, live holds and waitlist entries on every read."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking"
+tests = [
+    "test_app.py::test_counts_from_stored_rows",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Retried reservations"
+text = "A reservation retried with the same `Idempotency-Key` on the same API version replays the original response, a key reused on another session or version is refused, and concurrent same-key requests store one reservation, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking"
+tests = [
+    "test_app.py::test_idempotent_reservation_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Waitlist"
+text = "An attendee joins the waitlist of a full session, reads their position, and leaves it, with each refusal checked in the published order."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking"
+tests = [
+    "test_app.py::test_waitlist_join_position_leave",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Freed seats are held for the next waiter"
+text = "A seat freed by a cancel, a capacity raise or an ended hold is held in the same step for the oldest eligible waiter for the hold period instead of being reserved for them, and a racing direct reservation never takes a held seat."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking"
+tests = [
+    "test_app.py::test_freed_seat_held_for_oldest_waiter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Promotion across sessions"
+text = "A change that ends a waiter's overlap gives them, in the same step, holds on the sessions they wait for that have an open seat, earliest start first and never two that overlap, and concurrent booking changes across overlapping sessions never answer a server error."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking"
+tests = [
+    "test_app.py::test_promotion_cascade_across_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Claiming and releasing a hold"
+text = "The owner of a live hold claims it into a reservation or releases it, and a claim or release after the hold ended is refused with `hold_expired`."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking"
+tests = [
+    "test_app.py::test_claim_and_release_hold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Holds end on the database clock"
+text = "A hold ends at its `held_until` instant on PostgreSQL's clock whether or not any app process ran in between, and the first request that reads that session's seats afterwards settles it and passes the seat on."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking"
+tests = [
+    "test_app.py::test_hold_ends_on_db_clock_without_process",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Each ended hold passes on exactly once"
+text = "With several instances running each ended hold produces exactly one next hold, and consecutive ended holds walk down the waitlist in order without granting a seat to anyone who did not claim it."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking"
+tests = [
+    "test_app.py::test_ended_holds_walk_waitlist_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Seat event log"
+text = "Every hold created, claimed, ended by time or released appends exactly one row to `seat_events`, giving each session a totally ordered history."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking"
+tests = [
+    "test_app.py::test_seat_event_log",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Keyboard booking and focus"
+text = "Every booking action works by keyboard alone, the pressed control keeps focus while pending, and when the control is replaced or its row removed focus moves to the published destination, never to the page body."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking"
+tests = [
+    "test_app.py::test_wf_booking_keyboard_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Reserve journey"
+text = "An attendee reserves `Clone Your Writing Voice` by keyboard with focus landing on `Cancel reservation`, finds it under Reserved seats, and on a full session joins the waitlist, sees a seat held for them when one frees, and claims it."
+kind = "behavior"
+primary = "workflow"
+workflow = "booking"
+tests = [
+    "test_app.py::test_wf_booking_reserve_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Conflict journey"
+text = "An attendee holding a seat in `Trading Competition: Battle of the Hottest Takes` who presses Reserve seat on `From Zero to Funded Agent in Minutes` reads the refusal naming the held session, and after cancelling that seat claims the seat held for them in a waitlisted overlapping session that had an open seat."
+kind = "behavior"
+primary = "workflow"
+workflow = "booking"
+tests = [
+    "test_app.py::test_wf_booking_conflict_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Organiser-only actions"
+text = "Rosters, roster downloads, capacity changes, bio edits and the reveal answer only the organiser, and an attendee or anonymous caller is refused by the server with nothing changed."
+kind = "behavior"
+primary = "pytest"
+workflow = "organiser"
+tests = [
+    "test_app.py::test_organiser_only_actions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Reservable sessions table"
+text = "The organiser lists every reservable session with capacity, reserved, held, seats left and waitlisted counts."
+kind = "behavior"
+primary = "pytest"
+workflow = "organiser"
+tests = [
+    "test_app.py::test_reservable_sessions_table",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Paged rosters"
+text = "The roster reads oldest first in capped pages linked by a next-page header, and paging while seats are cancelled, claimed and passed on never repeats a reservation or skips one that existed throughout."
+kind = "behavior"
+primary = "pytest"
+workflow = "organiser"
+tests = [
+    "test_app.py::test_paged_roster_stable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Capacity"
+text = "The organiser sets a capacity from 1 to 500 that is never below the reserved and held seats, and a raise holds the new seats for eligible waiters in the same step."
+kind = "behavior"
+primary = "pytest"
+workflow = "organiser"
+tests = [
+    "test_app.py::test_capacity_bounds_and_raise",
+    "test_app.py::test_wf_organiser_capacity_refusal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Capacity under load"
+text = "Capacity changes racing reservations never leave a session with more reserved and held seats than its capacity, and each refusal names the reserved and held count at the moment of the decision."
+kind = "behavior"
+primary = "pytest"
+workflow = "organiser"
+tests = [
+    "test_app.py::test_capacity_races_reservations",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Door roster download"
+text = "The roster CSV is a well-formed attachment of the whole roster in reservation order in which any cell that a spreadsheet would run as a formula is neutralised."
+kind = "behavior"
+primary = "pytest"
+workflow = "organiser"
+tests = [
+    "test_app.py::test_roster_csv_neutralised",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Speaker bio editing"
+text = "The organiser saves a speaker bio of up to 2,000 characters and reads back its rendered form, which every public view shows on its next read."
+kind = "behavior"
+primary = "pytest"
+workflow = "organiser"
+tests = [
+    "test_app.py::test_bio_editing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Organise journey"
+text = "The organiser opens a roster, pages through it with `Show more reserved attendees`, downloads its CSV, raises the capacity of a full session and sees the new seats held for waiters."
+kind = "behavior"
+primary = "workflow"
+workflow = "organiser"
+tests = [
+    "test_app.py::test_wf_organiser_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "One private guess"
+text = "Each attendee stores exactly one guess from 1 to 100,000,000, also under simultaneous submissions, and sees only their own guess until the reveal."
+kind = "behavior"
+primary = "pytest"
+workflow = "contest"
+tests = [
+    "test_app.py::test_one_private_guess",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Guessing cut-off"
+text = "Guessing closes at the configured cut-off judged on PostgreSQL's clock, after which guesses are refused and the contest reads closed until the reveal, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "contest"
+tests = [
+    "test_app.py::test_guessing_cutoff_on_db_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Reveal once"
+text = "The organiser reveals the final figure once, while open or closed, after which the three closest guesses are ranked by the published tie rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "contest"
+tests = [
+    "test_app.py::test_reveal_once_ranked",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Reveal against late guesses"
+text = "A guess racing the reveal is either counted and ranked or refused, and of simultaneous reveals exactly one succeeds and its figure is stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "contest"
+tests = [
+    "test_app.py::test_reveal_races_late_guesses",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Contest journey"
+text = "An attendee reads the cut-off in Port Ashby time on `/record`, guesses, sees their guess replace the form, and after the organiser's single reveal reads the final figure and the top three."
+kind = "behavior"
+primary = "workflow"
+workflow = "contest"
+tests = [
+    "test_app.py::test_wf_contest_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Not-found pages"
+text = "An unknown session or address shows the site's own not-found copy inside the normal chrome."
+kind = "behavior"
+primary = "pytest"
+workflow = "pages"
+tests = [
+    "test_app.py::test_wf_pages_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Form errors"
+text = "Rejected forms keep what was typed, mark and name each wrong field, list the errors in a summary that links to them, and store nothing, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "pages"
+tests = [
+    "test_app.py::test_wf_pages_form_errors",
+    "test_app.py::test_wf_contest_invalid_guess",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Opaque API errors"
+text = "Every `/api` refusal, including malformed, oversized, wrongly typed and unknown-path requests, is JSON in the error shape of its API version, health's starting answer excepted, and never HTML, a stack trace or a server error."
+kind = "behavior"
+primary = "pytest"
+workflow = "pages"
+tests = [
+    "test_app.py::test_api_errors_opaque",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Only the published surface"
+text = "The API answers exactly its published paths and methods in each version, refusing trailing slashes, unpublished methods and leftover endpoints as JSON, and the site sends no framework headers or source maps."
+kind = "behavior"
+primary = "pytest"
+workflow = "pages"
+tests = [
+    "test_app.py::test_only_published_surface",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Two API versions"
+text = "Every route answers under `/api/v2` in the v2 shapes, and every route v1 publishes also answers under `/api/v1` and the unversioned `/api` alias in the v1 shapes, all over the same stored data."
+kind = "behavior"
+primary = "pytest"
+workflow = "platform"
+tests = [
+    "test_app.py::test_two_versions_same_data",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Frozen v1"
+text = "v1 answers keep exactly the published v1 routes, keys, key order, codes and field meanings with the deprecation headers, never show a v2-only field, and change in value only where stored data changed or a published clock-derived value moved, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "platform"
+tests = [
+    "test_app.py::test_frozen_v1_contract",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Contract digests"
+text = "`GET /api/_contract` returns the SHA-256 digests of the published v1 and v2 manifests."
+kind = "behavior"
+primary = "pytest"
+workflow = "platform"
+tests = [
+    "test_app.py::test_contract_digests",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Deployment and health"
+text = "The app installs, builds and serves from `/app/run.json` on one origin, answers health with 200 when ready, answers every route on direct load, and requests no other host."
+kind = "behavior"
+primary = "pytest"
+workflow = "platform"
+tests = [
+    "test_app.py::test_deploy_health_and_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Stored state"
+text = "Accounts, tokens, reservations, holds, seat events, waitlist entries, saved sessions, bios, guesses, the contest, sign-in failures and idempotency keys live in PostgreSQL, survive a restart, and every role check reads the stored account."
+kind = "behavior"
+primary = "pytest"
+workflow = "platform"
+tests = [
+    "test_app.py::test_stored_state_survives_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Exact starting programme"
+text = "Three instances started at once against an empty database all become healthy and leave exactly the published seed, once."
+kind = "behavior"
+primary = "pytest"
+workflow = "platform"
+tests = [
+    "test_app.py::test_wf_platform_concurrent_boot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Database not ready at boot"
+text = "With PostgreSQL unreachable the app stays up and answers 503, then comes up without a restart once the database is reachable, as qualified in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "platform"
+tests = [
+    "test_app.py::test_wf_platform_db_outage_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Settings from the environment"
+text = "The database address, the contest cut-off, the hold period and every tunable duration are read from the environment at start and never written into source or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "platform"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Accessibility"
+text = "Every public route meets WCAG 2.2 AA with a visible focus ring, arrow-key day tabs, focus-trapping dialogs, labelled controls and the published roles and names."
+kind = "behavior"
+primary = "pytest"
+workflow = "experience"
+tests = [
+    "test_app.py::test_accessibility",
+    "test_app.py::test_wf_experience_chrome",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Announcements and loading"
+text = "Result counts, booking outcomes, refusals, waitlist positions and pending states are shown and announced politely in the named live regions, and every page shows its loading line while its data arrives."
+kind = "behavior"
+primary = "pytest"
+workflow = "experience"
+tests = [
+    "test_app.py::test_live_regions_and_loading",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Narrow phones"
+text = "Every route reads without sideways scrolling from 320 CSS pixels wide to a wide desktop, with the published phone and tablet arrangements."
+kind = "visual"
+primary = "pytest"
+workflow = "experience"
+tests = [
+    "test_app.py::test_narrow_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Motion and reduced motion"
+text = "Filter changes, the seat bar, the menu, the bio dialog, the hero and the scroll-linked stagger statement move as described, and with reduced motion every element stays visible and nothing moves."
+kind = "visual"
+primary = "pytest"
+workflow = "experience"
+tests = [
+    "test_app.py::test_motion_and_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Two tabs stay in step"
+text = "With one account signed in on two tabs, a booking change made in one shows in the other within five seconds without a reload, including the seat line, the row's controls and their accessible names, silently and without moving focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "experience"
+tests = [
+    "test_app.py::test_wf_experience_two_tabs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Back and Forward through the board"
+text = "Back and Forward step through applied filter changes restoring each address, result count and scroll position, and returning from a session page restores the board with focus on the followed title link and no repeated announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "experience"
+tests = [
+    "test_app.py::test_wf_experience_back_from_session",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Unsaved bio edits"
+text = "Leaving the organiser page or switching speaker with unsaved bio changes asks first, and choosing to keep editing keeps the draft and the address."
+kind = "behavior"
+primary = "pytest"
+workflow = "experience"
+tests = [
+    "test_app.py::test_wf_experience_unsaved_bio",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Type, colour and chrome"
+text = "The page uses the published type character, colour roles, square corners, banner, top bar and footer."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Home page composition"
+text = "The home page presents its chapters in the published order around the star-trail hero and the stagger statement."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Product scope"
+text = "The site offers nothing beyond this brief: no ticket sales, payment, newsletter, email, chat, comments, ratings, cookie banner or analytics."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_product_scope_absent",
+]
+criteria = [
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "Ship `/app/run.json` with `\"_schema\":\"run-manifest-v1\"` and string `install`, `build` and `serve` commands."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "Write every seeded email, its role and the shared password `deku-demo-pw-2026` into `/app/USER_README.md`."
+tests = [
+    "test_app.py::test_if_user_readme",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Ship `/app/THIRD_PARTY_NOTICES.md` naming the star-trail photograph and the Inter font with their source and licence, and every shipped package with its licence. Shipped packages are the production dependency tree as listed by `npm ls --omit=dev --all --json`."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Every shipped package in that same production dependency tree, including optional and native-binding packages, declares only an MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0 licence."
+tests = [
+    "test_app.py::test_if_licence_allowlist",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "`/app/package.json` declares no client for a second database, cache, queue, object store, identity provider or mail service."
+tests = [
+    "test_app.py::test_if_no_second_service_client",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Commit `/app/package-lock.json` so `npm ci` installs exactly the locked tree."
+tests = [
+    "test_app.py::test_if_lockfile_committed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Server and browser source files are TypeScript; the only JavaScript files are build output and tool configuration."
+tests = [
+    "test_app.py::test_if_typescript_sources",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "accounts"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+]
+critical = [
+    "test_app.py::test_wf_accounts_journey",
+    "test_app.py::test_signup_ignores_role_and_refuses_bad_input",
+    "test_app.py::test_safe_next_redirect",
+    "test_app.py::test_signin_throttle_shared_across_instances",
+    "test_app.py::test_signin_does_not_disclose_accounts",
+]
+
+[[workflows]]
+id = "agenda"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_agenda_browse",
+    "test_app.py::test_wf_agenda_address_history",
+    "test_app.py::test_venue_time_in_other_zone",
+    "test_app.py::test_instants_follow_zone_rules",
+]
+
+[[workflows]]
+id = "booking"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_booking_reserve_journey",
+    "test_app.py::test_wf_booking_conflict_journey",
+    "test_app.py::test_wf_booking_keyboard_focus",
+    "test_app.py::test_last_seat_race",
+    "test_app.py::test_counts_from_stored_rows",
+    "test_app.py::test_idempotent_reservation_replay",
+]
+
+[[workflows]]
+id = "organiser"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_organiser_journey",
+    "test_app.py::test_organiser_only_actions",
+    "test_app.py::test_roster_csv_neutralised",
+    "test_app.py::test_capacity_races_reservations",
+    "test_app.py::test_paged_roster_stable",
+]
+
+[[workflows]]
+id = "contest"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_contest_journey",
+    "test_app.py::test_one_private_guess",
+    "test_app.py::test_guessing_cutoff_on_db_clock",
+    "test_app.py::test_reveal_races_late_guesses",
+]
+
+[[workflows]]
+id = "pages"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_pages_not_found",
+    "test_app.py::test_wf_pages_form_errors",
+    "test_app.py::test_api_errors_opaque",
+    "test_app.py::test_only_published_surface",
+]
+
+[[workflows]]
+id = "platform"
+requirements = [
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_platform_concurrent_boot",
+    "test_app.py::test_wf_platform_db_outage_recovery",
+    "test_app.py::test_stored_state_survives_restart",
+]
+
+[[workflows]]
+id = "experience"
+requirements = [
+    "DP-61",
+    "DP-62",
+    "DP-63",
+    "DP-64",
+    "DP-65",
+    "DP-66",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_experience_two_tabs",
+    "test_app.py::test_wf_experience_back_from_session",
+    "test_app.py::test_wf_experience_chrome",
+    "test_app.py::test_live_regions_and_loading",
+    "test_app.py::test_narrow_layouts",
+    "test_app.py::test_accessibility",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-68",
+    "DP-69",
+    "DP-70",
+]
+critical = [
+    "test_app.py::test_product_scope_absent",
+]

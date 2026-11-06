@@ -1,0 +1,969 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "account-devices",
+    "field-sync",
+    "provider-outages",
+    "shared-vault",
+    "version-history",
+    "exposure-ring",
+    "publish-dossier",
+    "editor-preview",
+    "takedown",
+    "public-reading",
+    "subscription-lapse",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 87
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "killbill", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Cairn <no-reply@cairn.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 5
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 5
+S4 = 5
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "killbill-down"
+port = 4175
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Accounts with a home time zone"
+text = "Creating an account records email, display name, password and an IANA time zone, signs the browser in as the account's first approved device, and answers the errors listed in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-devices"
+tests = [
+    "test_app.py::test_accounts_create_and_errors",
+    "test_app.py::test_wf_account_devices_create_account",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "New-device approval email"
+text = "Signing in from a new device on an account that already has an approved device sends one approval email to the account address, carrying the approval link and no note titles or note text."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-devices"
+tests = [
+    "test_app.py::test_new_device_approval_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Unapproved devices pull nothing"
+text = "Until its approval link is used, a device is refused every vault key, revision list, blob and history request, and the approval link stops working after the expiry set in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-devices"
+tests = [
+    "test_app.py::test_unapproved_device_refused",
+    "test_app.py::test_device_approval_link_expires",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Second-device sign-in journey"
+text = "An investigator signs in on a second browser, sees the waiting-for-approval state, approves from the email, sees the Unlock vault dialog within the approval detection delay from Business rules, and after entering the vault passphrase sees the vault's notes within the unlock delay from Business rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "account-devices"
+tests = [
+    "test_app.py::test_wf_account_devices_second_device",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Local notebook without an account"
+text = "Without signing in, a person creates, links and reopens notes that persist in the browser across reloads, including with the network off after the first load, and the Backlinks tab lists every note that links to the open note."
+kind = "behavior"
+primary = "workflow"
+workflow = "field-sync"
+tests = [
+    "test_app.py::test_wf_field_sync_local_offline",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Ciphertext-only sync"
+text = "Every synced revision reaches the server as an encrypted envelope, so no vault-blobs object and no database row contains a note's title, alias, frontmatter or body text."
+kind = "behavior"
+primary = "pytest"
+workflow = "field-sync"
+tests = [
+    "test_app.py::test_ciphertext_only_sync",
+    "test_app.py::test_envelope_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Revision push and pull"
+text = "A push based on the current head records the vault's next revision number and stores its blob under the key pattern from Services, and every vault member pulls revisions in revision order."
+kind = "behavior"
+primary = "pytest"
+workflow = "field-sync"
+tests = [
+    "test_app.py::test_push_and_pull",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Retried pushes record once"
+text = "Repeating a push with the same Idempotency-Key and body returns the original response and records no second revision, blob or cursor step, while the same key with a different body is refused as stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "field-sync"
+tests = [
+    "test_app.py::test_retried_push_records_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Honest per-note sync badge"
+text = "A note's badge reads synced only after the server has recorded that note's latest revision, and a conflict or rejection turns the badge to the matching state from Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "field-sync"
+tests = [
+    "test_app.py::test_honest_sync_badge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Two-device field sync journey"
+text = "Edits made on one of the investigator's devices appear on their other signed-in device within the pull interval from Business rules, and both badges read synced."
+kind = "behavior"
+primary = "workflow"
+workflow = "field-sync"
+tests = [
+    "test_app.py::test_wf_field_sync_two_devices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Boots and stays healthy with providers down"
+text = "The server starts and passes its health check while storage or billing is unreachable, and each request that needs the missing provider gets the matching unavailable answer from API."
+kind = "behavior"
+primary = "pytest"
+workflow = "provider-outages"
+tests = [
+    "test_app.py::test_providers_down_stay_healthy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Storage outage reported honestly"
+text = "While storage is unreachable, pushes, restores, publishes, preview links and takedowns are refused with the storage-unavailable answer, a refused publish leaves the previously live dossier unchanged, a refused takedown leaves the dossier offline as qualified in Business rules, and the app shows the sync-paused copy with the queued revision count."
+kind = "behavior"
+primary = "pytest"
+workflow = "provider-outages"
+tests = [
+    "test_app.py::test_storage_outage_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Queued revisions resume by themselves"
+text = "Revisions queued during a storage outage stay on the device across reloads and are pushed in order at the client's next retry once storage answers, with no server restart and no user action."
+kind = "behavior"
+primary = "pytest"
+workflow = "provider-outages"
+tests = [
+    "test_app.py::test_wf_provider_outages_storage_resume",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Billing outage keeps the last known plan"
+text = "While Kill Bill is unreachable, plan changes are refused with the billing-unavailable answer and change nothing, and pushes and publishes use the account's last known entitlement, or get the billing-unavailable answer when none is known."
+kind = "behavior"
+primary = "pytest"
+workflow = "provider-outages"
+tests = [
+    "test_app.py::test_billing_outage_last_known_plan",
+    "test_app.py::test_wf_provider_outages_billing_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Shared-vault invite email"
+text = "A vault owner's invite sends one email to the partner, with an expiring accept link and no vault name, note titles or note text, and accepting it makes the partner a vault member."
+kind = "behavior"
+primary = "pytest"
+workflow = "shared-vault"
+tests = [
+    "test_app.py::test_invite_email_and_accept",
+    "test_app.py::test_invite_link_expires",
+    "test_app.py::test_wf_shared_vault_invite_wrong_account",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Vault isolation"
+text = "Every blob, revision list, history, key, cursor or invite request for a vault the caller does not belong to answers not found, including when it reuses a real vault id, note id or revision number from another vault."
+kind = "behavior"
+primary = "pytest"
+workflow = "shared-vault"
+tests = [
+    "test_app.py::test_vault_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "One winner per base revision"
+text = "Of any number of simultaneous pushes to one note from the same base revision, exactly one is recorded and every other gets the conflict answer naming the current head."
+kind = "behavior"
+primary = "pytest"
+workflow = "shared-vault"
+tests = [
+    "test_app.py::test_one_winner_per_base",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Co-editing journey with conflict copies"
+text = "When a device's push loses, its notebook shows the winning version, keeps the device's own edit as a visible conflict copy note, and lets the user restore an older revision from the History tab."
+kind = "behavior"
+primary = "workflow"
+workflow = "shared-vault"
+tests = [
+    "test_app.py::test_wf_shared_vault_conflict_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Version history"
+text = "A note's history lists every revision recorded for it, newest first, with revision number, base revision, device name, time and any restored-from revision, and no entry is ever removed or changed."
+kind = "behavior"
+primary = "pytest"
+workflow = "version-history"
+tests = [
+    "test_app.py::test_version_history",
+    "test_app.py::test_wf_version_history_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Byte-exact restore as a new revision"
+text = "Restoring a revision records a new head revision whose blob is byte-identical to the chosen revision's blob and whose base is the current head, and a stale base gets the conflict answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "version-history"
+tests = [
+    "test_app.py::test_byte_exact_restore",
+    "test_app.py::test_concurrent_restore_one_winner",
+    "test_app.py::test_wf_version_history_restore",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Server boundary preview"
+text = "For a dossier's root note, a hop radius from 0 to 4 and the candidate notes, the manifest preview returns exactly the notes inside the boundary and the severed-link count defined in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "exposure-ring"
+tests = [
+    "test_app.py::test_manifest_preview",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Exposure Ring controls and counters"
+text = "The publish workbench shows the ring slider, hop stepper and counters, moves one hop per arrow key and straight to the chosen hop from the stepper, and its counters always equal the server's manifest preview for the same radius and private pins."
+kind = "behavior"
+primary = "pytest"
+workflow = "exposure-ring"
+tests = [
+    "test_app.py::test_wf_exposure_ring_keyboard",
+    "test_app.py::test_wf_exposure_ring_preview_allowlist",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Boundary crossing sequence"
+text = "Each time the boundary crosses a hop ring, nodes fill and gain checks, outbound links split with a scissor mark, the counters count to their new values and the live preview re-renders, in that order, and moving back reverses the sequence one hop at a time."
+kind = "behavior"
+primary = "pytest"
+workflow = "exposure-ring"
+tests = [
+    "test_app.py::test_wf_exposure_ring_crossing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Reduced-motion Exposure Ring"
+text = "When reduced motion is requested, the ring jumps between hops, cuts appear at once as dashed lines with scissor marks, the counters change without counting, and the boundary announcement live region reports each hop."
+kind = "behavior"
+primary = "pytest"
+workflow = "exposure-ring"
+tests = [
+    "test_app.py::test_wf_exposure_ring_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Exposure Ring look"
+text = "The ring looks like a forensic instrument: concentric hop rings on a near-black canvas, amber only on public nodes, red with scissor marks only on cut links, and lock marks on private notes."
+kind = "visual"
+primary = "rubric"
+workflow = "exposure-ring"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Dossier lifecycle"
+text = "Dossiers move only along the transitions listed in Business rules, and any other move is refused with the dossier's current state."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-dossier"
+tests = [
+    "test_app.py::test_dossier_lifecycle",
+    "test_app.py::test_wf_takedown_reopen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "All-or-nothing publish"
+text = "A publish either stores every rendered object and then switches the live pointer, or leaves the previously live dossier serving exactly as before."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-dossier"
+tests = [
+    "test_app.py::test_refused_publish_keeps_live_dossier",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "No leak beyond the boundary"
+text = "No published or preview object (page, search index, sitemap, link preview or backlink panel) contains the title, alias, frontmatter or id of a note outside the boundary, and links to such notes render as unlinked text."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-dossier"
+tests = [
+    "test_app.py::test_no_leak_beyond_boundary",
+    "test_app.py::test_wf_publish_dossier_private_pin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Publish journey"
+text = "The investigator creates a dossier rooted at the note open in the editor, sets the boundary on the Exposure Ring, publishes, and opens the live dossier at its public address."
+kind = "behavior"
+primary = "workflow"
+workflow = "publish-dossier"
+tests = [
+    "test_app.py::test_wf_publish_dossier_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Draft preview links"
+text = "A preview link shows only its own draft, stops working on the first request after it is revoked, replaced or expired, and refuses anything other than reading."
+kind = "behavior"
+primary = "pytest"
+workflow = "editor-preview"
+tests = [
+    "test_app.py::test_preview_links",
+    "test_app.py::test_preview_link_expires",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Editor review journey"
+text = "The commissioning editor opens the preview link with no account, reads the draft and follows its internal links, and after revocation sees the ended-link page."
+kind = "behavior"
+primary = "workflow"
+workflow = "editor-preview"
+tests = [
+    "test_app.py::test_wf_editor_preview_review",
+    "test_app.py::test_wf_editor_preview_replace",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Takedown removes every object"
+text = "Taking a dossier down deletes all of its pages, assets, search index, link previews and sitemap from storage, and every public address of the dossier answers not found on the next request."
+kind = "behavior"
+primary = "pytest"
+workflow = "takedown"
+tests = [
+    "test_app.py::test_takedown_removes_every_object",
+    "test_app.py::test_wf_takedown_dossier",
+    "test_app.py::test_takedown_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Narrowing the boundary removes pages"
+text = "Republishing with a smaller radius or a new private pin removes the pages, search entries, link previews and sitemap lines of notes now outside the boundary, and their addresses answer not found."
+kind = "behavior"
+primary = "pytest"
+workflow = "takedown"
+tests = [
+    "test_app.py::test_narrowing_removes_pages",
+    "test_app.py::test_wf_takedown_narrowed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Allowlisted dossier pages"
+text = "In published and preview pages, rendered note bodies contain only the allowlisted body elements, attributes and link schemes from Business rules and the page around them contains only the listed page-shell elements, so pasted scripts, event attributes and script URLs show up as inert text."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-reading"
+tests = [
+    "test_app.py::test_allowlisted_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Public reader journey"
+text = "On a phone, a public reader opens a dossier, follows internal links, uses the Linked from panel and searches the dossier, with results limited to published notes."
+kind = "behavior"
+primary = "workflow"
+workflow = "public-reading"
+tests = [
+    "test_app.py::test_wf_public_reading_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Sync and Publish in Kill Bill"
+text = "Adding or cancelling an add-on creates the named plan on the account's Kill Bill account, or cancels it at the end of the term, and entitlement for pushes and publishes is read from Kill Bill on each request."
+kind = "behavior"
+primary = "pytest"
+workflow = "subscription-lapse"
+tests = [
+    "test_app.py::test_killbill_subscriptions",
+    "test_app.py::test_wf_subscription_lapse_cancel_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Sync grace then read-only"
+text = "After the Sync period ends, the vault stays writable until the grace deadline from Business rules, then refuses pushes as read-only while pulls keep working."
+kind = "behavior"
+primary = "pytest"
+workflow = "subscription-lapse"
+tests = [
+    "test_app.py::test_sync_grace_deadline",
+    "test_app.py::test_sync_lapse_read_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Publish retention, warning and takedown"
+text = "After the Publish period ends, live dossiers stay up until the takedown deadline, the warning email goes out at the warning time and always before takedown, and takedown removes every publish object and marks the dossiers lapsed."
+kind = "behavior"
+primary = "pytest"
+workflow = "subscription-lapse"
+tests = [
+    "test_app.py::test_publish_retention_deadlines",
+    "test_app.py::test_publish_lapse_takedown",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Operator console"
+text = "The founder-operator sees every account's plan states, deadlines, vault and blob counts and live dossiers, and can run the lapse check on demand."
+kind = "behavior"
+primary = "workflow"
+workflow = "subscription-lapse"
+tests = [
+    "test_app.py::test_wf_subscription_lapse_console",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Responsive three-column layout"
+text = "At 375, 768 and 1280 pixel widths every screen fits without horizontal scrolling, with the rail, note column and context pane arranged as in Screens and layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layout",
+]
+criteria = []
+parameter_cases = [
+    "375",
+    "768",
+    "1280",
+]
+
+[[requirements]]
+id = "DP-41"
+title = "Keyboard and focus"
+text = "Every control in Public screens and controls can be reached with Tab in visual order and shows a visible focus ring, dialogs keep focus inside, Escape closes them, and focus returns to the control that opened them."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_and_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Nocturnal forensic look"
+text = "Every view keeps the near-black ground, Fraunces headings, IBM Plex Sans body text and tabular mono numerals for counts and revision numbers, with amber only where something crosses the public boundary and on keyboard focus rings."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read from the environment variables named in Configuration and secrets, and none appears in source code or in anything sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Real client-side encryption"
+text = "Note encryption and decryption run in the browser using the platform's built-in cryptography, and the server code never receives a vault key or vault passphrase."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Server boundary"
+text = "The server enforces the content type, origin and body-size rules from Server boundary, and never serves source files or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = [
+    "content_type",
+    "cross_origin",
+    "api_body_limit",
+    "push_body_limit",
+    "preview_body_limit",
+    "source_files",
+]
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists and holds exactly the string keys install, build and serve plus \"_schema\":\"run-manifest-v1\"."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package, meaning the production dependency tree from npm ls --omit=dev --all --json, plus every bundled font, each with its version and licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, Unlicense, BlueOak-1.0.0 or SIL OFL 1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The server uses no datastore other than PostgreSQL, MinIO, Kill Bill and Mailpit. There is no SQLite, Redis, or file-based database or queue on the server."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration files and environment defaults are left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "All server and browser source code is TypeScript."
+tests = [
+    "test_app.py::test_if_typescript_sources",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Fonts and icons are bundled with the app, using Lucide icons and self-hosted Fraunces and IBM Plex. At runtime, the app makes no request to any third-party host."
+tests = [
+    "test_app.py::test_if_bundled_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "account-devices"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_account_devices_second_device",
+    "test_app.py::test_wf_account_devices_create_account",
+    "test_app.py::test_unapproved_device_refused",
+    "test_app.py::test_new_device_approval_email",
+]
+
+[[workflows]]
+id = "field-sync"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_field_sync_two_devices",
+    "test_app.py::test_wf_field_sync_local_offline",
+    "test_app.py::test_retried_push_records_once",
+    "test_app.py::test_honest_sync_badge",
+]
+
+[[workflows]]
+id = "provider-outages"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_provider_outages_storage_resume",
+    "test_app.py::test_wf_provider_outages_billing_ui",
+    "test_app.py::test_storage_outage_refusals",
+    "test_app.py::test_providers_down_stay_healthy",
+]
+
+[[workflows]]
+id = "shared-vault"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_shared_vault_conflict_copy",
+    "test_app.py::test_wf_shared_vault_invite_wrong_account",
+    "test_app.py::test_one_winner_per_base",
+    "test_app.py::test_vault_isolation",
+]
+
+[[workflows]]
+id = "version-history"
+requirements = [
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_version_history_restore",
+    "test_app.py::test_byte_exact_restore",
+    "test_app.py::test_concurrent_restore_one_winner",
+]
+
+[[workflows]]
+id = "exposure-ring"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_exposure_ring_keyboard",
+    "test_app.py::test_wf_exposure_ring_crossing",
+    "test_app.py::test_wf_exposure_ring_preview_allowlist",
+]
+checkpoints = [
+    "B1",
+    "B4",
+    "B5",
+]
+critical_checkpoints = [
+    "B4",
+]
+
+[[workflows]]
+id = "publish-dossier"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_publish_dossier_happy",
+    "test_app.py::test_wf_publish_dossier_private_pin",
+    "test_app.py::test_refused_publish_keeps_live_dossier",
+]
+
+[[workflows]]
+id = "editor-preview"
+requirements = [
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_editor_preview_review",
+    "test_app.py::test_wf_editor_preview_replace",
+]
+
+[[workflows]]
+id = "takedown"
+requirements = [
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_takedown_dossier",
+    "test_app.py::test_takedown_removes_every_object",
+    "test_app.py::test_takedown_storage_outage",
+    "test_app.py::test_wf_takedown_narrowed",
+]
+
+[[workflows]]
+id = "public-reading"
+requirements = [
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_public_reading_phone",
+    "test_app.py::test_allowlisted_pages",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "subscription-lapse"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_subscription_lapse_console",
+    "test_app.py::test_wf_subscription_lapse_cancel_ui",
+    "test_app.py::test_sync_lapse_read_only",
+    "test_app.py::test_publish_lapse_takedown",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_responsive_layout",
+]

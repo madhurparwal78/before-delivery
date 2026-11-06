@@ -1,0 +1,1321 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.15, pytest-8.4.1, pluggy-1.7.0
+rootdir: /tests/grader
+configfile: ../../dev/null
+collected 75 items
+
+test_app.py FF........F..F....FFF.....FFF........FF..F.F...FFFFFF.FFF... [ 80%]
+..FFFFFFF.....F                                                          [100%]
+
+=================================== FAILURES ===================================
+_______________________ test_health_and_server_boundary ________________________
+
+app_url = 'http://127.0.0.1:4173'
+
+    def test_health_and_server_boundary(app_url):
+        r = httpx.get(f"{app_url}/api/health", timeout=HTTP_TIMEOUT)
+        assert r.status_code == 200 and r.json() == {"status": "ok"}
+        for path in PRIVATE_PATHS:
+>           assert httpx.get(app_url + path, timeout=HTTP_TIMEOUT).status_code == 404, path
+E           AssertionError: /package-lock.json
+E           assert 200 == 404
+E            +  where 200 = <Response [200 OK]>.status_code
+E            +    where <Response [200 OK]> = <function get at 0xffffb25e6ac0>(('http://127.0.0.1:4173' + '/package-lock.json'), timeout=30)
+E            +      where <function get at 0xffffb25e6ac0> = httpx.get
+
+test_app.py:1035: AssertionError
+____________________________ test_signin_and_roles _____________________________
+
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb1bccf50>
+
+    def test_signin_and_roles(app_url, mail):
+        for who, role in ROLE.items() | {k: "interpreter" for k in ["dana", "theo", "imani", "lior", "sam", "callum", "noor"]}.items():
+            c = httpx.Client(base_url=app_url, timeout=HTTP_TIMEOUT)
+            r = c.post("/api/session", json={"email": EMAIL[who], "passcode": PASSCODE})
+            user = ok(r)["user"]
+            assert (user["email"], user["name"], user["role"]) == (EMAIL[who], NAME[who], role)
+            cookie = "; ".join(r.headers.get_list("set-cookie")).lower()
+            assert "sw_session" in cookie and "HttpOnly".lower() in cookie and "SameSite=Lax".lower() in cookie
+            assert ok(c.get("/api/me"))["user"]["id"] == user["id"]
+        fails(httpx.post(f"{app_url}/api/session", json={"email": EMAIL["joel"], "passcode": "nope"}), 401, "invalid_credentials")
+        fails(httpx.post(f"{app_url}/api/session", json={}), 422, "validation")
+        fails(httpx.get(f"{app_url}/api/me"), 401, "unauthenticated")
+        fails(httpx.get(f"{app_url}/api/board"), 401, "unauthenticated")
+        req = make(app_url, start=at(app_url, FAR_LO_H, FAR_HI_H))
+        rid, sid, bea = req["id"], seats(req)[0]["id"], cid(app_url, "Bea Lindqvist")
+        reps = {"coordinator": "rowan", "interpreter": "sam", "requester": "joel", "consumer": "marcus", "billing": "marguerite"}
+        matrix = [
+            ("GET", "/api/board", None, {"coordinator"}),
+            ("GET", "/api/requests", None, {"requester", "coordinator", "billing"}),
+            ("POST", "/api/requests", {}, {"requester", "coordinator"}),
+            ("GET", f"/api/requests/{rid}", None, {"requester", "coordinator", "billing"}),
+            ("PATCH", f"/api/requests/{rid}", {"title": ""}, {"requester"}),
+            ("POST", f"/api/requests/{rid}/submit", {}, {"requester"}),
+            ("GET", f"/api/requests/{rid}/cancellation-quote", None, {"requester", "coordinator"}),
+            ("POST", f"/api/requests/{rid}/cancel", {"expected_fee": "999.00", "reason": REASON}, {"requester", "coordinator"}),
+            ("POST", f"/api/seats/{sid}/dry-run", {"interpreter_id": NO_SUCH}, {"coordinator"}),
+            ("POST", f"/api/seats/{sid}/offers", {"interpreter_id": NO_SUCH}, {"coordinator"}),
+            ("GET", "/api/interpreters/me/assignments", None, {"interpreter"}),
+            ("POST", f"/api/seats/{sid}/timesheet", {}, {"interpreter"}),
+            ("GET", "/api/timesheets?status=submitted", None, {"billing"}),
+            ("POST", approval_route(NO_SUCH), {}, {"billing"}),
+            ("GET", "/api/rates", None, {"billing", "coordinator"}),
+            ("PUT", "/api/rates", {}, {"billing"}),
+            ("GET", f"/api/orgs/{ORG['joel']}/invoices", None, {"requester", "billing"}),
+            ("GET", "/api/interpreters/me/credentials", None, {"interpreter"}),
+            ("GET", "/api/consumers/me/preferences", None, {"consumer"}),
+            ("PUT", "/api/consumers/me/preferences", {"preferred": [NO_SUCH], "blocked": [NO_SUCH]}, {"consumer"}),
+            ("GET", "/api/consumers", None, {"requester", "coordinator"}),
+            ("GET", f"/api/consumers/{bea}/preferences", None, {"coordinator"}),
+            ("GET", f"/api/audit?request_id={rid}", None, {"coordinator", "billing"}),
+        ]
+        for method, path, body, allowed in matrix:
+            headers = {"Idempotency-Key": idempotency_key()}
+            fails(httpx.request(method, app_url + path, json=body, headers=headers, timeout=HTTP_TIMEOUT), 401, "unauthenticated")
+            for role, who in reps.items():
+                r = api(app_url, who).request(method, path, json=body, headers=headers)
+                if role in allowed:
+                    assert r.status_code not in (401, 403), (role, method, path, r.text[:300])
+                elif not (role == "interpreter" and path.endswith("/timesheet")):
+                    fails(r, 403, "forbidden")
+        for path in (f"/api/prep/{NO_SUCH}", f"/api/timesheets/{NO_SUCH}/pdf", f"/api/credentials/{NO_SUCH}/scan"):
+            fails(httpx.get(app_url + path, timeout=HTTP_TIMEOUT), 401, "unauthenticated")
+        after = get_req(app_url, rid, "joel")
+        assert after["status"] == "submitted" and seats(after)[0]["status"] == "open"
+        for who, path in [("rowan", "/api/board"), ("marguerite", "/api/rates"), ("rowan", "/api/rates"),
+                          ("joel", "/api/consumers"), ("sam", "/api/interpreters/me/assignments")]:
+            ok(api(app_url, who).get(path))
+        deny = lambda r: r.status_code in (403, 404) and r.json()["error"]["code"] in ("forbidden", "not_found")
+        d0 = server_now(app_url).astimezone(TZ).date()
+        prep_ids, scan_ids = [], []
+        for role, who in reps.items():
+            r = api(app_url, who).post(f"/api/requests/{rid}/prep", files={"file": (PREP_NAME, PDF, "application/pdf")})
+            if role == "requester":
+                prep_ids.append(ok(r, 201)["file"]["id"])
+            else:
+                fails(r, 403, "forbidden")
+            r = api(app_url, who).post("/api/interpreters/me/credentials", files={"scan": ("r.png", PNG, "image/png")},
+                                       data={"type": "EIPA-4.0", "number": unique("R")[0][:40],
+                                             "expires_on": str(d0 - timedelta(days=1))})
+            if role == "interpreter":
+                scan_ids.append(ok(r, 201)["credential"]["id"])
+            else:
+                fails(r, 403, "forbidden")
+        [fid], [scan] = prep_ids, scan_ids
+        for who in ("joel", "rowan", "priya", "marguerite"):
+            assert api(app_url, who).get(f"/api/prep/{fid}").content == PDF, who
+        for who in ("anita", "sam", "marcus"):
+            fails(api(app_url, who).get(f"/api/prep/{fid}"), 404, "not_found")
+        for who in ("sam", "rowan", "priya"):
+            assert api(app_url, who).get(f"/api/credentials/{scan}/scan").content == PNG, who
+        fails(api(app_url, "dana").get(f"/api/credentials/{scan}/scan"), 404, "not_found")
+        for who in ("joel", "marcus", "marguerite"):
+            assert deny(api(app_url, who).get(f"/api/credentials/{scan}/scan")), who
+        treq, tname, ts = worked(app_url, mail)
+        ok(approve(app_url, ts["id"]))
+        for who in ("marguerite", "joel", KEY[tname]):
+            r = api(app_url, who).get(f"/api/timesheets/{ts['id']}/pdf")
+            assert r.status_code == 200 and r.content.startswith(b"%PDF-"), who
+        fails(api(app_url, "anita").get(f"/api/timesheets/{ts['id']}/pdf"), 404, "not_found")
+        other = next(n for n in MEDICAL_OK if n != tname)
+        fails(api(app_url, KEY[other]).get(f"/api/timesheets/{ts['id']}/pdf"), 404, "not_found")
+        for who in ("rowan", "marcus"):
+>           assert deny(api(app_url, who).get(f"/api/timesheets/{ts['id']}/pdf")), who
+E           AssertionError: rowan
+E           assert False
+E            +  where False = <function test_signin_and_roles.<locals>.<lambda> at 0xffffafcd9c60>(<Response [200 OK]>)
+E            +    where <Response [200 OK]> = get('/api/timesheets/ts_b7d7d5d2ff1986621562/pdf')
+E            +      where get = <httpx.Client object at 0xffffb1d03a70>.get
+E            +        where <httpx.Client object at 0xffffb1d03a70> = api('http://127.0.0.1:4173', 'rowan')
+
+test_app.py:1148: AssertionError
+_______________________________ test_four_gates ________________________________
+
+app_url = 'http://127.0.0.1:4173'
+
+    def test_four_gates(app_url):
+        def results(req, name):
+            return {g["gate"]: g for g in ok(dry(app_url, seats(req)[0]["id"], name))["gates"]}
+    
+        far = lambda **kw: make(app_url, start=at(app_url, FAR_LO_H, FAR_HI_H), **kw)
+        cred_reason = lambda s: f"No {s} credential. Needs one of {', '.join(ACCEPTED[s])}."
+        g = results(far(), "Lior Feld")
+        assert (g["credential"]["pass"], g["credential"]["reason"]) == (False, cred_reason("medical"))
+        assert (g["validity"]["pass"], g["validity"]["reason"]) == (False, "No credential to check.")
+        g = results(far(setting="legal"), "Noor Haddad")
+        assert g["credential"]["reason"] == cred_reason("legal")
+        g = results(far(setting="education"), "Lior Feld")
+        assert g["credential"]["pass"] and g["validity"]["pass"]
+        g = results(far(), "Noor Haddad")
+        assert g["credential"]["pass"] and (g["consumer"]["pass"], g["consumer"]["reason"]) == (False, "Bea Lindqvist has blocked this interpreter.")
+        sam_exp = date.fromisoformat(next(c["expires_on"] for c in ok(api(app_url, "sam").get("/api/interpreters/me/credentials"))["credentials"]
+                                          if c["type"] == "NIC"))
+        last_day = make(app_url, start=datetime.combine(sam_exp, clock(14, 0), tzinfo=TZ))
+>       assert results(last_day, "Sam Whitlock")["validity"]["pass"] is True
+E       assert False is True
+
+test_app.py:1330: AssertionError
+___________________________ test_one_winner_per_seat ___________________________
+
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb1551010>
+
+    def test_one_winner_per_seat(app_url, mail):
+        ids = {who: ok(api(app_url, who).get("/api/me"))["user"]["id"] for who in ("rowan", "priya")}
+        for picks in (["Theo Marchetti", "Imani Brooks"], ["Imani Brooks", "Imani Brooks"]):
+            req, _ = ready(app_url, sorted(set(picks)), n=len(set(picks)), lo_h=FAR_LO_H, hi_h=FAR_HI_H)
+            sid = seats(req)[0]["id"]
+            rs = race([lambda: pin(app_url, sid, picks[0], "rowan"), lambda: pin(app_url, sid, picks[1], "priya")])
+            assert sorted(r.status_code for r in rs) == [201, 409], [r.text for r in rs]
+            win = 0 if rs[0].status_code == 201 else 1
+            winner = ("rowan", "priya")[win]
+            holder = fails(rs[1 - win], 409, "seat_taken")["holder"]
+>           assert holder == {"id": ids[winner], "name": NAME[winner]}
+E           AssertionError: assert {'id': 'u_pri... 'name': None} == {'id': 'u_pri... Castellanos'}
+E             
+E             Omitting 1 identical items, use -vv to show
+E             Differing items:
+E             {'name': None} != {'name': 'Priya Castellanos'}
+E             Use -v to get more diff
+
+test_app.py:1398: AssertionError
+__________________________ test_request_state_machine __________________________
+
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb165d490>
+
+    def test_request_state_machine(app_url, mail):
+        req, names = ready(app_url, LEGAL_OK, n=2, lo_h=FAR_LO_H, hi_h=FAR_HI_H, setting="legal")
+        s1, s2 = seats(req)
+        ok(pin(app_url, s1["id"], names[0]), 201)
+        ok(pin(app_url, s2["id"], names[1]), 201)
+        assert ok(answer(app_url, active_token(app_url, mail, req, names[0])))["request"]["status"] == "partially_staffed"
+        assert get_req(app_url, req["id"], "joel")["status"] == "partially_staffed"
+        assert ok(answer(app_url, active_token(app_url, mail, req, names[1])))["request"]["status"] == "staffed"
+        rid = req["id"]
+        assert fails(api(app_url, "joel").post(f"/api/requests/{rid}/submit", json={}), 409, "invalid_transition")["from"] == "staffed"
+        assert fails(api(app_url, "joel").patch(f"/api/requests/{rid}", json={"title": "x y"}), 409, "invalid_transition")["from"] == "staffed"
+        fails(dry(app_url, s1["id"], "Theo Marchetti"), 409, "seat_taken")
+        draft = make(app_url, start=at(app_url, FAR_LO_H, FAR_HI_H), submit=False)
+        assert fails(dry(app_url, seats(draft)[0]["id"], "Theo Marchetti"), 409, "invalid_transition")["from"] == "draft"
+        fails(pin(app_url, seats(draft)[0]["id"], "Theo Marchetti"), 409, "invalid_transition")
+        ok(cancel(app_url, draft["id"], "0.00"))
+        assert get_req(app_url, draft["id"], "joel")["status"] == "cancelled_on_time"
+        assert fails(cancel(app_url, draft["id"], "0.00"), 409, "invalid_transition")["from"] == "cancelled_on_time"
+        done, [dn] = ready(app_url, MEDICAL_OK, lo_h=-(LOGGED_AFTER_DAYS - 1) * 24, hi_h=-4, logged_after=True)
+        assert done["status"] == "submitted"
+        unstaffed = make(app_url, start=at(app_url, -(LOGGED_AFTER_DAYS - 1) * 24, -4), logged_after=True)
+        fails(api(app_url, "joel").get(f"/api/requests/{unstaffed['id']}/cancellation-quote"), 409, "already_started")
+        fails(cancel(app_url, unstaffed["id"], "0.00"), 409, "already_started")
+>       assert staff(app_url, mail, done, [dn])["status"] == "completed"
+E       AssertionError: assert 'staffed' == 'completed'
+E         
+E         - completed
+E         + staffed
+
+test_app.py:1506: AssertionError
+_______________________ test_staffed_confirmation_email ________________________
+
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb148bc20>
+
+    def test_staffed_confirmation_email(app_url, mail):
+        req, names = ready(app_url, LEGAL_OK, n=2, lo_h=FAR_LO_H, hi_h=FAR_HI_H, setting="legal")
+        subject = f"Staffed: {req['ref']} on {agency_date(req['start'])}"
+        s1, s2 = seats(req)
+        ok(pin(app_url, s1["id"], names[0]), 201)
+        ok(pin(app_url, s2["id"], names[1]), 201)
+>       ok(answer(app_url, active_token(app_url, mail, req, names[0])))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:1517: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:335: in active_token
+    for tok in offer_tokens(mail, req, name):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+mail = <conftest.Mailpit object at 0xffffb148bc20>
+req = {'cancellation_fee': None, 'consumer': {'id': 'c_bea', 'name': 'Bea Lindqvist'}, 'duration_hours': '1.00', 'end': '2027-01-11T10:29:00+00:00', ...}
+name = 'Dana Okafor', expected = 1
+
+    def offer_tokens(mail, req: dict, name: str, expected: int = 1) -> list[str]:
+        ms = mails(mail, EMAIL[KEY[name]], offer_subject(req), expected)
+>       assert len(ms) >= expected, f"offer email for {req['ref']} to {name} missing"
+E       AssertionError: offer email for FA-1040 to Dana Okafor missing
+E       assert 0 >= 1
+E        +  where 0 = len([])
+
+test_app.py:324: AssertionError
+________________________ test_cancellation_quote[draft] ________________________
+
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb155c1d0>, case = 'draft'
+
+    @pytest.mark.parametrize("case", QUOTE_CASES, ids=QUOTE_CASES)
+    def test_cancellation_quote(app_url, mail, case):
+        rate = Decimal(rates(app_url)["medical"] if case != "on_time_long" else rates(app_url)["legal"])
+        if case == "draft":
+            req, hours, seated, late = make(app_url, start=at(app_url, NEAR_LO_H, NEAR_HI_H), submit=False), 1, 0, False
+        elif case == "on_time_long":
+            req, hours, seated, late = make(app_url, start=at(app_url, LONG_WINDOW_H + 10, FAR_LO_H), setting="legal", hours=3), 3, 0, False
+        elif case == "late_unseated":
+            req, hours, seated, late = make(app_url, start=at(app_url, NEAR_LO_H, NEAR_HI_H)), 1, 0, True
+        else:
+            req, [name] = ready(app_url, MEDICAL_OK, lo_h=NEAR_LO_H, hi_h=LONG_WINDOW_H - 6, hours=3)
+            ok(pin(app_url, seats(req)[0]["id"], name), 201)
+            ok(answer(app_url, active_token(app_url, mail, req, name)))
+            hours, seated, late = 3, 1, True
+        q = quote(app_url, req["id"])
+        assert set(q) == {"late", "window_hours", "hours_before_start", "seated", "charge_hours_per_interpreter",
+                          "hourly_rate", "fee_per_interpreter", "fee"}
+        window = SHORT_WINDOW_H if hours <= 2 else LONG_WINDOW_H
+        charge = (Decimal("2.00") if hours <= 2 else Decimal(hours)) if late else Decimal(0)
+        expected_h = Decimal((parse(req["start"]) - server_now(app_url)).total_seconds()) / 3600
+        assert abs(Decimal(q["hours_before_start"]) - expected_h) <= HOURS_TOL
+>       assert (q["late"], q["window_hours"], q["seated"]) == (late, window, seated)
+E       assert (True, 48, 0) == (False, 48, 0)
+E         
+E         At index 0 diff: True != False
+E         Use -v to get more diff
+
+test_app.py:1551: AssertionError
+____________________________ test_idempotency_keys _____________________________
+
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb1472360>
+
+    def test_idempotency_keys(app_url, mail):
+        org = "birchmere-clinic"
+        req, [name] = ready(app_url, MEDICAL_OK, lo_h=NEAR_LO_H, hi_h=NEAR_HI_H)
+        req = staff(app_url, mail, req, [name])
+        fee = quote(app_url, req["id"])["fee"]
+        path = f"/api/requests/{req['id']}/cancel"
+        c = api(app_url, "joel")
+        fails(c.post(path, json={"expected_fee": fee, "reason": REASON}), 400, "idempotency_key_required")
+        key = idempotency_key()
+        fails(c.post(path, json={"expected_fee": "1.00", "reason": REASON}, headers={"Idempotency-Key": key}), 409, "fee_changed")
+        hdr = {"Idempotency-Key": key, "Content-Type": "application/json"}
+        first = c.post(path, content=json.dumps({"expected_fee": fee, "reason": REASON}), headers=hdr)
+        ok(first)
+        again = c.post(path, content=f'{{ "reason" : "{REASON}",\n "expected_fee": "{fee}" }}', headers=hdr)
+        assert again.status_code == first.status_code and again.content == first.content
+        assert again.headers.get("Idempotent-Replayed") == "true"
+        fails(c.post(path, json={"expected_fee": fee, "reason": "Other"}, headers={"Idempotency-Key": key}), 409, "idempotency_conflict")
+        assert len(items(app_url, org, f"[cx-{req['id']}]")) == 1
+        assert len(mails(mail, EMAIL[KEY[name]], f"Cancelled: {req['ref']} on {agency_date(req['start'])}")) == 1
+        past, [pn] = ready(app_url, MEDICAL_OK, lo_h=-(LOGGED_AFTER_DAYS - 1) * 24, hi_h=-4, logged_after=True)
+        past = staff(app_url, mail, past, [pn])
+        fails(api(app_url, KEY[pn]).post(f"/api/seats/{seats(past)[0]['id']}/timesheet", json=ts_body(past, pn, 70)),
+              400, "idempotency_key_required")
+        tkey = idempotency_key()
+        t1 = submit_ts(app_url, past, pn, 70, key=tkey)
+        ok(t1, 201)
+        t2 = submit_ts(app_url, past, pn, 70, key=tkey)
+        assert t2.status_code == 201 and t2.content == t1.content and t2.headers.get("Idempotent-Replayed") == "true"
+        fails(submit_ts(app_url, past, pn, 95, key=tkey), 409, "idempotency_conflict")
+        tid = t1.json()["timesheet"]["id"]
+        fails(approve(app_url, tid, keyed=False), 400, "idempotency_key_required")
+        akey = idempotency_key()
+        a1 = approve(app_url, tid, akey)
+        ok(a1)
+        a2 = approve(app_url, tid, akey)
+        assert a2.status_code == 200 and a2.content == a1.content and a2.headers.get("Idempotent-Replayed") == "true"
+        a3 = approve(app_url, tid, akey, body={"note": "x"})
+>       fails(a3, 409, "idempotency_conflict")
+
+test_app.py:1649: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+r = <Response [200 OK]>, status = 409, code = 'idempotency_conflict'
+
+    def fails(r: httpx.Response, status: int, code: str) -> dict:
+>       assert r.status_code == status, f"{r.request.method} {r.request.url}: {r.status_code} {r.text[:600]}"
+E       AssertionError: POST http://127.0.0.1:4173/api/timesheets/ts_228c0e98f737222433fd/approve: 200 {"timesheet":{"id":"ts_228c0e98f737222433fd","status":"approved","billed_hours":"2.00","hourly_rate":"80.00","amount":"160.00","killbill_invoice_id":"7774582a-c3ef-4858-a2d3-f7d91caf9301"},"request":{"ref":"FA-1051","status":"staffed"}}
+E       assert 200 == 409
+E        +  where 200 = <Response [200 OK]>.status_code
+
+test_app.py:199: AssertionError
+_________________________ test_timesheet_billed_hours __________________________
+
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffafe1be60>
+
+    def test_timesheet_billed_hours(app_url, mail):
+        for minutes, billed in [(70, "2.00"), (125, "2.25"), (180, "3.00")]:
+            req, [name] = ready(app_url, MEDICAL_OK, lo_h=-(LOGGED_AFTER_DAYS - 1) * 24, hi_h=-6, logged_after=True)
+            req = staff(app_url, mail, req, [name])
+            ts = ok(submit_ts(app_url, req, name, minutes), 201)["timesheet"]
+            assert ts["status"] == "submitted" and ts["billed_hours"] == billed
+            assert seats(get_req(app_url, req["id"]))[0]["timesheet"]["billed_hours"] == billed
+            listed = ok(api(app_url, "marguerite").get("/api/timesheets", params={"status": "submitted"}))["timesheets"]
+            assert any(t["id"] == ts["id"] and t["billed_hours"] == billed and t["ref"] == req["ref"] for t in listed)
+        fails(submit_ts(app_url, req, name, 70), 409, "already_submitted")
+        other = next(n for n in MEDICAL_OK if n != name)
+        r = api(app_url, KEY[other]).post(f"/api/seats/{seats(req)[0]['id']}/timesheet", json=ts_body(req, other, 70),
+                                         headers={"Idempotency-Key": idempotency_key()})
+        assert r.status_code in (403, 404)
+        fresh, [fn] = ready(app_url, MEDICAL_OK, lo_h=-(LOGGED_AFTER_DAYS - 1) * 24, hi_h=-6, logged_after=True)
+        fresh = staff(app_url, mail, fresh, [fn])
+        start = parse(fresh["start"])
+        bad = {"actual_start": start.isoformat(), "actual_end": (start - timedelta(minutes=5)).isoformat(), "signature_name": "x"}
+        fields = fails(api(app_url, KEY[fn]).post(f"/api/seats/{seats(fresh)[0]['id']}/timesheet", json=bad,
+                                                  headers={"Idempotency-Key": idempotency_key()}), 422, "validation")["fields"]
+>       assert {"actual_end", "signature_name"} <= set(fields)
+E       AssertionError: assert {'actual_end'...gnature_name'} <= {'actual_end'}
+E         
+E         Extra items in the left set:
+E         'signature_name'
+
+test_app.py:1715: AssertionError
+________________________ test_atomic_timesheet_approval ________________________
+
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb14a5ac0>
+
+    def test_atomic_timesheet_approval(app_url, mail):
+        req, name, ts = worked(app_url, mail)
+        with spawned(S3_ENDPOINT=CLOSED) as nostore:
+            fails(approve(nostore, ts["id"]), 503, "storage_unavailable")
+        seat = seats(get_req(app_url, req["id"]))[0]
+        assert seat["timesheet"]["status"] == "submitted" and seat["timesheet"]["amount"] is None
+        assert bucket().keys(f"timesheets/{req['id']}/") == []
+>       assert items(app_url, "birchmere-clinic", f"[ts-{ts['id']}]") == []
+E       AssertionError: assert [{'amount': '...at $80.00/h'}] == []
+E         
+E         Left contains one more item: {'amount': '160.00', 'description': '[ts-ts_fb7ae9c184ab96164c20] FA-1056 interpreting: Imani Brooks, 2.00 h at $80.00/h'}
+E         Use -v to get more diff
+
+test_app.py:1729: AssertionError
+_____________________________ test_billing_outage ______________________________
+
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffafd880e0>
+
+    def test_billing_outage(app_url, mail):
+        down = os.environ["APP_KILLBILL_DOWN_URL"]
+        assert ok(httpx.get(f"{down}/api/system/status", timeout=HTTP_TIMEOUT))["killbill"] == "down"
+>       req, name, ts = worked(app_url, mail)
+                        ^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:1948: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:374: in worked
+    req = staff(base, mail, req, [name])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+test_app.py:344: in staff
+    ok(answer(base, active_token(base, mail, req, name)))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+test_app.py:335: in active_token
+    for tok in offer_tokens(mail, req, name):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+mail = <conftest.Mailpit object at 0xffffafd880e0>
+req = {'cancellation_fee': None, 'consumer': {'id': 'c_bea', 'name': 'Bea Lindqvist'}, 'duration_hours': '1.00', 'end': '2026-11-01T06:13:00+00:00', ...}
+name = 'Imani Brooks', expected = 1
+
+    def offer_tokens(mail, req: dict, name: str, expected: int = 1) -> list[str]:
+        ms = mails(mail, EMAIL[KEY[name]], offer_subject(req), expected)
+>       assert len(ms) >= expected, f"offer email for {req['ref']} to {name} missing"
+E       AssertionError: offer email for FA-1068 to Imani Brooks missing
+E       assert 0 >= 1
+E        +  where 0 = len([])
+
+test_app.py:324: AssertionError
+_____________________ test_billing_timeout_reconciliation ______________________
+
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb14aa3c0>
+
+    def test_billing_timeout_reconciliation(app_url, mail):
+        kb = urlsplit(os.environ["KILLBILL_URL"])
+        relay = Relay((kb.hostname, kb.port or 80))
+        original = rates(app_url)
+        org = ORG["joel"]
+        try:
+            with spawned(KILLBILL_URL=kb._replace(netloc=f"127.0.0.1:{relay.port}").geturl()) as slow:
+>               req, name, ts = worked(app_url, mail)
+                                ^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:1987: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:374: in worked
+    req = staff(base, mail, req, [name])
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+test_app.py:344: in staff
+    ok(answer(base, active_token(base, mail, req, name)))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+test_app.py:335: in active_token
+    for tok in offer_tokens(mail, req, name):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+mail = <conftest.Mailpit object at 0xffffb14aa3c0>
+req = {'cancellation_fee': None, 'consumer': {'id': 'c_bea', 'name': 'Bea Lindqvist'}, 'duration_hours': '1.00', 'end': '2026-10-22T22:55:00+00:00', ...}
+name = 'Imani Brooks', expected = 1
+
+    def offer_tokens(mail, req: dict, name: str, expected: int = 1) -> list[str]:
+        ms = mails(mail, EMAIL[KEY[name]], offer_subject(req), expected)
+>       assert len(ms) >= expected, f"offer email for {req['ref']} to {name} missing"
+E       AssertionError: offer email for FA-1069 to Imani Brooks missing
+E       assert 0 >= 1
+E        +  where 0 = len([])
+
+test_app.py:324: AssertionError
+____________________________ test_wf_access_landing ____________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_access_landing(browser, app_url):
+        landing = {"joel": "/requests", "rowan": "/board", "sam": "/me", "marcus": "/preferences", "marguerite": "/billing"}
+        for who, path in landing.items():
+            with entered(open_app(browser, f"{app_url}/signin")) as page:
+                ui_login(page, app_url, who)
+                wait_for(page, lambda: page.url.endswith(path), why=path)
+>               assert page.get_by_role("navigation", name="Main").count() == 1
+E               assert 0 == 1
+E                +  where 0 = count()
+E                +    where count = <Locator frame=<Frame name= url='http://127.0.0.1:4173/requests'> selector='internal:role=navigation[name="Main"i]'>.count
+E                +      where <Locator frame=<Frame name= url='http://127.0.0.1:4173/requests'> selector='internal:role=navigation[name="Main"i]'> = get_by_role('navigation', name='Main')
+E                +        where get_by_role = <Page url='http://127.0.0.1:4173/requests'>.get_by_role
+
+test_app.py:2091: AssertionError
+_________________________ test_wf_request_intake_happy _________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_request_intake_happy(browser, app_url):
+        start = (server_now(app_url) + timedelta(days=1)).astimezone(TZ).replace(hour=14, minute=random.randint(0, 59), second=0, microsecond=0)
+        title = unique("Intake")[0]
+        fname = f"{unique('agenda')[0]}.pdf"
+        with entered(open_app(browser, f"{app_url}/signin")) as page:
+            ui_login(page, app_url, "joel")
+            click(page.get_by_role("link", name="New request"))
+            form = page.get_by_role("form", name="New request")
+            wait_for(page, lambda: form.count() > 0, why="form")
+            fill(form.get_by_role("textbox", name="Title"), title)
+            select(form.get_by_role("combobox", name="Setting"), "Medical")
+            fill(form.get_by_role("textbox", name="Location"), "Room 4")
+            fill(form.get_by_role("textbox", name="Start"), ui_dt(start))
+            fill(form.get_by_role("textbox", name="End"), ui_dt(start + timedelta(hours=1)))
+            select(form.get_by_role("combobox", name="Deaf consumer"), "Marcus Tull")
+            with entered(held(page, "**/api/requests")) as hold:
+                click(form.get_by_role("button", name="Save draft"))
+                shows(page, status(page, "Request status"), "Saving…")
+                hold.release()
+            shows(page, status(page, "Request status"), " saved.")
+            ref = re.search(r"Draft (FA-\d+) saved\.", status(page, "Request status").inner_text()).group(1)
+            with page.expect_file_chooser() as fc:
+                click(page.get_by_role("button", name="Add prep file"))
+            fc.value.set_files({"name": fname, "mimeType": "application/pdf", "buffer": PDF})
+            shows(page, status(page, "Request status"), f"{fname} attached.")
+            click(page.get_by_role("button", name="Submit request"))
+            shows(page, status(page, "Request status"), f"{ref} submitted to dispatch.")
+            shows(page, page.get_by_role("list", name="Prep materials"), fname)
+            body = page.locator("body")
+>           wait_for(page, lambda: "submitted" in body.inner_text() and "0/1" in body.inner_text(), why="status and seats")
+
+test_app.py:2146: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+page = <Page url='http://127.0.0.1:4173/requests/req_7eb37d38b9fbf6dcc10c'>
+cond = <function test_wf_request_intake_happy.<locals>.<lambda> at 0xffffb1291e40>
+seconds = 30, why = 'status and seats'
+
+    def wait_for(page, cond, seconds: float = UI_WAIT_S, why: str = "") -> None:
+        deadline = time.monotonic() + seconds
+        while not cond():
+>           assert time.monotonic() < deadline, f"timed out waiting for {why}"
+E           AssertionError: timed out waiting for status and seats
+E           assert 361878.612462584 < 361878.611510638
+E            +  where 361878.612462584 = <built-in function monotonic>()
+E            +    where <built-in function monotonic> = time.monotonic
+
+test_app.py:599: AssertionError
+________________________ test_wf_offer_response_accept _________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb146e5a0>
+
+    def test_wf_offer_response_accept(browser, app_url, mail):
+        req, [name] = ready(app_url, MEDICAL_OK, lo_h=NEAR_LO_H, hi_h=NEAR_HI_H)
+        ok(api(app_url, "joel").post(f"/api/requests/{req['id']}/prep", files={"file": (PREP_NAME, PDF, "application/pdf")}), 201)
+        ok(pin(app_url, seats(req)[0]["id"], name), 201)
+>       tok = offer_tokens(mail, req, name)[0]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2214: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+mail = <conftest.Mailpit object at 0xffffb146e5a0>
+req = {'cancellation_fee': None, 'consumer': {'id': 'c_bea', 'name': 'Bea Lindqvist'}, 'duration_hours': '1.00', 'end': '2026-11-04T02:17:00+00:00', ...}
+name = 'Imani Brooks', expected = 1
+
+    def offer_tokens(mail, req: dict, name: str, expected: int = 1) -> list[str]:
+        ms = mails(mail, EMAIL[KEY[name]], offer_subject(req), expected)
+>       assert len(ms) >= expected, f"offer email for {req['ref']} to {name} missing"
+E       AssertionError: offer email for FA-1074 to Imani Brooks missing
+E       assert 0 >= 1
+E        +  where 0 = len([])
+
+test_app.py:324: AssertionError
+________________________ test_wf_offer_response_decline ________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb173c890>
+
+    def test_wf_offer_response_decline(browser, app_url, mail):
+        req, [name] = ready(app_url, MEDICAL_OK, lo_h=FAR_LO_H, hi_h=FAR_HI_H)
+        ok(pin(app_url, seats(req)[0]["id"], name), 201)
+>       tok = offer_tokens(mail, req, name)[0]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2235: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+mail = <conftest.Mailpit object at 0xffffb173c890>
+req = {'cancellation_fee': None, 'consumer': {'id': 'c_bea', 'name': 'Bea Lindqvist'}, 'duration_hours': '1.00', 'end': '2027-04-07T00:29:00+00:00', ...}
+name = 'Imani Brooks', expected = 1
+
+    def offer_tokens(mail, req: dict, name: str, expected: int = 1) -> list[str]:
+        ms = mails(mail, EMAIL[KEY[name]], offer_subject(req), expected)
+>       assert len(ms) >= expected, f"offer email for {req['ref']} to {name} missing"
+E       AssertionError: offer email for FA-1075 to Imani Brooks missing
+E       assert 0 >= 1
+E        +  where 0 = len([])
+
+test_app.py:324: AssertionError
+__________________________ test_wf_team_staffing_fill __________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb149e060>
+
+    def test_wf_team_staffing_fill(browser, app_url, mail):
+        req, names = ready(app_url, LEGAL_OK, n=2, lo_h=NEAR_LO_H, hi_h=NEAR_HI_H, setting="legal", who="anita",
+                           org="kestrel-court", consumer="Marcus Tull")
+        with entered(open_app(browser, f"{app_url}/signin", reduced_motion="reduce")) as page:
+            open_board(page, app_url, req)
+            for i, name in enumerate(names, start=1):
+                grab(page, name, card(page, req))
+                wait_for(page, lambda: pip_states(page, req) == ["pass"] * 4, why="passing pips")
+                page.mouse.up()
+                shows(page, status(page, "Board status"), f"Offered {req['ref']} seat {i} to {name}.")
+            shows(page, card(page, req), "2/2")
+            for name in names:
+                with entered(open_app(browser, f"{app_url}/offers/{offer_tokens(mail, req, name)[0]}")) as offer:
+                    wait_for(offer, lambda: offer.get_by_role("button", name="Accept offer").count() > 0, why="accept")
+                    click(offer.get_by_role("button", name="Accept offer"))
+                    shows(offer, status(offer, "Offer status"), f"Accepted. {req['ref']} is on your schedule.")
+            assert get_req(app_url, req["id"])["status"] == "staffed"
+            page.reload()
+            click(card(page, req))
+            detail = page.get_by_role("region", name="Request detail")
+            wait_for(page, lambda: detail.inner_text().count("accepted") >= 2 or "staffed" in detail.inner_text(), why="staffed detail")
+        with entered(open_app(browser, f"{app_url}/signin")) as page:
+            ui_login(page, app_url, "anita")
+            page.goto(f"{app_url}/requests/{req['id']}")
+>           wait_for(page, lambda: re.search(r"(?<!partially_)staffed", page.locator("body").inner_text()) is not None, why="staffed")
+
+test_app.py:2271: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+page = <Page url='http://127.0.0.1:4173/requests/req_05d1d5e8e0683559cd3a'>
+cond = <function test_wf_team_staffing_fill.<locals>.<lambda> at 0xffffb019b420>
+seconds = 30, why = 'staffed'
+
+    def wait_for(page, cond, seconds: float = UI_WAIT_S, why: str = "") -> None:
+        deadline = time.monotonic() + seconds
+        while not cond():
+>           assert time.monotonic() < deadline, f"timed out waiting for {why}"
+E           AssertionError: timed out waiting for staffed
+E           assert 362174.442494506 < 362174.437993767
+E            +  where 362174.442494506 = <built-in function monotonic>()
+E            +    where <built-in function monotonic> = time.monotonic
+
+test_app.py:599: AssertionError
+________________________ test_wf_team_staffing_partial _________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb130ab40>
+
+    def test_wf_team_staffing_partial(browser, app_url, mail):
+        req, names = ready(app_url, LEGAL_OK, n=1, lo_h=FAR_LO_H, hi_h=FAR_HI_H, setting="legal")
+        ok(pin(app_url, seats(req)[0]["id"], names[0]), 201)
+        ok(answer(app_url, active_token(app_url, mail, req, names[0])))
+        with entered(open_app(browser, f"{app_url}/signin")) as page:
+            ui_login(page, app_url, "joel")
+            page.goto(f"{app_url}/requests/{req['id']}")
+>           shows(page, page.locator("body"), "partially_staffed")
+
+test_app.py:2282: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:604: in shows
+    wait_for(page, lambda: loc.count() > 0 and needle in loc.first.inner_text(), seconds, needle)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+page = <Page url='http://127.0.0.1:4173/requests/req_31194342bc3c4729074f'>
+cond = <function shows.<locals>.<lambda> at 0xffffb16953a0>, seconds = 30
+why = 'partially_staffed'
+
+    def wait_for(page, cond, seconds: float = UI_WAIT_S, why: str = "") -> None:
+        deadline = time.monotonic() + seconds
+        while not cond():
+>           assert time.monotonic() < deadline, f"timed out waiting for {why}"
+E           AssertionError: timed out waiting for partially_staffed
+E           assert 362216.878330637 < 362216.871095575
+E            +  where 362216.878330637 = <built-in function monotonic>()
+E            +    where <built-in function monotonic> = time.monotonic
+
+test_app.py:599: AssertionError
+__________________________ test_wf_cancellation_late ___________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb165d0d0>
+
+    def test_wf_cancellation_late(browser, app_url, mail):
+        rate = rates(app_url)["legal"]
+        req, names = ready(app_url, LEGAL_OK, n=2, lo_h=NEAR_LO_H, hi_h=NEAR_HI_H, setting="legal", who="anita", org="kestrel-court")
+>       staff(app_url, mail, req, names)
+
+test_app.py:2290: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:344: in staff
+    ok(answer(base, active_token(base, mail, req, name)))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+test_app.py:335: in active_token
+    for tok in offer_tokens(mail, req, name):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+mail = <conftest.Mailpit object at 0xffffb165d0d0>
+req = {'cancellation_fee': None, 'consumer': {'id': 'c_bea', 'name': 'Bea Lindqvist'}, 'duration_hours': '1.00', 'end': '2026-11-03T08:16:00+00:00', ...}
+name = 'Theo Marchetti', expected = 1
+
+    def offer_tokens(mail, req: dict, name: str, expected: int = 1) -> list[str]:
+        ms = mails(mail, EMAIL[KEY[name]], offer_subject(req), expected)
+>       assert len(ms) >= expected, f"offer email for {req['ref']} to {name} missing"
+E       AssertionError: offer email for FA-1078 to Theo Marchetti missing
+E       assert 0 >= 1
+E        +  where 0 = len([])
+
+test_app.py:324: AssertionError
+_________________________ test_wf_cancellation_on_time _________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_cancellation_on_time(browser, app_url):
+        req = make(app_url, start=at(app_url, FAR_LO_H, FAR_HI_H))
+        with entered(open_app(browser, f"{app_url}/signin")) as page:
+            ui_login(page, app_url, "joel")
+            page.goto(f"{app_url}/requests/{req['id']}")
+            click(page.get_by_role("button", name="Cancel request"))
+            dialog = page.get_by_role("dialog", name="Cancel request")
+            shows(page, dialog, "On-time cancellation. No charge.")
+            click(dialog.get_by_role("button", name="Confirm cancellation"))
+>           shows(page, status(page, "Cancellation status"), f"{req['ref']} cancelled. Charge: $0.00.")
+
+test_app.py:2320: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:604: in shows
+    wait_for(page, lambda: loc.count() > 0 and needle in loc.first.inner_text(), seconds, needle)
+test_app.py:598: in wait_for
+    while not cond():
+              ^^^^^^
+test_app.py:604: in <lambda>
+    wait_for(page, lambda: loc.count() > 0 and needle in loc.first.inner_text(), seconds, needle)
+                                                         ^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/site-packages/playwright/sync_api/_generated.py:16861: in inner_text
+    self._sync(self._impl_obj.inner_text(timeout=timeout))
+/usr/local/lib/python3.12/site-packages/playwright/_impl/_locator.py:444: in inner_text
+    return await self._frame.inner_text(
+/usr/local/lib/python3.12/site-packages/playwright/_impl/_frame.py:618: in inner_text
+    return await self._channel.send("innerText", locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/site-packages/playwright/_impl/_connection.py:61: in send
+    return await self._connection.wrap_api_call(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <playwright._impl._connection.Connection object at 0xffffafd9ad20>
+cb = <function Channel.send.<locals>.<lambda> at 0xffffafcdb100>
+is_internal = False
+
+    async def wrap_api_call(
+        self, cb: Callable[[], Any], is_internal: bool = False
+    ) -> Any:
+        if self._api_zone.get():
+            return await cb()
+        task = asyncio.current_task(self._loop)
+        st: List[inspect.FrameInfo] = getattr(task, "__pw_stack__", inspect.stack())
+        parsed_st = _extract_stack_trace_information_from_stack(st, is_internal)
+        self._api_zone.set(parsed_st)
+        try:
+            return await cb()
+        except Exception as error:
+>           raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E           playwright._impl._errors.TimeoutError: Locator.inner_text: Timeout 5000ms exceeded.
+E           Call log:
+E             - waiting for get_by_role("status", name="Cancellation status").first
+
+/usr/local/lib/python3.12/site-packages/playwright/_impl/_connection.py:528: TimeoutError
+_______________________ test_wf_timesheet_billing_submit _______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb174cf80>
+
+    def test_wf_timesheet_billing_submit(browser, app_url, mail):
+        req, [name] = ready(app_url, MEDICAL_OK, lo_h=-(LOGGED_AFTER_DAYS - 1) * 24, hi_h=-4, logged_after=True)
+        staff(app_url, mail, req, [name])
+        start = parse(req["start"])
+        with entered(open_app(browser, f"{app_url}/signin")) as page:
+            ui_login(page, app_url, KEY[name])
+            click(page.get_by_role("button", name=f"Submit timesheet for {req['ref']}"))
+            dialog = page.get_by_role("dialog", name=f"Timesheet for {req['ref']}")
+>           fill(dialog.get_by_role("textbox", name="Actual start"), ui_dt(start))
+
+test_app.py:2357: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+conftest.py:132: in fill
+    click(locator)
+conftest.py:118: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/me'> selector='internal:role=dialog[name="Timesheet for FA-1081"i] >> internal:role=textbox[name="Actual start"i]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("dialog", name="Timesheet for FA-1081").get_by_role("textbox", name="Actual start")
+
+conftest.py:104: AssertionError
+___________________________ test_wf_credentials_add ____________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_credentials_add(browser, app_url):
+        d0 = server_now(app_url).astimezone(TZ).date()
+        expiry = str(d0 + timedelta(days=90))
+        number = unique("N")[0][:40]
+        with entered(open_app(browser, f"{app_url}/signin")) as page:
+            ui_login(page, app_url, "theo")
+            click(page.get_by_role("button", name="Add credential"))
+            dialog = page.get_by_role("dialog", name="Add credential")
+>           select(dialog.get_by_role("combobox", name="Credential type"), "NIC")
+
+test_app.py:2374: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+conftest.py:137: in select
+    center(locator)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/me'> selector='internal:role=dialog[name="Add credential"i] >> internal:role=combobox[name="Credential type"i]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("dialog", name="Add credential").get_by_role("combobox", name="Credential type")
+
+conftest.py:104: AssertionError
+________________________ test_wf_credentials_validation ________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_credentials_validation(browser, app_url):
+        number = unique("N")[0][:40]
+        with entered(open_app(browser, f"{app_url}/signin")) as page:
+            ui_login(page, app_url, "theo")
+            click(page.get_by_role("button", name="Add credential"))
+            dialog = page.get_by_role("dialog", name="Add credential")
+>           select(dialog.get_by_role("combobox", name="Credential type"), "NIC")
+
+test_app.py:2393: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+conftest.py:137: in select
+    center(locator)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/me'> selector='internal:role=dialog[name="Add credential"i] >> internal:role=combobox[name="Credential type"i]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("dialog", name="Add credential").get_by_role("combobox", name="Credential type")
+
+conftest.py:104: AssertionError
+_____________________________ test_wf_outages_mail _____________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb14942c0>
+
+    def test_wf_outages_mail(browser, app_url, mail):
+        down = os.environ["APP_MAILPIT_DOWN_URL"]
+        req, [name] = ready(app_url, MEDICAL_OK, lo_h=FAR_LO_H, hi_h=FAR_HI_H)
+        ok(pin(app_url, seats(req)[0]["id"], name), 201)
+>       tok = offer_tokens(mail, req, name)[0]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2504: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+mail = <conftest.Mailpit object at 0xffffb14942c0>
+req = {'cancellation_fee': None, 'consumer': {'id': 'c_bea', 'name': 'Bea Lindqvist'}, 'duration_hours': '1.00', 'end': '2027-07-04T05:19:00+00:00', ...}
+name = 'Imani Brooks', expected = 1
+
+    def offer_tokens(mail, req: dict, name: str, expected: int = 1) -> list[str]:
+        ms = mails(mail, EMAIL[KEY[name]], offer_subject(req), expected)
+>       assert len(ms) >= expected, f"offer email for {req['ref']} to {name} missing"
+E       AssertionError: offer email for FA-1087 to Imani Brooks missing
+E       assert 0 >= 1
+E        +  where 0 = len([])
+
+test_app.py:324: AssertionError
+_________________________ test_wf_cross_cutting_layout _________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb14a1f40>
+
+    def test_wf_cross_cutting_layout(browser, app_url, mail):
+        req, [oname] = ready(app_url, MEDICAL_OK, lo_h=NEAR_LO_H, hi_h=NEAR_HI_H)
+        ok(pin(app_url, seats(req)[0]["id"], oname), 201)
+        tok = offer_tokens(mail, req, oname)[0]
+        with entered(open_app(browser, f"{app_url}/signin", reduced_motion="reduce")) as page:
+            open_board(page, app_url, req)
+            for w, h in VIEWPORTS:
+                page.set_viewport_size({"width": w, "height": h})
+                page.goto(f"{app_url}/board")
+                wait_for(page, lambda: page.get_by_role("list", name="Interpreters").count() > 0, why="board")
+                layout(page)
+                rail = page.get_by_role("list", name="Interpreters").bounding_box()
+                if w < NARROW_PX:
+                    tabs = page.get_by_role("tablist", name="Board views")
+                    assert tabs.is_visible() and tabs.get_by_role("tab", name="Requests").count() == 1
+                    assert rail["y"] + rail["height"] <= h + 1 and rail["y"] >= h / 2
+                    wait_for(page, lambda: card(page, req).count() > 0, why="card")
+                    card(page, req).scroll_into_view_if_needed()
+                    click(card(page, req))
+>                   wait_for(page, lambda: tabs.get_by_role("tab", name="Detail").get_attribute("aria-selected") == "true", why="detail tab")
+
+test_app.py:2537: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+page = <Page url='http://127.0.0.1:4173/board'>
+cond = <function test_wf_cross_cutting_layout.<locals>.<lambda> at 0xffffb16f3060>
+seconds = 30, why = 'detail tab'
+
+    def wait_for(page, cond, seconds: float = UI_WAIT_S, why: str = "") -> None:
+        deadline = time.monotonic() + seconds
+        while not cond():
+>           assert time.monotonic() < deadline, f"timed out waiting for {why}"
+E           AssertionError: timed out waiting for detail tab
+E           assert 362773.234628666 < 362773.2252816
+E            +  where 362773.234628666 = <built-in function monotonic>()
+E            +    where <built-in function monotonic> = time.monotonic
+
+test_app.py:599: AssertionError
+________________________ test_wf_cross_cutting_keyboard ________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_cross_cutting_keyboard(browser, app_url):
+        req, [name] = ready(app_url, MEDICAL_OK, lo_h=NEAR_LO_H, hi_h=NEAR_HI_H)
+        with entered(open_app(browser, f"{app_url}/signin", reduced_motion="reduce")) as page:
+            open_board(page, app_url, req)
+            c, target = chip(page, name), card(page, req)
+            for _ in range(TAB_LIMIT):
+                if focused(c):
+                    break
+                page.keyboard.press("Tab")
+            assert focused(c), "Tab never reached the chip"
+            page.keyboard.press("Enter")
+            wait_for(page, lambda: c.get_attribute("aria-pressed") == "true", why="chip pressed")
+            page.keyboard.press("Escape")
+            wait_for(page, lambda: focused(c) and c.get_attribute("aria-pressed") != "true", why="dropped")
+            with entered(held(page, "**/dry-run")) as hold:
+                page.keyboard.press("Enter")
+                quiesce(page)
+                film = Film(page)
+                for _ in range(TAB_LIMIT):
+                    if focused(target):
+                        break
+                    page.keyboard.press("ArrowDown")
+                assert focused(target), "arrows never reached the card"
+                assert resolved(page, req) == 0
+                pips = pip_film(page, film, req, hold.release)
+            assert len(set(pips["first"])) == 1, f"reduced-motion pips must change together: {pips}"
+            shows(page, status(page, "Gate results"),
+                  f"{req['ref']} seat 1: Credential pass, Valid on date pass, Schedule pass, Consumer pass.")
+            pinned = pin_film(page, film, req, name, lambda: page.keyboard.press("Enter"))
+            assert pinned["glyph"] and not pinned["rolled"], "the counter numeral must swap without rolling"
+            shows(page, card(page, req), "1/1")
+            wait_for(page, lambda: focused(c), why="focus back on chip")
+>           th = thread_film(page, film, name)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2599: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+page = <Page url='http://127.0.0.1:4173/board'>
+film = <test_app.Film object at 0xffffb14a1bb0>, name = 'Theo Marchetti'
+
+    def thread_film(page, film: Film, name: str) -> dict:
+        c = chip(page, name)
+        c.scroll_into_view_if_needed()
+        cb, db = c.bounding_box(), page.get_by_role("region", name="Request detail").bounding_box()
+        vh = page.viewport_size["height"]
+        cy, left = cb["y"] + cb["height"] / 2, cb["x"] + cb["width"] + EDGE
+        fit = lambda y: min(max(y, db["y"] + MARGIN), db["y"] + db["height"] - MARGIN, vh - MARGIN)
+        dests = [(db["x"] + db["width"] * fx, fit(cy + dy)) for fx, dy in zip(DRAG_FX, DRAG_DY)]
+        ys = [cy] + [y for _, y in dests]
+        top = max(0, min(ys) - FRAME_PAD)
+        box = {"x": left, "y": top, "width": max(x for x, _ in dests) + MARGIN - left,
+               "height": min(vh, max(ys) + FRAME_PAD) - top}
+        thread = page.get_by_role("img", name="Match thread")
+        page.mouse.move(*dests[-1])
+        film.step()
+        base = film.shot(box)
+        page.mouse.move(*center(c))
+        page.mouse.down()
+        paths = []
+        for dx, dy in dests:
+            page.mouse.move(dx, dy, steps=8)
+            film.step()
+            film.step()
+>           assert thread.count() > 0, "no thread while the chip is held"
+E           AssertionError: no thread while the chip is held
+E           assert 0 > 0
+E            +  where 0 = count()
+E            +    where count = <Locator frame=<Frame name= url='http://127.0.0.1:4173/board'> selector='internal:role=img[name="Match thread"i]'>.count
+
+test_app.py:840: AssertionError
+_________________________ test_wf_cross_cutting_motion _________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_cross_cutting_motion(browser, app_url):
+        req, [name] = ready(app_url, MEDICAL_OK, lo_h=NEAR_LO_H, hi_h=NEAR_HI_H)
+        with entered(open_app(browser, f"{app_url}/signin")) as page:
+            open_board(page, app_url, req)
+            quiesce(page)
+            film = Film(page)
+            th = thread_film(page, film, name)
+            for p, (dx, dy) in zip(th["paths"], th["dests"]):
+                ex = max(p)
+                assert abs(ex - dx) <= POINTER_TOL and abs(p[ex] - dy) <= POINTER_TOL, "the thread must end at the pointer"
+                assert len(p) >= (dx - th["left"]) * COVER, "the thread must run from the chip to the pointer"
+            assert th["gone"] <= RECOIL_MAX_MS + FRAME_MS, th["gone"]
+            mid = [r for r in th["retracting"] if th["left"] + EDGE < r[1] < th["dests"][-1][0] - POINTER_TOL]
+>           assert all(on and height <= 2 * PATH_TOL for _, _, height, on in mid), "the recoil must follow the thread's own path"
+E           AssertionError: the recoil must follow the thread's own path
+E           assert False
+E            +  where False = all(<generator object test_wf_cross_cutting_motion.<locals>.<genexpr> at 0xffffb14d6e30>)
+
+test_app.py:2619: AssertionError
+________________________ test_wf_cross_cutting_feedback ________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb14bb500>
+
+    def test_wf_cross_cutting_feedback(browser, app_url, mail):
+        taken = make(app_url, start=at(app_url, NEAR_LO_H, NEAR_HI_H))
+        holder = next(n for n in MEDICAL_OK if ok(dry(app_url, seats(taken)[0]["id"], n))["all_pass"])
+        ok(pin(app_url, seats(taken)[0]["id"], holder, "priya"), 201)
+        with entered(open_app(browser, f"{app_url}/signin", reduced_motion="reduce")) as page:
+            open_board(page, app_url, taken)
+            gates = status(page, "Gate results")
+            live(gates)
+            live(status(page, "Board status"))
+            with entered(held(page, "**/dry-run")) as hold:
+                grab(page, "Lior Feld", card(page, taken))
+                shows(page, gates, f"Checking gates for {taken['ref']} seat 1…")
+                hold.release()
+>           shows(page, gates, f"Seat taken by {NAME['priya']}.")
+
+test_app.py:2670: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:604: in shows
+    wait_for(page, lambda: loc.count() > 0 and needle in loc.first.inner_text(), seconds, needle)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+page = <Page url='http://127.0.0.1:4173/board'>
+cond = <function shows.<locals>.<lambda> at 0xffffafe15580>, seconds = 30
+why = 'Seat taken by Priya Castellanos.'
+
+    def wait_for(page, cond, seconds: float = UI_WAIT_S, why: str = "") -> None:
+        deadline = time.monotonic() + seconds
+        while not cond():
+>           assert time.monotonic() < deadline, f"timed out waiting for {why}"
+E           AssertionError: timed out waiting for Seat taken by Priya Castellanos.
+E           assert 362828.942022016 < 362828.940772778
+E            +  where 362828.942022016 = <built-in function monotonic>()
+E            +    where <built-in function monotonic> = time.monotonic
+
+test_app.py:599: AssertionError
+______________________ test_feedback_timeouts_and_outages ______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb1ba45c0>
+
+    def test_feedback_timeouts_and_outages(browser, app_url, mail):
+        req = make(app_url, start=at(app_url, NEAR_LO_H, NEAR_HI_H))
+        name = next(n for n in MEDICAL_OK if ok(dry(app_url, seats(req)[0]["id"], n))["all_pass"])
+        with entered(open_app(browser, f"{app_url}/signin", reduced_motion="reduce")) as page:
+            open_board(page, app_url, req)
+            gates = status(page, "Gate results")
+            live(gates)
+            with entered(held(page, "**/dry-run")) as hold:
+                grab(page, name, card(page, req))
+                shows(page, gates, f"Checking gates for {req['ref']} seat 1…")
+                advance(page, DRY_RUN_TIMEOUT_MS)
+                shows(page, gates, f"Could not check gates for {req['ref']}. Nothing was offered.")
+                page.mouse.up()
+                hold.release()
+        assert seats(get_req(app_url, req["id"]))[0]["status"] == "open"
+        quiet(mail, EMAIL[KEY[name]], offer_subject(req))
+        draft = make(app_url, start=at(app_url, FAR_LO_H, FAR_HI_H), submit=False)
+        treq, tname, ts = worked(app_url, mail)
+        number = unique("S")[0][:40]
+        expiry = str(server_now(app_url).astimezone(TZ).date() + timedelta(days=FAR_LO_H))
+        with spawned(S3_ENDPOINT=CLOSED) as nostore:
+            with entered(open_app(browser, f"{nostore}/signin")) as page:
+                ui_login(page, nostore, "joel")
+                page.goto(f"{nostore}/requests/{draft['id']}")
+                add = page.get_by_role("button", name="Add prep file")
+                wait_for(page, lambda: add.count() > 0, why="request detail")
+                with page.expect_file_chooser() as fc:
+                    click(add)
+                fc.value.set_files({"name": PREP_NAME, "mimeType": "application/pdf", "buffer": PDF})
+                shows(page, status(page, "Request status"), "File storage is unreachable. Nothing was uploaded.")
+            with entered(open_app(browser, f"{nostore}/signin")) as page:
+                ui_login(page, nostore, "theo")
+                click(page.get_by_role("button", name="Add credential"))
+                dialog = page.get_by_role("dialog", name="Add credential")
+>               select(dialog.get_by_role("combobox", name="Credential type"), "NIC")
+
+test_app.py:2768: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+conftest.py:137: in select
+    center(locator)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:59557/me'> selector='internal:role=dialog[name="Add credential"i] >> internal:role=combobox[name="Credential type"i]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("dialog", name="Add credential").get_by_role("combobox", name="Credential type")
+
+conftest.py:104: AssertionError
+____________________________ test_feedback_refusals ____________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffb148c2c0>
+
+    def test_feedback_refusals(browser, app_url, mail):
+        soon = make(app_url, start=at(app_url, FAR_LO_H, FAR_HI_H))
+        started = json.dumps({"error": {"code": "already_started", "message": REFUSAL}})
+        with entered(open_app(browser, f"{app_url}/signin")) as page:
+            ui_login(page, app_url, "joel")
+            page.goto(f"{app_url}/requests/{soon['id']}")
+            cancel_button = page.get_by_role("button", name="Cancel request")
+            wait_for(page, lambda: cancel_button.count() > 0, why="Cancel request")
+            cs = status(page, "Cancellation status")
+            dialog = page.get_by_role("dialog", name="Cancel request")
+            with entered(held(page, "**/cancellation-quote")) as hold:
+                click(cancel_button)
+                shows(page, cs, "Working out the charge…")
+                live(cs)
+                hold.release()
+            shows(page, dialog, "On-time cancellation. No charge.")
+            click(dialog.get_by_role("button", name="Keep request"))
+            wait_for(page, lambda: dialog.count() == 0 or not dialog.is_visible(), why="dialog closed")
+            page.route("**/cancellation-quote", lambda route: route.fulfill(status=409, content_type="application/json", body=started))
+            click(cancel_button)
+            shows(page, cs, "This assignment has started and can no longer be cancelled.")
+            live(cs)
+        assert get_req(app_url, soon["id"], "joel")["status"] == "submitted"
+    
+        for _ in range(8):
+            a, [name] = ready(app_url, MEDICAL_OK, lo_h=NEAR_LO_H, hi_h=NEAR_HI_H)
+            b = make(app_url, start=parse(a["start"]) + timedelta(minutes=TRAVEL_BUFFER_MIN // 2))
+            if ok(dry(app_url, seats(b)[0]["id"], name))["all_pass"]:
+                break
+        else:
+            raise AssertionError("no pair of overlapping slots where one interpreter passes every gate on both")
+        others = [n for n in MEDICAL_OK if n != name]
+        c, [cname] = ready(app_url, others, lo_h=NEAR_LO_H, hi_h=NEAR_HI_H)
+        d, [dname] = ready(app_url, others, lo_h=WINDOW_LO_H, hi_h=WINDOW_HI_H)
+        with entered(open_app(browser, f"{app_url}/signin", reduced_motion="reduce")) as page:
+            open_board(page, app_url, a)
+            bs = status(page, "Board status")
+            live(bs)
+            grab(page, name, card(page, a))
+            wait_for(page, lambda: pip_states(page, a) == ["pass"] * 4, why="passing pips")
+            ok(pin(app_url, seats(b)[0]["id"], name, "priya"), 201)
+            page.mouse.up()
+            reason = f"Too close to {b['ref']}; jobs need a travel buffer."
+            shows(page, bs, f"Not offered. {reason}")
+            shows(page, card(page, a), reason)
+            grab(page, cname, card(page, c))
+            wait_for(page, lambda: pip_states(page, c) == ["pass"] * 4, why="passing pips")
+            ok(pin(app_url, seats(c)[0]["id"], cname, "priya"), 201)
+            page.mouse.up()
+            shows(page, bs, f"Seat taken by {NAME['priya']}.")
+            shows(page, card(page, c), f"Seat taken by {NAME['priya']}.")
+            grab(page, dname, card(page, d))
+            wait_for(page, lambda: pip_states(page, d) == ["pass"] * 4, why="passing pips")
+            page.mouse.up()
+            shows(page, bs, "Too late to send an offer for this seat.")
+            shows(page, card(page, d), "Too late to send an offer for this seat.")
+        assert seats(get_req(app_url, a["id"]))[0]["status"] == "open"
+        assert seats(get_req(app_url, d["id"]))[0]["status"] == "open"
+        assert seats(get_req(app_url, c["id"]))[0]["held_by"]["name"] == NAME["priya"]
+    
+        draft = make(app_url, start=at(app_url, FAR_LO_H, FAR_HI_H), submit=False)
+        with entered(open_app(browser, f"{app_url}/signin")) as page:
+            ui_login(page, app_url, "joel")
+            page.goto(f"{app_url}/requests/{draft['id']}")
+            add = page.get_by_role("button", name="Add prep file")
+            wait_for(page, lambda: add.count() > 0, why="request detail")
+            rs = status(page, "Request status")
+            with page.expect_file_chooser() as fc:
+                click(add)
+            fc.value.set_files({"name": BIG_NAME, "mimeType": "application/pdf", "buffer": PDF + b"0" * UPLOAD_LIMIT})
+            shows(page, rs, f"{BIG_NAME} is too large.")
+            live(rs)
+            ok(api(app_url, "joel").post(f"/api/requests/{draft['id']}/submit", json={}))
+            with entered(held(page, "**/submit")) as hold:
+                click(page.get_by_role("button", name="Submit request"))
+                shows(page, rs, "Submitting…")
+                hold.release()
+            shows(page, rs, "This request can no longer be submitted.")
+        assert get_req(app_url, draft["id"], "joel")["prep_files"] == []
+        assert bucket().keys(f"prep/birchmere-clinic/{draft['id']}/") == []
+    
+        for answered, pressed, closed in (("decline", "Accept offer", "declined"), ("accept", "Decline offer", "accepted")):
+            req, [oname] = ready(app_url, MEDICAL_OK, lo_h=FAR_LO_H, hi_h=FAR_HI_H)
+            ok(pin(app_url, seats(req)[0]["id"], oname), 201)
+            tok = offer_tokens(mail, req, oname)[0]
+            with entered(open_app(browser, f"{app_url}/offers/{tok}")) as page:
+                button = page.get_by_role("button", name=pressed)
+                wait_for(page, lambda: button.count() > 0, why="offer buttons")
+                ok(answer(app_url, tok, answered))
+                click(button)
+                offer_status = status(page, "Offer status")
+                shows(page, offer_status, f"This offer is no longer open ({closed}).")
+                live(offer_status)
+            assert seats(get_req(app_url, req["id"]))[0]["status"] == ("open" if closed == "declined" else "accepted")
+    
+        treq, [tname] = ready(app_url, MEDICAL_OK, lo_h=-(LOGGED_AFTER_DAYS - 1) * 24, hi_h=-4, logged_after=True)
+        staff(app_url, mail, treq, [tname])
+        start = parse(treq["start"])
+        early = json.dumps({"error": {"code": "not_yet_ended", "message": REFUSAL}})
+        with entered(open_app(browser, f"{app_url}/signin")) as page:
+            ui_login(page, app_url, KEY[tname])
+            page.route("**/timesheet", lambda route: route.fulfill(status=409, content_type="application/json", body=early))
+            click(page.get_by_role("button", name=f"Submit timesheet for {treq['ref']}"))
+            dialog = page.get_by_role("dialog", name=f"Timesheet for {treq['ref']}")
+>           fill(dialog.get_by_role("textbox", name="Actual start"), ui_dt(start))
+
+test_app.py:2944: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+conftest.py:132: in fill
+    click(locator)
+conftest.py:118: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/me'> selector='internal:role=dialog[name="Timesheet for FA-1103"i] >> internal:role=textbox[name="Actual start"i]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("dialog", name="Timesheet for FA-1103").get_by_role("textbox", name="Actual start")
+
+conftest.py:104: AssertionError
+_________________________ test_if_no_committed_secrets _________________________
+
+    def test_if_no_committed_secrets():
+        values = protected_values()
+        size_cap = 2 * 1024 * 1024
+        for path in Path("/app").rglob("*"):
+            if not path.is_file() or {"node_modules", ".git"} & set(path.parts) or path.stat().st_size > size_cap:
+                continue
+            data = path.read_bytes()
+            for value in values:
+>               assert value.encode() not in data, f"protected value in {path}"
+E               AssertionError: protected value in /app/tests/journeys.py
+E               assert b'http://mailpit:8025' not in b'# End-to-end journey checks for Seatweaver against the live services.\nimport json\nimport re\nimport sys\nimport ti...width\': 1280, \'height\': 800})\n        try:\n            run(page)\n        finally:\n            browser.close()\n'
+E                +  where b'http://mailpit:8025' = <built-in method encode of str object at 0xffffafe10730>()
+E                +    where <built-in method encode of str object at 0xffffafe10730> = 'http://mailpit:8025'.encode
+
+test_app.py:3036: AssertionError
+=========================== short test summary info ============================
+FAILED test_app.py::test_health_and_server_boundary - AssertionError: /packag...
+FAILED test_app.py::test_signin_and_roles - AssertionError: rowan
+FAILED test_app.py::test_four_gates - assert False is True
+FAILED test_app.py::test_one_winner_per_seat - AssertionError: assert {'id': ...
+FAILED test_app.py::test_request_state_machine - AssertionError: assert 'staf...
+FAILED test_app.py::test_staffed_confirmation_email - AssertionError: offer e...
+FAILED test_app.py::test_cancellation_quote[draft] - assert (True, 48, 0) == ...
+FAILED test_app.py::test_idempotency_keys - AssertionError: POST http://127.0...
+FAILED test_app.py::test_timesheet_billed_hours - AssertionError: assert {'ac...
+FAILED test_app.py::test_atomic_timesheet_approval - AssertionError: assert [...
+FAILED test_app.py::test_billing_outage - AssertionError: offer email for FA-...
+FAILED test_app.py::test_billing_timeout_reconciliation - AssertionError: off...
+FAILED test_app.py::test_wf_access_landing - assert 0 == 1
+FAILED test_app.py::test_wf_request_intake_happy - AssertionError: timed out ...
+FAILED test_app.py::test_wf_offer_response_accept - AssertionError: offer ema...
+FAILED test_app.py::test_wf_offer_response_decline - AssertionError: offer em...
+FAILED test_app.py::test_wf_team_staffing_fill - AssertionError: timed out wa...
+FAILED test_app.py::test_wf_team_staffing_partial - AssertionError: timed out...
+FAILED test_app.py::test_wf_cancellation_late - AssertionError: offer email f...
+FAILED test_app.py::test_wf_cancellation_on_time - playwright._impl._errors.T...
+FAILED test_app.py::test_wf_timesheet_billing_submit - AssertionError: Locato...
+FAILED test_app.py::test_wf_credentials_add - AssertionError: Locator expecte...
+FAILED test_app.py::test_wf_credentials_validation - AssertionError: Locator ...
+FAILED test_app.py::test_wf_outages_mail - AssertionError: offer email for FA...
+FAILED test_app.py::test_wf_cross_cutting_layout - AssertionError: timed out ...
+FAILED test_app.py::test_wf_cross_cutting_keyboard - AssertionError: no threa...
+FAILED test_app.py::test_wf_cross_cutting_motion - AssertionError: the recoil...
+FAILED test_app.py::test_wf_cross_cutting_feedback - AssertionError: timed ou...
+FAILED test_app.py::test_feedback_timeouts_and_outages - AssertionError: Loca...
+FAILED test_app.py::test_feedback_refusals - AssertionError: Locator expected...
+FAILED test_app.py::test_if_no_committed_secrets - AssertionError: protected ...
+================== 31 failed, 44 passed in 2435.77s (0:40:35) ==================

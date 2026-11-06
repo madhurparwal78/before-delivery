@@ -1,0 +1,1412 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 72
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "bucket-setup",
+    "console-upload",
+    "manifest-overwrite",
+    "s3-pipeline",
+    "browse-and-filter",
+    "share-links",
+    "team-access",
+    "usage-billing",
+    "operator",
+    "replica-wake",
+    "lifecycle-retention",
+    "webhooks",
+    "bulk-delete",
+    "two-step-sessions",
+    "access-keys",
+    "encryption",
+    "audit-trail",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 95
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "killbill", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Farshore <no-reply@farshore.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 5
+B5 = 5
+B6 = 5
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 5
+S1 = 5
+S2 = 5
+S3 = 5
+S4 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-timers"
+port = 4175
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+FARSHORE_DAY_SECONDS = "4"
+FARSHORE_LIFECYCLE_SWEEP_SECONDS = "1"
+FARSHORE_WEBHOOK_BACKOFF_SECONDS = "1"
+FARSHORE_STEP_UP_SECONDS = "20"
+FARSHORE_KEY_ROTATION_OVERLAP_SECONDS = "8"
+FARSHORE_TWO_STEP_PENDING_SECONDS = "90"
+DATABASE_URL = "${DATABASE_URL}_short_timers"
+S3_BUCKET = "${S3_BUCKET}-short-timers"
+
+[[outages]]
+id = "short-sessions"
+port = 4176
+url_env = "APP_SHORT_SESSIONS_URL"
+
+[outages.env]
+FARSHORE_SESSION_IDLE_SECONDS = "6"
+FARSHORE_SESSION_LIFETIME_SECONDS = "20"
+DATABASE_URL = "${DATABASE_URL}_short_sessions"
+S3_BUCKET = "${S3_BUCKET}-short-sessions"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "The app ships a valid run manifest, serves on the stated port and answers the health path with the stated JSON, even when a dependency is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_dependencies",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Real services from the environment"
+text = "Every service URL and credential is read from the named environment variables at start, object bytes really live in MinIO, usage really reaches Kill Bill, mail really reaches Mailpit, and no endpoint fakes provider state."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Server boundary"
+text = "The server serves only its own pages, assets and the documented endpoints from one origin, enforces the request size limits, and never exposes source files, credentials or secrets."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "One error shape and order"
+text = "Every JSON error uses the single error shape, every S3 error uses the S3 XML error shape, and when several errors apply the one returned follows the single precedence rule in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Console sign-in, throttling and roles"
+text = "Seeded users sign in with email and password, failed passwords and wrong codes are throttled per email with identical responses for known and unknown accounts, and each role can do exactly what the role table in Business rules allows, both in the console and on the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "team-access"
+tests = [
+    "test_app.py::test_wf_team_access_signin_and_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Responsive layout"
+text = "The marketing page, console and operator console fit 375x812, 768x1024 and 1280x800 viewports without horizontal overflow, using the layouts in Screens and layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Keyboard and focus"
+text = "Every console action is reachable by keyboard in the stated Tab order, with a visible focus outline, Escape closing drawers and dialogs, and focus returning to the control that opened them."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_and_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Nocturnal visual system"
+text = "The console and operator console use the near-black, warm-ink, single-amber look with tabular mono numerals, compact ruled tables and comfortable tap targets described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Marketing page"
+text = "The public page shows a left-hung display headline over a full-width dot-grid world strip with the four region pins and a ruled pricing table set in mono numerals."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Create a bucket with a placement"
+text = "A developer creates a bucket from the console by naming it and choosing an origin region plus up to three replica regions, lands on the new bucket's console address with focus on its heading, and sees it in the rail with its placement."
+kind = "behavior"
+primary = "workflow"
+workflow = "bucket-setup"
+tests = [
+    "test_app.py::test_wf_bucket_setup_create_in_console",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Bucket name rules"
+text = "Bucket names that break the published naming rules are rejected with 422 and the bucket is not created."
+kind = "behavior"
+primary = "pytest"
+workflow = "bucket-setup"
+tests = [
+    "test_app.py::test_wf_bucket_setup_name_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "One workspace per bucket name"
+text = "When workspaces create the same bucket name at the same moment, exactly one gets 201 and every other gets 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "bucket-setup"
+tests = [
+    "test_app.py::test_wf_bucket_setup_name_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Upload from the console"
+text = "A developer drops or picks files on the object table, sets an optional key prefix and tags, and sees each file stored as a new version with its replicas pending."
+kind = "behavior"
+primary = "workflow"
+workflow = "console-upload"
+tests = [
+    "test_app.py::test_wf_console_upload_drop_and_pick",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Upload size and content checks"
+text = "Uploads whose declared size differs from the bytes received, that exceed the single-upload limit, that carry an unsafe key or that are scripted SVG are refused with nothing stored, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "console-upload"
+tests = [
+    "test_app.py::test_wf_console_upload_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Downloads never render inline"
+text = "Every object download from the console origin, including share links and S3 GetObject, is delivered as an attachment with the safely encoded two-part filename and never rendered as a page."
+kind = "behavior"
+primary = "pytest"
+workflow = "console-upload"
+tests = [
+    "test_app.py::test_wf_console_upload_downloads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Upload retries make one version"
+text = "Replaying a console upload with the same idempotency key returns the original response without a second version, usage increment or webhook event, and reusing the key with a different body answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "console-upload"
+tests = [
+    "test_app.py::test_wf_console_upload_idempotent_retry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Metadata and tag limits"
+text = "User metadata over the published byte limit and tag sets over the published count or length limits are rejected on both the console and the S3 API."
+kind = "behavior"
+primary = "pytest"
+workflow = "console-upload"
+tests = [
+    "test_app.py::test_metadata_and_tag_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Conditional overwrite and bucket counters"
+text = "An overwrite conditioned on the current ETag succeeds for exactly one of several concurrent writers while the others get 412, a condition on a key with no current version answers 404, and bucket object_count and stored_bytes (every stored version times placed regions) change exactly once per winning write, delete, restore, permanent delete or expiry."
+kind = "behavior"
+primary = "pytest"
+workflow = "manifest-overwrite"
+tests = [
+    "test_app.py::test_wf_manifest_overwrite_concurrent_writers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Signed S3 API"
+text = "The S3 API accepts SigV4-signed requests from Farshore access keys, honours each key's permission and bucket scope, and refuses disabled, deleted or wrongly signed keys on the very next request."
+kind = "behavior"
+primary = "pytest"
+workflow = "s3-pipeline"
+tests = [
+    "test_app.py::test_wf_s3_pipeline_signed_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Multipart uploads"
+text = "Multipart uploads enforce the published part and total limits, check completion conditions against the current version without discarding the upload, and answer a retried CompleteMultipartUpload with its original result, one version and one usage increment before any condition is checked."
+kind = "behavior"
+primary = "pytest"
+workflow = "s3-pipeline"
+tests = [
+    "test_app.py::test_wf_s3_pipeline_multipart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Browse as a read-only teammate"
+text = "A viewer browses buckets, folders and objects, opens the inspector and downloads without upload, overwrite or delete controls, and a copied console URL reopens the same bucket, filters, page and object in a fresh session."
+kind = "behavior"
+primary = "workflow"
+workflow = "browse-and-filter"
+tests = [
+    "test_app.py::test_wf_browse_and_filter_viewer_deep_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Stable capped paging"
+text = "Console listing and ListObjectsV2 cap each page at 1,000 entries with common prefixes counted, page in key order with opaque cursors that never repeat or skip a key or common prefix while uploads land, and URL-encode listed names on request as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "s3-pipeline"
+tests = [
+    "test_app.py::test_wf_s3_pipeline_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Bounded object filters"
+text = "Prefix, delimiter and tag-filter inputs have published length and complexity limits, and every accepted filter answers within the published time budget using bounded scan work."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-and-filter"
+tests = [
+    "test_app.py::test_wf_browse_and_filter_bounds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Workspace-scoped search"
+text = "Global object search returns only objects in the caller's own workspace, even when another workspace has similarly named buckets and keys."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-and-filter"
+tests = [
+    "test_app.py::test_wf_browse_and_filter_search_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Replication settles on matching ETag"
+text = "A replication worker copies each new version to every non-origin region in the placement and marks a replica settled only when the region's decrypted copy reproduces the index ETag and size while the version is still current."
+kind = "behavior"
+primary = "pytest"
+workflow = "replica-wake"
+tests = [
+    "test_app.py::test_wf_replica_wake_settle_on_etag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Replica state machine"
+text = "Replica state moves only along the legal edges in Business rules, region_offline failures return to pending on their own when their region comes back online, superseded replicas return to pending only when an undo restores their version, manual retry is allowed only from failed, and every illegal retry answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "replica-wake"
+tests = [
+    "test_app.py::test_wf_replica_wake_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Replica Wake sequence"
+text = "While the inspector is open, each settle reported by the server plays a wake line, a pin fill and a counting numeral, in settle-timestamp order and one element at a time."
+kind = "behavior"
+primary = "pytest"
+workflow = "replica-wake"
+tests = [
+    "test_app.py::test_wf_replica_wake_inspector_wake",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Replica Wake without motion"
+text = "With reduced motion requested, the Replica Wake shows final lines, fills and numerals in one frame while the status list and announcements stay unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_replica_wake_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Replica status list and announcements"
+text = "The visually hidden replica status list and the pins always reflect the same replica-state record, and each settle, failure, retry and reset is announced through the polite live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "replica-wake"
+tests = [
+    "test_app.py::test_wf_replica_wake_status_list_and_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Replica Wake look"
+text = "The replica map reads as a flat dot-grid world strip with amber origin and settled pins, dashed hollow pending rings and an X glyph for failed regions, so state never depends on colour alone."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Release readiness check"
+text = "A developer overwrites an object and watches the inspector move from waiting to ready once every placed region holds the new version, with failed regions offering Retry."
+kind = "behavior"
+primary = "workflow"
+workflow = "manifest-overwrite"
+tests = [
+    "test_app.py::test_wf_manifest_overwrite_release_readiness",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Mint and use a share link"
+text = "A viewer or developer mints a time-limited link to one object version and a recipient without an account downloads it."
+kind = "behavior"
+primary = "workflow"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_wf_share_links_mint_and_download",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Share link scope, expiry and privacy"
+text = "A share link serves exactly one object version until its server-enforced expiry second, cannot be widened to another key or version, refuses expiries outside the published range, and sends only the file and the allowed headers."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_wf_share_links_scope_expiry_privacy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Share link revocation and rate limit"
+text = "A link revoked by request, by deleting its object, by removing its creator or by removing its version fails on the very next request, and requests beyond the per-link rate answer 429 with Retry-After."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_wf_share_links_revocation_and_rate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Invite a teammate"
+text = "An owner invites a teammate by email with a role, the invite email reaches Mailpit, and the invitee joins through the accept page."
+kind = "behavior"
+primary = "workflow"
+workflow = "team-access"
+tests = [
+    "test_app.py::test_wf_team_access_invite_and_join",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Invite expiry and rate limit"
+text = "Invites expire after the configured lifetime, a reissued invite kills the old link, and invite creation beyond the per-workspace rate answers 429 with Retry-After."
+kind = "behavior"
+primary = "pytest"
+workflow = "team-access"
+tests = [
+    "test_app.py::test_wf_team_access_invite_rate_and_reissue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Access key lifecycle"
+text = "An owner creates scoped keys whose secret is shown once and never stored readable or emailed, disables and then deletes them along the legal edges, and every owner receives a key-created notice."
+kind = "behavior"
+primary = "workflow"
+workflow = "access-keys"
+tests = [
+    "test_app.py::test_wf_access_keys_lifecycle_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Month-to-date usage"
+text = "An owner sees month-to-date stored bytes (the sum of their buckets' stored bytes), reserved bytes, egress and request units against the plan with an honest billing-sync line, updated on the stated schedule."
+kind = "behavior"
+primary = "workflow"
+workflow = "usage-billing"
+tests = [
+    "test_app.py::test_wf_usage_billing_usage_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Usage posted to billing exactly once"
+text = "Each sealed usage row, with storage-gb-hours computed as an exact byte-second integral, is posted to the workspace's Kill Bill subscription once, keyed by its tracking ID, however many times the sync runs or retries."
+kind = "behavior"
+primary = "pytest"
+workflow = "usage-billing"
+tests = [
+    "test_app.py::test_wf_usage_billing_exactly_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Billing outage queue"
+text = "When Kill Bill is unreachable the app keeps working, queues usage rows durably, shows \"billing sync delayed\" and drains the queue exactly once when Kill Bill returns, without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "usage-billing"
+tests = [
+    "test_app.py::test_wf_usage_billing_killbill_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Usage threshold alerts"
+text = "Owners receive one email the first time storage or egress reaches 80% and one at 100% of the plan's included amount in each UTC billing month."
+kind = "behavior"
+primary = "pytest"
+workflow = "usage-billing"
+tests = [
+    "test_app.py::test_usage_threshold_alerts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Workspace usage export"
+text = "An owner downloads a CSV of the month's usage rows containing only their own workspace's buckets, in the published column order."
+kind = "behavior"
+primary = "pytest"
+workflow = "usage-billing"
+tests = [
+    "test_app.py::test_wf_usage_billing_export_csv",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Operator console"
+text = "The operator signs in to a separate console showing the replication backlog for each region, every workspace with its status, and the billing queue, with actions for each including a lifecycle run, and the Regions and Billing figures update in place every two seconds without disturbing an open dialog."
+kind = "behavior"
+primary = "workflow"
+workflow = "operator"
+tests = [
+    "test_app.py::test_wf_operator_console_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Region maintenance and backlog"
+text = "The operator takes a region offline or online exactly once per transition, copies to an offline region fail and requeue once when it returns, and the backlog figures for each region match replica state."
+kind = "behavior"
+primary = "pytest"
+workflow = "operator"
+tests = [
+    "test_app.py::test_wf_operator_region_maintenance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Workspace suspension"
+text = "Suspending a workspace blocks the console writes listed in Business rules, its downloads, every S3 request including open multipart uploads, and its share links on the next request, pauses its lifecycle sweeps and webhook deliveries, and emails its owners once, and reinstating it restores them."
+kind = "behavior"
+primary = "pytest"
+workflow = "operator"
+tests = [
+    "test_app.py::test_wf_operator_suspension",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Checksummed and chunked S3 uploads"
+text = "PutObject and UploadPart accept aws-chunked bodies and flexible checksums as current AWS SDKs send them, store the decoded bytes with their checksum, and store nothing when a checksum, decoded length or chunk signature does not match."
+kind = "behavior"
+primary = "pytest"
+workflow = "s3-pipeline"
+tests = [
+    "test_app.py::test_wf_s3_pipeline_chunked_checksums",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Change role and remove member"
+text = "An owner changes a teammate's role or removes them with effect on that member's very next request, a removed member's share links are revoked at once, and the workspace always keeps at least one owner."
+kind = "behavior"
+primary = "pytest"
+workflow = "team-access"
+tests = [
+    "test_app.py::test_wf_team_access_roles_and_removal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Operator gate"
+text = "Every /api/ops path refuses anonymous callers and non-operators with the same response before any resource lookup, and the operator gets 404 on every workspace API."
+kind = "behavior"
+primary = "pytest"
+workflow = "operator"
+tests = [
+    "test_app.py::test_wf_operator_gate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Lifecycle rules per bucket"
+text = "Any member reads and developers and owners save a bucket's three lifecycle settings through the API and the Lifecycle rules dialog, and out-of-range values are refused with 422."
+kind = "behavior"
+primary = "pytest"
+workflow = "lifecycle-retention"
+tests = [
+    "test_app.py::test_wf_lifecycle_retention_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Noncurrent version expiry"
+text = "A noncurrent version beyond the newest kept count expires noncurrent_days lifecycle days after it became noncurrent unless it is locked, and expiry removes it from every list, region, replica record, backlog figure and share link, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "lifecycle-retention"
+tests = [
+    "test_app.py::test_wf_lifecycle_retention_noncurrent_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Incomplete multipart abort"
+text = "An open multipart upload is aborted abort_multipart_days lifecycle days after it was initiated, losing its staged parts and quota reservation, and later calls on it answer 404 NoSuchUpload."
+kind = "behavior"
+primary = "pytest"
+workflow = "lifecycle-retention"
+tests = [
+    "test_app.py::test_lifecycle_aborts_incomplete_uploads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Retention and legal hold"
+text = "Developers and owners set extend-only retention and owners set legal hold on a version, a version is locked while it is on legal hold or before its retain-until second, and the Retention dialog keeps its typed value, focus and caret while the inspector polls beneath it."
+kind = "behavior"
+primary = "pytest"
+workflow = "lifecycle-retention"
+tests = [
+    "test_app.py::test_retention_and_legal_hold_rules",
+    "test_app.py::test_wf_lifecycle_retention_dialog_survives_polling",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "One lock rule on every permanent delete"
+text = "A locked version is refused permanent deletion by the console, S3 DeleteObject, DeleteObjects and lifecycle, while overwrite, plain delete, bulk delete and undo stay allowed."
+kind = "behavior"
+primary = "pytest"
+workflow = "lifecycle-retention"
+tests = [
+    "test_app.py::test_wf_lifecycle_retention_locks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Webhook endpoints"
+text = "An owner adds up to five webhook endpoints with a signing secret shown once, disables, enables and deletes them along the legal edges, and lists them without secrets."
+kind = "behavior"
+primary = "workflow"
+workflow = "webhooks"
+tests = [
+    "test_app.py::test_wf_webhooks_endpoints_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Signed, ordered webhook delivery"
+text = "Every object change emits one event per matching active endpoint, delivered one at a time in ascending sequence per endpoint, signed over the raw body, carrying only the published fields and never delayed by another endpoint."
+kind = "behavior"
+primary = "pytest"
+workflow = "webhooks"
+tests = [
+    "test_app.py::test_wf_webhooks_signed_events_per_endpoint",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Webhook retry, dead letter and redeliver"
+text = "A failing delivery retries on the published backoff, becomes dead after six failed attempts with one email to each owner, and can be redelivered in order."
+kind = "behavior"
+primary = "pytest"
+workflow = "webhooks"
+tests = [
+    "test_app.py::test_wf_webhooks_signed_ordered_delivery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "S3 multi-object delete"
+text = "DeleteObjects processes up to 1,000 entries independently, reports each entry's outcome in normal and quiet mode, and changes counters, usage and events only for entries that changed state."
+kind = "behavior"
+primary = "pytest"
+workflow = "bulk-delete"
+tests = [
+    "test_app.py::test_wf_bulk_delete_s3_delete_objects",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Console bulk delete with undo"
+text = "A developer deletes selected objects in one batch and undoes it before the undo window closes, getting back exactly the deleted versions with their IDs and ETags while re-uploaded or removed keys are reported as newer_version or gone."
+kind = "behavior"
+primary = "workflow"
+workflow = "bulk-delete"
+tests = [
+    "test_app.py::test_wf_bulk_delete_undo_ui",
+    "test_app.py::test_wf_bulk_delete_api_window_and_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Sandbox storage quota"
+text = "On a plan without storage overage, stored plus reserved bytes never exceed the plan's included storage under concurrent uploads, refused uploads answer 409 quota_exceeded or 403 QuotaExceeded, and reservations are released on completion, abort and lifecycle abort."
+kind = "behavior"
+primary = "pytest"
+workflow = "usage-billing"
+tests = [
+    "test_app.py::test_wf_usage_billing_quota",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Published fields only"
+text = "Every JSON request body under /api accepts only its published fields, and any other field answers 422 naming it with nothing changed."
+kind = "behavior"
+primary = "pytest"
+workflow = "bucket-setup"
+tests = [
+    "test_app.py::test_wf_bucket_setup_published_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Two-step enrolment and codes"
+text = "Any signed-in user turns authenticator two-step sign-in on with ten single-use recovery codes and off with a code, and each authenticator time step is accepted at most once per user across sign-in, confirmation and turning two-step off."
+kind = "behavior"
+primary = "pytest"
+workflow = "two-step-sessions"
+tests = [
+    "test_app.py::test_wf_two_step_sessions_enrol_and_codes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Half-signed-in sessions"
+text = "After a correct password an enrolled user holds a pending session that every workspace, account and operator API refuses with 401 two_step_required and every console, account and operator page redirects to /signin showing the code step, until a code is accepted, which issues a new session token and lands on the address first asked for."
+kind = "behavior"
+primary = "pytest"
+workflow = "two-step-sessions"
+tests = [
+    "test_app.py::test_wf_two_step_sessions_jun_deep_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Step-up confirmation"
+text = "Enrolled members confirm with a fresh code before creating or rotating an access key, turning a legal hold off or rotating the workspace key, and the confirmation belongs to one session, lapses at its exact second and is checked after the role check and before suspension."
+kind = "behavior"
+primary = "pytest"
+workflow = "two-step-sessions"
+tests = [
+    "test_app.py::test_wf_two_step_sessions_step_up",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Sessions page and lifetimes"
+text = "Every signed-in user sees their sessions, signs one or all others out with effect on the very next request, and every session ends at its published idle or absolute lifetime and when the same browser signs in again."
+kind = "behavior"
+primary = "workflow"
+workflow = "two-step-sessions"
+tests = [
+    "test_app.py::test_wf_two_step_sessions_sessions_and_password",
+    "test_app.py::test_session_idle_and_absolute_lifetimes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Password change ends other sessions"
+text = "Changing the password ends every other session of the user, pending ones included, in the same change while the current session stays signed in, and the user is emailed without any password."
+kind = "behavior"
+primary = "pytest"
+workflow = "two-step-sessions"
+tests = [
+    "test_app.py::test_wf_two_step_sessions_password_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Prefix-scoped and expiring access keys"
+text = "An access key with a prefix acts only on keys under that prefix on every S3 object, list, multipart and multi-object path, and a key stops working at its expires_at second."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-keys"
+tests = [
+    "test_app.py::test_wf_access_keys_prefix_and_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Access key rotation with overlap"
+text = "An owner rotates an active key to get a new secret while the previous secret, including its chunk signatures, keeps working until the overlap's exact second, with exactly one winner among concurrent rotations and the key row updated from the server's answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-keys"
+tests = [
+    "test_app.py::test_wf_access_keys_rotation_overlap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Encryption at rest per version"
+text = "MinIO only ever holds ciphertext of object bytes under each version's own data key on every upload, multipart, replica and seed path, while every download returns the original bytes with the same ETag and checksum."
+kind = "behavior"
+primary = "pytest"
+workflow = "encryption"
+tests = [
+    "test_app.py::test_wf_encryption_ciphertext_everywhere",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Workspace key rotation"
+text = "An owner rotates the workspace key so every stored version and open upload of that workspace is re-wrapped under the new generation without rewriting any MinIO object, one rotation at a time."
+kind = "behavior"
+primary = "pytest"
+workflow = "encryption"
+tests = [
+    "test_app.py::test_wf_encryption_workspace_key_rotation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Hash-chained audit trail"
+text = "Each workspace's audit trail is append-only with a gapless sequence and a SHA-256 chain over the published canonical form, and verify names the first edited, rewritten or missing entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "audit-trail"
+tests = [
+    "test_app.py::test_wf_audit_trail_chain_and_verify",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Audit trail page and CSV export"
+text = "An owner filters and pages their own workspace's audit trail with the filters held in the address, verifies the chain, and downloads a CSV with RFC 4180 quoting and formula neutralisation."
+kind = "behavior"
+primary = "workflow"
+workflow = "audit-trail"
+tests = [
+    "test_app.py::test_wf_audit_trail_page_filters_csv",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "What the audit trail records"
+text = "Every sign-in, failed sign-in, password and two-step change, membership change, invite, key change, legal-hold change, encryption rotation, suspension and permission refusal appends one entry with the published actor, target and detail, and no entry ever holds a password, code, secret or token."
+kind = "behavior"
+primary = "pytest"
+workflow = "audit-trail"
+tests = [
+    "test_app.py::test_wf_audit_trail_what_is_recorded",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with exactly the string fields install, build, serve and \"_schema\":\"run-manifest-v1\"."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package by name, version and licence, plus each bundled font and icon set with its licence; shipped packages means the production dependency tree reported by npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package, font and icon set is licensed under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in the provided Postgres and MinIO, with no SQLite, Redis, embedded database or own data files apart from the single sealing-key file allowed in Configuration and secrets."
+tests = [
+    "test_app.py::test_if_only_postgres_and_minio",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service definitions, their images and their dev credentials are left unchanged."
+tests = [
+    "test_app.py::test_if_services_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Application source is TypeScript; plain JavaScript appears only in generated build output and tool configuration files."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "bucket-setup"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_bucket_setup_create_in_console",
+    "test_app.py::test_wf_bucket_setup_name_rules",
+    "test_app.py::test_wf_bucket_setup_name_race",
+    "test_app.py::test_wf_bucket_setup_published_fields",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "console-upload"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_console_upload_drop_and_pick",
+    "test_app.py::test_wf_console_upload_refusals",
+    "test_app.py::test_wf_console_upload_idempotent_retry",
+    "test_app.py::test_wf_console_upload_downloads",
+]
+
+[[workflows]]
+id = "manifest-overwrite"
+requirements = [
+    "DP-18",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_manifest_overwrite_concurrent_writers",
+    "test_app.py::test_wf_manifest_overwrite_release_readiness",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "s3-pipeline"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-22",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_s3_pipeline_signed_access",
+    "test_app.py::test_wf_s3_pipeline_multipart",
+    "test_app.py::test_wf_s3_pipeline_paging",
+    "test_app.py::test_wf_s3_pipeline_chunked_checksums",
+]
+
+[[workflows]]
+id = "browse-and-filter"
+requirements = [
+    "DP-21",
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_browse_and_filter_viewer_deep_link",
+    "test_app.py::test_wf_browse_and_filter_bounds",
+    "test_app.py::test_wf_browse_and_filter_search_isolation",
+]
+checkpoints = [
+    "B7",
+    "B4",
+]
+
+[[workflows]]
+id = "share-links"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_share_links_mint_and_download",
+    "test_app.py::test_wf_share_links_scope_expiry_privacy",
+    "test_app.py::test_wf_share_links_revocation_and_rate",
+]
+
+[[workflows]]
+id = "team-access"
+requirements = [
+    "DP-05",
+    "DP-35",
+    "DP-36",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_team_access_signin_and_roles",
+    "test_app.py::test_wf_team_access_invite_and_join",
+    "test_app.py::test_wf_team_access_roles_and_removal",
+    "test_app.py::test_wf_team_access_invite_rate_and_reissue",
+]
+
+[[workflows]]
+id = "usage-billing"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-59",
+]
+critical = [
+    "test_app.py::test_wf_usage_billing_usage_page",
+    "test_app.py::test_wf_usage_billing_export_csv",
+    "test_app.py::test_wf_usage_billing_killbill_outage",
+    "test_app.py::test_wf_usage_billing_quota",
+    "test_app.py::test_wf_usage_billing_exactly_once",
+]
+
+[[workflows]]
+id = "operator"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_operator_console_live",
+    "test_app.py::test_wf_operator_region_maintenance",
+    "test_app.py::test_wf_operator_gate",
+    "test_app.py::test_wf_operator_suspension",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "replica-wake"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_replica_wake_settle_on_etag",
+    "test_app.py::test_wf_replica_wake_state_machine",
+    "test_app.py::test_wf_replica_wake_inspector_wake",
+    "test_app.py::test_wf_replica_wake_status_list_and_announcements",
+]
+checkpoints = [
+    "B12",
+    "B6",
+]
+critical_checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "lifecycle-retention"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_lifecycle_retention_rules",
+    "test_app.py::test_wf_lifecycle_retention_noncurrent_expiry",
+    "test_app.py::test_wf_lifecycle_retention_locks",
+    "test_app.py::test_wf_lifecycle_retention_dialog_survives_polling",
+]
+
+[[workflows]]
+id = "webhooks"
+requirements = [
+    "DP-54",
+    "DP-55",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_webhooks_endpoints_ui",
+    "test_app.py::test_wf_webhooks_signed_ordered_delivery",
+    "test_app.py::test_wf_webhooks_signed_events_per_endpoint",
+]
+
+[[workflows]]
+id = "bulk-delete"
+requirements = [
+    "DP-57",
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_wf_bulk_delete_undo_ui",
+    "test_app.py::test_wf_bulk_delete_api_window_and_replay",
+    "test_app.py::test_wf_bulk_delete_s3_delete_objects",
+]
+
+[[workflows]]
+id = "two-step-sessions"
+requirements = [
+    "DP-61",
+    "DP-62",
+    "DP-63",
+    "DP-64",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_two_step_sessions_jun_deep_link",
+    "test_app.py::test_wf_two_step_sessions_enrol_and_codes",
+    "test_app.py::test_wf_two_step_sessions_sessions_and_password",
+    "test_app.py::test_wf_two_step_sessions_password_change",
+    "test_app.py::test_wf_two_step_sessions_step_up",
+]
+
+[[workflows]]
+id = "access-keys"
+requirements = [
+    "DP-37",
+    "DP-66",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_access_keys_lifecycle_ui",
+    "test_app.py::test_wf_access_keys_prefix_and_expiry",
+    "test_app.py::test_wf_access_keys_rotation_overlap",
+]
+
+[[workflows]]
+id = "encryption"
+requirements = [
+    "DP-68",
+    "DP-69",
+]
+critical = [
+    "test_app.py::test_wf_encryption_ciphertext_everywhere",
+    "test_app.py::test_wf_encryption_workspace_key_rotation",
+]
+
+[[workflows]]
+id = "audit-trail"
+requirements = [
+    "DP-70",
+    "DP-71",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_audit_trail_chain_and_verify",
+    "test_app.py::test_wf_audit_trail_page_filters_csv",
+    "test_app.py::test_wf_audit_trail_what_is_recorded",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-28",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_health_and_dependencies",
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_error_shape_and_precedence",
+    "test_app.py::test_responsive_layout",
+    "test_app.py::test_keyboard_and_focus",
+    "test_app.py::test_replica_wake_reduced_motion",
+]

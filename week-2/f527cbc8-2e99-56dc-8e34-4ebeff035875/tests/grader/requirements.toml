@@ -1,0 +1,2026 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 108
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "practice-setup",
+    "owner-booking",
+    "last-slot-race",
+    "barn-manager-list",
+    "owner-cancellation",
+    "day-start-allocation",
+    "visit-photos",
+    "angle-marks",
+    "visit-close-invoice",
+    "billing-outage",
+    "day-close",
+    "owner-comparison",
+    "vet-link",
+    "owner-invoices",
+    "deposit-gateway",
+    "rate-limiting",
+    "horizontal-scale",
+    "dunning",
+    "job-queue",
+    "practice-dashboard",
+    "api-tokens",
+    "ops-lifecycle",
+    "live-motion",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B13",
+    "B2",
+    "B3",
+    "B14",
+    "B4",
+    "B15",
+    "B5",
+    "B16",
+    "B6",
+    "B7",
+    "B17",
+    "B8",
+    "B9",
+    "B18",
+    "B10",
+    "B11",
+    "B19",
+    "B12",
+    "B20",
+    "S1",
+    "S2",
+    "S4",
+    "S3",
+    "S5",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 116
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Rasp & Rein <bookings@raspandrein.test>" } },
+    { name = "killbill", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B13 = 5
+B2 = 5
+B3 = 3
+B14 = 3
+B4 = 3
+B15 = 3
+B5 = 3
+B16 = 3
+B6 = 3
+B7 = 5
+B17 = 5
+B8 = 3
+B9 = 3
+B18 = 3
+B10 = 3
+B11 = 3
+B19 = 3
+B12 = 3
+B20 = 3
+S1 = 5
+S2 = 5
+S4 = 5
+S3 = 3
+S5 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+VET_LINK_TTL_SECONDS = "20"
+BOOKING_HOLD_SECONDS = "15"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "peer"
+port = 4176
+url_env = "APP_PEER_URL"
+
+[outages.env]
+INSTANCE_LABEL = "peer"
+
+[[outages]]
+id = "fast-clock"
+port = 4177
+url_env = "APP_FAST_CLOCK_URL"
+
+[outages.env]
+DUNNING_DAY_SECONDS = "2"
+JOB_BACKOFF_BASE_SECONDS = "1"
+JOB_LEASE_SECONDS = "3"
+WAITLIST_OFFER_SECONDS = "6"
+REMINDER_SCAN_SECONDS = "2"
+IDEMPOTENCY_LEASE_SECONDS = "3"
+BOOKING_HOLD_SECONDS = "15"
+
+[[requirements]]
+id = "DP-01"
+title = "Sign-in and roles"
+text = "Seeded and imported farrier, apprentice, owner and barn-manager accounts sign in with email and password, get a session cookie, and are refused with 401 when signed out."
+kind = "behavior"
+primary = "pytest"
+workflow = "practice-setup"
+tests = [
+    "test_app.py::test_sign_in_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Effective-dated price list"
+text = "The farrier creates immutable price lists with an effective date and a booking deposit, and the list in force on a date is the one with the latest effective date on or before it."
+kind = "behavior"
+primary = "pytest"
+workflow = "practice-setup"
+tests = [
+    "test_app.py::test_price_lists_effective",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Barn days in business time"
+text = "A barn day's date and start time are read as wall-clock time in the practice time zone, and the API reports its start and its cancellation cutoff, exactly 24 elapsed hours earlier, as instants carrying the practice-zone offset in force at each."
+kind = "behavior"
+primary = "pytest"
+workflow = "practice-setup"
+tests = [
+    "test_app.py::test_barn_day_business_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Barn day state machine"
+text = "Barn days move only along the published edges between draft, published, full, in progress, closed and cancelled, with full and published derived from live bookings, and every other edge is refused with the illegal-transition 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "practice-setup"
+tests = [
+    "test_app.py::test_wf_practice_setup_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Farrier day sheet"
+text = "The farrier creates, publishes and starts a barn day from the left rail and day sheet, and the rail count and row list reflect each change."
+kind = "behavior"
+primary = "workflow"
+workflow = "practice-setup"
+tests = [
+    "test_app.py::test_wf_practice_setup_new_day_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Owner barn day view"
+text = "Owners see published, full and in-progress barn days only at barns where they keep a horse, with each slot shown as open or taken and no other boarder's horse or owner named, and any other barn day id answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-booking"
+tests = [
+    "test_app.py::test_owner_day_visibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Slot hold and confirmation"
+text = "Pressing a slot authorises the deposit and places a hold that the owner confirms or releases, and an unconfirmed hold lapses at its stored expiry instant and frees the slot, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-booking"
+tests = [
+    "test_app.py::test_wf_owner_booking_hold_confirm",
+    "test_app.py::test_wf_owner_booking_hold_allowance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Booking confirmation email"
+text = "Confirming a booking sends the owner one email with the slot, barn, date and cancellation cutoff, and repeating the confirmation sends nothing more."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-booking"
+tests = [
+    "test_app.py::test_booking_confirmation_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Keyboard booking dialog"
+text = "An owner can choose a horse, hold a slot and confirm or release it with the keyboard alone, with focus trapped in the dialog and returned as described in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-booking"
+tests = [
+    "test_app.py::test_wf_owner_booking_keyboard_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Last open slot race and waitlist"
+text = "When several owners claim the last open slot at once, exactly one hold succeeds, every other claim gets the day-full 409, and those owners can join the waitlist with a card."
+kind = "behavior"
+primary = "pytest"
+workflow = "last-slot-race"
+tests = [
+    "test_app.py::test_wf_last_slot_race_one_winner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Role-shaped booking list"
+text = "A barn day's booking list returns exactly the published field set for the caller's role, and a barn manager's rows carry only slot time, horse name and stall."
+kind = "behavior"
+primary = "pytest"
+workflow = "barn-manager-list"
+tests = [
+    "test_app.py::test_wf_barn_manager_list_projection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Barn manager ready sheet"
+text = "A barn manager sees only their own barn's days in the rail and opens a ready sheet listing slot time, horse and stall for horses to be caught."
+kind = "behavior"
+primary = "workflow"
+workflow = "barn-manager-list"
+tests = [
+    "test_app.py::test_wf_barn_manager_list_ready_sheet_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Cancellation cutoff in business time"
+text = "An owner's cancellation is cancelled in time or cancelled late according to the 24-hour cutoff measured from the start in the practice time zone, whatever the browser or server clock zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-cancellation"
+tests = [
+    "test_app.py::test_wf_owner_cancellation_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Cancellation notice email"
+text = "Every cancellation sends the owner one email that says whether a trip share still applies and what happens to the deposit."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-cancellation"
+tests = [
+    "test_app.py::test_cancellation_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Cancel dialog states the trip share"
+text = "Before an owner confirms a cancellation, the dialog states the server's verdict on whether the cutoff has passed and what that means for the trip share and the deposit."
+kind = "behavior"
+primary = "workflow"
+workflow = "owner-cancellation"
+tests = [
+    "test_app.py::test_wf_owner_cancellation_dialog_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Day start fixes the counting horses"
+text = "Starting a barn day removes open holds and voids their deposits, fixes the set of horses that count toward the trip fee, and stores each one's share."
+kind = "behavior"
+primary = "pytest"
+workflow = "day-start-allocation"
+tests = [
+    "test_app.py::test_day_start_counting_horses",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Largest-remainder trip split"
+text = "Trip shares are whole cents that add up exactly to the day's fee, with leftover cents placed by the published largest-remainder rule in ascending booking number."
+kind = "behavior"
+primary = "pytest"
+workflow = "day-start-allocation"
+tests = [
+    "test_app.py::test_wf_day_start_allocation_split",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Opening a visit"
+text = "On a started day the farrier opens a visit for a confirmed booking, and the booking becomes worked."
+kind = "behavior"
+primary = "workflow"
+workflow = "visit-photos"
+tests = [
+    "test_app.py::test_wf_visit_photos_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Safe hoof photo uploads"
+text = "Only real JPEG, PNG or HEIC images within the size limit are stored, under the published key pattern and with all location and other metadata removed."
+kind = "behavior"
+primary = "pytest"
+workflow = "visit-photos"
+tests = [
+    "test_app.py::test_wf_visit_photos_safe_upload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Apprentice limits"
+text = "The apprentice can open the day sheet, upload photos and save marks, and is refused with 403 on prices, day transitions, visit closing, allocations, invoices, payments and vet links."
+kind = "behavior"
+primary = "pytest"
+workflow = "visit-photos"
+tests = [
+    "test_app.py::test_wf_visit_photos_apprentice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Server-computed angles and alignment"
+text = "Saving hoof-wall and pastern lines stores both angles to 0.1°, the alignment label and a new marks version, computed once on the server by the published formula."
+kind = "behavior"
+primary = "pytest"
+workflow = "angle-marks"
+tests = [
+    "test_app.py::test_wf_angle_marks_compute",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Marking lines on a photo"
+text = "The farrier or apprentice places both lines by clicking points on the after photo or typing coordinates, saves them, and sees the stored angles announced."
+kind = "behavior"
+primary = "workflow"
+workflow = "angle-marks"
+tests = [
+    "test_app.py::test_wf_angle_marks_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Visit charges at the effective price"
+text = "Closing a visit charges each ticked work item at the price in force on the barn day's business date, plus the horse's stored trip share."
+kind = "behavior"
+primary = "pytest"
+workflow = "visit-close-invoice"
+tests = [
+    "test_app.py::test_wf_visit_close_invoice_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "One invoice per visit close"
+text = "Closing a visit creates exactly one Kill Bill invoice on the owner's account, however many times the close request is sent."
+kind = "behavior"
+primary = "pytest"
+workflow = "visit-close-invoice"
+tests = [
+    "test_app.py::test_visit_close_one_killbill_invoice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Visit summary email"
+text = "When a visit is invoiced, its owner gets one summary email listing that horse's work, trip share, deposit credit, invoice total and next-due date, and nothing about any other owner."
+kind = "behavior"
+primary = "pytest"
+workflow = "visit-close-invoice"
+tests = [
+    "test_app.py::test_visit_summary_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Next-due status"
+text = "Each horse shows its next-due date and a current, due, overdue or unknown status derived from its last worked visit and cycle as stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "visit-close-invoice"
+tests = [
+    "test_app.py::test_next_due_status",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Invoice pending when billing is down"
+text = "With Kill Bill unreachable, closing a visit still succeeds and leaves the visit and its invoice pending, with the pending copy shown, for at least the retry hold-off stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-outage"
+tests = [
+    "test_app.py::test_invoice_pending_close_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Reconcile once when billing returns"
+text = "Pending invoices are created in Kill Bill exactly once after the retry hold-off and within the stated delay once billing is reachable, without an app restart, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-outage"
+tests = [
+    "test_app.py::test_wf_billing_outage_pending_then_invoiced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "No-shows and closing the day"
+text = "The farrier marks unworked bookings as no-show, and a day closes only when no confirmed booking or open visit remains."
+kind = "behavior"
+primary = "workflow"
+workflow = "day-close"
+tests = [
+    "test_app.py::test_wf_day_close_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Trip-only invoices"
+text = "Closing a day gives every late-cancelled or no-show horse with a non-zero share exactly one trip-only invoice on its owner's Kill Bill account, with any kept deposit credited up to the share."
+kind = "behavior"
+primary = "pytest"
+workflow = "day-close"
+tests = [
+    "test_app.py::test_wf_day_close_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Owner record isolation"
+text = "Owners, barn managers and vet links reach only their own horses, visits, photos, payments and invoices, and any other id answers 404 even when guessed."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-comparison"
+tests = [
+    "test_app.py::test_owner_record_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Comparison data"
+text = "The comparison endpoint returns, for one horse and hoof, two marked visits with their stored lines, angles, labels, signed differences and exact readout lines."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-comparison"
+tests = [
+    "test_app.py::test_wf_owner_comparison_data",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Axis wipe stage"
+text = "The comparison stage puts the previous photo underneath and wipes the current photo in from the left up to the divider, and draws previous lines dashed and current lines solid in each visit's colour."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-comparison"
+tests = [
+    "test_app.py::test_comparison_wipe",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Divider keyboard and pair-change motion"
+text = "The divider slider steps by keyboard and pointer, and changing the visit pair or hoof glides it to the middle while the readout numerals count to their new values."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-comparison"
+tests = [
+    "test_app.py::test_wf_owner_comparison_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Reduced-motion axis wipe"
+text = "With reduced motion requested, the divider jumps, the numerals switch with no count, and a three-way Previous, Split, Current control sets the divider."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-comparison"
+tests = [
+    "test_app.py::test_wf_owner_comparison_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Vet link issue"
+text = "The farrier issues a vet link for a horse's two most recent closed visits, and the vet receives it by email."
+kind = "behavior"
+primary = "workflow"
+workflow = "vet-link"
+tests = [
+    "test_app.py::test_wf_vet_link_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Vet link scope, expiry and revocation"
+text = "A vet link reads only its horse's comparison, refuses every write, and stops working once it expires, is revoked or is regenerated."
+kind = "behavior"
+primary = "pytest"
+workflow = "vet-link"
+tests = [
+    "test_app.py::test_wf_vet_link_scope_revoke",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Vet comparison page"
+text = "The vet link opens a read-only page with the axis wipe for each marked hoof and no owner, price or invoice details."
+kind = "behavior"
+primary = "workflow"
+workflow = "vet-link"
+tests = [
+    "test_app.py::test_wf_vet_link_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Owner invoices and payment"
+text = "Owners see their own invoices and pay an unpaid one's full balance by card, which records one payment against that invoice in Kill Bill before the card is captured, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-invoices"
+tests = [
+    "test_app.py::test_wf_owner_invoices_pay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from the run manifest on the stated port and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Server boundary"
+text = "The server refuses cross-origin writes and oversized or mistyped bodies, and never serves source, configuration or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Dependency outages"
+text = "The app starts and serves with Kill Bill or Mailpit unreachable, and emails that could not be sent are delivered once each after Mailpit returns, without a restart, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_outages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Credentials from environment"
+text = "Every service URL and credential comes from the named environment variables at start, and none is hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S4",
+    "S3",
+    "S5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Responsive layout"
+text = "Every screen works at 375x812, 768x1024 and 1280x800 with no horizontal scrolling and with tap targets at least 44 px."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_responsive",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Visual identity"
+text = "Screens use the bone-ground, ruled-table look with forge-orange current and steel-blue previous roles, the named typefaces and aligned numerals described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B13",
+    "B2",
+    "B3",
+    "B14",
+    "B4",
+    "B15",
+    "B5",
+    "B16",
+    "B6",
+    "B7",
+    "B17",
+    "B8",
+    "B9",
+    "B18",
+    "B10",
+    "B11",
+    "B19",
+    "B12",
+    "B20",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Clock-change barn days"
+text = "Across a daylight-saving change the cutoff stays exactly 24 elapsed hours before the start, a start time that does not exist on that date is refused with 422, and a repeated time resolves to its earlier occurrence."
+kind = "behavior"
+primary = "pytest"
+workflow = "practice-setup"
+tests = [
+    "test_app.py::test_wf_practice_setup_dst",
+]
+criteria = []
+parameter_cases = [
+    "spring_forward",
+    "fall_back_repeated",
+    "fall_back_after",
+    "nonexistent",
+]
+
+[[requirements]]
+id = "DP-47"
+title = "Hold lapse at the stored instant"
+text = "A hold is lapsed at and after its stored expiry instant on every read, so the slot reopens, the day stops reading full, the deposit reads voided and a late confirm answers hold_expired, without waiting for any background job."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-booking"
+tests = [
+    "test_app.py::test_wf_owner_booking_lapse",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Consistent counts and waitlist positions"
+text = "Under any mix of simultaneous holds, releases, confirmations, cancellations, offers and waitlist joins, the booked count, the full status, the rail count and the contiguous waitlist positions agree with the bookings actually held."
+kind = "behavior"
+primary = "pytest"
+workflow = "last-slot-race"
+tests = [
+    "test_app.py::test_wf_last_slot_race_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Barn day and horse URLs"
+text = "Day and horse URLs restore the same sheet or panel on load, reload, Back, Forward and after sign-in, and a URL the caller may not see shows only the not-available copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "barn-manager-list"
+tests = [
+    "test_app.py::test_comparison_urls",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "One day start under races"
+text = "Simultaneous starts, cancellations and holds on one barn day are serialised so exactly one start wins and stores one set of shares, and each cancel or hold either lands before it or is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "day-start-allocation"
+tests = [
+    "test_app.py::test_wf_day_start_allocation_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Versioned hoof marks"
+text = "Each save of a hoof's marks must name the current version, and a save over a newer version, including the loser of two simultaneous first saves, answers 412 with the stored marks, which the marks form then shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "angle-marks"
+tests = [
+    "test_app.py::test_wf_angle_marks_versions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Concurrent visit close"
+text = "Simultaneous close requests on one visit, with the same or different idempotency keys, give one close, one Kill Bill invoice and one summary email, and an in-flight key answers idempotency_in_progress."
+kind = "behavior"
+primary = "pytest"
+workflow = "visit-close-invoice"
+tests = [
+    "test_app.py::test_wf_visit_close_invoice_concurrent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Announced reconciliation"
+text = "Open pages refresh pending invoice rows at least every 10 seconds and, for the farrier and owners, announce each invoice that reaches billing exactly once in Notices."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-outage"
+tests = [
+    "test_app.py::test_wf_billing_outage_ui_announce",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Vet-link guess limit"
+text = "Once 10 vet-link misses from one client address fall within a rolling 60 seconds, counted across all instances, every further vet-link read from that address answers 429 with Retry-After until the window clears."
+kind = "behavior"
+primary = "pytest"
+workflow = "vet-link"
+tests = [
+    "test_app.py::test_wf_vet_link_guess_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Honest single payment"
+text = "Simultaneous pays on one invoice record exactly one Kill Bill card payment, and the Invoices row reads Paid only after the payment is recorded and stays Unpaid with its button re-enabled when billing is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-invoices"
+tests = [
+    "test_app.py::test_wf_owner_invoices_concurrent_outage",
+    "test_app.py::test_wf_owner_invoices_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "All-or-nothing client import"
+text = "The farrier imports the client list as a CSV that is applied whole, and any bad row writes nothing and is named by physical line, column and code."
+kind = "behavior"
+primary = "pytest"
+workflow = "practice-setup"
+tests = [
+    "test_app.py::test_wf_practice_setup_import",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Import matching"
+text = "Import matches existing owners and horses by the published rules, so replays and re-imports, including two simultaneous imports, create no duplicate owner or horse."
+kind = "behavior"
+primary = "pytest"
+workflow = "practice-setup"
+tests = [
+    "test_app.py::test_import_matching",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Request allowances"
+text = "Sign-in, booking, payment, upload and vet routes enforce per-user and per-address allowances shared by every instance, answering 429 with Retry-After and reporting the allowance in RateLimit headers."
+kind = "behavior"
+primary = "pytest"
+workflow = "rate-limiting"
+tests = [
+    "test_app.py::test_wf_rate_limiting_sign_in",
+    "test_app.py::test_wf_rate_limiting_payment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Waitlist offers"
+text = "When a slot frees, including by a lapse no job has seen, the lowest-position eligible waitlisted horse gets a timed hold before any other owner's hold can succeed, and a lapsed or declined offer passes to the next position."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-booking"
+tests = [
+    "test_app.py::test_waitlist_offer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Live barn day stream"
+text = "A barn day's event stream gives each role exactly its own fields, delivers a change made on any instance within 2 seconds, and ends when the session ends."
+kind = "behavior"
+primary = "pytest"
+workflow = "barn-manager-list"
+tests = [
+    "test_app.py::test_wf_barn_manager_list_stream",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Stream resume and in-place rows"
+text = "Resuming a stream with Last-Event-ID on any instance replays contiguous ids with nothing lost or repeated, and open day and ready sheets change rows in place without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "barn-manager-list"
+tests = [
+    "test_app.py::test_barn_day_stream_resume",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Resumable photo upload"
+text = "A hoof photo can be uploaded in chunks that continue on any instance from the stored offset and land as one validated photo."
+kind = "behavior"
+primary = "pytest"
+workflow = "visit-photos"
+tests = [
+    "test_app.py::test_wf_visit_photos_resumable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Per-visit photo quota"
+text = "Stored plus reserved photo bytes on a visit never exceed the quota, including under simultaneous upload sessions."
+kind = "behavior"
+primary = "pytest"
+workflow = "visit-photos"
+tests = [
+    "test_app.py::test_photo_quota",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Photo thumbnails"
+text = "Each stored photo gets a metadata-free thumbnail through a background job, and the visit list and hoof picker show it."
+kind = "behavior"
+primary = "pytest"
+workflow = "visit-photos"
+tests = [
+    "test_app.py::test_photo_thumbnails",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Marks history and restore"
+text = "The farrier and apprentice read a hoof's attributed marks history, and restoring a version creates a new version that copies its stored lines, angles and label and honours the stale-marks 412."
+kind = "behavior"
+primary = "pytest"
+workflow = "angle-marks"
+tests = [
+    "test_app.py::test_wf_angle_marks_history_restore",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Deposit lifecycle"
+text = "A booking's deposit is authorised at hold, captured at confirmation, voided, refunded or forfeited by the published outcome of the booking, and recorded in Kill Bill, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "deposit-gateway"
+tests = [
+    "test_app.py::test_wf_deposit_gateway_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Payment state machine"
+text = "Payments move only along the published edges, every other edge is refused with the illegal-transition 409, and refunds never exceed what remains of the captured amount."
+kind = "behavior"
+primary = "pytest"
+workflow = "deposit-gateway"
+tests = [
+    "test_app.py::test_wf_deposit_gateway_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Test cards and card numbers"
+text = "The three published test card tokens decide approval and decline, and a real-looking card number is refused and never stored or logged."
+kind = "behavior"
+primary = "pytest"
+workflow = "deposit-gateway"
+tests = [
+    "test_app.py::test_wf_deposit_gateway_cards",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Deposit credit on invoices"
+text = "A horse's captured deposit appears as a credit on that horse's invoice alone, moved as one paired refund and payment in Kill Bill, with Kill Bill's balance equal to the app's to the cent."
+kind = "behavior"
+primary = "pytest"
+workflow = "visit-close-invoice"
+tests = [
+    "test_app.py::test_deposit_credit_on_invoice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Crash-safe close"
+text = "A close interrupted by a killed instance or a partial Kill Bill failure finishes with one invoice, one transfer, one ledger set and one summary email, by lease takeover or the background reconciler."
+kind = "behavior"
+primary = "pytest"
+workflow = "visit-close-invoice"
+tests = [
+    "test_app.py::test_wf_visit_close_invoice_crash",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Kill Bill read-back"
+text = "Read-back routes compare the app's amounts with a live Kill Bill read and flag any mismatch to the farrier, and a card is captured only after Kill Bill records the invoice payment."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-invoices"
+tests = [
+    "test_app.py::test_invoice_readback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Live comparison updates"
+text = "When marks or visits change on another device, the stage's lines and numerals update in place while the divider, selected pair, hoof, focus, open dialogs and typed text stay exactly as they were."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-comparison"
+tests = [
+    "test_app.py::test_wf_owner_comparison_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Immediate vet revocation"
+text = "After a vet link is revoked, the next read on any instance fails, including photo paths signed for that link before the revoke."
+kind = "behavior"
+primary = "pytest"
+workflow = "vet-link"
+tests = [
+    "test_app.py::test_vet_revoke_immediate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Vet link view log"
+text = "The farrier reads who opened a vet link, when, from which address and with what outcome."
+kind = "behavior"
+primary = "pytest"
+workflow = "vet-link"
+tests = [
+    "test_app.py::test_vet_link_views",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Dunning schedule"
+text = "A declined invoice payment enters dunning, retries the card on file at the published offsets, moves through the published states, and clears on any successful payment."
+kind = "behavior"
+primary = "pytest"
+workflow = "dunning"
+tests = [
+    "test_app.py::test_wf_dunning_soft_schedule",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Dunning emails and account block"
+text = "Each dunning state sends one published email, and an owner with a blocked invoice cannot hold or join a waitlist until it is paid."
+kind = "behavior"
+primary = "pytest"
+workflow = "dunning"
+tests = [
+    "test_app.py::test_wf_dunning_hard_block",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Durable job queue"
+text = "Background jobs are claimed by one live lease across instances, back off on failure, go dead at the attempt limit, and a superseded worker's result is discarded."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-queue"
+tests = [
+    "test_app.py::test_wf_job_queue_export_job",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Job inspection and due reminders"
+text = "The farrier reads jobs and retries dead ones, and each horse in due status gets one reminder email per next-due date across all instances."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-queue"
+tests = [
+    "test_app.py::test_wf_job_queue_due_reminders",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Practice dashboard"
+text = "The dashboard's month figures equal the ledger and Kill Bill to the cent, assign months in the practice time zone, and count applied deposits as neither new money nor refunds."
+kind = "behavior"
+primary = "pytest"
+workflow = "practice-dashboard"
+tests = [
+    "test_app.py::test_wf_practice_dashboard_figures",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Ledger export"
+text = "The farrier exports a month's ledger as CSV to MinIO through a job, with formula-leading cells neutralised."
+kind = "behavior"
+primary = "pytest"
+workflow = "practice-dashboard"
+tests = [
+    "test_app.py::test_wf_practice_dashboard_export",
+    "test_app.py::test_wf_practice_dashboard_layout_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Outstanding balance alert"
+text = "The farrier gets one alert when outstanding money crosses above the threshold, and it re-arms only after falling back to or below it."
+kind = "behavior"
+primary = "pytest"
+workflow = "practice-dashboard"
+tests = [
+    "test_app.py::test_outstanding_alert",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Scoped API tokens"
+text = "The farrier issues read-only or billing tokens that are stored hashed, refused with insufficient_scope outside their scope, and refused with 401 on every instance once revoked."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-tokens"
+tests = [
+    "test_app.py::test_wf_api_tokens_scopes",
+    "test_app.py::test_wf_api_tokens_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Stateless instances and clock"
+text = "Every instance serves any session and request from shared Postgres state, honours instants stamped by other instances, and applies its own clock offset and limit overrides."
+kind = "behavior"
+primary = "pytest"
+workflow = "horizontal-scale"
+tests = [
+    "test_app.py::test_wf_horizontal_scale_shared_state",
+    "test_app.py::test_wf_horizontal_scale_clock_offset",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Health and readiness"
+text = "A liveness path needs no dependency, and a readiness path reports each dependency within a bounded time and names the ones that are down."
+kind = "behavior"
+primary = "pytest"
+workflow = "ops-lifecycle"
+tests = [
+    "test_app.py::test_wf_ops_lifecycle_readiness",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Graceful shutdown"
+text = "On SIGTERM an instance stops accepting work, finishes in-flight requests, ends its streams, returns unstarted job claims and exits with code 0 within the grace period."
+kind = "behavior"
+primary = "pytest"
+workflow = "ops-lifecycle"
+tests = [
+    "test_app.py::test_wf_ops_lifecycle_shutdown",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Versioned migrations"
+text = "Schema changes are versioned files applied exactly once under concurrent boots, and seed data is written once."
+kind = "behavior"
+primary = "pytest"
+workflow = "ops-lifecycle"
+tests = [
+    "test_app.py::test_wf_ops_lifecycle_migrations",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-87"
+title = "Structured logs and request ids"
+text = "Each request writes one JSON log line with its request id, and no secret, card token or vet token appears in any log."
+kind = "behavior"
+primary = "pytest"
+workflow = "ops-lifecycle"
+tests = [
+    "test_app.py::test_structured_logs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-88"
+title = "Append-only audit log"
+text = "Every state change writes exactly one attributed audit entry in the same transaction, and the database refuses any edit to the log."
+kind = "behavior"
+primary = "pytest"
+workflow = "ops-lifecycle"
+tests = [
+    "test_app.py::test_wf_ops_lifecycle_audit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-89"
+title = "Choreographed motion"
+text = "Page, dialog, divider, live row, numeral and skeleton motion runs at the published timings, never delays input, and shifts the layout no more than the published limit."
+kind = "visual"
+primary = "pytest"
+workflow = "live-motion"
+tests = [
+    "test_app.py::test_wf_live_motion_choreography",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-90"
+title = "Gradient surfaces"
+text = "The rail, header, primary buttons, stage backing and status chips use the published palette gradients, and pending and live chips animate while meeting contrast at every frame."
+kind = "visual"
+primary = "pytest"
+workflow = "live-motion"
+tests = [
+    "test_app.py::test_wf_live_motion_gradients",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-91"
+title = "State-change sequences"
+text = "Each of the five named state changes plays its published sequence, marks the element while it runs, shows a visual toast and announces once in Notices."
+kind = "visual"
+primary = "pytest"
+workflow = "live-motion"
+tests = [
+    "test_app.py::test_wf_live_motion_sequences",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-92"
+title = "Motion parity"
+text = "Every animated control works by keyboard and touch, reduced motion gives instant states with identical copy, focus and end states, and a closed panel or dismissed toast cannot be reached at any viewport."
+kind = "visual"
+primary = "pytest"
+workflow = "live-motion"
+tests = [
+    "test_app.py::test_wf_live_motion_parity",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-93"
+title = "Refused claims leave no trace"
+text = "A hold refused with a 409 or 422 takes no booking number and writes no card authorisation, payment, audit entry, stream event or email, a declined card writes only its declined payment row, and successful holds get consecutive booking numbers, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "last-slot-race"
+tests = [
+    "test_app.py::test_wf_last_slot_race_claims",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-94"
+title = "Cancellation reverses the deposit"
+text = "An in-time cancellation refunds the captured deposit and records the refund in Kill Bill before answering when billing is reachable, adds one refund ledger entry beside the untouched capture entry, and runs the offer pass in the same transaction."
+kind = "behavior"
+primary = "pytest"
+workflow = "last-slot-race"
+tests = [
+    "test_app.py::test_wf_last_slot_race_cancel_refund",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-95"
+title = "Excusing a horse"
+text = "On an in-progress day the farrier excuses a confirmed horse that cannot be worked, which takes it out of the trip split, refunds its captured deposit and tells its owner by email."
+kind = "behavior"
+primary = "pytest"
+workflow = "day-start-allocation"
+tests = [
+    "test_app.py::test_wf_day_start_allocation_excuse",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-96"
+title = "Trip-share adjustments"
+text = "Excusing a horse moves its share only onto counting horses not yet billed by the published pool rule, posting one appended cent adjustment per changed share, so billed shares never change and the shares always add up to the fee."
+kind = "behavior"
+primary = "pytest"
+workflow = "day-start-allocation"
+tests = [
+    "test_app.py::test_wf_day_start_allocation_adjustments",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-97"
+title = "Deleted photos are gone"
+text = "Deleting a photo removes its stored object, its thumbnail even when its thumbnail job is running, its signed paths and its quota bytes, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "visit-photos"
+tests = [
+    "test_app.py::test_wf_visit_photos_delete",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-98"
+title = "Close ends upload sessions"
+text = "Closing a visit ends its live upload sessions, releases their reservations at once and removes their chunks within 10 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "visit-photos"
+tests = [
+    "test_app.py::test_wf_visit_photos_close_ends_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-99"
+title = "Rotating photo signing keys"
+text = "Photo paths are signed with a key ring in Postgres that rotates on the published schedule, and each path verifies with the key it names until its own expiry."
+kind = "behavior"
+primary = "pytest"
+workflow = "visit-photos"
+tests = [
+    "test_app.py::test_wf_visit_photos_key_rotation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-100"
+title = "Vet link follows the latest visits"
+text = "A vet link shows the horse's two most recent closed visits at each read, its photo paths work only for that live pair, and each view row records the pair it served."
+kind = "behavior"
+primary = "pytest"
+workflow = "vet-link"
+tests = [
+    "test_app.py::test_wf_vet_link_live_pair",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-101"
+title = "Marks fit the stored photo"
+text = "Mark points are checked against the stored upright photo's width and height after any declared orientation is applied."
+kind = "behavior"
+primary = "pytest"
+workflow = "angle-marks"
+tests = [
+    "test_app.py::test_wf_angle_marks_upright_bounds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-102"
+title = "Restore and close in one order"
+text = "Saves, restores and closes on one visit are serialised, so the close response, the closed visit and the owner's comparison carry the same final marks version."
+kind = "behavior"
+primary = "pytest"
+workflow = "angle-marks"
+tests = [
+    "test_app.py::test_wf_angle_marks_restore_close_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-103"
+title = "Allowances across instance clocks"
+text = "Allowance refill never runs backward across instances with different clocks, stored tokens are capped at the handling instance's capacity, Retry-After includes any lead of the stored instant, and allowance state survives restarts."
+kind = "behavior"
+primary = "pytest"
+workflow = "rate-limiting"
+tests = [
+    "test_app.py::test_wf_rate_limiting_clocks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-104"
+title = "Drain keeps chains whole"
+text = "A request accepted before SIGTERM completes its whole chain of writes, Kill Bill calls and emails or leaves its Kill Bill legs pending, and a request refused while draining writes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "ops-lifecycle"
+tests = [
+    "test_app.py::test_wf_ops_lifecycle_sigterm",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-105"
+title = "One instant decides a cancellation"
+text = "A cancellation's late verdict, deposit outcome, refunded amount and refund ledger instant all come from one stored decision instant, including across clock changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-cancellation"
+tests = [
+    "test_app.py::test_wf_owner_cancellation_one_instant",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-106"
+title = "Stall changes reach open sheets"
+text = "Booking rows always show the horse's current stall, and an import that changes a listed horse's stall sends one row change to each role's open stream for that day."
+kind = "behavior"
+primary = "pytest"
+workflow = "barn-manager-list"
+tests = [
+    "test_app.py::test_wf_barn_manager_list_stall_stream",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-107"
+title = "Paying off a block resumes the waitlist"
+text = "Paying an owner's last blocked invoice runs the offer pass in the same transaction on every open day where that owner waits."
+kind = "behavior"
+primary = "pytest"
+workflow = "dunning"
+tests = [
+    "test_app.py::test_wf_dunning_unblock_offer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-108"
+title = "Request-scoped identity"
+text = "Simultaneous requests from different sessions and API tokens on one instance each get only their own caller's identity, records and role-shaped fields."
+kind = "behavior"
+primary = "pytest"
+workflow = "horizontal-scale"
+tests = [
+    "test_app.py::test_wf_horizontal_scale_identity",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with exactly the string keys _schema (value run-manifest-v1), install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package with its name, version and licence; shipped packages means the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and bundled font uses one of MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0, CC0-1.0, Unlicense, OFL-1.1, LGPL-3.0-only or LGPL-3.0-or-later."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in Postgres and the MinIO bucket: no SQLite, Redis, other databases, in-process stores shared across requests as a source of truth, or app data written to local files."
+tests = [
+    "test_app.py::test_if_storage_only_postgres_minio",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and compose files stay unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "/app/package-lock.json is committed and matches package.json."
+tests = [
+    "test_app.py::test_if_package_lock",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The browser loads no fonts, scripts or styles from any third-party host."
+tests = [
+    "test_app.py::test_if_no_third_party_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "practice-setup"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-46",
+    "DP-56",
+    "DP-57",
+]
+critical = [
+    "test_app.py::test_wf_practice_setup_dst",
+    "test_app.py::test_wf_practice_setup_import",
+    "test_app.py::test_import_matching",
+    "test_app.py::test_wf_practice_setup_new_day_ui",
+]
+
+[[workflows]]
+id = "owner-booking"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-47",
+    "DP-59",
+]
+critical = [
+    "test_app.py::test_wf_owner_booking_hold_confirm",
+    "test_app.py::test_wf_owner_booking_keyboard_ui",
+    "test_app.py::test_wf_owner_booking_lapse",
+    "test_app.py::test_wf_owner_booking_hold_allowance",
+    "test_app.py::test_waitlist_offer",
+]
+
+[[workflows]]
+id = "last-slot-race"
+requirements = [
+    "DP-10",
+    "DP-48",
+    "DP-93",
+    "DP-94",
+]
+critical = [
+    "test_app.py::test_wf_last_slot_race_one_winner",
+    "test_app.py::test_wf_last_slot_race_counts",
+    "test_app.py::test_wf_last_slot_race_claims",
+    "test_app.py::test_wf_last_slot_race_cancel_refund",
+]
+
+[[workflows]]
+id = "barn-manager-list"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-49",
+    "DP-60",
+    "DP-61",
+    "DP-106",
+]
+critical = [
+    "test_app.py::test_wf_barn_manager_list_projection",
+    "test_app.py::test_wf_barn_manager_list_ready_sheet_ui",
+    "test_app.py::test_wf_barn_manager_list_stream",
+    "test_app.py::test_wf_barn_manager_list_stall_stream",
+]
+
+[[workflows]]
+id = "owner-cancellation"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-105",
+]
+critical = [
+    "test_app.py::test_wf_owner_cancellation_api",
+    "test_app.py::test_wf_owner_cancellation_dialog_ui",
+    "test_app.py::test_wf_owner_cancellation_one_instant",
+]
+
+[[workflows]]
+id = "day-start-allocation"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-50",
+    "DP-95",
+    "DP-96",
+]
+critical = [
+    "test_app.py::test_wf_day_start_allocation_split",
+    "test_app.py::test_wf_day_start_allocation_race",
+    "test_app.py::test_wf_day_start_allocation_excuse",
+    "test_app.py::test_wf_day_start_allocation_adjustments",
+]
+
+[[workflows]]
+id = "visit-photos"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-62",
+    "DP-63",
+    "DP-64",
+    "DP-97",
+    "DP-98",
+    "DP-99",
+]
+critical = [
+    "test_app.py::test_wf_visit_photos_safe_upload",
+    "test_app.py::test_wf_visit_photos_ui",
+    "test_app.py::test_wf_visit_photos_apprentice",
+    "test_app.py::test_wf_visit_photos_resumable",
+    "test_app.py::test_photo_quota",
+    "test_app.py::test_wf_visit_photos_delete",
+    "test_app.py::test_wf_visit_photos_close_ends_sessions",
+    "test_app.py::test_wf_visit_photos_key_rotation",
+]
+
+[[workflows]]
+id = "angle-marks"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-51",
+    "DP-65",
+    "DP-101",
+    "DP-102",
+]
+critical = [
+    "test_app.py::test_wf_angle_marks_compute",
+    "test_app.py::test_wf_angle_marks_versions",
+    "test_app.py::test_wf_angle_marks_history_restore",
+    "test_app.py::test_wf_angle_marks_ui",
+    "test_app.py::test_wf_angle_marks_upright_bounds",
+    "test_app.py::test_wf_angle_marks_restore_close_order",
+]
+
+[[workflows]]
+id = "visit-close-invoice"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-52",
+    "DP-69",
+    "DP-70",
+]
+critical = [
+    "test_app.py::test_wf_visit_close_invoice_happy",
+    "test_app.py::test_wf_visit_close_invoice_concurrent",
+    "test_app.py::test_wf_visit_close_invoice_crash",
+    "test_app.py::test_visit_close_one_killbill_invoice",
+    "test_app.py::test_deposit_credit_on_invoice",
+]
+
+[[workflows]]
+id = "billing-outage"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_billing_outage_pending_then_invoiced",
+    "test_app.py::test_wf_billing_outage_ui_announce",
+    "test_app.py::test_invoice_pending_close_ui",
+]
+
+[[workflows]]
+id = "day-close"
+requirements = [
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_day_close_outage",
+    "test_app.py::test_wf_day_close_ui",
+]
+
+[[workflows]]
+id = "owner-comparison"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_owner_comparison_data",
+    "test_app.py::test_wf_owner_comparison_keyboard",
+    "test_app.py::test_wf_owner_comparison_live",
+    "test_app.py::test_owner_record_isolation",
+]
+
+[[workflows]]
+id = "vet-link"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-54",
+    "DP-73",
+    "DP-74",
+    "DP-100",
+]
+critical = [
+    "test_app.py::test_wf_vet_link_scope_revoke",
+    "test_app.py::test_wf_vet_link_guess_limit",
+    "test_app.py::test_wf_vet_link_ui",
+    "test_app.py::test_wf_vet_link_page",
+    "test_app.py::test_vet_revoke_immediate",
+    "test_app.py::test_vet_link_views",
+    "test_app.py::test_wf_vet_link_live_pair",
+]
+
+[[workflows]]
+id = "owner-invoices"
+requirements = [
+    "DP-39",
+    "DP-55",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_wf_owner_invoices_pay",
+    "test_app.py::test_wf_owner_invoices_concurrent_outage",
+    "test_app.py::test_wf_owner_invoices_ui",
+    "test_app.py::test_invoice_readback",
+]
+
+[[workflows]]
+id = "deposit-gateway"
+requirements = [
+    "DP-66",
+    "DP-67",
+    "DP-68",
+]
+critical = [
+    "test_app.py::test_wf_deposit_gateway_lifecycle",
+    "test_app.py::test_wf_deposit_gateway_state_machine",
+    "test_app.py::test_wf_deposit_gateway_cards",
+]
+
+[[workflows]]
+id = "rate-limiting"
+requirements = [
+    "DP-58",
+    "DP-103",
+]
+critical = [
+    "test_app.py::test_wf_rate_limiting_sign_in",
+    "test_app.py::test_wf_rate_limiting_payment",
+    "test_app.py::test_wf_rate_limiting_clocks",
+]
+
+[[workflows]]
+id = "horizontal-scale"
+requirements = [
+    "DP-83",
+    "DP-108",
+]
+critical = [
+    "test_app.py::test_wf_horizontal_scale_shared_state",
+    "test_app.py::test_wf_horizontal_scale_clock_offset",
+    "test_app.py::test_wf_horizontal_scale_identity",
+]
+
+[[workflows]]
+id = "dunning"
+requirements = [
+    "DP-75",
+    "DP-76",
+    "DP-107",
+]
+critical = [
+    "test_app.py::test_wf_dunning_soft_schedule",
+    "test_app.py::test_wf_dunning_hard_block",
+    "test_app.py::test_wf_dunning_unblock_offer",
+]
+
+[[workflows]]
+id = "job-queue"
+requirements = [
+    "DP-77",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_job_queue_export_job",
+    "test_app.py::test_wf_job_queue_due_reminders",
+]
+
+[[workflows]]
+id = "practice-dashboard"
+requirements = [
+    "DP-79",
+    "DP-80",
+    "DP-81",
+]
+critical = [
+    "test_app.py::test_wf_practice_dashboard_figures",
+    "test_app.py::test_wf_practice_dashboard_export",
+    "test_app.py::test_wf_practice_dashboard_layout_ui",
+]
+
+[[workflows]]
+id = "api-tokens"
+requirements = [
+    "DP-82",
+]
+critical = [
+    "test_app.py::test_wf_api_tokens_scopes",
+    "test_app.py::test_wf_api_tokens_ui",
+]
+
+[[workflows]]
+id = "ops-lifecycle"
+requirements = [
+    "DP-84",
+    "DP-85",
+    "DP-86",
+    "DP-87",
+    "DP-88",
+    "DP-104",
+]
+critical = [
+    "test_app.py::test_wf_ops_lifecycle_readiness",
+    "test_app.py::test_wf_ops_lifecycle_migrations",
+    "test_app.py::test_wf_ops_lifecycle_shutdown",
+    "test_app.py::test_wf_ops_lifecycle_audit",
+    "test_app.py::test_wf_ops_lifecycle_sigterm",
+]
+
+[[workflows]]
+id = "live-motion"
+requirements = [
+    "DP-89",
+    "DP-90",
+    "DP-91",
+    "DP-92",
+]
+critical = [
+    "test_app.py::test_wf_live_motion_parity",
+    "test_app.py::test_wf_live_motion_sequences",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_health",
+    "test_app.py::test_wf_cross_cutting_boundary",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B7",
+]

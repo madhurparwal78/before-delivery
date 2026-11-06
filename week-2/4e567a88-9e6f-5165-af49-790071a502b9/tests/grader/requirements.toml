@@ -1,0 +1,1228 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "api-submit",
+    "concurrency-dispatch",
+    "playground-run",
+    "metered-pricing",
+    "rate-change",
+    "webhooks",
+    "topups",
+    "storage-outage",
+    "admin-policy",
+    "retention-deletion",
+    "budget-caps",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 80
+services = [
+    { name = "postgres", env = { OUTBOUND_ALLOWED_HOSTS = "main" } },
+    { name = "minio", env = {} },
+    { name = "killbill", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Lumenfold Dispatch <dispatch@lumenfold.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "storage-down"
+port = 4174
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:1999"
+DATABASE_URL = "${DATABASE_URL}_nostore"
+
+[[outages]]
+id = "killbill-down"
+port = 4175
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:1999"
+DATABASE_URL = "${DATABASE_URL}_nobill"
+
+[[outages]]
+id = "fast-clock"
+port = 4176
+url_env = "APP_FAST_URL"
+
+[outages.env]
+JOB_RUN_SECONDS = "2"
+LEASE_SECONDS = "6"
+RETENTION_DAY_SECONDS = "2"
+WEBHOOK_RETRY_BASE_SECONDS = "1"
+DATABASE_URL = "${DATABASE_URL}_fast"
+S3_BUCKET = "${S3_BUCKET}-fast"
+
+[[requirements]]
+id = "DP-01"
+title = "Job submission over the API"
+text = "A member's `POST /api/jobs` with a Bearer key and an Idempotency-Key creates one queued job and one reservation of its estimated cost, answering 201 with the job."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-submit"
+tests = [
+    "test_app.py::test_submit_job",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Replay returns the original response"
+text = "Repeating a submission with the same Idempotency-Key and the same body in the same team returns the stored first response and creates no job, reservation or ledger movement."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-submit"
+tests = [
+    "test_app.py::test_replay_returns_original",
+    "test_app.py::test_replay_outlives_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Reused key with a different body"
+text = "Reusing a team's Idempotency-Key with a different model, input or priority is refused with the `idempotency_key_reused` conflict and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-submit"
+tests = [
+    "test_app.py::test_key_reused_with_other_body",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Simultaneous retries make one job"
+text = "Parallel submissions that share one Idempotency-Key and body produce exactly one job and one reservation, and every response names that job."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-submit"
+tests = [
+    "test_app.py::test_parallel_retries_make_one_job",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Inputs checked against the model schema"
+text = "Each submission's input is validated against the model's published input schema, and a failure answers 422 with one message per offending field."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-submit"
+tests = [
+    "test_app.py::test_schema_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Job lifecycle and cancellation"
+text = "Jobs move only along the published state machine; cancelling a queued, leased or running job releases its whole reservation, and cancelling a succeeded or failed job is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-submit"
+tests = [
+    "test_app.py::test_job_lifecycle_and_cancel",
+    "test_app.py::test_wf_api_submit_cancel",
+    "test_app.py::test_parallel_cancels_release_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Engineer retry journey"
+text = "A platform engineer who submits a video job over the API and retries it sees one job in the Jobs list and one notch on the ribbon, and that notch highlights on the retry."
+kind = "behavior"
+primary = "workflow"
+workflow = "api-submit"
+tests = [
+    "test_app.py::test_wf_api_submit_retry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Team concurrency budget"
+text = "A team never has more leased or running jobs than its concurrency budget, and when several submissions race for the last slot exactly one starts and the rest stay queued."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency-dispatch"
+tests = [
+    "test_app.py::test_concurrency_budget",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Dispatch order"
+text = "Within a team, queued jobs start by priority and then by submission time, and a queued job whose model has since been blocked for its context fails instead of starting, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency-dispatch"
+tests = [
+    "test_app.py::test_dispatch_order",
+    "test_app.py::test_blocked_while_queued",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Queue lanes report live state"
+text = "`GET /api/queue` and the Queue region list every queued and running job of a team per model with its queue position, updated as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrency-dispatch"
+tests = [
+    "test_app.py::test_queue_lanes",
+    "test_app.py::test_wf_concurrency_dispatch_cancel_queued",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Queue lanes journey"
+text = "An engineer submits three jobs when the team has one free slot and watches one run while the others wait in order in their lanes, then start as slots free."
+kind = "behavior"
+primary = "workflow"
+workflow = "concurrency-dispatch"
+tests = [
+    "test_app.py::test_wf_concurrency_dispatch_lanes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Schema-generated run form"
+text = "Choosing a model in the catalogue renders a run form whose fields, labels, defaults, limits and order come from that model's input schema."
+kind = "behavior"
+primary = "pytest"
+workflow = "playground-run"
+tests = [
+    "test_app.py::test_schema_form",
+    "test_app.py::test_wf_playground_run_invalid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Image addresses fetched safely"
+text = "An image URL given as a model input is fetched and stored only when it and every redirect target resolve to a public address; otherwise the submission answers 422 on that field."
+kind = "behavior"
+primary = "pytest"
+workflow = "playground-run"
+tests = [
+    "test_app.py::test_image_url_fetch",
+]
+criteria = []
+parameter_cases = [
+    "exempt-host",
+    "loopback",
+    "ipv6-loopback",
+    "decimal",
+    "octal",
+    "hex",
+    "mapped-ipv6",
+    "metadata",
+    "private-10",
+    "private-172",
+    "private-192",
+    "cgnat",
+    "redirect-to-loopback",
+]
+
+[[requirements]]
+id = "DP-14"
+title = "Image uploads"
+text = "A member can upload a PNG, JPEG or WebP image within the upload limit in Server boundary; it is stored in object storage and becomes an asset usable as an input."
+kind = "behavior"
+primary = "pytest"
+workflow = "playground-run"
+tests = [
+    "test_app.py::test_upload_image",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Outputs reused as inputs"
+text = "Passing an asset as a media input records a \"derived from\" edge from that asset to every output of the new job, visible in lineage."
+kind = "behavior"
+primary = "pytest"
+workflow = "playground-run"
+tests = [
+    "test_app.py::test_derived_from_lineage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Playground run journey"
+text = "A creative operator picks a model, fills the generated form, runs it, sees the output in the lineage strip, and uses that output as the media input of a second run."
+kind = "behavior"
+primary = "workflow"
+workflow = "playground-run"
+tests = [
+    "test_app.py::test_wf_playground_run_reuse",
+    "test_app.py::test_wf_playground_run_network_retry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Published unit rules"
+text = "Each model's estimated and billed units follow its published unit rule, and a job's reservation equals its estimated units at the job's rate."
+kind = "behavior"
+primary = "pytest"
+workflow = "metered-pricing"
+tests = [
+    "test_app.py::test_unit_rules",
+]
+criteria = []
+parameter_cases = [
+    "quill-still",
+    "halftone-xl",
+    "reel-10",
+    "murmur-voice",
+]
+
+[[requirements]]
+id = "DP-18"
+title = "Exact settlement"
+text = "A succeeded job is charged its billed units at its rate in integer micro-credits, with one half-up rounding of the job total."
+kind = "behavior"
+primary = "pytest"
+workflow = "metered-pricing"
+tests = [
+    "test_app.py::test_exact_settlement",
+    "test_app.py::test_wf_metered_pricing_settle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Unused reservation returns"
+text = "When a job bills fewer units than it reserved, the difference returns to available in a release movement at settlement."
+kind = "behavior"
+primary = "pytest"
+workflow = "metered-pricing"
+tests = [
+    "test_app.py::test_release_unused",
+    "test_app.py::test_wf_metered_pricing_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Outputs stored before success"
+text = "A job becomes succeeded only after every output object is in storage under the published key pattern, and its media is served only through short-lived signed links."
+kind = "behavior"
+primary = "pytest"
+workflow = "metered-pricing"
+tests = [
+    "test_app.py::test_outputs_stored",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Ribbon matches the ledger"
+text = "The ribbon's settled, reserved and available segments and numerals equal the team's ledger balances, with drawn segment widths within one pixel as measured in Visual design, and update as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "metered-pricing"
+tests = [
+    "test_app.py::test_ribbon_matches_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Scheduling a rate change"
+text = "A finance controller schedules a model's new rate for a future local moment in the org time zone and can withdraw it until it takes effect."
+kind = "behavior"
+primary = "pytest"
+workflow = "rate-change"
+tests = [
+    "test_app.py::test_rate_schedule_and_withdraw",
+    "test_app.py::test_wf_rate_change_invalid_and_withdraw",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Submission-time rate"
+text = "A job reserves and settles at the rate in effect at its submission instant, even when it finishes after a newer rate takes effect."
+kind = "behavior"
+primary = "pytest"
+workflow = "rate-change"
+tests = [
+    "test_app.py::test_submission_time_rate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Rate change journey"
+text = "A finance controller schedules a rate change, and jobs submitted before and after the effective moment show their different rates side by side in Jobs and in the ledger."
+kind = "behavior"
+primary = "workflow"
+workflow = "rate-change"
+tests = [
+    "test_app.py::test_wf_rate_change_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Registering a webhook endpoint"
+text = "A member registers a webhook URL for the team, receives its signing secret once, and is refused any address that is not public."
+kind = "behavior"
+primary = "pytest"
+workflow = "webhooks"
+tests = [
+    "test_app.py::test_register_endpoint",
+    "test_app.py::test_wf_webhooks_refused_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Signed completion events"
+text = "Every job that succeeds, fails or is cancelled sends one event to each enabled endpoint of its team, signed with the endpoint secret, carrying a stable event id and only the payload the endpoint's owner may see."
+kind = "behavior"
+primary = "pytest"
+workflow = "webhooks"
+tests = [
+    "test_app.py::test_signed_events",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Delivery retries"
+text = "A delivery that gets no 2xx answer is retried on the published backoff schedule with the same event id and body, retries stop after the first success, and the endpoint's later events wait until that event is delivered or abandoned."
+kind = "behavior"
+primary = "pytest"
+workflow = "webhooks"
+tests = [
+    "test_app.py::test_delivery_retries",
+    "test_app.py::test_delivery_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Endpoint disable and re-enable"
+text = "An endpoint is disabled after the published number of consecutive failed attempts, the org admins are emailed, and only an org admin can re-enable it."
+kind = "behavior"
+primary = "pytest"
+workflow = "webhooks"
+tests = [
+    "test_app.py::test_endpoint_disable_and_reenable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Webhook journey"
+text = "An engineer adds an endpoint, copies its secret and watches deliveries succeed and fail in the delivery log, and an admin re-enables the endpoint after it is disabled."
+kind = "behavior"
+primary = "workflow"
+workflow = "webhooks"
+tests = [
+    "test_app.py::test_wf_webhooks_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Top-ups through Kill Bill"
+text = "A finance controller's top-up adds credits to a team's pool only after Kill Bill records the paid invoice, and the invoice id is stored on the ledger movement."
+kind = "behavior"
+primary = "pytest"
+workflow = "topups"
+tests = [
+    "test_app.py::test_topup_through_killbill",
+    "test_app.py::test_topup_declined",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Paired ledger movements"
+text = "Every grant, top-up, reservation, settlement and release is one movement of two entries that sum to zero, and every balance equals the sum of its entries."
+kind = "behavior"
+primary = "pytest"
+workflow = "topups"
+tests = [
+    "test_app.py::test_ledger_pairs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Billing outage keeps top-ups pending"
+text = "While Kill Bill is unreachable a top-up is accepted as pending with a named reason and grants nothing, and it completes once billing returns, without a restart and without a second invoice or payment, even when a call that timed out had reached Kill Bill."
+kind = "behavior"
+primary = "pytest"
+workflow = "topups"
+tests = [
+    "test_app.py::test_topup_billing_outage",
+    "test_app.py::test_wf_topups_billing_down",
+    "test_app.py::test_topup_unanswered_call",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Top-up receipt"
+text = "A paid top-up emails a receipt to the finance controller who requested it."
+kind = "behavior"
+primary = "pytest"
+workflow = "topups"
+tests = [
+    "test_app.py::test_topup_receipt",
+    "test_app.py::test_receipt_after_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Reconciliation journey"
+text = "A finance controller tops up a team, sees the paid top-up and its paired movement in the ledger, and exports a ledger CSV whose totals equal the ribbon."
+kind = "behavior"
+primary = "workflow"
+workflow = "topups"
+tests = [
+    "test_app.py::test_wf_topups_reconcile",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Storage outage holds the queue"
+text = "While object storage is unreachable, submissions without new media still reserve and queue with a named waiting reason, while uploads and URL inputs are refused, and dispatch resumes on its own once storage returns, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_storage_outage_queue",
+    "test_app.py::test_wf_storage_outage_waiting",
+    "test_app.py::test_wf_storage_outage_recover",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Service status notice"
+text = "When storage or billing is unreachable, every signed-in screen shows the matching notice in the Service status region and removes it once the service returns, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_service_status_notice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Boot with dependencies down"
+text = "The app starts, answers its health check and serves its screens even when storage or billing is unreachable at boot."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_boot_with_dependencies_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Model access by context"
+text = "Whether a team may run a model is resolved separately for API and playground runs: the team's model setting first, then the team's default, then the org's model setting."
+kind = "behavior"
+primary = "pytest"
+workflow = "admin-policy"
+tests = [
+    "test_app.py::test_model_access_resolution",
+]
+criteria = []
+parameter_cases = [
+    "team-setting",
+    "team-default",
+    "org-setting",
+]
+
+[[requirements]]
+id = "DP-39"
+title = "Restricted payloads"
+text = "In a team with restricted payload visibility, only the member who submitted a job sees its input and input media, in every screen and response; teammates and org roles see its status, model and cost."
+kind = "behavior"
+primary = "pytest"
+workflow = "admin-policy"
+tests = [
+    "test_app.py::test_restricted_payloads",
+    "test_app.py::test_lineage_respects_visibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Exports follow payload visibility"
+text = "The jobs CSV export leaves the prompt empty for any job whose payload the reader may not see, and no email ever contains a prompt or input."
+kind = "behavior"
+primary = "pytest"
+workflow = "admin-policy"
+tests = [
+    "test_app.py::test_jobs_csv_visibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Policy versions and stale saves"
+text = "Each policy save creates a numbered version, and a save based on an older version answers 412 and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "admin-policy"
+tests = [
+    "test_app.py::test_policy_versions",
+    "test_app.py::test_wf_admin_policy_stale",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Admin policy journey"
+text = "An org admin blocks a model for playground runs, restricts a team's payloads and lowers a cap, and teammates then see the blocked model and hidden prompts."
+kind = "behavior"
+primary = "workflow"
+workflow = "admin-policy"
+tests = [
+    "test_app.py::test_wf_admin_policy_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Deleting media"
+text = "When a compliance reviewer or org admin deletes an asset, its object leaves storage and reading the asset answers 410 for every caller in the org who could read it while it was live."
+kind = "behavior"
+primary = "pytest"
+workflow = "retention-deletion"
+tests = [
+    "test_app.py::test_delete_asset",
+    "test_app.py::test_delete_during_storage_outage",
+    "test_app.py::test_delete_gone_asset_in_library",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Retention expiry"
+text = "An asset expires at its creation time plus the org's retention period and from that instant behaves as deleted, with its object removed as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "retention-deletion"
+tests = [
+    "test_app.py::test_retention_expiry",
+    "test_app.py::test_expiry_at_the_instant",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Lineage tombstones"
+text = "Lineage keeps a deleted or expired asset's place as a tombstone with no thumbnail, prompt or link, and the walk continues through it in both directions."
+kind = "behavior"
+primary = "pytest"
+workflow = "retention-deletion"
+tests = [
+    "test_app.py::test_lineage_tombstones",
+    "test_app.py::test_lineage_through_tombstones",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Media search"
+text = "Library search returns only live assets the caller may see, matching model names and visible prompt words, and never returns deleted, expired or hidden assets."
+kind = "behavior"
+primary = "pytest"
+workflow = "retention-deletion"
+tests = [
+    "test_app.py::test_media_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Compliance journey"
+text = "A compliance reviewer finds an output by search and deletes it, then sees it gone from search and shown as a tombstone in the lineage of an output derived from it."
+kind = "behavior"
+primary = "workflow"
+workflow = "retention-deletion"
+tests = [
+    "test_app.py::test_wf_retention_deletion_compliance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Budget periods in the org time zone"
+text = "Each team's budget period runs from midnight on the 1st of a month to midnight on the 1st of the next month in the org time zone, correctly across daylight-saving changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "budget-caps"
+tests = [
+    "test_app.py::test_budget_period",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Soft cap warning"
+text = "When a team's period spend first reaches its soft cap, the org admins and finance controllers get one email for that period and the ribbon shows the soft cap marker."
+kind = "behavior"
+primary = "pytest"
+workflow = "budget-caps"
+tests = [
+    "test_app.py::test_soft_cap_warning",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Hard cap throttle"
+text = "A submission that would take a team's period spend above its hard cap is refused with 429, the first refusal of the period emails a throttle notice, and the ribbon shows the throttled state."
+kind = "behavior"
+primary = "pytest"
+workflow = "budget-caps"
+tests = [
+    "test_app.py::test_hard_cap_throttle",
+    "test_app.py::test_wf_budget_caps_raise",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Budget caps journey"
+text = "An operator runs video jobs until the soft cap marker appears and the next run is throttled, while a retry of an already-accepted job still returns that job."
+kind = "behavior"
+primary = "workflow"
+workflow = "budget-caps"
+tests = [
+    "test_app.py::test_wf_budget_caps_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Sign-in and roles"
+text = "Seeded members sign in with email and passcode or call the API with their key, and each role reaches only the screens and endpoints the role table grants."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_sign_in_and_roles",
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Responsive layout"
+text = "Every screen fits 375×812, 768×1024 and 1280×800 viewports without horizontal page scrolling, and every tap target is at least 44 pixels in both directions."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layout",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-54"
+title = "Keyboard and focus"
+text = "Every control is reachable in the published tab order, dialogs keep focus inside them, Escape closes them, and focus then returns to the control that opened them."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_and_focus",
+    "test_app.py::test_wf_cross_cutting_mobile_nav",
+    "test_app.py::test_wf_retention_deletion_keep",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Ribbon motion"
+text = "Ribbon segment and numeral changes animate over the published durations in the published sequences for reserve, replay, settle and release, and nothing on screen loops."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_ribbon_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Reduced motion"
+text = "When reduced motion is requested, ribbon changes apply instantly with no slide, count or merge, and the meter's live region still announces each change."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Visual identity"
+text = "Screens use the bone ground, graphite ink and hairline rules, with teal only for settled credit and vermilion only for in-flight reservations and cap breaches, the published typefaces, and tabular figures for every number."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Workspace composition"
+text = "The Run screen places the catalogue rail at the left, the ribbon across the top of the main column, the run form and queue lanes side by side below it, and the lineage strip along the bottom."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Server boundary"
+text = "The server accepts only same-origin browser writes, enforces the published body limits, never serves source files or credentials, and refuses outbound requests to non-public addresses as described in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Configuration from the environment"
+text = "Every service URL and credential is read from the environment at start, never hard-coded and never sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with string `install`, `build` and `serve` commands and `\"_schema\":\"run-manifest-v1\"`, and nothing else."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`/app/THIRD_PARTY_NOTICES.md` names every shipped package, meaning the production dependency tree reported by `npm ls --omit=dev --all --json`, and every bundled font, each with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores state only in Postgres and MinIO. No other database, cache server, embedded database or state file is added."
+tests = [
+    "test_app.py::test_if_state_only_postgres_minio",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service definitions and their dev credentials are used as given and are not edited."
+tests = [
+    "test_app.py::test_if_service_definitions_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The browser loads nothing from third-party origins at runtime, except the signed media links issued by the server."
+tests = [
+    "test_app.py::test_if_no_third_party_origins",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The npm lockfile is committed, and `install` uses it without changing it."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "api-submit"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+]
+critical = [
+    "test_app.py::test_wf_api_submit_retry",
+    "test_app.py::test_replay_returns_original",
+    "test_app.py::test_submit_job",
+    "test_app.py::test_job_lifecycle_and_cancel",
+    "test_app.py::test_replay_outlives_refusals",
+    "test_app.py::test_parallel_cancels_release_once",
+]
+
+[[workflows]]
+id = "concurrency-dispatch"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_wf_concurrency_dispatch_lanes",
+    "test_app.py::test_concurrency_budget",
+    "test_app.py::test_queue_lanes",
+    "test_app.py::test_blocked_while_queued",
+]
+checkpoints = [
+    "B2",
+]
+
+[[workflows]]
+id = "playground-run"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_wf_playground_run_reuse",
+    "test_app.py::test_image_url_fetch",
+    "test_app.py::test_wf_playground_run_network_retry",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "metered-pricing"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_metered_pricing_settle",
+    "test_app.py::test_exact_settlement",
+    "test_app.py::test_release_unused",
+    "test_app.py::test_ribbon_matches_ledger",
+]
+
+[[workflows]]
+id = "rate-change"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_rate_change_journey",
+    "test_app.py::test_submission_time_rate",
+]
+
+[[workflows]]
+id = "webhooks"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_webhooks_journey",
+    "test_app.py::test_delivery_retries",
+    "test_app.py::test_register_endpoint",
+    "test_app.py::test_signed_events",
+    "test_app.py::test_delivery_order",
+]
+
+[[workflows]]
+id = "topups"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_topups_reconcile",
+    "test_app.py::test_ledger_pairs",
+    "test_app.py::test_topup_billing_outage",
+    "test_app.py::test_topup_unanswered_call",
+    "test_app.py::test_receipt_after_outage",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "storage-outage"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_storage_outage_waiting",
+    "test_app.py::test_storage_outage_queue",
+]
+
+[[workflows]]
+id = "admin-policy"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_admin_policy_journey",
+    "test_app.py::test_restricted_payloads",
+    "test_app.py::test_policy_versions",
+    "test_app.py::test_lineage_respects_visibility",
+]
+
+[[workflows]]
+id = "retention-deletion"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_retention_deletion_compliance",
+    "test_app.py::test_delete_asset",
+    "test_app.py::test_media_search",
+    "test_app.py::test_delete_during_storage_outage",
+    "test_app.py::test_lineage_through_tombstones",
+    "test_app.py::test_expiry_at_the_instant",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "budget-caps"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_budget_caps_journey",
+    "test_app.py::test_soft_cap_warning",
+    "test_app.py::test_hard_cap_throttle",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+checkpoints = [
+    "B7",
+    "B9",
+]
+critical_checkpoints = [
+    "B7",
+]

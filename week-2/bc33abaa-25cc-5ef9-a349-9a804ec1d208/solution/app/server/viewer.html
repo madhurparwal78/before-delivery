@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orrery Studio export</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #f4f0e6; color: #1c1e17; font: 15px/1.45 system-ui, sans-serif; }
+  header { position: fixed; inset: 0 0 auto 0; padding: 12px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  h1 { font-size: 18px; margin: 0; }
+  select { min-height: 44px; font: inherit; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  p.note { position: fixed; bottom: 12px; left: 16px; margin: 0; }
+</style>
+</head>
+<body>
+<header><h1 id="title">Loading scene.json…</h1><label>State <select id="state"></select></label></header>
+<canvas id="view" aria-label="3D scene"></canvas>
+<p class="note" id="note"></p>
+<script>
+// A standalone viewer: reads scene.json from this folder and draws its nodes with WebGL.
+(async () => {
+  const note = document.getElementById("note");
+  let payload;
+  try { payload = await (await fetch("scene.json")).json(); } catch { note.textContent = "Serve this folder over HTTP to view scene.json."; return; }
+  const { scene, version, graph } = payload;
+  document.getElementById("title").textContent = `${scene.name} · v${version.number} · ${version.label}`;
+  const canvas = document.getElementById("view");
+  const gl = canvas.getContext("webgl");
+  if (!gl) { note.textContent = "Interactive 3D needs WebGL."; return; }
+  const picker = document.getElementById("state");
+  for (const s of graph.states) picker.add(new Option(s.name, s.id));
+  const vs = `attribute vec3 p; attribute vec3 n; uniform mat4 m, v; varying float l;
+    void main(){ vec3 w = normalize(mat3(m) * n); l = 0.35 + 0.65 * max(dot(w, normalize(vec3(0.4, 0.8, 0.6))), 0.0); gl_Position = v * m * vec4(p, 1.0); }`;
+  const fs = `precision mediump float; uniform vec3 c; varying float l; void main(){ gl_FragColor = vec4(c * l, 1.0); }`;
+  const shader = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+  const prog = gl.createProgram();
+  gl.attachShader(prog, shader(gl.VERTEX_SHADER, vs)); gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(prog); gl.useProgram(prog);
+  const mesh = (pos, nor) => {
+    const b = (data, name) => { const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW); return [buf, gl.getAttribLocation(prog, name)]; };
+    return { p: b(pos, "p"), n: b(nor, "n"), count: pos.length / 3 };
+  };
+  const lathe = (profile, seg = 24) => {
+    const pos = [], nor = [];
+    for (let i = 0; i < seg; i++) for (let j = 0; j < profile.length - 1; j++) {
+      const a0 = (i / seg) * Math.PI * 2, a1 = ((i + 1) / seg) * Math.PI * 2;
+      const quad = [[profile[j], a0], [profile[j + 1], a0], [profile[j + 1], a1], [profile[j], a0], [profile[j + 1], a1], [profile[j], a1]];
+      for (const [[r, y, nr, ny], a] of quad) { pos.push(r * Math.cos(a), y, r * Math.sin(a)); nor.push(nr * Math.cos(a), ny, nr * Math.sin(a)); }
+    }
+    return mesh(pos, nor);
+  };
+  const sphere = lathe(Array.from({ length: 13 }, (_, k) => { const t = Math.PI * k / 12; return [0.5 * Math.sin(t), 0.5 * Math.cos(t), Math.sin(t), Math.cos(t)]; }));
+  const cylinder = lathe([[0, 0.5, 0, 1], [0.5, 0.5, 0, 1], [0.5, 0.5, 1, 0], [0.5, -0.5, 1, 0], [0.5, -0.5, 0, -1], [0, -0.5, 0, -1]]);
+  const box = (() => { const pos = [], nor = []; const f = [[0,0,1],[0,0,-1],[0,1,0],[0,-1,0],[1,0,0],[-1,0,0]];
+    for (const [x,y,z] of f) { const u = [y,z,x], w = [z,x,y]; const c = (s,t) => [0.5*x+0.5*s*u[0]+0.5*t*w[0], 0.5*y+0.5*s*u[1]+0.5*t*w[1], 0.5*z+0.5*s*u[2]+0.5*t*w[2]];
+      for (const [s,t] of [[-1,-1],[1,-1],[1,1],[-1,-1],[1,1],[-1,1]]) { pos.push(...c(s,t)); nor.push(x,y,z); } } return mesh(pos, nor); })();
+  const plane = mesh([-0.5,0,-0.5, 0.5,0,-0.5, 0.5,0,0.5, -0.5,0,-0.5, 0.5,0,0.5, -0.5,0,0.5], [0,1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0]);
+  const shapes = { sphere, cylinder, box, plane };
+  const mul = (a, b) => { const r = new Array(16).fill(0); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) for (let k = 0; k < 4; k++) r[j * 4 + i] += a[k * 4 + i] * b[j * 4 + k]; return r; };
+  const trs = (p, rDeg, s) => { const [x, y, z] = rDeg.map((d) => d * Math.PI / 180);
+    const rx = [1,0,0,0, 0,Math.cos(x),Math.sin(x),0, 0,-Math.sin(x),Math.cos(x),0, 0,0,0,1];
+    const ry = [Math.cos(y),0,-Math.sin(y),0, 0,1,0,0, Math.sin(y),0,Math.cos(y),0, 0,0,0,1];
+    const rz = [Math.cos(z),Math.sin(z),0,0, -Math.sin(z),Math.cos(z),0,0, 0,0,1,0, 0,0,0,1];
+    const t = [1,0,0,0, 0,1,0,0, 0,0,1,0, p[0],p[1],p[2],1]; const sc = [s[0],0,0,0, 0,s[1],0,0, 0,0,s[2],0, 0,0,0,1];
+    return mul(t, mul(mul(mul(rx, ry), rz), sc)); };
+  let yaw = 0.6, pitch = 0.35, dist = 4.5, drag = null;
+  canvas.addEventListener("pointerdown", (e) => { drag = [e.clientX, e.clientY]; canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener("pointermove", (e) => { if (!drag) return; yaw += (e.clientX - drag[0]) * 0.01; pitch = Math.max(-1.4, Math.min(1.4, pitch + (e.clientY - drag[1]) * 0.01)); drag = [e.clientX, e.clientY]; draw(); });
+  canvas.addEventListener("pointerup", () => { drag = null; });
+  canvas.addEventListener("wheel", (e) => { e.preventDefault(); dist = Math.max(1.5, Math.min(20, dist * (1 + e.deltaY * 0.001))); draw(); }, { passive: false });
+  picker.addEventListener("change", draw);
+  addEventListener("resize", draw);
+  function resolved(node) {
+    const state = graph.states.find((s) => s.id === picker.value);
+    const out = { ...node };
+    for (const o of state ? state.overrides : []) if (o.nodeId === node.id) out[o.field] = o.value;
+    return out;
+  }
+  function world(node) {
+    const r = resolved(node);
+    const own = trs(r.position, r.rotation, r.scale);
+    const parent = graph.nodes.find((n) => n.id === node.parentId);
+    return parent ? mul(world(parent), own) : own;
+  }
+  function draw() {
+    canvas.width = canvas.clientWidth * devicePixelRatio; canvas.height = canvas.clientHeight * devicePixelRatio;
+    gl.viewport(0, 0, canvas.width, canvas.height); gl.enable(gl.DEPTH_TEST); gl.clearColor(0.957, 0.941, 0.902, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    const aspect = canvas.width / Math.max(1, canvas.height), f = 1 / Math.tan(0.4);
+    const proj = [f / aspect,0,0,0, 0,f,0,0, 0,0,-1.002,-1, 0,0,-0.2002,0];
+    const eye = [dist * Math.cos(pitch) * Math.sin(yaw), dist * Math.sin(pitch), dist * Math.cos(pitch) * Math.cos(yaw)];
+    const zA = eye.map((v) => v / dist), xA = [zA[2], 0, -zA[0]].map((v, _, a) => v / Math.hypot(...a)), yA = [zA[1]*xA[2]-zA[2]*xA[1], zA[2]*xA[0]-zA[0]*xA[2], zA[0]*xA[1]-zA[1]*xA[0]];
+    const view = [xA[0],yA[0],zA[0],0, xA[1],yA[1],zA[1],0, xA[2],yA[2],zA[2],0, -(xA[0]*eye[0]+xA[1]*eye[1]+xA[2]*eye[2]), -(yA[0]*eye[0]+yA[1]*eye[1]+yA[2]*eye[2]), -(zA[0]*eye[0]+zA[1]*eye[1]+zA[2]*eye[2]), 1];
+    gl.uniformMatrix4fv(gl.getUniformLocation(prog, "v"), false, mul(proj, view));
+    for (const node of graph.nodes) {
+      const shape = node.kind === "mesh" ? shapes[node.primitive || "box"] : null;
+      if (!shape || !resolved(node).visible) continue;
+      const base = node.materialLayers.find((l) => l.type === "base") || node.materialLayers[0];
+      gl.uniform3fv(gl.getUniformLocation(prog, "c"), base ? base.color : [0.7, 0.68, 0.62]);
+      gl.uniformMatrix4fv(gl.getUniformLocation(prog, "m"), false, world(node));
+      for (const [buf, loc] of [shape.p, shape.n]) { gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 3, gl.FLOAT, false, 0, 0); }
+      gl.drawArrays(gl.TRIANGLES, 0, shape.count);
+    }
+  }
+  draw();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,451 @@
+{% extends "base_console.html" %}
+{% block main %}
+<header class="console-head">
+  <h1>{{ database.name }}</h1>
+  <p class="console-sub">
+    {% if database.status == 'provisioning' %}
+    <span class="badge badge-provisioning">provisioning</span>
+    {% else %}
+    <span class="badge badge-ready">ready</span>
+    {% endif %}
+  </p>
+</header>
+
+<div class="workspace-tabs" role="tablist" aria-label="Workspace">
+  <span class="tab-marker" aria-hidden="true" style="--tab-index: {{ tab_index }}"></span>
+  {% for key, label in tabs %}
+  <a class="workspace-tab" role="tab" href="/console/db/{{ database.name }}?tab={{ key }}"
+     aria-selected="{{ 'true' if key == tab else 'false' }}"
+     tabindex="{{ '0' if key == tab else '-1' }}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<section class="tab-panel" role="tabpanel" aria-label="{{ tab }}" id="tab-panel">
+
+{% if tab == 'sources' %}
+<form method="get" action="/console/db/{{ database.name }}" class="filter-bar">
+  <input type="hidden" name="tab" value="sources">
+  <input type="hidden" name="sort" value="{{ sort }}">
+  <div class="field">
+    <label for="collection-pick">Collection</label>
+    <select id="collection-pick" name="collection">
+      {% for name in collections %}
+      <option value="{{ name }}" {% if name == collection %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="filter-sources">Filter sources</label>
+    <input type="text" id="filter-sources" name="filter" value="{{ filter_text }}">
+  </div>
+  <button type="submit" class="capsule">Apply</button>
+</form>
+
+{% if can_write %}
+<div class="panel">
+  <button type="button" class="capsule" id="ingest-toggle" aria-expanded="{{ 'true' if open_ingest else 'false' }}"
+          aria-controls="ingest-row">Ingest source</button>
+  <form method="post" action="/console/db/{{ database.name }}?tab=sources" class="inline-form"
+        id="ingest-row" {% if not open_ingest %}hidden{% endif %}>
+    <input type="hidden" name="action" value="ingest">
+    <input type="hidden" name="nonce" value="{{ nonce }}">
+    <input type="hidden" name="if_version" value="{{ values.if_version }}">
+    <div class="field">
+      <label for="ingest-collection">Collection</label>
+      <input type="text" id="ingest-collection" name="collection" value="{{ values.collection or collection }}"
+             aria-describedby="ingest-collection-error">
+      <p class="field-error" id="ingest-collection-error" {% if not errors.collection %}hidden{% endif %}>{{ errors.collection }}</p>
+    </div>
+    <div class="field">
+      <label for="ingest-id">Source id</label>
+      <input type="text" id="ingest-id" name="id" value="{{ values.id }}" aria-describedby="ingest-id-error">
+      <p class="field-error" id="ingest-id-error" {% if not errors['sources.0.id'] %}hidden{% endif %}>{{ errors['sources.0.id'] }}</p>
+    </div>
+    <div class="field">
+      <label for="ingest-title">Title</label>
+      <input type="text" id="ingest-title" name="title" value="{{ values.title }}" aria-describedby="ingest-title-error">
+      <p class="field-error" id="ingest-title-error" {% if not errors.title %}hidden{% endif %}>{{ errors.title }}</p>
+    </div>
+    <div class="field">
+      <label for="ingest-text">Text</label>
+      <textarea id="ingest-text" name="text" rows="4" aria-describedby="ingest-text-error">{{ values.text }}</textarea>
+      <p class="field-error" id="ingest-text-error" {% if not errors.text %}hidden{% endif %}>{{ errors.text }}</p>
+    </div>
+    <fieldset class="facts-editor" id="facts-editor">
+      <legend>Facts</legend>
+      {% for fact in values.facts %}
+      <div class="fact-row" data-fact-index="{{ loop.index0 }}">
+        <div class="field">
+          <label for="fact-subject-{{ loop.index0 }}">Subject</label>
+          <input type="text" id="fact-subject-{{ loop.index0 }}" name="fact_subject" value="{{ fact.subject }}">
+          <p class="field-error" {% if not errors['sources.0.facts.' ~ loop.index0 ~ '.subject'] %}hidden{% endif %}>{{ errors['sources.0.facts.' ~ loop.index0 ~ '.subject'] }}</p>
+        </div>
+        <div class="field">
+          <label for="fact-predicate-{{ loop.index0 }}">Predicate</label>
+          <input type="text" id="fact-predicate-{{ loop.index0 }}" name="fact_predicate" value="{{ fact.predicate }}">
+          <p class="field-error" {% if not errors['sources.0.facts.' ~ loop.index0 ~ '.predicate'] %}hidden{% endif %}>{{ errors['sources.0.facts.' ~ loop.index0 ~ '.predicate'] }}</p>
+        </div>
+        <div class="field">
+          <label for="fact-object-{{ loop.index0 }}">Object</label>
+          <input type="text" id="fact-object-{{ loop.index0 }}" name="fact_object" value="{{ fact.object }}">
+          <p class="field-error" {% if not errors['sources.0.facts.' ~ loop.index0 ~ '.object'] %}hidden{% endif %}>{{ errors['sources.0.facts.' ~ loop.index0 ~ '.object'] }}</p>
+        </div>
+        <div class="field">
+          <label for="fact-valid-{{ loop.index0 }}">Valid from</label>
+          <input type="text" id="fact-valid-{{ loop.index0 }}" name="fact_valid_from" value="{{ fact.valid_from }}">
+          <p class="field-error" {% if not errors['sources.0.facts.' ~ loop.index0 ~ '.valid_from'] %}hidden{% endif %}>{{ errors['sources.0.facts.' ~ loop.index0 ~ '.valid_from'] }}</p>
+        </div>
+        <div class="field">
+          <label for="fact-reason-{{ loop.index0 }}">Reason</label>
+          <input type="text" id="fact-reason-{{ loop.index0 }}" name="fact_reason" value="{{ fact.reason }}">
+          <p class="field-error" {% if not errors['sources.0.facts.' ~ loop.index0 ~ '.reason'] %}hidden{% endif %}>{{ errors['sources.0.facts.' ~ loop.index0 ~ '.reason'] }}</p>
+        </div>
+        <button type="button" class="capsule remove-fact">Remove</button>
+      </div>
+      {% endfor %}
+    </fieldset>
+    <button type="button" class="capsule" id="add-fact">Add fact</button>
+    <button type="submit" class="capsule capsule-primary" data-waiting="Ingesting...">Ingest</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="table-wrap">
+  <table class="data-table" id="sources-table">
+    <caption class="visually-hidden">Sources in {{ collection }}</caption>
+    <thead>
+      <tr>
+        {% for key, label in source_columns %}
+        <th scope="col" {% if key %}aria-sort="{{ sort_state[key] }}"{% endif %}>
+          {% if key %}
+          <a class="sort-button" href="/console/db/{{ database.name }}?tab=sources&amp;collection={{ collection }}&amp;filter={{ filter_text | urlencode }}&amp;sort={{ sort_links[key] }}">{{ label }}</a>
+          {% else %}{{ label }}{% endif %}
+        </th>
+        {% endfor %}
+        {% if can_write %}<th scope="col">Actions</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in sources %}
+      <tr class="source-row{% if row.id == flash_source %} row-flash{% endif %}">
+        <td data-label="ID">{{ row.id }}</td>
+        <td data-label="Title">{{ row.title }}</td>
+        <td data-label="Version">{{ row.version }}</td>
+        <td data-label="Tokens">{{ count(row.token_count) }}</td>
+        <td data-label="Facts">{{ count(row.facts) }}</td>
+        <td data-label="Status">
+          {% if row.indexing_status == 'completed' %}
+          <span class="badge badge-ready">Indexed</span>
+          {% else %}
+          <span class="badge badge-pending">In write log</span>
+          {% endif %}
+        </td>
+        <td data-label="Ingested"><time>{{ row.ingested_at }}</time></td>
+        {% if can_write %}
+        <td data-label="Actions" class="row-actions">
+          <a class="capsule" href="/console/db/{{ database.name }}?tab=sources&amp;collection={{ collection }}&amp;edit={{ row.id | urlencode }}">Edit</a>
+          <form method="post" action="/console/db/{{ database.name }}?tab=sources" class="row-form">
+            <input type="hidden" name="action" value="delete-source">
+            <input type="hidden" name="collection" value="{{ collection }}">
+            <input type="hidden" name="id" value="{{ row.id }}">
+            <button type="submit" class="capsule">Delete</button>
+          </form>
+        </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+      {% if not sources %}
+      <tr><td colspan="{{ 8 if can_write else 7 }}" class="empty-state">No sources in this collection</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if tab == 'graph' %}
+<form method="get" action="/console/db/{{ database.name }}" class="panel query-form" id="graph-form">
+  <input type="hidden" name="tab" value="graph">
+  <div class="field">
+    <label for="statement">Statement</label>
+    <textarea id="statement" name="statement" rows="3" class="query-editor">{{ statement }}</textarea>
+  </div>
+  <div class="field">
+    <label for="query-as-of">As of</label>
+    <input type="text" id="query-as-of" name="as_of" value="{{ as_of_text }}" placeholder="YYYY-MM-DDTHH:MM:SSZ">
+  </div>
+  <button type="submit" class="capsule capsule-primary" data-waiting="Running...">Run</button>
+  <div class="examples">
+    {% for example in examples %}
+    <button type="button" class="capsule example-statement" data-statement="{{ example }}">{{ example }}</button>
+    {% endfor %}
+  </div>
+</form>
+{% if query_error %}
+<p class="form-error" role="alert">{{ query_error.code }}: {{ query_error.message }}</p>
+{% endif %}
+{% if query_result %}
+<p class="served-from">Served from index generation {{ query_result.served_from.index_generation }} at LSN {{ query_result.served_from.indexed_lsn }} plus {{ query_result.served_from.wal_entries_applied }} pending write log entries</p>
+<div class="table-wrap">
+  <table class="data-table" id="query-results">
+    <caption class="visually-hidden">Graph query rows</caption>
+    <thead><tr>{% for column in query_result.columns %}<th scope="col">{{ column }}</th>{% endfor %}</tr></thead>
+    <tbody>
+      {% for row in query_result.rows %}
+      <tr class="stagger" style="--row-order: {{ loop.index0 }}">{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+      {% endfor %}
+      {% if not query_result.rows %}
+      <tr><td colspan="{{ query_result.columns | length }}" class="empty-state">No rows</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endif %}
+
+{% if tab == 'search' %}
+<form method="get" action="/console/db/{{ database.name }}" class="panel" id="search-form">
+  <input type="hidden" name="tab" value="search">
+  <div class="field">
+    <label for="search-words">Words</label>
+    <input type="text" id="search-words" name="words" value="{{ words }}">
+  </div>
+  <div class="field">
+    <label for="search-collections">Collections</label>
+    <select id="search-collections" name="collections">
+      {% for name in collections %}
+      <option value="{{ name }}" {% if name == collection %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="search-limit">Result limit</label>
+    <input type="text" id="search-limit" name="limit" value="{{ search_limit }}">
+  </div>
+  <button type="submit" class="capsule capsule-primary" data-waiting="Searching...">Search</button>
+</form>
+{% if search_error %}
+<p class="form-error" role="alert">{{ search_error }}</p>
+{% endif %}
+{% if search_done %}
+<ul class="search-results">
+  {% for result in search_results %}
+  <li class="panel search-result stagger" style="--row-order: {{ loop.index0 }}">
+    <p class="result-head"><strong>{{ result.id }}</strong> <span class="result-score">{{ result.score_text }}</span></p>
+    <p class="result-title">{{ result.title }}</p>
+    <p class="result-snippet">{{ result.snippet }}</p>
+    <button type="button" class="capsule not-useful" aria-expanded="false"
+            aria-controls="feedback-{{ loop.index0 }}">Not useful</button>
+    <form method="post" action="/console/db/{{ database.name }}?tab=search" class="feedback-form"
+          id="feedback-{{ loop.index0 }}" hidden>
+      <input type="hidden" name="action" value="feedback">
+      <input type="hidden" name="request_id" value="{{ search_request_id }}">
+      <input type="hidden" name="words" value="{{ words }}">
+      <input type="hidden" name="source_id" value="{{ result.id }}">
+      <div class="field">
+        <label for="rating-{{ loop.index0 }}">Rating</label>
+        <select id="rating-{{ loop.index0 }}" name="rating">
+          <option value="negative">negative</option>
+          <option value="neutral">neutral</option>
+          <option value="positive">positive</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="comment-{{ loop.index0 }}">Comment</label>
+        <textarea id="comment-{{ loop.index0 }}" name="feedback" rows="2"></textarea>
+      </div>
+      <div class="field">
+        <label for="tags-{{ loop.index0 }}">Tags</label>
+        <input type="text" id="tags-{{ loop.index0 }}" name="tags" value="">
+      </div>
+      <button type="submit" class="capsule capsule-primary">Send feedback</button>
+    </form>
+  </li>
+  {% endfor %}
+  {% if not search_results %}
+  <li class="empty-state">No sources match these words</li>
+  {% endif %}
+</ul>
+{% endif %}
+{% endif %}
+
+{% if tab == 'entity' %}
+<form method="get" action="/console/db/{{ database.name }}" class="panel" id="entity-form">
+  <input type="hidden" name="tab" value="entity">
+  <div class="field">
+    <label for="entity-name">Entity name</label>
+    <input type="text" id="entity-name" name="entity" value="{{ entity_name }}">
+  </div>
+  <div class="field">
+    <label for="entity-as-of">As of</label>
+    <input type="text" id="entity-as-of" name="as_of" value="{{ as_of_text }}" placeholder="YYYY-MM-DDTHH:MM:SSZ">
+  </div>
+  <button type="submit" class="capsule capsule-primary" data-waiting="Looking up...">Look up</button>
+</form>
+{% if entity_done %}
+{% if not entity.outgoing and not entity.incoming and not entity.history %}
+<p class="empty-state">No facts mention this entity</p>
+{% else %}
+<div class="relation-columns">
+  <div class="panel">
+    <h2>Outgoing</h2>
+    <ul class="relation-list">
+      {% for item in entity.outgoing %}
+      <li><span class="predicate">{{ item.predicate }}</span>
+        <a href="/console/db/{{ database.name }}?tab=entity&amp;entity={{ item.other | urlencode }}&amp;as_of={{ as_of_text | urlencode }}">{{ item.other }}</a>
+        <time>{{ item.valid_from }}</time> <span class="muted">{{ item.reason }}</span></li>
+      {% endfor %}
+      {% if not entity.outgoing %}<li class="empty-state">No outgoing relations</li>{% endif %}
+    </ul>
+  </div>
+  <div class="panel">
+    <h2>Incoming</h2>
+    <ul class="relation-list">
+      {% for item in entity.incoming %}
+      <li><span class="predicate">{{ item.predicate }}</span>
+        <a href="/console/db/{{ database.name }}?tab=entity&amp;entity={{ item.other | urlencode }}&amp;as_of={{ as_of_text | urlencode }}">{{ item.other }}</a>
+        <time>{{ item.valid_from }}</time> <span class="muted">{{ item.reason }}</span></li>
+      {% endfor %}
+      {% if not entity.incoming %}<li class="empty-state">No incoming relations</li>{% endif %}
+    </ul>
+  </div>
+</div>
+{% for predicate, facts in entity.history %}
+<div class="table-wrap">
+  <table class="data-table">
+    <caption>History for {{ predicate }}</caption>
+    <thead><tr><th scope="col">Object</th><th scope="col">Valid from</th>
+      <th scope="col">Superseded at</th><th scope="col">Reason</th><th scope="col">Source</th></tr></thead>
+    <tbody>
+      {% for fact in facts %}
+      <tr>
+        <td data-label="Object"><a href="/console/db/{{ database.name }}?tab=entity&amp;entity={{ fact.object | urlencode }}">{{ fact.object }}</a></td>
+        <td data-label="Valid from"><time>{{ fact.valid_from }}</time></td>
+        <td data-label="Superseded at">{% if fact.superseded_at %}<time>{{ fact.superseded_at }}</time>{% else %}current{% endif %}</td>
+        <td data-label="Reason">{{ fact.reason }}</td>
+        <td data-label="Source">{{ fact.source_id }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endif %}
+
+{% if tab == 'stats' %}
+<div class="stat-grid">
+  {% for label, value in stat_cards %}
+  <div class="panel stat-card"><p class="stat-label">{{ label }}</p><p class="stat-value">{{ value }}</p></div>
+  {% endfor %}
+</div>
+<div class="panel stat-actions">
+  {% if can_write %}
+  <form method="post" action="/console/db/{{ database.name }}?tab=stats" class="row-form">
+    <input type="hidden" name="action" value="compact">
+    <button type="submit" class="capsule capsule-primary" data-waiting="Compacting...">Compact</button>
+  </form>
+  {% endif %}
+  {% if member.role == 'owner' %}
+  <form method="post" action="/console/db/{{ database.name }}?tab=stats" class="row-form">
+    <input type="hidden" name="action" value="export">
+    <input type="hidden" name="nonce" value="{{ nonce }}">
+    <button type="submit" class="capsule">Export</button>
+  </form>
+  {% endif %}
+  {% if compact_result %}<p class="stat-note" role="status">{{ compact_result }}</p>{% endif %}
+</div>
+{% if job %}
+<div class="panel export-panel" data-poll="{{ 'job' if job.status != 'succeeded' else '' }}"
+     data-job="{{ job.job_id }}">
+  <p class="export-state">
+    {% if job.status == 'queued' %}Export queued{% elif job.status == 'running' %}Export running{% else %}Export ready{% endif %}
+  </p>
+  {% if job.status == 'succeeded' %}
+  <a class="capsule" href="/console/db/{{ database.name }}?tab=stats&amp;job={{ job.job_id }}&amp;download=1" download="{{ database.name }}-export.json">Download</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endif %}
+
+{% if tab == 'explore' %}
+<form method="get" action="/console/db/{{ database.name }}" class="panel explore-controls" id="explore-form">
+  <input type="hidden" name="tab" value="explore">
+  <input type="hidden" name="node" value="{{ explore.node }}" id="explore-node-field">
+  <div class="field">
+    <label for="explore-slider">As of moment</label>
+    <input type="range" id="explore-slider" name="as_of_index" min="0"
+           max="{{ explore.moments | length }}" value="{{ explore.slider_index }}"
+           aria-valuetext="{{ explore.slider_text }}" list="explore-moments">
+    <datalist id="explore-moments">
+      {% for moment in explore.moments %}<option value="{{ loop.index0 }}" label="{{ moment }}"></option>{% endfor %}
+      <option value="{{ explore.moments | length }}" label="now"></option>
+    </datalist>
+    <input type="hidden" name="as_of" value="{{ explore.as_of_param }}" id="explore-as-of-field">
+    <p class="muted" id="explore-slider-value">{{ explore.slider_text }}</p>
+  </div>
+  <fieldset class="predicate-filter">
+    <legend>Predicate</legend>
+    {% for predicate in explore.predicates %}
+    <label><input type="checkbox" name="predicates" value="{{ predicate }}"
+           {% if predicate in explore.checked %}checked{% endif %}> {{ predicate }}</label>
+    {% endfor %}
+  </fieldset>
+  <div class="field">
+    <label for="find-entity">Find entity</label>
+    <input type="text" id="find-entity" name="find" value="{{ explore.find }}">
+  </div>
+  <button type="submit" class="capsule capsule-primary">Apply</button>
+</form>
+
+<p class="explore-summary" id="explore-summary">{{ explore.nodes | length }} entities, {{ explore.edges | length }} relations</p>
+<p class="explore-matches" id="explore-matches">{{ explore.match_line }}</p>
+
+{% if explore.edges or explore.nodes %}
+<div class="explore-stage">
+  <div class="explore-graph" id="explore-graph">
+    {% for node in explore.layout %}
+    <button type="button" class="graph-node{% if node.name == explore.node %} graph-node-selected{% endif %}{% if node.matched %} graph-node-matched{% endif %}"
+            style="left: {{ node.left }}%; top: {{ node.top }}%"
+            data-node="{{ node.name }}"
+            aria-pressed="{{ 'true' if node.name == explore.node else 'false' }}">{{ node.name }}</button>
+    {% endfor %}
+    <svg class="explore-edges" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      {% for edge in explore.lines %}
+      <line x1="{{ edge.x1 }}" y1="{{ edge.y1 }}" x2="{{ edge.x2 }}" y2="{{ edge.y2 }}"></line>
+      {% endfor %}
+    </svg>
+  </div>
+  {% if explore.node and explore.inspect %}
+  <aside class="panel inspect-region" aria-label="Inspect {{ explore.node }}">
+    <h2>Inspect {{ explore.node }}</h2>
+    <h3>Outgoing</h3>
+    <ul>{% for item in explore.inspect.outgoing %}<li>{{ item.predicate }} {{ item.other }}</li>{% endfor %}
+      {% if not explore.inspect.outgoing %}<li class="empty-state">None</li>{% endif %}</ul>
+    <h3>Incoming</h3>
+    <ul>{% for item in explore.inspect.incoming %}<li>{{ item.predicate }} {{ item.other }}</li>{% endfor %}
+      {% if not explore.inspect.incoming %}<li class="empty-state">None</li>{% endif %}</ul>
+  </aside>
+  {% endif %}
+</div>
+<div class="table-wrap">
+  <table class="data-table">
+    <caption class="visually-hidden">Relations true at this moment</caption>
+    <thead><tr><th scope="col">Subject</th><th scope="col">Predicate</th><th scope="col">Object</th>
+      <th scope="col">Valid from</th><th scope="col">Source</th></tr></thead>
+    <tbody>
+      {% for edge in explore.edges %}
+      <tr><td data-label="Subject">{{ edge.subject }}</td><td data-label="Predicate">{{ edge.predicate }}</td>
+        <td data-label="Object">{{ edge.object }}</td><td data-label="Valid from"><time>{{ edge.valid_from }}</time></td>
+        <td data-label="Source">{{ edge.source_id }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty-state">No facts at this moment</p>
+{% endif %}
+{% endif %}
+
+</section>
+{% endblock %}

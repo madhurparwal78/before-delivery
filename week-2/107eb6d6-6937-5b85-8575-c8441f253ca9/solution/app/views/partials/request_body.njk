@@ -1,0 +1,96 @@
+{%- from "macros.njk" import display, icon, label, chip, truck_art, stop_card, field_error, err_attrs -%}
+{%- if notice %}{% include "partials/notice.njk" %}{% endif -%}
+<article id="request" class="request{% if redraw %} is-redraw{% endif %}" data-request-id="{{ request.id }}" data-status="{{ request.status }}"
+         hx-target="this" hx-swap="outerHTML">
+  <header class="request-head">
+    <div class="request-title">
+      <p class="kicker"><span class="mono">{{ request.id }}</span> {{ chip(request.status) }}</p>
+      {{ display(request.tour_name, request.tour_name | lines(14), 'h1', 'display-request') }}
+    </div>
+    <div class="request-meta">
+      <dl class="facts facts-inline">
+        <div><dt>Type</dt><dd>{{ LABELS.type[request.transport_type] }}</dd></div>
+        <div><dt>Requester</dt><dd>{{ request.requester.name }}</dd></div>
+        <div><dt>Submitted</dt><dd class="keep">{{ request.created_at | stamp }}</dd></div>
+      </dl>
+      {% if request.notes %}<p class="notes wrap"><span class="label-text">Notes</span> {{ request.notes }}</p>{% endif %}
+      {% if request.decided_by %}
+      <div class="decision">
+        <p class="decision-line"><strong>{{ LABELS.status[request.status] }} by {{ request.decided_by.name }}</strong>
+          <span class="muted">{{ request.decided_at | stamp }}</span></p>
+        <p class="decision-note wrap">{{ request.decision_note }}</p>
+      </div>
+      {% endif %}
+    </div>
+    {{ truck_art('well-request') }}
+  </header>
+  <div class="request-grid">
+    <section class="stops-col" aria-labelledby="stops-heading">
+      <h2 id="stops-heading" class="section-title">Stops</h2>
+      <ol class="stop-cards">
+      {% for s in request.stops %}{{ stop_card(loop.index, s.kind, s) }}{% endfor %}
+      </ol>
+    </section>
+    <div class="side-col">
+      <section class="trucks" aria-labelledby="trucks-heading">
+        <h2 id="trucks-heading" class="section-title">Trucks</h2>
+        <p class="count-line" data-trucks-assigned="{{ request.trucks_assigned }}" data-trucks-requested="{{ request.trucks_requested }}">{{ request.trucks_assigned }} of {{ request.trucks_requested }} trucks assigned</p>
+        {% if request.trucks.length or released %}
+        <ul class="truck-rows">
+          {% for t in request.trucks %}
+          <li class="truck-row" data-truck-id="{{ t.id }}" data-truck-status="assigned">
+            {{ icon('truck', 'icon-lg') }}
+            <span class="truck-id mono">{{ t.id }}</span>
+            <span class="muted">{{ LABELS.depot[t.depot] }} depot</span>
+            {% if dispatching %}
+            <button type="button" id="release-{{ t.id }}" class="btn btn-secondary btn-small" data-busy="Saving..."
+                    hx-delete="/requests/{{ request.id }}/assignments/{{ t.id }}" aria-label="Release {{ t.id }}">{{ label('Release') }}</button>
+            {% endif %}
+          </li>
+          {% endfor %}
+          {% if released %}<li class="truck-row is-gone" aria-hidden="true">{{ icon('truck', 'icon-lg') }}<span class="truck-id mono">{{ released }}</span></li>{% endif %}
+        </ul>
+        {% endif %}
+        {% if not request.trucks.length %}<p class="muted empty-line">No trucks on this request.</p>{% endif %}
+      </section>
+      {% if dispatching %}
+      <section class="panel" aria-labelledby="panel-heading">
+        <h2 id="panel-heading" class="section-title">Dispatch</h2>
+        {% if request.trucks_assigned < request.trucks_requested %}
+        <form class="assign-form" novalidate hx-post="/requests/{{ request.id }}/assignments">
+          <div class="field">
+            <label for="truck_id">Assign truck</label>
+            <select id="truck_id" name="truck_id"{{ err_attrs(errors, 'truck_id', 'truck_id') }}>
+              {% for t in available %}<option value="{{ t.id }}">{{ t.id }} ({{ LABELS.depot[t.depot] }})</option>{% endfor %}
+            </select>
+            {% if not available.length %}<p class="hint">Every truck is on a request or in maintenance.</p>{% endif %}
+            {{ field_error(errors, 'truck_id', 'truck_id') }}
+          </div>
+          <button type="submit" id="assign" class="btn btn-primary" data-busy="Saving..."{% if not available.length %} disabled{% endif %}>{{ label('Assign') }}{{ icon('arrow') }}</button>
+        </form>
+        {% else %}
+        <p class="muted">Every requested truck is on this request.</p>
+        {% endif %}
+        <form class="decide-form" novalidate hx-post="/requests/{{ request.id }}/decision">
+          <div class="field">
+            <label for="note">Note</label>
+            <textarea id="note" name="note" rows="3" maxlength="600"{{ err_attrs(errors, 'note', 'note') }}>{{ note }}</textarea>
+            {{ field_error(errors, 'note', 'note') }}
+          </div>
+          <div class="actions">
+            <button type="submit" id="confirm" class="btn btn-primary" name="decision" value="confirm" data-busy="Saving...">{{ label('Confirm') }}{{ icon('arrow') }}</button>
+            <button type="submit" id="decline" class="btn btn-danger" name="decision" value="decline" data-busy="Saving...">{{ label('Decline') }}</button>
+          </div>
+        </form>
+      </section>
+      {% endif %}
+      <section class="activity" aria-labelledby="activity-heading">
+        <h2 id="activity-heading" class="section-title">Activity</h2>
+        <div id="activity" class="timeline-box" hx-get="/requests/{{ request.id }}/activity" hx-target="this" hx-swap="innerHTML"
+             hx-trigger="{{ 'retry' if entries else 'load, retry' }}" aria-busy="{{ 'false' if entries else 'true' }}">
+          {% if entries %}{% include "partials/activity.njk" %}{% else %}<p class="loading"><span class="spinner" aria-hidden="true"></span><span>Loading activity</span></p>{% endif %}
+        </div>
+      </section>
+    </div>
+  </div>
+</article>

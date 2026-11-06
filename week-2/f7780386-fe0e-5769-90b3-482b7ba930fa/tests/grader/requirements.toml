@@ -1,0 +1,971 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "sign-in-board",
+    "paint-hold",
+    "keyboard-board",
+    "confirm-booking",
+    "cancel-booking",
+    "prepaid-hours",
+    "documents",
+    "billing-outage",
+    "crew-check-in",
+    "compliance-packet",
+    "usage-export",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B13",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 94
+services = [
+    { name = "postgres", env = {} },
+    { name = "killbill", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Passboard <passboard@halsted-kitchen.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B13 = 3
+B2 = 5
+B3 = 5
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 5
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 5
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 5
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Role sign-in"
+text = "Seeded operators, members and crew cooks sign in with email and password, land on their role's home screen, and can sign out again."
+kind = "behavior"
+primary = "workflow"
+workflow = "sign-in-board"
+tests = [
+    "test_app.py::test_wf_sign_in_board_roles",
+    "test_app.py::test_wf_sign_in_board_wrong_password",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "One server clock in kitchen time"
+text = "The server keeps a single clock, real or started from `PASSBOARD_NOW`, and reports now, the kitchen's today and its published settings in the kitchen's time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-board"
+tests = [
+    "test_app.py::test_kitchen_clock_and_settings",
+    "test_app.py::test_wf_sign_in_board_browser_zone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Shared board shows occupancy only"
+text = "A member's or crew cook's board shows other members' holds, bookings and cleaning tails only as anonymous occupied spans."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-board"
+tests = [
+    "test_app.py::test_board_anonymity",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Member records stay private"
+text = "Holds, bookings, invoices, documents, files and ledgers belonging to another member answer 404 to a member or crew cook."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-board"
+tests = [
+    "test_app.py::test_private_records",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Paint the line"
+text = "A member drags across a station row to see the band, cleaning tail, conflicts and cost, and releasing places a server hold that appears as a ticket in the rail."
+kind = "behavior"
+primary = "workflow"
+workflow = "paint-hold"
+tests = [
+    "test_app.py::test_wf_paint_hold_happy",
+    "test_app.py::test_wf_paint_hold_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "One hold wins each cell"
+text = "Of several simultaneous hold requests that share any 15-minute cell, cleaning tails included, exactly one succeeds and the rest answer the slot-taken conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "paint-hold"
+tests = [
+    "test_app.py::test_one_hold_wins_each_cell",
+]
+criteria = []
+parameter_cases = [
+    "same_span",
+    "cleaning_tail",
+]
+
+[[requirements]]
+id = "DP-07"
+title = "Hold placement rules"
+text = "A hold sits on the 15-minute grid inside board hours with its cleaning tail, starts no earlier than now and at most 28 days ahead, and needs the member's insurance to cover its date."
+kind = "behavior"
+primary = "pytest"
+workflow = "paint-hold"
+tests = [
+    "test_app.py::test_hold_placement_rules",
+]
+criteria = []
+parameter_cases = [
+    "off_grid",
+    "end_before_start",
+    "past_closing",
+    "in_the_past",
+    "too_far_ahead",
+    "unknown_station",
+    "invalid_date",
+    "day_28_allowed",
+    "insurance_lapsed",
+]
+
+[[requirements]]
+id = "DP-08"
+title = "Hold expiry edge"
+text = "A hold is live strictly before its server expiry instant, set by `PASSBOARD_HOLD_SECONDS`, and from that instant it cannot be confirmed, resized or released and its cells are free."
+kind = "behavior"
+primary = "pytest"
+workflow = "paint-hold"
+tests = [
+    "test_app.py::test_hold_expiry_edge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Resize and release holds"
+text = "A member can move a live hold's end time, re-checked for collisions without changing its expiry, or release it and free its cells at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "paint-hold"
+tests = [
+    "test_app.py::test_resize_and_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Keyboard line board"
+text = "Arrow keys, Shift+Arrow, Enter and Escape paint, extend, place, open, confirm and release holds on the line board with the same server results as pointer painting."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-board"
+tests = [
+    "test_app.py::test_wf_keyboard_board_confirm",
+    "test_app.py::test_wf_keyboard_board_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Lost-slot notice"
+text = "When the server reports another member won the slot, the band shakes once (or shows a static red edge under reduced motion), clears, and the Updates region names the lost station and time."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-board"
+tests = [
+    "test_app.py::test_wf_keyboard_board_lost_slot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Confirm a booking"
+text = "From the ticket drawer a member confirms a live hold, the ticket becomes a confirmed booking, the prepaid balance updates and a confirmation email arrives."
+kind = "behavior"
+primary = "workflow"
+workflow = "confirm-booking"
+tests = [
+    "test_app.py::test_wf_confirm_booking_happy",
+    "test_app.py::test_wf_confirm_booking_pending",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "All-or-none confirmation"
+text = "Confirmation succeeds only when the hold is live, the member's liability insurance is approved and covers the booking date, and the cost is covered as qualified in Business rules, otherwise nothing changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "confirm-booking"
+tests = [
+    "test_app.py::test_confirmation_all_or_none",
+    "test_app.py::test_confirm_after_expiry_changes_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Prepaid hours first, then overage"
+text = "A booking spends prepaid hours first and bills the remainder at the station's hourly rate as a paid Kill Bill charge on the member's account."
+kind = "behavior"
+primary = "pytest"
+workflow = "confirm-booking"
+tests = [
+    "test_app.py::test_prepaid_first_then_overage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Retry-safe requests"
+text = "A repeated POST with the same `Idempotency-Key` returns the stored response without repeating any effect, and the same key with a different request answers 422."
+kind = "behavior"
+primary = "pytest"
+workflow = "confirm-booking"
+tests = [
+    "test_app.py::test_idempotent_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "One email per change"
+text = "Booking confirmations, cancellation receipts, invoice notices and expiry warnings are each sent exactly once per state change, even under retries and replays."
+kind = "behavior"
+primary = "pytest"
+workflow = "confirm-booking"
+tests = [
+    "test_app.py::test_one_email_per_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Cancel from the drawer"
+text = "A member cancels a confirmed booking from its drawer after seeing the fee terms, and the board, balance and a cancellation receipt reflect the result."
+kind = "behavior"
+primary = "workflow"
+workflow = "cancel-booking"
+tests = [
+    "test_app.py::test_wf_cancel_booking_free",
+    "test_app.py::test_wf_cancel_booking_late_waive",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Cancellation cutoff in kitchen time"
+text = "Cancellation is free up to and including the same kitchen clock time two calendar days before the start, computed in the kitchen's time zone whatever the browser's zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancel-booking"
+tests = [
+    "test_app.py::test_cancellation_cutoff",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Late-cancellation fee"
+text = "A cancellation after the cutoff becomes cancelled_with_fee, still returns prepaid hours once, and bills a fee of half the booking's list price to the member in Kill Bill."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancel-booking"
+tests = [
+    "test_app.py::test_late_cancellation_fee",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Fee waiver"
+text = "The operator can waive a late-cancellation fee once, which records a matching Kill Bill credit or drops the still-pending charge."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancel-booking"
+tests = [
+    "test_app.py::test_fee_waiver",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Buy an hour pack"
+text = "A member buys a published hour pack, Kill Bill records the charge and its payment, and the hours appear in the balance and the ledger."
+kind = "behavior"
+primary = "workflow"
+workflow = "prepaid-hours"
+tests = [
+    "test_app.py::test_wf_prepaid_hours_buy_pack",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Paired hours ledger"
+text = "Every movement of prepaid hours is one transaction of two entries that sum to zero, and each member's balance always equals the sum of that member's entries."
+kind = "behavior"
+primary = "pytest"
+workflow = "prepaid-hours"
+tests = [
+    "test_app.py::test_paired_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Corrections by adjustment and reversal"
+text = "The operator adjusts a member's hours with a reason and corrects mistakes only by reversing a transaction, never by editing or deleting one."
+kind = "behavior"
+primary = "pytest"
+workflow = "prepaid-hours"
+tests = [
+    "test_app.py::test_adjust_and_reverse",
+    "test_app.py::test_wf_prepaid_hours_adjust_reverse",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Operator-only actions"
+text = "Document review, fee waivers, hour adjustments and reversals, usage reports, exports and packet links answer 403 to members and crew cooks."
+kind = "behavior"
+primary = "pytest"
+workflow = "prepaid-hours"
+tests = [
+    "test_app.py::test_operator_only_actions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "File a certificate"
+text = "A member uploads liability insurance or a crew cook's food handler card with its expiry date, sees it waiting for review, and the operator approves or rejects it from the review queue."
+kind = "behavior"
+primary = "workflow"
+workflow = "documents"
+tests = [
+    "test_app.py::test_wf_documents_renew",
+    "test_app.py::test_wf_documents_bad_file",
+    "test_app.py::test_crew_upload_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Accepted file types and sizes"
+text = "Uploads are judged by their content as PDF, PNG or JPEG of at most 5,000,000 bytes, and anything else, oversized, empty or with a path-like name is refused with nothing stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "documents"
+tests = [
+    "test_app.py::test_upload_rules",
+]
+criteria = []
+parameter_cases = [
+    "pdf",
+    "png",
+    "jpeg",
+    "exact_limit",
+    "pdf_named_png",
+    "svg",
+    "html_named_pdf",
+    "oversize",
+    "empty",
+    "slash_name",
+    "backslash_name",
+    "dotdot_name",
+    "long_name",
+]
+
+[[requirements]]
+id = "DP-27"
+title = "Stored files served inertly"
+text = "Uploaded files are served only to permitted users, as downloads the browser never renders as active content."
+kind = "behavior"
+primary = "pytest"
+workflow = "documents"
+tests = [
+    "test_app.py::test_files_served_inertly",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Document review states"
+text = "A document moves from uploaded to approved or rejected once, an approved document reads expired after its validity ends, and any other move answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "documents"
+tests = [
+    "test_app.py::test_document_review_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Valid through the expiry date"
+text = "A document covers every booking dated on or before its expiry date, through the end of that day in kitchen time, and no booking dated later."
+kind = "behavior"
+primary = "pytest"
+workflow = "documents"
+tests = [
+    "test_app.py::test_document_coverage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Expiry warning emails"
+text = "The member receives one warning email 14 days and one 3 days before each approved document expires, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "documents"
+tests = [
+    "test_app.py::test_expiry_warnings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Payment pending while billing is down"
+text = "With Kill Bill unreachable, a booking that needs a charge is confirmed as payment_pending and shown so to member and operator, while pack purchases and invoices answer 503."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-outage"
+tests = [
+    "test_app.py::test_payment_pending_outage",
+    "test_app.py::test_wf_billing_outage_pending",
+    "test_app.py::test_wf_billing_outage_pack",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Pending billing settles itself"
+text = "Once Kill Bill is reachable again, queued charges, payments and credits are recorded within 30 seconds without a restart and every booking still payment_pending turns paid, while one cancelled during the outage reads voided, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-outage"
+tests = [
+    "test_app.py::test_billing_recovers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Crew shift list"
+text = "A crew cook sees the upcoming shifts their member business booked, each with its own check-in control."
+kind = "behavior"
+primary = "workflow"
+workflow = "crew-check-in"
+tests = [
+    "test_app.py::test_wf_crew_check_in_happy",
+    "test_app.py::test_wf_crew_check_in_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Crew cook limits"
+text = "A crew cook reads only their own member's bookings and cannot hold, confirm, cancel or buy hours."
+kind = "behavior"
+primary = "pytest"
+workflow = "crew-check-in"
+tests = [
+    "test_app.py::test_crew_cook_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Crew check-in"
+text = "A crew cook checks in to their member's booking inside its check-in window under their own approved, current food handler card, moving it to checked_in, and is refused otherwise with an exact reason."
+kind = "behavior"
+primary = "pytest"
+workflow = "crew-check-in"
+tests = [
+    "test_app.py::test_check_in_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Issue an inspector packet"
+text = "The operator creates a compliance packet link for a date range and copies it, and the inspector opens it without signing in to see the visits and download the PDF."
+kind = "behavior"
+primary = "workflow"
+workflow = "compliance-packet"
+tests = [
+    "test_app.py::test_wf_compliance_packet_happy",
+    "test_app.py::test_wf_compliance_packet_revoke",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Packet contents"
+text = "A packet lists each checked-in visit in its date range with business, station, times, crew and whether insurance and food handler cards were valid that day, and its stored PDF carries the same content."
+kind = "behavior"
+primary = "pytest"
+workflow = "compliance-packet"
+tests = [
+    "test_app.py::test_packet_contents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Packet link lifecycle"
+text = "Packet links are unguessable and read-only, stop working at their expiry time, die when revoked, and die when regenerated in favour of a new link."
+kind = "behavior"
+primary = "pytest"
+workflow = "compliance-packet"
+tests = [
+    "test_app.py::test_packet_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Usage totals and export"
+text = "The operator's daily usage totals and monthly usage CSV group bookings by kitchen date, and CSV cells starting with = + - @ come out neutralised."
+kind = "behavior"
+primary = "pytest"
+workflow = "usage-export"
+tests = [
+    "test_app.py::test_usage_export_neutralised",
+    "test_app.py::test_wf_usage_export_daily",
+    "test_app.py::test_wf_usage_export_csv",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from `/app/run.json` on port 4173 or `APP_PUBLIC_PORT` and answers its health check even while a dependency is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_manifest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Server boundary"
+text = "The server accepts only same-origin requests within the published size limits, never serves source or credentials, and recovers from dependencies that were unreachable at boot without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Responsive line board"
+text = "Every screen fits 375, 768 and 1280 pixel wide viewports without sideways page scrolling, with the board scrolling sideways only inside its own frame."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layout",
+]
+criteria = []
+parameter_cases = [
+    "375",
+    "768",
+    "1280",
+]
+
+[[requirements]]
+id = "DP-43"
+title = "Paint motion and reduced motion"
+text = "Snap, digit roll, band-to-rail flight, loss shake and drawer slide run at their published timings, and under reduced motion each is replaced by its static substitute."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_paint_motion",
+]
+criteria = []
+parameter_cases = [
+    "full",
+    "reduced",
+]
+
+[[requirements]]
+id = "DP-44"
+title = "Kitchen-rail look"
+text = "The board reads as a stainless kitchen rail: steel hairlines on an off-white ground, ticket yellow only on live holds and painting, red only on conflicts and errors, and tabular figures on every time and price."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B13",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Real services and secrets from the environment"
+text = "The source reads every credential and URL from the environment and performs every booking, ledger, billing, storage and mail effect against the real service, with no stand-in state."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists and is JSON with string fields `_schema` (exactly `run-manifest-v1`), `install`, `build` and `serve`, and no other fields."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`/app/THIRD_PARTY_NOTICES.md` lists every shipped package and every bundled font, each with name, version and licence. Shipped packages means the production dependency tree reported by `npm ls --omit=dev --all --json`."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package, as defined in IF-02, is licensed MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0. Fonts are OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The only datastores are the provided PostgreSQL database and MinIO bucket. There are no embedded databases, no key-value stores and no files on local disk used as storage."
+tests = [
+    "test_app.py::test_if_no_extra_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service definitions and their environment values stay untouched, and the app adds no services."
+tests = [
+    "test_app.py::test_if_services_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Server and browser code are TypeScript. Big Shoulders Display and Public Sans are self-hosted, and the browser makes no requests to third-party hosts."
+tests = [
+    "test_app.py::test_if_typescript_and_self_hosted_fonts",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "sign-in-board"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_sign_in_board_roles",
+    "test_app.py::test_wf_sign_in_board_browser_zone",
+    "test_app.py::test_private_records",
+    "test_app.py::test_board_anonymity",
+]
+checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "paint-hold"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+]
+critical = [
+    "test_app.py::test_wf_paint_hold_happy",
+    "test_app.py::test_one_hold_wins_each_cell",
+    "test_app.py::test_hold_expiry_edge",
+]
+checkpoints = [
+    "B3",
+    "B4",
+]
+
+[[workflows]]
+id = "keyboard-board"
+requirements = [
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_wf_keyboard_board_confirm",
+    "test_app.py::test_wf_keyboard_board_lost_slot",
+]
+checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "confirm-booking"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_wf_confirm_booking_happy",
+    "test_app.py::test_prepaid_first_then_overage",
+    "test_app.py::test_confirmation_all_or_none",
+    "test_app.py::test_confirm_after_expiry_changes_nothing",
+]
+
+[[workflows]]
+id = "cancel-booking"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_cancel_booking_free",
+    "test_app.py::test_cancellation_cutoff",
+    "test_app.py::test_late_cancellation_fee",
+]
+
+[[workflows]]
+id = "prepaid-hours"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_prepaid_hours_buy_pack",
+    "test_app.py::test_paired_ledger",
+    "test_app.py::test_operator_only_actions",
+]
+
+[[workflows]]
+id = "documents"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_documents_renew",
+    "test_app.py::test_upload_rules",
+    "test_app.py::test_crew_upload_limits",
+    "test_app.py::test_document_coverage",
+]
+
+[[workflows]]
+id = "billing-outage"
+requirements = [
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_billing_outage_pending",
+    "test_app.py::test_wf_billing_outage_pack",
+    "test_app.py::test_billing_recovers",
+]
+
+[[workflows]]
+id = "crew-check-in"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_crew_check_in_happy",
+    "test_app.py::test_check_in_rules",
+    "test_app.py::test_crew_cook_limits",
+]
+
+[[workflows]]
+id = "compliance-packet"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_compliance_packet_happy",
+    "test_app.py::test_packet_lifecycle",
+    "test_app.py::test_packet_contents",
+]
+
+[[workflows]]
+id = "usage-export"
+requirements = [
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_usage_export_daily",
+    "test_app.py::test_usage_export_neutralised",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_health_and_manifest",
+    "test_app.py::test_server_boundary",
+]

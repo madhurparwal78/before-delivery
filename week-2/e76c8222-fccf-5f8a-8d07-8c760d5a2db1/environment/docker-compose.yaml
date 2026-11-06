@@ -1,0 +1,168 @@
+services:
+  main:
+    environment:
+      MAIL_FROM: Fernhollow Access Dispatch <dispatch@fernhollow.test>
+      APP_PUBLIC_PORT: '4173'
+      APP_PUBLIC_URL: http://127.0.0.1:4173
+      DATABASE_URL: postgresql://gf_app:gf-app-dev-2b7d41@postgres:5432/gf_dev
+      SMTP_HOST: mailpit
+      SMTP_PORT: '1025'
+      MAILPIT_URL: http://mailpit:8025
+      KILLBILL_URL: http://killbill:8080
+      KILLBILL_USERNAME: admin
+      KILLBILL_PASSWORD: password
+      KILLBILL_API_KEY: gfkit-dev
+      KILLBILL_API_SECRET: gfkit-dev-secret
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: gf-dev
+      S3_FORCE_PATH_STYLE: 'true'
+      S3_ACCESS_KEY_ID: gf-dev-root-71c3e0
+      S3_SECRET_ACCESS_KEY: gf-dev-secret-4b8d92
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    depends_on:
+      postgres-seed:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_healthy
+      killbill-seed:
+        condition: service_completed_successfully
+      minio-seed:
+        condition: service_completed_successfully
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-dev-9e4a02
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  postgres-seed:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      PGHOST: postgres
+      PGUSER: gf_admin
+      PGPASSWORD: gf-admin-dev-9e4a02
+      PGDATABASE: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      psql -Atqc "SELECT 1 FROM pg_roles WHERE rolname = 'gf_app'" | grep -q 1 ||
+        psql -qc "CREATE ROLE gf_app LOGIN PASSWORD 'gf-app-dev-2b7d41'"
+      psql -Atqc "SELECT 1 FROM pg_database WHERE datname = 'gf_dev'" | grep -q 1 ||
+        psql -qc "CREATE DATABASE gf_dev OWNER gf_app"
+  mailpit:
+    image: axllent/mailpit:v1.27@sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68
+    healthcheck:
+      test:
+      - CMD
+      - /mailpit
+      - readyz
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  killbill-db:
+    image: killbill/mariadb:0.24@sha256:8fddf7d564befcea3e3d762c01b3e65fb4b45fb8db077297998ad935468372fa
+    environment:
+      MYSQL_ROOT_PASSWORD: killbill
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - mariadb-admin ping -h 127.0.0.1 -uroot -pkillbill --silent
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+  killbill:
+    image: killbill/killbill:0.24.21@sha256:e6b6ab4a0e6287ebf57aafa2d5f22cfa6250dfa056682c74d7c208b4a39d0c9b
+    environment:
+      KB_org_killbill_dao_url: jdbc:mysql://killbill-db:3306/killbill
+      KB_org_killbill_dao_user: root
+      KB_org_killbill_dao_password: killbill
+      KB_org_killbill_billing_osgi_dao_url: jdbc:mysql://killbill-db:3306/killbill
+      KB_org_killbill_billing_osgi_dao_user: root
+      KB_org_killbill_billing_osgi_dao_password: killbill
+      KB_ADMIN_PASSWORD: password
+    depends_on:
+      killbill-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -fsS -o /dev/null http://127.0.0.1:8080/1.0/healthcheck
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 120s
+  killbill-seed:
+    image: curlimages/curl:8.16.0@sha256:463eaf6072688fe96ac64fa623fe73e1dbe25d8ad6c34404a669ad3ce1f104b6
+    environment:
+      KILLBILL_URL: http://killbill:8080
+      KILLBILL_USERNAME: admin
+      KILLBILL_PASSWORD: password
+      KILLBILL_API_KEY: gfkit-dev
+      KILLBILL_API_SECRET: gfkit-dev-secret
+    depends_on:
+      killbill:
+        condition: service_started
+    restart: 'no'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      auth="$$KILLBILL_USERNAME:$$KILLBILL_PASSWORD"
+      curl -fsS -o /dev/null --retry 120 --retry-delay 5 --retry-all-errors --retry-max-time 600 \
+        "$$KILLBILL_URL/1.0/healthcheck"
+      curl -sS -o /dev/null -u "$$auth" -H 'Content-Type: application/json' \
+        -H 'X-Killbill-CreatedBy: gfkit-seed' \
+        -d "{\"apiKey\":\"$$KILLBILL_API_KEY\",\"apiSecret\":\"$$KILLBILL_API_SECRET\"}" \
+        "$$KILLBILL_URL/1.0/kb/tenants"
+      curl -fsS -o /dev/null -u "$$auth" "$$KILLBILL_URL/1.0/kb/tenants?apiKey=$$KILLBILL_API_KEY"
+  minio:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-dev-root-71c3e0
+      MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92
+    command: server /data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - MC_HOST_local=http://$$MINIO_ROOT_USER:$$MINIO_ROOT_PASSWORD@localhost:9000 mc ready local >/dev/null
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  minio-seed:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-dev-root-71c3e0
+      MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      export MC_HOST_local="http://$$MINIO_ROOT_USER:$$MINIO_ROOT_PASSWORD@minio:9000"
+      mc mb --ignore-existing local/gf-dev
+      mc anonymous set none local/gf-dev
+x-minio-root:
+  MINIO_ROOT_USER: gf-dev-root-71c3e0
+  MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92

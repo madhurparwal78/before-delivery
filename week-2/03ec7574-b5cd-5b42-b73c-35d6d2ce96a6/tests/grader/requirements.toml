@@ -1,0 +1,1259 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 63
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "payout-quorum",
+    "race-safety",
+    "policy-decisions",
+    "policy-editor",
+    "rolling-window",
+    "amounts-addresses",
+    "payroll-batch",
+    "frozen-wallet",
+    "approvals-inbox",
+    "wallet-console",
+    "api-roles",
+    "tenant-isolation",
+    "audit-trail",
+    "sign-in",
+    "public-site",
+    "contact-accessibility",
+    "deployment-storage",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q8",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 82
+services = [
+    { name = "postgres", env = {} },
+]
+outages = []
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 1
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 3
+Q4 = 5
+Q5 = 5
+Q8 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[requirements]]
+id = "DP-01"
+title = "Reserved payouts wait at the floor."
+text = "A transfer at or above the approval floor of a wallet with a quorum waits as pending_approval with the quorum's members, threshold, expiry and the deciding policy revision copied in, and reserves its amount so Available falls while Balance stays."
+kind = "behavior"
+primary = "pytest"
+workflow = "payout-quorum"
+tests = [
+    "test_app.py::test_wf_payout_quorum_reservation_snapshot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Distinct approvers execute once."
+text = "Only members of the intent's quorum may decide it, never its initiator, never twice and never through an API key, one rejection rejects it, and the approval that reaches the threshold executes it in the same request without evaluating policy again."
+kind = "behavior"
+primary = "pytest"
+workflow = "payout-quorum"
+tests = [
+    "test_app.py::test_wf_payout_quorum_decision_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Send and approve in the console."
+text = "An operator sends on the wallet page and reads the waiting message, approvers find the row in the approvals inbox with its progress, and the deciding approval shows the executed toast and removes the row."
+kind = "behavior"
+primary = "workflow"
+workflow = "payout-quorum"
+tests = [
+    "test_app.py::test_wf_payout_quorum_console_send_approve",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Racing decisions have one winner."
+text = "Simultaneous final approvals, cancellations, rejections and freezes on one intent leave exactly one outcome, execute it at most once, and answer every loser with the conflict code named in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "race-safety"
+tests = [
+    "test_app.py::test_wf_race_safety_console_double_approve",
+    "test_app.py::test_wf_race_safety_decision_races",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "No overdraw under races."
+text = "Racing transfers, batches, deposits and reservations never take a wallet's balance or available balance below zero, and available always equals balance minus the reserved amounts of its pending intents."
+kind = "behavior"
+primary = "pytest"
+workflow = "race-safety"
+tests = [
+    "test_app.py::test_wf_race_safety_no_overdraw",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Idempotent writes."
+text = "A transfer, batch or deposit sent with an Idempotency-Key replays its stored first answer verbatim, refuses the key on another path or body, answers a key still in flight with 409 IDEMPOTENCY_KEY_IN_PROGRESS and forgets keys after the retention period, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "race-safety"
+tests = [
+    "test_app.py::test_wf_race_safety_idempotent_retry",
+    "test_app.py::test_idempotency_retention",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Ordered policy evaluation with a trace."
+text = "A wallet's policy decides every transfer and batch line by its ordered rules in the five pinned steps under the revision live at server time, and the evaluate route reports the decision, the revision, the aggregation values and the per-rule trace while writing nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "policy-decisions"
+tests = [
+    "test_app.py::test_wf_policy_decisions_evaluation_trace",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Seeded policy decisions."
+text = "The seeded Operating limits policy blocks the burn address, caps the vendors by the daily outflow, allows the payroll sweep and payroll lines up to 5000, and denies everything else."
+kind = "behavior"
+primary = "pytest"
+workflow = "policy-decisions"
+tests = [
+    "test_app.py::test_wf_policy_decisions_seeded_policy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Denials reserve nothing."
+text = "A denied transfer creates no intent and reserves nothing, but appends one transfer.denied audit event and one signed event naming the deciding rule and the policy revision."
+kind = "behavior"
+primary = "pytest"
+workflow = "policy-decisions"
+tests = [
+    "test_app.py::test_wf_policy_decisions_denial_records",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Send outcomes in words."
+text = "The Send form reports each outcome in its pinned words, names the deciding rule of a policy block, and keeps what was typed after a refusal."
+kind = "behavior"
+primary = "pytest"
+workflow = "policy-decisions"
+tests = [
+    "test_app.py::test_wf_policy_decisions_send_outcomes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Policy grammar and revisions."
+text = "A policy outside the grammar is 422 INVALID_POLICY naming the first offending path, every successful update raises revision by 1 and keeps each earlier revision readable, and deleting a policy in use is 409 POLICY_IN_USE."
+kind = "behavior"
+primary = "pytest"
+workflow = "policy-editor"
+tests = [
+    "test_app.py::test_wf_policy_editor_grammar_revisions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Rule editor and Simulate."
+text = "The policy page lists the ordered rules with their condition fields, Simulate shows ALLOW or DENY with the deciding rule or no rule matched, the evaluated revision and the trace while writing nothing, and a refused save shows its path and keeps the edits."
+kind = "behavior"
+primary = "workflow"
+workflow = "policy-editor"
+tests = [
+    "test_app.py::test_wf_policy_editor_simulate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Rolling aggregations."
+text = "An aggregation sums or counts a wallet's pending_approval and executed intents of its asset, optionally only those to the same destination, inside a rolling window of server time, plus the request being decided."
+kind = "behavior"
+primary = "pytest"
+workflow = "rolling-window"
+tests = [
+    "test_app.py::test_wf_rolling_window_aggregation_values",
+    "test_app.py::test_wf_rolling_window_window_edge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Expiry at the exact second."
+text = "A pending intent is expired from the server second equal to its expires_at, refuses decisions from that second, releases its reservation, leaves every aggregation and records exactly one intent.expired event, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "rolling-window"
+tests = [
+    "test_app.py::test_wf_rolling_window_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Quorum snapshot."
+text = "Editing a key quorum never changes the members, threshold or expiry of an intent already waiting on it."
+kind = "behavior"
+primary = "pytest"
+workflow = "payout-quorum"
+tests = [
+    "test_app.py::test_quorum_snapshot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Rejection and cancellation."
+text = "A rejection with a reason, or a cancellation by the creator or an owner, ends a pending intent and releases its reservation, on a frozen wallet too."
+kind = "behavior"
+primary = "pytest"
+workflow = "frozen-wallet"
+tests = [
+    "test_app.py::test_wf_frozen_wallet_reject_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Approvals inbox contents."
+text = "The approvals inbox lists, newest first, the own organization's pending_approval intents whose quorum includes the member, which the member did not start and has not decided."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals-inbox"
+tests = [
+    "test_app.py::test_wf_approvals_inbox_contents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Keyboard inbox and intents list."
+text = "In the console a reject needs a reason, focus moves as pinned after each decision, a refused approval keeps its row with the server's message, and the intents list pages with Load more in place, filters by status and expands rows into their details."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals-inbox"
+tests = [
+    "test_app.py::test_wf_approvals_inbox_keyboard",
+    "test_app.py::test_wf_approvals_inbox_intents_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Frozen wallets pause execution."
+text = "A frozen wallet refuses new transfers, batches and approvals with 409 WALLET_FROZEN and records nothing for them, still accepts deposits, rejections, cancellations and expiry, and only an owner freezes or unfreezes it."
+kind = "behavior"
+primary = "pytest"
+workflow = "frozen-wallet"
+tests = [
+    "test_app.py::test_wf_frozen_wallet_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Transfer checks in order."
+text = "A transfer runs its checks in the pinned order and answers the first that fails."
+kind = "behavior"
+primary = "pytest"
+workflow = "policy-decisions"
+tests = [
+    "test_app.py::test_transfer_check_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Inline create row and freeze."
+text = "An owner creates a wallet from the inline row of the wallets table, reads its activity newest first, and freezes it through a confirmation dialog that swaps the Send form for the frozen banner."
+kind = "behavior"
+primary = "workflow"
+workflow = "wallet-console"
+tests = [
+    "test_app.py::test_wf_wallet_console_create_and_freeze",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Batches all or nothing."
+text = "A batch of 1 to 100 lines is refused whole on the first invalid, mismatched or denied line with its index or on an unaffordable total without one, and an accepted batch is one intent holding the total that executes every line together, crediting internal lines."
+kind = "behavior"
+primary = "pytest"
+workflow = "payroll-batch"
+tests = [
+    "test_app.py::test_wf_payroll_batch_all_or_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Small transfers execute at once."
+text = "A transfer below the floor, or on a wallet with no quorum, executes at once with its transaction hash and writes intent.created then intent.executed."
+kind = "behavior"
+primary = "pytest"
+workflow = "payout-quorum"
+tests = [
+    "test_app.py::test_wf_payout_quorum_immediate_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Exact amounts."
+text = "Amounts are exact integers of base units for the 6-decimal and 18-decimal assets, parsed from the pinned string form, refused with their codes when malformed, and returned both raw and in the canonical display form."
+kind = "behavior"
+primary = "pytest"
+workflow = "amounts-addresses"
+tests = [
+    "test_app.py::test_wf_amounts_addresses_amounts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Addresses and checksums."
+text = "Addresses are derived from the wallet id, accepted in lowercase, uppercase or a correct EIP-55 mixed case, refused with INVALID_ADDRESS_CHECKSUM for a wrong mixed-case checksum, stored and returned lowercase, refused for self transfers and crossed assets, and credited to a sibling wallet when internal."
+kind = "behavior"
+primary = "pytest"
+workflow = "amounts-addresses"
+tests = [
+    "test_app.py::test_wf_amounts_addresses_checksums",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Unknown fields and text limits."
+text = "A body key the endpoint does not define is 422 UNKNOWN_FIELD, a missing or malformed field is 422 VALIDATION_ERROR naming the dotted path, and text lengths count code points after NFC with control characters refused, writing nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "amounts-addresses"
+tests = [
+    "test_app.py::test_wf_amounts_addresses_text_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "App id, credential and role in order."
+text = "Every signed-in route checks the X-Corvo-Org header, then the credential, then the app id match, then the role, answering the first failure with its pinned status and code."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-roles"
+tests = [
+    "test_app.py::test_wf_api_roles_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Roles read fresh on every request."
+text = "Every role and API key reads what its role reads, every call beyond its rights is 403 FORBIDDEN_ROLE with no row changed, and a role change applies on the member's next request."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-roles"
+tests = [
+    "test_app.py::test_wf_api_roles_fresh_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "API keys follow their creator."
+text = "An owner creates operator or auditor keys whose secret shows once and is never stored readable, a key acts only within its role and never approves, and a revoked key or a key whose creator was removed is 401 INVALID_CREDENTIAL."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-roles"
+tests = [
+    "test_app.py::test_wf_api_roles_api_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Organization isolation."
+text = "Another organization's wallets, intents, policies, quorums, aggregations, members and API keys answer exactly like missing ones on every route, nested ids, filters and cursors included."
+kind = "behavior"
+primary = "pytest"
+workflow = "tenant-isolation"
+tests = [
+    "test_app.py::test_wf_tenant_isolation_routes",
+    "test_app.py::test_wf_tenant_isolation_derived",
+    "test_app.py::test_wf_tenant_isolation_console_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Members, quorum rules and the last owner."
+text = "Owners add, demote and remove members under the field rules, a removal ends that member's sessions and revokes their keys, quorums take 1 to 10 eligible members and a threshold within their count, quorum members cannot be demoted or removed, and an organization always keeps one owner even under racing changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "api-roles"
+tests = [
+    "test_app.py::test_wf_api_roles_members_last_owner",
+    "test_app.py::test_last_owner_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Audit chain."
+text = "Every write, every denial and every expiry appends one audit event with a gapless seq whose hash recomputes from the previous hash and the canonical event."
+kind = "behavior"
+primary = "pytest"
+workflow = "audit-trail"
+tests = [
+    "test_app.py::test_wf_audit_trail_chain",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Signed event log."
+text = "Payment events, expiry included, are appended to a signed event log whose signatures recompute from the signing secret current when each was written."
+kind = "behavior"
+primary = "pytest"
+workflow = "audit-trail"
+tests = [
+    "test_app.py::test_wf_audit_trail_signed_log",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Quorums, audit and settings pages."
+text = "The quorums page reads thresholds as a of n, the audit page shows the chain status and the signed event log, and settings shows a new API key once and rotates the signing secret."
+kind = "behavior"
+primary = "workflow"
+workflow = "audit-trail"
+tests = [
+    "test_app.py::test_wf_audit_trail_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Seeded members sign in."
+text = "Every seeded member signs in with the seeded password and reads their member, role and organization from login and /api/v1/me."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_wf_sign_in_seeded_members",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Seeded treasury state, written once."
+text = "The seeded records read exactly as pinned in Seed data, are written once into an empty database under a lock, and are never written again on a later boot."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment-storage"
+tests = [
+    "test_app.py::test_wf_deployment_storage_seed_state",
+    "test_app.py::test_wf_deployment_storage_later_boot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Bad credentials refused."
+text = "A wrong password, an unknown email or a removed member's email is 401 BAD_CREDENTIALS."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_wf_sign_in_bad_credentials",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Sign out kills the token."
+text = "After sign out the old token answers 401 INVALID_CREDENTIAL."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_wf_sign_in_logout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Sign in and redirects."
+text = "Signed-out console routes land on sign in with a next path that is honoured only for same-origin /console paths, a wrong pair keeps the email, the session survives a reload and Sign out returns to /."
+kind = "behavior"
+primary = "workflow"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_wf_sign_in_redirects",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Wallet management."
+text = "Owners create and edit wallets with names of 1 to 60 code points unique per organization after normalisation and case folding, chain and asset never change, and wallets list by name."
+kind = "behavior"
+primary = "pytest"
+workflow = "wallet-console"
+tests = [
+    "test_app.py::test_wallet_management",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Deposits."
+text = "A deposit credits the balance at once under a reference unique per wallet, on a frozen wallet too, and only owners, operators and operator keys record one."
+kind = "behavior"
+primary = "pytest"
+workflow = "wallet-console"
+tests = [
+    "test_app.py::test_deposits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Bound cursor pages."
+text = "The intents list pages newest first by a cursor bound to its filters and organization, returns every matching intent exactly once while intents are created, refuses a cursor reused elsewhere or altered with 422 INVALID_CURSOR, and never ends on an empty page."
+kind = "behavior"
+primary = "pytest"
+workflow = "wallet-console"
+tests = [
+    "test_app.py::test_wf_wallet_console_cursor_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Console overview and wallet page."
+text = "The overview shows the four stat cards over the wallets table, and the wallet page shows its facts with the Send, Deposit and Payroll batch forms only for operators and owners and Freeze wallet only for owners."
+kind = "behavior"
+primary = "workflow"
+workflow = "wallet-console"
+tests = [
+    "test_app.py::test_wf_wallet_console_overview_and_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Landing page."
+text = "The landing page carries every pinned section, card, stat and case title in order, credits only invented names, shows no consent banner and calls no other host."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_wf_public_site_landing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Header menus."
+text = "The four header menus open on click, Enter and Space, close on Escape, a click outside and a second click, return focus on Escape and open one at a time under a sticky frosted header."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_wf_public_site_menus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Pricing page."
+text = "The pricing page carries both plan cards, the inclusions and the comparison matrix, takes no payment, sends Talk to sales to /contact, and its pricing questions open one at a time by pointer and keyboard."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_wf_public_site_pricing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Design language."
+text = "Pages are white with near-black display headings that close in a slate grey phrase, body text in Inter at four weights, a dark capsule that turns violet under the pointer, and cards on a soft shadow."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Motion and reduced motion."
+text = "Sections spring up once as they enter view, the hero panel's approval steps forward and back with scroll, linked cards lift on hover, a busy button turns a spinner that reads Working under reduced motion where nothing moves, and console pages never animate on scroll."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Not-found page and first paint."
+text = "An unknown address answers 404 with a link to /, and the public pages arrive as complete documents that link only to the app's own host and port."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_wf_public_site_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Contact requests validated."
+text = "The contact route stores a valid request without credentials and refuses a request by its first invalid field in the pinned field order, whatever the JSON key order, with that field's path, free mail domains with the work email message."
+kind = "behavior"
+primary = "pytest"
+workflow = "contact-accessibility"
+tests = [
+    "test_app.py::test_wf_contact_accessibility_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Contact form errors and focus."
+text = "The contact form shows a refusal under every invalid field at once, marks each invalid and announced, keeps the typed values and focuses the first invalid field, and a valid send replaces the form with the thanks line and focuses it."
+kind = "behavior"
+primary = "pytest"
+workflow = "contact-accessibility"
+tests = [
+    "test_app.py::test_wf_contact_accessibility_form",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Accessibility contract."
+text = "Public and console pages meet WCAG 2.2 AA, every exposed image has a name, focus is visible on every control, dialogs trap and return focus, and status badges carry their words at AA contrast."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_accessibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Phone layouts."
+text = "At 375 pixels wide no page scrolls sideways, the header Menu opens the links, and Approve stays inside the screen in a stacked console row."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_phone_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Health and boot."
+text = "GET /api/health answers 200 {\"status\":\"ok\"} once the schema and seed are ready, sign in works the moment it does, and the server answers 503 instead of exiting while PostgreSQL is unreachable, recovering without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment-storage"
+tests = [
+    "test_app.py::test_wf_deployment_storage_boot_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Envelope, request ids and timestamps."
+text = "Every /api response except the plain health route carries the envelope with a fresh lowercase version 4 request id, refusals carry an empty details object unless named, and every timestamp reads YYYY-MM-DDTHH:MM:SSZ."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_envelope",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "PostgreSQL holds every record."
+text = "Every pinned table lives in PostgreSQL, no password, token or key secret is stored readable, and the public pages reference no outside host."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment-storage"
+tests = [
+    "test_app.py::test_wf_deployment_storage_tables",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Core actions answer quickly."
+text = "A transfer, an approval and a policy evaluation over the seed data each answer within 500 milliseconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_performance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Paired ledger."
+text = "Every money movement writes exactly two ledger entries that sum to zero, and every wallet's balance equals the sum of its entries after every write."
+kind = "behavior"
+primary = "pytest"
+workflow = "payout-quorum"
+tests = [
+    "test_app.py::test_paired_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Formula-safe intents export."
+text = "The intents CSV export lists the filtered intents with every cell that starts with a formula character neutralised, and the console shows such names and memos as plain text."
+kind = "behavior"
+primary = "pytest"
+workflow = "wallet-console"
+tests = [
+    "test_app.py::test_wf_wallet_console_csv_export",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Audit verification."
+text = "The audit verify route recomputes the organization's chain and names the first broken seq, and the audit page shows its result."
+kind = "behavior"
+primary = "pytest"
+workflow = "audit-trail"
+tests = [
+    "test_app.py::test_wf_audit_trail_verify",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Payroll batch builder."
+text = "On the wallet page an operator adds and removes batch lines, reads an exact running total, sees a refused line marked by its number with focus on its field, and submits the batch as one intent."
+kind = "behavior"
+primary = "workflow"
+workflow = "payroll-batch"
+tests = [
+    "test_app.py::test_wf_payroll_batch_builder",
+    "test_app.py::test_wf_payroll_batch_refused_line",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Request limits."
+text = "A body over 1,000,000 bytes is 413 PAYLOAD_TOO_LARGE, a body that is not JSON is refused with its pinned code, and nothing is written."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_request_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Rules decided once."
+text = "Each domain rule, from amount parsing to policy decisions, intent transitions, expiry and audit hashing, is decided in exactly one place in the source and reused by every route and page that needs it."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json is a JSON object with \"_schema\":\"run-manifest-v1\" and non-empty string install, build and serve commands that use only paths relative to the app root."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/USER_README.md lists every seeded account's email, role and the password deku-demo-pw-2026."
+tests = [
+    "test_app.py::test_if_user_readme",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = ".browser_screenshots/ and .downloads/ exist at the app root and are empty."
+tests = [
+    "test_app.py::test_if_reserved_folders",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package with its version and licence, where shipped packages are the production dependency tree reported by npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Every shipped package is licensed under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "No datastore other than PostgreSQL at DATABASE_URL is started, bundled or written to for records."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The provided environment and service configuration files are left untouched, and the seed values in Seed data ship unchanged."
+tests = [
+    "test_app.py::test_if_seed_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "The served app is the production build; no dev server, watch mode or hot reload runs in serve."
+tests = [
+    "test_app.py::test_if_production_build",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "payout-quorum"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-15",
+    "DP-23",
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_wf_payout_quorum_console_send_approve",
+    "test_app.py::test_wf_payout_quorum_reservation_snapshot",
+    "test_app.py::test_wf_payout_quorum_decision_rules",
+    "test_app.py::test_wf_payout_quorum_immediate_exact",
+    "test_app.py::test_quorum_snapshot",
+    "test_app.py::test_paired_ledger",
+]
+
+[[workflows]]
+id = "race-safety"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-06",
+]
+critical = [
+    "test_app.py::test_wf_race_safety_console_double_approve",
+    "test_app.py::test_wf_race_safety_decision_races",
+    "test_app.py::test_wf_race_safety_no_overdraw",
+    "test_app.py::test_wf_race_safety_idempotent_retry",
+]
+
+[[workflows]]
+id = "policy-decisions"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_policy_decisions_evaluation_trace",
+    "test_app.py::test_wf_policy_decisions_seeded_policy",
+    "test_app.py::test_wf_policy_decisions_denial_records",
+    "test_app.py::test_wf_policy_decisions_send_outcomes",
+    "test_app.py::test_transfer_check_order",
+]
+
+[[workflows]]
+id = "policy-editor"
+requirements = [
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_policy_editor_grammar_revisions",
+    "test_app.py::test_wf_policy_editor_simulate",
+]
+
+[[workflows]]
+id = "rolling-window"
+requirements = [
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_rolling_window_aggregation_values",
+    "test_app.py::test_wf_rolling_window_expiry",
+]
+
+[[workflows]]
+id = "amounts-addresses"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_amounts_addresses_amounts",
+    "test_app.py::test_wf_amounts_addresses_checksums",
+    "test_app.py::test_wf_amounts_addresses_text_limits",
+]
+
+[[workflows]]
+id = "payroll-batch"
+requirements = [
+    "DP-22",
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_payroll_batch_builder",
+    "test_app.py::test_wf_payroll_batch_all_or_nothing",
+]
+
+[[workflows]]
+id = "frozen-wallet"
+requirements = [
+    "DP-16",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_frozen_wallet_rules",
+    "test_app.py::test_wf_frozen_wallet_reject_cancel",
+]
+
+[[workflows]]
+id = "approvals-inbox"
+requirements = [
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_approvals_inbox_contents",
+    "test_app.py::test_wf_approvals_inbox_keyboard",
+]
+
+[[workflows]]
+id = "wallet-console"
+requirements = [
+    "DP-21",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-59",
+]
+critical = [
+    "test_app.py::test_wf_wallet_console_create_and_freeze",
+    "test_app.py::test_wf_wallet_console_overview_and_roles",
+    "test_app.py::test_wf_wallet_console_csv_export",
+    "test_app.py::test_wf_wallet_console_cursor_pages",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "api-roles"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_api_roles_order",
+    "test_app.py::test_wf_api_roles_fresh_roles",
+    "test_app.py::test_wf_api_roles_api_keys",
+    "test_app.py::test_wf_api_roles_members_last_owner",
+]
+
+[[workflows]]
+id = "tenant-isolation"
+requirements = [
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_tenant_isolation_routes",
+    "test_app.py::test_wf_tenant_isolation_derived",
+]
+
+[[workflows]]
+id = "audit-trail"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_audit_trail_chain",
+    "test_app.py::test_wf_audit_trail_signed_log",
+    "test_app.py::test_wf_audit_trail_verify",
+    "test_app.py::test_wf_audit_trail_pages",
+]
+
+[[workflows]]
+id = "sign-in"
+requirements = [
+    "DP-35",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_sign_in_seeded_members",
+    "test_app.py::test_wf_sign_in_bad_credentials",
+    "test_app.py::test_wf_sign_in_redirects",
+    "test_app.py::test_wf_sign_in_logout",
+]
+
+[[workflows]]
+id = "public-site"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_wf_public_site_landing",
+    "test_app.py::test_wf_public_site_menus",
+    "test_app.py::test_wf_public_site_not_found",
+    "test_app.py::test_wf_public_site_pricing",
+]
+checkpoints = [
+    "B1",
+    "B6",
+]
+critical_checkpoints = [
+    "B1",
+]
+
+[[workflows]]
+id = "contact-accessibility"
+requirements = [
+    "DP-50",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_contact_accessibility_api",
+    "test_app.py::test_wf_contact_accessibility_form",
+]
+
+[[workflows]]
+id = "deployment-storage"
+requirements = [
+    "DP-36",
+    "DP-54",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_deployment_storage_seed_state",
+    "test_app.py::test_wf_deployment_storage_later_boot",
+    "test_app.py::test_wf_deployment_storage_boot_recovery",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-47",
+    "DP-48",
+    "DP-52",
+    "DP-53",
+    "DP-55",
+    "DP-57",
+    "DP-62",
+    "DP-63",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_envelope",
+    "test_app.py::test_wf_cross_cutting_request_limits",
+]
+checkpoints = [
+    "B10",
+]

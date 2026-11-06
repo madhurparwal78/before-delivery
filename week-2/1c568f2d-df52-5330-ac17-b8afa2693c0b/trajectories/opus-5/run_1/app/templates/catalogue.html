@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% from "parts.html" import icon, cutout %}
+{% block title %}Source catalogue{% endblock %}
+{% block main %}
+<section class="catalogue" data-seed="{{ seed }}" data-cursor="{{ cursor }}"
+         data-next="{{ found.nextCursor }}" data-licence="{{ licence }}" data-q="{{ q }}">
+  <header class="catalogue-header">
+    <h1>Source catalogue</h1>
+    <p class="count-line" data-count-line><span class="figure">{{ found.total }}</span> objects in the catalogue</p>
+    <div class="catalogue-tools">
+      <button type="button" class="button button-shuffle" data-shuffle>{{ icon('shuffle') }}Shuffle</button>
+      <label for="licence">Licence</label>
+      <select id="licence" data-licence-filter>
+        <option value="" {% if not licence %}selected{% endif %}>All licences</option>
+        {% for name in licences %}
+        <option value="{{ name }}" {% if name == licence %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </header>
+
+  <div data-list="catalogue">
+    {% if board %}
+    <div class="board" data-board>
+      {% for obj, width, height in board %}
+      <div class="board-item" data-w="{{ width }}" data-h="{{ height }}">
+        {% if obj.license in licences %}
+        <a class="cutout" href="/catalogue/{{ obj.id }}" aria-label="{{ obj.title }}">
+          {{ cutout(obj, width, height, obj.title) }}
+          <span class="cutout-strip"><span>{{ obj.artist or 'Not recorded' }}</span><span>{{ obj.license }}</span></span>
+        </a>
+        <p class="board-caption">{{ obj.title }}</p>
+        {% else %}
+        <span class="cutout cutout-blocked">
+          <svg class="cutout-art" width="{{ width }}" height="{{ height }}" viewBox="0 0 {{ width }} {{ height }}"
+               role="img" aria-label="{{ obj.title }}, licence not cleared for reuse" focusable="false">
+            <rect x="1" y="1" width="{{ width - 2 }}" height="{{ height - 2 }}" rx="10"
+                  fill="#ffffff" stroke="#9aa2ae" stroke-width="1.5" stroke-dasharray="5 4"/>
+          </svg>
+          <span class="blocked-lock">{{ icon('lock') }}</span>
+        </span>
+        <p class="board-caption">{{ obj.title }}</p>
+        <p class="board-blocked">Licence not cleared for reuse</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty">No objects match that search</p>
+    {% endif %}
+  </div>
+
+  <form class="pager" method="get" action="/catalogue" aria-label="Catalogue pages">
+    <input type="hidden" name="seed" value="{{ seed }}">
+    {% if licence %}<input type="hidden" name="license" value="{{ licence }}">{% endif %}
+    {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+    <button type="submit" class="button pager-back" name="cursor" value="{{ previous or '' }}"
+            data-previous {% if not previous %}disabled{% endif %}>{{ icon('chevron') }}Previous</button>
+    <span class="pager-line" data-showing>Showing <span class="figure">{{ first }}</span> to <span class="figure">{{ last }}</span> of <span class="figure">{{ found.total }}</span></span>
+    <button type="submit" class="button" name="cursor" value="{{ found.nextCursor }}"
+            data-next-page {% if found.wrap %}data-wrapped="1" disabled{% endif %}
+      >{{ 'End of catalogue' if found.wrap else 'Next' }}</button>
+  </form>
+</section>
+{% endblock %}

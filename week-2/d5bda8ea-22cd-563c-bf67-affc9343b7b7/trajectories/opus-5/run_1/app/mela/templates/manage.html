@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Manage {{ event.name }} — Mela{% endblock %}
+
+{% block main %}
+<div class="page-head">
+  <h1><a class="text-link" href="/{{ event.slug }}">{{ event.name }}</a></h1>
+  <p class="meta summary-counts">
+    <span>Going <b data-count="approved">{{ counts.approved }}</b></span>
+    <span>Pending <b data-count="pending">{{ counts.pending }}</b></span>
+    <span>Waitlist <b data-count="waitlisted">{{ counts.waitlisted }}</b></span>
+    <span>Declined <b data-count="declined">{{ counts.declined }}</b></span>
+    <span>{{ 'Unlimited' if event.capacity is none else 'Capacity '
+      ~ event.capacity }}</span>
+  </p>
+</div>
+
+<div class="manage-grid">
+  <section class="band guest-panel" x-data="guestTable" data-slug="{{ event.slug }}"
+           @click="onClick($event)">
+    <h2 class="band-title">Guest List</h2>
+    <label class="field">
+      <span class="field-label">Status</span>
+      <select x-model="filter" @change="apply()">
+        <option value="" {% if not status %}selected{% endif %}>All</option>
+        <option value="pending" {% if status == 'pending' %}selected{% endif
+          %}>Pending</option>
+        <option value="approved" {% if status == 'approved' %}selected{% endif
+          %}>Going</option>
+        <option value="waitlisted" {% if status == 'waitlisted' %}selected{% endif
+          %}>Waitlist</option>
+        <option value="declined" {% if status == 'declined' %}selected{% endif
+          %}>Declined</option>
+      </select>
+    </label>
+
+    <table class="guest-table">
+      <caption class="sr-only">Guests of {{ event.name }}</caption>
+      <thead>
+        <tr><th scope="col">Name</th><th scope="col">Email</th>
+          <th scope="col">Requested</th><th scope="col">Status</th>
+          <th scope="col">Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for guest in guests %}
+        <tr data-guest-id="{{ guest.id }}" data-status="{{ guest.status }}"
+            data-guest-name="{{ guest.name }}">
+          <td data-label="Name">{{ guest.name }}</td>
+          <td data-label="Email">{{ guest.email }}</td>
+          <td data-label="Requested">{{ guest.requested }}</td>
+          <td data-label="Status">
+            <span class="pill-status">{{ guest.status | status_word }}</span>
+            <span class="meta" data-mela-queue-place
+                  {% if not guest.ordinal %}hidden{% endif %}>{{ guest.ordinal
+                  or '' }} in line</span>
+          </td>
+          <td data-label="Actions" class="row-actions">
+            {% for action, label in [('approve', 'Approve'), ('decline', 'Decline'),
+                                     ('remove', 'Remove')] %}
+            {% if (action != 'remove' and guest.status in ('pending', 'waitlisted'))
+                  or (action == 'remove' and guest.status == 'approved') %}
+            <button type="button" class="quiet-button"
+                    aria-label="{{ label }} {{ guest.name }}"
+                    data-guest-name="{{ guest.name }}" data-mela-action="{{ action }}"
+                    data-mela-guest="{{ guest.id }}">{{ label }}</button>
+            {% endif %}
+            {% endfor %}
+            <span class="field-error" role="alert" x-text="rowError[{{ guest.id }}]"
+                  :hidden="!rowError[{{ guest.id }}]" hidden></span>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="empty">No guests with this status</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="band edit-panel">
+    <h2 class="band-title">Edit Event</h2>
+    {% with mode = 'edit' %}{% include "_event_form.html" %}{% endwith %}
+  </section>
+</div>
+{% endblock %}

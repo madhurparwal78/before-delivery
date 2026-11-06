@@ -1,0 +1,61 @@
+{# The one Registration card: every state, chosen on the server by pages.card_state. #}
+{% from "_icons.html" import icon %}
+{% if state == "past" %}{% set heading, lines = "Past Event", [fmt.ended_line(event.end_at)] %}
+{% elif state == "pending" %}{% set heading, lines = "Pending Approval", ["We will let you know when the host approves your registration."] %}
+{% elif state == "approved" %}{% set heading, lines = "You're In", ["A place opened up, so you moved up from the waitlist."] if event.registration.moved_up else [] %}
+{% elif state == "declined" %}{% set heading, lines = "Registration Declined", ["The host was not able to approve your registration."] %}
+{% elif state == "waitlisted" %}{% set heading, lines = "On the Waitlist", ["You will move up if a place opens.", "You are " ~ fmt.ordinal(event.queue_position) ~ " in line."] %}
+{% elif state == "closed" %}{% set heading, lines = "Registration Closed", ["The host has stopped taking registrations for this event. You can still contact the host."] %}
+{% elif state == "code" %}{% set heading, lines = "Access Code Needed", ["This event is open only to guests with an access code. Enter yours below to register."] %}
+{% elif state == "full" %}{% set heading, lines = "Event Full", ["This event is at capacity. You can join the waitlist." if event.waitlist else "This event is at capacity."] %}
+{% elif state == "open" and event.require_approval %}{% set heading, lines = "Approval Required", ["The host reviews every request before confirming a place.", "Save your place below."] %}
+{% elif state == "open" %}{% set heading, lines = None, ["Save your place below."] %}
+{% else %}{% set heading, lines = None, [] %}
+{% endif %}
+{% set actions = {
+  "pending": ("cancel", "Cancel Request"), "approved": ("cancel", "Cancel Registration"), "waitlisted": ("cancel", "Leave Waitlist"),
+  "full": ("register", "Join Waitlist") if event.waitlist else None,
+  "open": ("register", "Request to Join" if event.require_approval else "Register"),
+  "code": ("reveal", "I have an access code"),
+} %}
+{% set action = actions.get(state) %}
+<div class="card-body" data-live="card" data-state="{{ state }}" data-announce="{{ heading or lines[0] }}"
+     {%- if celebrate %} data-celebrate{% endif %}>
+  {% if state == "host" %}
+  <p class="card-line">You are hosting this event.</p>
+  <a class="pill-link strong wide" href="/manage/{{ event.slug }}">Manage Event</a>
+  {% else %}
+  {% if heading %}<h3 class="card-heading card-{{ state }}">{% if state == "approved" %}{{ icon("check", 20) }}{% endif %}{{ heading }}</h3>{% endif %}
+  {% for line in lines %}<p class="card-line">{{ line }}</p>{% endfor %}
+  {% if state == "approved" and event.sees_address and event.location_type == "offline" %}
+  <p class="card-address">{{ icon("pin", 16) }}<span>{{ event.venue_name }}{% if event.venue_name %}, {% endif %}{{ event.street_address }}, {{ event.city }}</span></p>
+  {% endif %}
+  {% if action %}
+  <button type="button" class="pill-button {{ 'quiet' if action[0] == 'cancel' else 'strong' }} wide" data-action="{{ action[0] }}">{{ action[1] }}</button>
+  {% endif %}
+  {% if state == "code" %}
+  <form class="code-form" data-code-form hidden novalidate>
+    <label for="access-code">Access code</label>
+    <div class="code-row">
+      <input id="access-code" name="access_code" type="text" autocomplete="off" spellcheck="false" aria-describedby="access-code-error">
+      <button type="submit" class="pill-button strong">Submit Code</button>
+    </div>
+    <p class="field-error" id="access-code-error" hidden></p>
+  </form>
+  {% endif %}
+  <p class="field-error" data-card-error hidden></p>
+  {% endif %}
+  {% if event.capacity is not none and state not in ("declined", "closed", "code", "past") %}
+  {% set left = event.places_left %}
+  <div class="meter-block">
+    <p class="meter-line">
+      <span>{{ event.going_count }} of {{ event.capacity }} places taken</span>
+      <span class="meter-left">{% if left > 0 %}{{ fmt.plural(left, "place") }} left{% elif event.waitlist_count %}Full · {{ event.waitlist_count }} waiting{% elif event.waitlist %}Full · waitlist open{% else %}Full{% endif %}</span>
+    </p>
+    <div class="meter" role="meter" aria-label="{{ event.going_count }} of {{ event.capacity }} places taken" aria-valuemin="0"
+         aria-valuemax="{{ event.capacity }}" aria-valuenow="{{ event.going_count }}">
+      <span class="meter-fill" data-share="{{ event.going_count / event.capacity }}" style="--share: {{ event.going_count / event.capacity }}"></span>
+    </div>
+  </div>
+  {% endif %}
+</div>

@@ -1,0 +1,1190 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 58
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "triage-intake",
+    "notes-session",
+    "cue-line-cascade",
+    "bulk-undo",
+    "concurrent-edits",
+    "subtask-rollup",
+    "attachments",
+    "shared-views",
+    "director-requests",
+    "cycles",
+    "phone-tech-table",
+    "dependencies",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 79
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "pocketbase", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 1
+S1 = 5
+S2 = 3
+S3 = 5
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "pocketbase-down"
+port = 4175
+url_env = "APP_POCKETBASE_DOWN_URL"
+
+[outages.env]
+POCKETBASE_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-cycles"
+port = 4176
+url_env = "APP_SHORT_CYCLES_URL"
+
+[outages.env]
+PROMPTSIDE_CYCLE_SECONDS = "240"
+POCKETBASE_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Request intake pull."
+text = "Every pending request in the company request intake appears in triage as exactly one Triage task within 5 seconds, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "triage-intake"
+tests = [
+    "test_app.py::test_intake_pull_creates_exactly_one_triage_task",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Decisions written back to the intake."
+text = "Accepting, declining or merging a triage task becomes final only after the intake records the outcome, and if the intake refuses or cannot be reached the task stays in triage unchanged, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "triage-intake"
+tests = [
+    "test_app.py::test_decision_written_back_before_it_is_final",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "One-snapshot counters."
+text = "Every change returns and broadcasts one snapshot in which the triage count, board column counts, blocked count and cycle totals come from the same committed state, and the screen applies them together."
+kind = "behavior"
+primary = "pytest"
+workflow = "triage-intake"
+tests = [
+    "test_app.py::test_decision_snapshot_is_one_committed_state",
+]
+criteria = []
+parameter_cases = [
+    "accept",
+    "decline",
+    "merge",
+]
+
+[[requirements]]
+id = "DP-04"
+title = "Triage to a clear inbox."
+text = "The stage manager works the triage screen by keyboard, accepting, declining and merging each request until the clear-inbox empty state shows. Each decision dialog keeps Tab inside it while open, focus never lands on the page body, and after every decision exactly one triage row is current. Afterwards a carpentry task is set to block the accepted request from its details with Add blocked task. The stage manager first chooses who they are working as from the rail, and the cleared triage screen on a 375-pixel phone keeps the rail as an off-screen drawer with every tap target at least 44 pixels. Last, the stage manager adds three new sound notes with no owner, selects them with x and Shift, presses a and finishes the palette's Assign to command for Kofi Mensah, and Undo then gives all three their earlier owner back with the exact Undo notice."
+kind = "behavior"
+primary = "workflow"
+workflow = "triage-intake"
+tests = [
+    "test_app.py::test_wf_triage_intake_clear_inbox",
+    "test_app.py::test_wf_triage_intake_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Keyboard grid."
+text = "In the task grid, j, k and the arrow keys move one current row, x and Shift with an arrow key build a selection, and the number keys 0 to 4 set priority, whichever control in the grid has focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "notes-session"
+tests = [
+    "test_app.py::test_keyboard_grid_moves_selects_and_sets_priority",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Command palette."
+text = "Ctrl+K or Cmd+K opens the command palette from anywhere, typing filters the commands, Enter runs the active one on the selection or the current row, and Escape closes it."
+kind = "behavior"
+primary = "pytest"
+workflow = "notes-session"
+tests = [
+    "test_app.py::test_command_palette_filters_runs_and_closes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Focus is never lost."
+text = "Dialogs, the phone sheet and the palette keep Tab and Shift+Tab inside them and return focus to their opener, and focus never lands on the page body after any action."
+kind = "behavior"
+primary = "pytest"
+workflow = "notes-session"
+tests = [
+    "test_app.py::test_focus_trapped_in_dialogs_and_returned",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "All-or-nothing bulk changes."
+text = "A bulk change of status, priority or owner applies to every listed task in one transaction or to none of them."
+kind = "behavior"
+primary = "pytest"
+workflow = "notes-session"
+tests = [
+    "test_app.py::test_bulk_change_is_all_or_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Post-rehearsal notes session."
+text = "The stage manager selects twenty notes and reassigns them through the palette using only the keyboard, and every row then shows the new owner. None of the twenty notes is already Oren Vale's. Undo then gives every note its earlier owner back with one notice saying how many tasks it restored."
+kind = "behavior"
+primary = "workflow"
+workflow = "notes-session"
+tests = [
+    "test_app.py::test_wf_notes_session_reassign_twenty",
+    "test_app.py::test_wf_notes_session_bulk_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Derived blocked state."
+text = "A task is blocked exactly while at least one of its blockers is open, and a blocked task cannot be moved to Done."
+kind = "behavior"
+primary = "pytest"
+workflow = "cue-line-cascade"
+tests = [
+    "test_app.py::test_blocked_is_derived_from_open_blockers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Cascade order."
+text = "A change that closes blockers reports each task it freed once, with the depth, order and freeing task defined in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "cue-line-cascade"
+tests = [
+    "test_app.py::test_cascade_reports_depth_order_and_freeing_task",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Cue-line cascade."
+text = "When a change frees tasks, the screen plays the cue-line cascade described in Motion and effects and finishes within 600 milliseconds of the server's reply."
+kind = "visual"
+primary = "pytest"
+workflow = "cue-line-cascade"
+tests = [
+    "test_app.py::test_cue_line_cascade_finishes_in_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Cascade under reduced motion."
+text = "With reduced motion requested, freed rows swap to their new state in a single frame with the same badges and order markers and no line."
+kind = "visual"
+primary = "pytest"
+workflow = "cue-line-cascade"
+tests = [
+    "test_app.py::test_cascade_under_reduced_motion_swaps_in_one_frame",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Clearing the build queue."
+text = "The production carpenter opens a blocker's details from its row, marks it Done and sees which paint tasks it freed and in what order, with the blocked count and cycle progress updated; Escape then closes the details and returns focus to that row. This works the same while request intake is down, with its banner showing, and on a 375-pixel phone, where the freed rows stay reachable with nothing scrolling sideways and every tap target on the screen and in the Departments drawer is at least 44 pixels. Undo then reopens the blocker and its parent and blocks the freed tasks again, with one notice giving both counts. Two carpentry blockers without sub-tasks, each blocking one paint task, closed together with s and the palette's Move to Done free both paint tasks, and Undo re-blocks both, listing them in the undone cascade's reverse order, with the exact Undo notice."
+kind = "behavior"
+primary = "workflow"
+workflow = "cue-line-cascade"
+tests = [
+    "test_app.py::test_wf_cue_line_cascade_build_queue",
+    "test_app.py::test_wf_cue_line_cascade_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Exact undo."
+text = "Undo restores every task touched by the crew member's last undoable change to its exact earlier status, priority, owner, title, details, label and cycle, re-blocks what that change freed, and records an activity entry, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "bulk-undo"
+tests = [
+    "test_app.py::test_exact_undo_restores_and_reblocks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Reverse cascade on undo."
+text = "Undoing a change that freed tasks plays the cascade backwards on screen, removing badges and restoring Blocked chips in reverse order."
+kind = "visual"
+primary = "pytest"
+workflow = "bulk-undo"
+tests = [
+    "test_app.py::test_reverse_cascade_on_undo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "One confirmed announcement."
+text = "A single or bulk change produces exactly one polite announcement in the Notices region, made only after the server confirms it."
+kind = "behavior"
+primary = "pytest"
+workflow = "bulk-undo"
+tests = [
+    "test_app.py::test_bulk_priority_announced_once_after_confirmation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Recovering a mistaken bulk move."
+text = "The stage manager selects fifteen carpentry notes, which all show as selected with the last one reached as the one current row, and moves them to Done from the command palette, which keeps Tab inside it while open and returns focus to the control that opened it when it closes. Undo then puts every note and freed task back as it was. If a note changed after that move, undo is refused, every row on screen keeps its saved values, and exactly one notice gives the reason, on a 375-pixel phone as on a laptop, where every tap target on the screen and in the Departments drawer is at least 44 pixels."
+kind = "behavior"
+primary = "workflow"
+workflow = "bulk-undo"
+tests = [
+    "test_app.py::test_wf_bulk_undo_recover_mistake",
+    "test_app.py::test_wf_bulk_undo_stale",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Versioned edits."
+text = "Every task edit names the version it was based on, and of several simultaneous edits to one task exactly one succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-edits"
+tests = [
+    "test_app.py::test_simultaneous_edits_exactly_one_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Honest rollback."
+text = "When the server rejects an edit, the tab that made it puts the saved value back, shows it, and announces one notice."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-edits"
+tests = [
+    "test_app.py::test_rejected_edit_rolls_back_on_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Live updates in every open tab."
+text = "Each committed change reaches every open tab within 2 seconds and updates rows, chips and counts in place without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-edits"
+tests = [
+    "test_app.py::test_live_updates_reach_every_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Two leads on one task."
+text = "When the sound lead and the stage manager change one task's owner at the same moment, both tabs end showing the winning value and the losing tab shows one notice. The laptop then makes the task block another sound task with Add blocked task, and the phone shows that task Blocked with no reload. The sound lead's phone keeps the rail as an off-screen drawer with nothing scrolling sideways, and the laptop first chooses who it is working as from the rail. A bulk assignment of three sound notes on the laptop, and its Undo, each reach the phone's open task sheet with no reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "concurrent-edits"
+tests = [
+    "test_app.py::test_wf_concurrent_edits_two_leads",
+    "test_app.py::test_wf_concurrent_edits_live_status",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Sub-task roll-up."
+text = "A parent task closes in the same transaction as its last open sub-task, and reopening any sub-task reopens the parent, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "subtask-rollup"
+tests = [
+    "test_app.py::test_subtask_rollup_closes_and_reopens_parent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Parent guards."
+text = "A parent with open sub-tasks cannot be marked Done by hand, and a parent cannot take blockers directly."
+kind = "behavior"
+primary = "pytest"
+workflow = "subtask-rollup"
+tests = [
+    "test_app.py::test_parent_guards",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Closing the last fitting."
+text = "The costume lead opens the last open sub-task of a costume from its row, closes it, and both their tab and the stage manager's tab show the parent Done, the freed task and the new counts with no reload; Escape then closes the details and returns focus to that row. The view's department, grouping and highlighted row stay in the address, so a reload, or a second tab opened from it on a 375-pixel phone with every tap target on the screen and in the Departments drawer at least 44 pixels, shows the same view. If the server refuses a sub-task change because the task changed meanwhile, the costume lead's screen puts back the saved sub-task, parent, freed-task states and counts with one notice. The stage manager then makes the closed parent block a new sound task with Add blocked task, and that task does not show Blocked, because its only blocker is done. The costume's details, open in the stage manager's tab, change their roll-up line from 2 of 3 to 3 of 3 sub-tasks done with no reload. Closing a costume's last two open fittings together with s and the palette's Move to Done closes the costume, and Undo reopens all three with the exact Undo notice."
+kind = "behavior"
+primary = "workflow"
+workflow = "subtask-rollup"
+tests = [
+    "test_app.py::test_wf_subtask_rollup_last_fitting",
+    "test_app.py::test_wf_subtask_rollup_undo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Confirmed attachments only."
+text = "An attachment exists in Promptside only after object storage has confirmed the stored file, and a failed or interrupted upload leaves no attachment."
+kind = "behavior"
+primary = "pytest"
+workflow = "attachments"
+tests = [
+    "test_app.py::test_attachment_exists_only_after_storage_confirms",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Upload limits."
+text = "Uploads accept PDF, PNG and JPEG files of up to 10,000,000 bytes and refuse others with the statuses in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "attachments"
+tests = [
+    "test_app.py::test_upload_types_and_size_limit",
+]
+criteria = []
+parameter_cases = [
+    "pdf-plot",
+    "png-sketch",
+    "jpeg-rendering",
+    "gif-refused",
+    "png-type-wrong-bytes",
+    "unknown-kind",
+    "at-limit",
+    "over-limit",
+]
+
+[[requirements]]
+id = "DP-28"
+title = "Signed downloads."
+text = "Opening an attachment redirects to a signed storage link that expires 60 seconds after it is issued."
+kind = "behavior"
+primary = "pytest"
+workflow = "attachments"
+tests = [
+    "test_app.py::test_download_redirects_to_expiring_signed_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Upload feedback."
+text = "While a file uploads it shows as uploading and never as attached, and the result is announced with the exact copy from Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "attachments"
+tests = [
+    "test_app.py::test_upload_shows_uploading_then_announces",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Keeping the plot current."
+text = "The lighting lead attaches a revised lighting plot to a focus task and sees it marked as the current plot only after the upload is confirmed. This works the same on a 375-pixel phone in the task sheet, with nothing scrolling sideways and every tap target on the screen, in the Departments drawer and in the sheet at least 44 pixels, and while request intake is down. When plot storage is down the upload is refused, focus stays in the details, and Escape returns focus to the task's row. During the storage outage the lighting lead can still make the task block a programming note with Add blocked task. Two focus notes set to Urgent together with the 1 key cannot be undone after a teammate edits one of them: Undo is refused with its notice and nothing changes."
+kind = "behavior"
+primary = "workflow"
+workflow = "attachments"
+tests = [
+    "test_app.py::test_wf_attachments_current_plot",
+    "test_app.py::test_wf_attachments_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Views live in the address."
+text = "Department, blocked filter, grouping, view, cycle, highlighted row and open task all come from the address, survive Back, Forward and reload, and open the same in a second tab."
+kind = "behavior"
+primary = "pytest"
+workflow = "shared-views"
+tests = [
+    "test_app.py::test_view_state_lives_in_the_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Sharing a carpentry view."
+text = "The stage manager shares the address of Carpentry, blocked only, grouped by cycle with STG-41 highlighted, and the carpenter's tab opens that exact view. In that view the carpenter opens the highlighted task's details and makes it block a paint task with Add blocked task. Back in Carpentry with every task shown, Group by Cycle chosen from the palette stays in the address across a reload, and a bulk assignment of two unblocked carpentry tasks made there is undone exactly with the exact Undo notice."
+kind = "behavior"
+primary = "workflow"
+workflow = "shared-views"
+tests = [
+    "test_app.py::test_wf_shared_views_carpentry_link",
+    "test_app.py::test_wf_shared_views_tablet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Filing a request."
+text = "Anyone in the rehearsal room can file a request, and it is shown as filed only after the intake has stored it."
+kind = "behavior"
+primary = "pytest"
+workflow = "director-requests"
+tests = [
+    "test_app.py::test_filing_a_request_waits_for_the_intake",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Request outcomes."
+text = "The Requests screen lists each request with the outcome the intake holds, pending, accepted, declined or merged, and the task the intake records for it, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "director-requests"
+tests = [
+    "test_app.py::test_request_outcomes_follow_the_intake",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Director checks outcomes."
+text = "The director files a request and, after the stage manager decides it, sees its outcome and task on the Requests screen. This works by keyboard on a 375-pixel phone with nothing scrolling sideways and every tap target at least 44 pixels, and the File a request dialog keeps Tab inside it and returns focus to its button when it closes. On the phone the rail stays an off-screen drawer, and while request intake is down the director can still choose who they are working as from the rail."
+kind = "behavior"
+primary = "workflow"
+workflow = "director-requests"
+tests = [
+    "test_app.py::test_wf_director_requests_file_and_check",
+    "test_app.py::test_wf_director_requests_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Rehearsal-week cycles."
+text = "The server places tasks in rehearsal-week cycles that begin at midnight on Monday in the theatre's time zone, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "cycles"
+tests = [
+    "test_app.py::test_rehearsal_week_cycles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Cycle rollover."
+text = "When a cycle ends, its open tasks move to the next cycle within 5 seconds, each with one activity entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "cycles"
+tests = [
+    "test_app.py::test_cycle_rollover_moves_open_tasks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Opening-night countdown."
+text = "The header counts the days to opening night from the server's date in the theatre's time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "cycles"
+tests = [
+    "test_app.py::test_opening_night_countdown",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Watching a cycle roll."
+text = "The stage manager watches the current cycle end and sees open tasks move to the next cycle and the cycle progress change in place, on a 375-pixel phone with nothing scrolling sideways, every tap target on the screen and in the Departments drawer at least 44 pixels, and request intake down. The cycle filter, grouping and highlighted row live in the address and survive Back, reload and a second tab, where opening a task's details from its row and closing them with Escape returns focus to the row and drops the task from the address. In the second tab the stage manager makes the highlighted task block another with Add blocked task. On the phone the rail stays an off-screen drawer while the cycle rolls, and before the address check the stage manager chooses who they are working as from the rail. Three of the cycle's tasks set to High together with the 2 key are put back by Undo with the exact Undo notice."
+kind = "behavior"
+primary = "workflow"
+workflow = "cycles"
+tests = [
+    "test_app.py::test_wf_cycles_watch_rollover",
+    "test_app.py::test_wf_cycles_filter_in_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Phone layout."
+text = "At 375 pixels wide the rail becomes a drawer, task details open as a full-screen sheet, nothing scrolls sideways, and every tap target is at least 44 pixels tall and wide."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-tech-table"
+tests = [
+    "test_app.py::test_phone_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Published breakpoints."
+text = "Widths of 1200 pixels and above show board columns with a docked detail pane, widths from 768 to 1199 pixels show a grouped list with an overlay pane, and narrower widths use the phone layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-tech-table"
+tests = [
+    "test_app.py::test_published_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "1280x800",
+    "768x1024",
+    "375x812",
+]
+
+[[requirements]]
+id = "DP-42"
+title = "Sound notes at the tech table."
+text = "The sound lead on a phone opens the Sound department, changes a cue note in the sheet and returns to the list without losing their place. Undo then restores the note with one notice. When the sound lead's newest note is followed by a teammate's edit to the same task, Undo on the phone is refused with its notice and the note stays as saved."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone-tech-table"
+tests = [
+    "test_app.py::test_wf_phone_tech_table_sound_note",
+    "test_app.py::test_wf_phone_tech_table_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Blocking links."
+text = "Crew can record that one task blocks another, and a link that would form a loop is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "dependencies"
+tests = [
+    "test_app.py::test_blocking_links_and_loops",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Task state machine."
+text = "Task status moves only along the legal edges in Business rules, and every illegal move is refused with its stated status."
+kind = "behavior"
+primary = "pytest"
+workflow = "dependencies"
+tests = [
+    "test_app.py::test_task_state_machine",
+]
+criteria = []
+parameter_cases = [
+    "backlog-to-todo",
+    "todo-to-in_progress",
+    "in_progress-to-backlog",
+    "backlog-to-done",
+    "todo-to-cancelled",
+    "done-to-todo",
+    "done-to-in_progress",
+    "cancelled-to-backlog",
+    "done-to-backlog",
+    "done-to-cancelled",
+    "cancelled-to-todo",
+    "cancelled-to-done",
+    "backlog-to-triage",
+    "todo-to-duplicate",
+    "triage-edit",
+    "duplicate-edit",
+]
+
+[[requirements]]
+id = "DP-45"
+title = "Creating tasks."
+text = "A new task gets the next STG number, joins the current cycle unless a later one is chosen, and is validated with field errors."
+kind = "behavior"
+primary = "pytest"
+workflow = "dependencies"
+tests = [
+    "test_app.py::test_create_task_numbering_cycle_and_field_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Linking paint to carpentry."
+text = "The stage manager creates a paint task, links the carpentry task that must finish first, and sees the paint task show Blocked and the blocked count rise. The carpentry task and a second carpentry blocker closed together with s and the palette's Move to Done free both paint tasks, and Undo re-blocks both with the exact Undo notice."
+kind = "behavior"
+primary = "workflow"
+workflow = "dependencies"
+tests = [
+    "test_app.py::test_wf_dependencies_link_paint_to_carpentry",
+    "test_app.py::test_wf_dependencies_loop_refused",
+    "test_app.py::test_wf_dependencies_new_task_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Idempotent retries."
+text = "A retried task creation, bulk change, triage decision, undo or request filing with the same key returns the original result and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_idempotent_retries",
+]
+criteria = []
+parameter_cases = [
+    "create",
+    "bulk",
+    "undo",
+    "decision",
+    "request",
+]
+
+[[requirements]]
+id = "DP-48"
+title = "One error shape."
+text = "Every API error uses one JSON shape and follows the single precedence order in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_precedence",
+]
+criteria = []
+parameter_cases = [
+    "cross-origin-over-size",
+    "size-over-media-type",
+    "media-type-over-json",
+    "json-over-not-found",
+    "not-found-over-precondition",
+    "precondition-over-version",
+    "version-over-state",
+    "state-over-validation",
+    "unknown-api-path",
+    "unknown-filter",
+]
+
+[[requirements]]
+id = "DP-49"
+title = "Service outages."
+text = "If request intake or plot storage is down, at boot or later, the tracker keeps working, shows the matching banner, and recovers without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_service_outage_keeps_tracker_working",
+]
+criteria = []
+parameter_cases = [
+    "minio-down",
+    "pocketbase-down",
+]
+
+[[requirements]]
+id = "DP-50"
+title = "Published copy verbatim."
+text = "Every string this brief gives in backticks as visible or announced copy renders and is announced character for character."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_published_copy_verbatim",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Server boundary."
+text = "The server serves only its own origin and assets, enforces body limits, and never serves source or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Health and start-up."
+text = "The server starts from the run manifest on the published port and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_start",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Credentials from the environment."
+text = "Every service address and credential is read from the environment at start and never reaches the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Prompt-book look."
+text = "The page reads as a prompt book: a warm off-white page, dark ink, a thin margin rule on every list, a serif display face for headings, and tabular mono numerals for every count and task id."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B8",
+    "B9",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Spike-tape departments."
+text = "Each department label appears as a strip of that department's coloured spike tape with the department name written on it."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B6",
+    "B7",
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Motion vocabulary."
+text = "Panels, dialogs and state changes move with the short timings in Motion and effects, nothing loops for decoration, and reduced motion removes every movement."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_timings_and_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Accessible names and contrast."
+text = "Every public control has the role and name given in the controls table, and text and controls meet WCAG 2.2 AA contrast."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_public_roles_and_contrast",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Real system of record."
+text = "Tasks, links, cycles, activity and the undo journal live in Postgres, and no endpoint fakes provider state."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with \"_schema\":\"run-manifest-v1\" and string install, build and serve commands, and the app is started only through it."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists the name, version and licence of every shipped package and every bundled font. \"Shipped packages\" means the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font is licensed under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or SIL OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The only datastores are the provided Postgres, MinIO and PocketBase. There is no SQLite, Redis, file-based store or in-memory store of record."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration for Postgres, MinIO and PocketBase is left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Application source, both server and browser, is written in TypeScript."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The running app makes no requests to third-party origins. Fonts, scripts and styles are served by the app itself."
+tests = [
+    "test_app.py::test_if_no_third_party_requests",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "triage-intake"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_triage_intake_clear_inbox",
+    "test_app.py::test_wf_triage_intake_outage",
+]
+
+[[workflows]]
+id = "notes-session"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+]
+critical = [
+    "test_app.py::test_wf_notes_session_reassign_twenty",
+    "test_app.py::test_wf_notes_session_bulk_conflict",
+]
+
+[[workflows]]
+id = "cue-line-cascade"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_cue_line_cascade_build_queue",
+    "test_app.py::test_wf_cue_line_cascade_reduced_motion",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "bulk-undo"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_bulk_undo_recover_mistake",
+    "test_app.py::test_wf_bulk_undo_stale",
+]
+
+[[workflows]]
+id = "concurrent-edits"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_concurrent_edits_two_leads",
+    "test_app.py::test_wf_concurrent_edits_live_status",
+]
+
+[[workflows]]
+id = "subtask-rollup"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_subtask_rollup_last_fitting",
+    "test_app.py::test_wf_subtask_rollup_undo",
+]
+
+[[workflows]]
+id = "attachments"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_attachments_current_plot",
+    "test_app.py::test_wf_attachments_storage_outage",
+]
+
+[[workflows]]
+id = "shared-views"
+requirements = [
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_shared_views_carpentry_link",
+    "test_app.py::test_wf_shared_views_tablet",
+]
+
+[[workflows]]
+id = "director-requests"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_director_requests_file_and_check",
+    "test_app.py::test_wf_director_requests_outage",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "cycles"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_cycles_watch_rollover",
+    "test_app.py::test_wf_cycles_filter_in_address",
+]
+
+[[workflows]]
+id = "phone-tech-table"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_phone_tech_table_sound_note",
+    "test_app.py::test_wf_phone_tech_table_reduced_motion",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "dependencies"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_dependencies_link_paint_to_carpentry",
+    "test_app.py::test_wf_dependencies_loop_refused",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_health_and_start",
+    "test_app.py::test_error_shape_and_precedence",
+    "test_app.py::test_service_outage_keeps_tracker_working",
+]

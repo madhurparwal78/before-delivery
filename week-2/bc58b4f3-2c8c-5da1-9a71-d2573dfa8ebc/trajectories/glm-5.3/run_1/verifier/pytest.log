@@ -1,0 +1,1829 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.15, pytest-8.4.1, pluggy-1.7.0
+rootdir: /tests/grader
+configfile: ../../dev/null
+collected 100 items
+
+test_app.py ........F.............FFF.F.FFFFFFFFF...FFF.F.F.F.F.FF..F.F. [ 60%]
+.F....FF..FFF.FFFFFFF.FFFFFFFF.F........                                 [100%]
+
+=================================== FAILURES ===================================
+_____________________ test_create_validation[end-after-22] _____________________
+
+app_url = 'http://127.0.0.1:4173', case = 'end-after-22'
+
+    @pytest.mark.parametrize("case", CREATE_IDS, ids=CREATE_IDS)
+    def test_create_validation(app_url, case):
+        sched = Api(app_url, RVH_SCHED)
+        start = far_slot(90)
+        body = body_for(start)
+        mutate, field = CREATE_CASES[case]
+        mutate(body, start)
+        city = body["city"] or tag("city")
+        r = sched.post("/api/assignments", body, headers={"Idempotency-Key": idempotency_key()})
+        if field is None:
+            assert r.status_code == 201, r.text
+            first = r.json()
+            assert set(first) == ORG_KEYS
+            assert first["status"] == "draft"
+            assert re.fullmatch(r"A-\d+", first["number"]) and int(first["number"][2:]) >= 1001
+            assert all(s["status"] == "open" for s in first["seats"])
+            second, _ = create(sched, far_slot(90))
+            assert int(second["number"][2:]) == int(first["number"][2:]) + 1
+            assert [a["number"] for a in search(sched, body["city"])] == [first["number"]]
+        else:
+>           assert_error(r, 422, "validation", field)
+
+test_app.py:829: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+r = <Response [201 Created]>, status = 422, code = 'validation'
+field = 'start_at'
+
+    def assert_error(r: httpx.Response, status: int, code: str, field: str | None = None) -> dict:
+>       assert r.status_code == status, f"{r.request.method} {r.request.url}: {r.status_code} {r.text}"
+E       AssertionError: POST http://127.0.0.1:4173/api/assignments: 201 {"number":"A-1003","status":"draft","language":"asl","setting":"hospital","city":"Brookhollow Ada 8b3f154b59","start_at":"2027-07-01T21:00:00-05:00","end_at":"2027-07-01T22:30:00-05:00","duration_minutes":90,"street_address":"417 Quillfeather Lane Ada 8b3f154b59","patient_initials":"QXZ","medical_notes":"Oncology follow-up Ada 8b3f154b59","scheduler":{"name":"Tomas Herrera","phone":"312-555-0141"},"seats":[{"seat":1,"status":"open","interpreter_initials":null},{"seat":2,"status":"open","interpreter_initials":null}],"cancellation":null,"billing":{"status":"none","invoice_id":null,"total_cents":null}}
+E       assert 201 == 422
+E        +  where 201 = <Response [201 Created]>.status_code
+
+test_app.py:260: AssertionError
+_______________________ test_seat_count[patch-90-to-60] ________________________
+
+app_url = 'http://127.0.0.1:4173', case = 'patch-90-to-60'
+
+    @pytest.mark.parametrize("case", SEAT_IDS, ids=SEAT_IDS)
+    def test_seat_count(app_url, case):
+        language, minutes, patched, seats = SEAT_CASES[case]
+        sched = Api(app_url, RVH_SCHED)
+        created, _ = create(sched, far_slot(max(minutes, patched or 0)), language=language, minutes=minutes)
+        if patched is None:
+            assert sorted(s["seat"] for s in created["seats"]) == list(range(1, seats + 1))
+        else:
+            assert len(created["seats"]) == (2 if minutes > 60 else 1)
+            r = sched.patch(f"/api/assignments/{created['number']}", {"duration_minutes": patched})
+            assert r.status_code == 200, r.text
+>           assert sorted(s["seat"] for s in r.json()["seats"]) == list(range(1, seats + 1))
+E           assert [1, 2] == [1]
+E             
+E             Left contains one more item: 2
+E             Use -v to get more diff
+
+test_app.py:857: AssertionError
+_______________________ test_seat_count[patch-60-to-90] ________________________
+
+app_url = 'http://127.0.0.1:4173', case = 'patch-60-to-90'
+
+    @pytest.mark.parametrize("case", SEAT_IDS, ids=SEAT_IDS)
+    def test_seat_count(app_url, case):
+        language, minutes, patched, seats = SEAT_CASES[case]
+        sched = Api(app_url, RVH_SCHED)
+        created, _ = create(sched, far_slot(max(minutes, patched or 0)), language=language, minutes=minutes)
+        if patched is None:
+            assert sorted(s["seat"] for s in created["seats"]) == list(range(1, seats + 1))
+        else:
+            assert len(created["seats"]) == (2 if minutes > 60 else 1)
+            r = sched.patch(f"/api/assignments/{created['number']}", {"duration_minutes": patched})
+            assert r.status_code == 200, r.text
+>           assert sorted(s["seat"] for s in r.json()["seats"]) == list(range(1, seats + 1))
+E           assert [1] == [1, 2]
+E             
+E             Right contains one more item: 2
+E             Use -v to get more diff
+
+test_app.py:857: AssertionError
+____________________________ test_idempotent_create ____________________________
+
+app_url = 'http://127.0.0.1:4173'
+
+    def test_idempotent_create(app_url):
+        sched = Api(app_url, RVH_SCHED)
+        other = Api(app_url, RVH_SCHED2)
+        body = body_for(far_slot(90))
+        key = idempotency_key()
+        first = sched.post("/api/assignments", body, headers={"Idempotency-Key": key})
+        assert first.status_code == 201, first.text
+        replay = sched.post("/api/assignments", body, headers={"Idempotency-Key": key})
+        assert replay.status_code == 201, replay.text
+        assert replay.headers.get("Idempotent-Replay") == "true"
+        assert replay.json() == first.json()
+        assert_error(sched.post("/api/assignments", dict(body, city=body["city"] + "x"), headers={"Idempotency-Key": key}),
+                     409, "idempotency_conflict")
+        assert search(sched, body["city"] + "x") == []
+    
+        crowd = body_for(far_slot(90))
+        crowd_key = idempotency_key()
+        clients = [Api(app_url, RVH_SCHED) for _ in range(6)]
+        results = together([lambda c=c: c.post("/api/assignments", crowd, headers={"Idempotency-Key": crowd_key}) for c in clients])
+>       assert all(r.status_code == 201 for r in results), [r.text for r in results]
+E       AssertionError: ['{"error":{"code":"internal","message":"duplicate key value violates unique constraint \\"idempotency_pkey\\""}}', '{...","interpreter_initials":null}],"cancellation":null,"billing":{"status":"none","invoice_id":null,"total_cents":null}}']
+E       assert False
+E        +  where False = all(<generator object test_idempotent_create.<locals>.<genexpr> at 0xffff9fb83920>)
+
+test_app.py:881: AssertionError
+_____________________________ test_view_projection _____________________________
+
+app_url = 'http://127.0.0.1:4173'
+
+    def test_view_projection(app_url):
+        s = scenario(app_url, free_for=(ROSA,), release=False)
+        jordan, rosa, abdi = Api(app_url, JORDAN), s.people[ROSA], Api(app_url, ABDI)
+        assert_error(view(jordan, s.number), 404, "not_found")
+        assert s.disp.post(f"/api/assignments/{s.number}/release").status_code == 200
+        offer = next(a for a in jordan.get("/api/offers").json()["offers"] if a["number"] == s.number)
+        assert set(offer) == OFFER_KEYS
+>       assert all(set(seat) == {"seat", "status"} for seat in offer["seats"])
+E       assert False
+E        +  where False = all(<generator object test_view_projection.<locals>.<genexpr> at 0xffff9fb0e400>)
+
+test_app.py:921: AssertionError
+______________________________ test_claim_guards _______________________________
+
+app_url = 'http://127.0.0.1:4173'
+
+    def test_claim_guards(app_url):
+        rosa, samuel, jordan, abdi = (Api(app_url, e) for e in (ROSA, SAMUEL, JORDAN, ABDI))
+        base = far_slot(150, [rosa])
+        a = scenario(app_url, start=base, minutes=90)
+        b = scenario(app_url, start=base + timedelta(minutes=30), minutes=60)
+        c = scenario(app_url, start=base + timedelta(minutes=90), minutes=60)
+        assert rosa.post(seat_path(a.number, 1, "claim")).status_code == 200
+        assert_error(samuel.post(seat_path(a.number, 1, "claim")), 409, "seat_taken")
+        assert_error(rosa.post(seat_path(a.number, 1, "claim")), 409, "seat_taken")
+        assert_error(rosa.post(seat_path(a.number, 2, "claim")), 409, "already_holding")
+        assert_error(rosa.post(seat_path(b.number, 1, "claim")), 409, "calendar_conflict")
+        assert seat_states(view(a.disp, b.number).json())[1] == ("open", None)
+        touching = rosa.post(seat_path(c.number, 1, "claim"))
+        assert touching.status_code == 200, touching.text
+        assert_error(rosa.post(seat_path(a.number, 3, "claim")), 404, "not_found")
+        assert_error(view(abdi, a.number), 404, "not_found")
+        assert_error(abdi.post(seat_path(a.number, 2, "claim")), 404, "not_found")
+        assert a.number not in [o["number"] for o in abdi.get("/api/offers").json()["offers"]]
+    
+        d_start = far_slot(90, [jordan])
+        d = scenario(app_url, start=d_start, minutes=90)
+        j1, j2 = Api(app_url, JORDAN), Api(app_url, JORDAN)
+        both = together([lambda: j1.post(seat_path(d.number, 1, "claim")), lambda: j2.post(seat_path(d.number, 2, "claim"))])
+        assert sorted(r.status_code for r in both) == [200, 409], [r.text for r in both]
+        assert_error(next(r for r in both if r.status_code == 409), 409, "already_holding")
+        held_seats = [n for n, (st, _) in seat_states(view(d.disp, d.number).json()).items() if st == "held"]
+        assert len(held_seats) == 1
+    
+        e_start = far_slot(90, [jordan], avoid=[(d_start, d_start + timedelta(minutes=90))])
+        e1 = scenario(app_url, start=e_start, minutes=60)
+        e2 = scenario(app_url, start=e_start + timedelta(minutes=30), minutes=60)
+        race = together([lambda: j1.post(seat_path(e1.number, 1, "claim")), lambda: j2.post(seat_path(e2.number, 1, "claim"))])
+>       assert sorted(r.status_code for r in race) == [200, 409], [r.text for r in race]
+E       AssertionError: ['{"number":"A-1018","status":"covered","language":"asl","setting":"hospital","city":"Brookhollow Ada c8faa950d2","sta...":{"name":"Tomas Herrera","phone":"312-555-0141"},"seats":[{"seat":1,"status":"held","interpreter_initials":"J.F."}]}']
+E       assert [200, 200] == [200, 409]
+E         
+E         At index 1 diff: 200 != 409
+E         Use -v to get more diff
+
+test_app.py:993: AssertionError
+________________________________ test_give_back ________________________________
+
+app_url = 'http://127.0.0.1:4173'
+
+    def test_give_back(app_url):
+        s = scenario(app_url, free_for=ASL_INTERPRETERS, claims=((1, ROSA), (2, SAMUEL)))
+        rosa, samuel = s.people[ROSA], s.people[SAMUEL]
+        jordan = s.people[JORDAN]
+>       assert view(s.disp, s.number).json()["status"] == "covered"
+E       AssertionError: assert 'partially_covered' == 'covered'
+E         
+E         - covered
+E         + partially_covered
+
+test_app.py:1003: AssertionError
+______________________________ test_claim_emails _______________________________
+
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffa11fdfd0>
+
+    def test_claim_emails(app_url, mail):
+        s = scenario(app_url, free_for=ASL_INTERPRETERS)
+        rosa, samuel, jordan = (s.people[e] for e in ASL_INTERPRETERS)
+>       assert rosa.post(seat_path(s.number, 1, "claim")).status_code == 200
+E       AssertionError: assert 409 == 200
+E        +  where 409 = <Response [409 Conflict]>.status_code
+E        +    where <Response [409 Conflict]> = post('/api/assignments/A-1021/seats/1/claim')
+E        +      where post = <test_app.Api object at 0xffffa120b6e0>.post
+E        +      and   '/api/assignments/A-1021/seats/1/claim' = seat_path('A-1021', 1, 'claim')
+E        +        where 'A-1021' = namespace(sched=<test_app.Api object at 0xffffa174a1e0>, disp=<test_app.Api object at 0xffffa1213740>, people={'rosa.m...nd=datetime.datetime(2027, 4, 25, 18, 30, tzinfo=zoneinfo.ZoneInfo(key='America/Chicago')), minutes=90, language='asl').number
+
+test_app.py:1026: AssertionError
+____________________________ test_uncovered_minutes ____________________________
+
+app_url = 'http://127.0.0.1:4173'
+
+    def test_uncovered_minutes(app_url):
+        disp, sched = Api(app_url, DISPATCHER), Api(app_url, RVH_SCHED)
+        rosa, samuel = Api(app_url, ROSA), Api(app_url, SAMUEL)
+        start = far_slot(90, [rosa, samuel])
+        week = week_of(start)
+        r = disp.get("/api/coverage", params={"week": week.isoformat()})
+        assert r.status_code == 200, r.text
+        assert date.fromisoformat(r.json()["week_start"][:10]) == week
+        assert [(lang["code"], lang["name"]) for lang in r.json()["languages"]] == SEED_LANGUAGES
+        asl0, es0 = uncovered(disp, week, "asl"), uncovered(disp, week, "es")
+        team, _ = create(sched, start, minutes=90)
+        assert uncovered(disp, week, "asl") == asl0 + 90 * 2
+        spoken, _ = create(sched, central(cday(start), DAY_START_H), language="es", minutes=45)
+        assert uncovered(disp, week, "es") == es0 + 45
+        assert disp.post(f"/api/assignments/{team['number']}/release").status_code == 200
+        assert uncovered(disp, week, "asl") == asl0 + 90 * 2
+        assert rosa.post(seat_path(team["number"], 1, "claim")).status_code == 200
+        assert uncovered(disp, week, "asl") == asl0 + 90
+        row = next(lang for lang in disp.get("/api/coverage", params={"week": week.isoformat()}).json()["languages"] if lang["code"] == "asl")
+        listed = next(a for a in row["assignments"] if a["number"] == team["number"])
+        assert listed["status"] == "partially_covered" and listed["org_code"] == "RVH"
+        assert samuel.post(seat_path(team["number"], 2, "claim")).status_code == 200
+>       assert uncovered(disp, week, "asl") == asl0
+E       AssertionError: assert 270 == 180
+E        +  where 270 = uncovered(<test_app.Api object at 0xffffa11281a0>, datetime.date(2027, 7, 19), 'asl')
+
+test_app.py:1072: AssertionError
+___________________________ test_hatch_seam_on_board ___________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_hatch_seam_on_board(browser, app_url):
+        s = scenario(app_url, free_for=(ROSA, SAMUEL), minutes=SEAM_DURATION)
+        week = week_of(s.start)
+        with screen(browser, app_url, DISPATCHER, "/board") as page:
+>           board = open_week(page, week)
+                    ^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:1082: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:631: in open_week
+    shown = datetime.strptime(heading.inner_text().strip()[len("Week of "):], "%a %d %b %Y").date()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/_strptime.py:653: in _strptime_datetime
+    tt, fraction, gmtoff_fraction = _strptime(data_string, format)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data_string = 'Mon, Nov 2, 2026', format = '%a %d %b %Y'
+
+    def _strptime(data_string, format="%a %b %d %H:%M:%S %Y"):
+        """Return a 2-tuple consisting of a time struct and an int containing
+        the number of microseconds based on the input string and the
+        format string."""
+    
+        for index, arg in enumerate([data_string, format]):
+            if not isinstance(arg, str):
+                msg = "strptime() argument {} must be str, not {}"
+                raise TypeError(msg.format(index, type(arg)))
+    
+        global _TimeRE_cache, _regex_cache
+        with _cache_lock:
+            locale_time = _TimeRE_cache.locale_time
+            if (_getlang() != locale_time.lang or
+                time.tzname != locale_time.tzname or
+                time.daylight != locale_time.daylight):
+                _TimeRE_cache = TimeRE()
+                _regex_cache.clear()
+                locale_time = _TimeRE_cache.locale_time
+            if len(_regex_cache) > _CACHE_MAX_SIZE:
+                _regex_cache.clear()
+            format_regex = _regex_cache.get(format)
+            if not format_regex:
+                try:
+                    format_regex = _TimeRE_cache.compile(format)
+                # KeyError raised when a bad format is found; can be specified as
+                # \\, in which case it was a stray % but with a space after it
+                except KeyError as err:
+                    bad_directive = err.args[0]
+                    if bad_directive == "\\":
+                        bad_directive = "%"
+                    del err
+                    raise ValueError("'%s' is a bad directive in format '%s'" %
+                                        (bad_directive, format)) from None
+                # IndexError only occurs when the format string is "%"
+                except IndexError:
+                    raise ValueError("stray %% in format '%s'" % format) from None
+                _regex_cache[format] = format_regex
+        found = format_regex.match(data_string)
+        if not found:
+>           raise ValueError("time data %r does not match format %r" %
+                             (data_string, format))
+E           ValueError: time data 'Mon, Nov 2, 2026' does not match format '%a %d %b %Y'
+
+/usr/local/lib/python3.12/_strptime.py:432: ValueError
+__________________________ test_reduced_motion_board ___________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_reduced_motion_board(browser, app_url):
+        s = scenario(app_url, free_for=(ROSA,), minutes=60)
+        week = week_of(s.start)
+        with screen(browser, app_url, DISPATCHER, "/board", reduced_motion="reduce") as page:
+>           board = open_week(page, week)
+                    ^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:1149: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:631: in open_week
+    shown = datetime.strptime(heading.inner_text().strip()[len("Week of "):], "%a %d %b %Y").date()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/_strptime.py:653: in _strptime_datetime
+    tt, fraction, gmtoff_fraction = _strptime(data_string, format)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data_string = 'Mon, Nov 2, 2026', format = '%a %d %b %Y'
+
+    def _strptime(data_string, format="%a %b %d %H:%M:%S %Y"):
+        """Return a 2-tuple consisting of a time struct and an int containing
+        the number of microseconds based on the input string and the
+        format string."""
+    
+        for index, arg in enumerate([data_string, format]):
+            if not isinstance(arg, str):
+                msg = "strptime() argument {} must be str, not {}"
+                raise TypeError(msg.format(index, type(arg)))
+    
+        global _TimeRE_cache, _regex_cache
+        with _cache_lock:
+            locale_time = _TimeRE_cache.locale_time
+            if (_getlang() != locale_time.lang or
+                time.tzname != locale_time.tzname or
+                time.daylight != locale_time.daylight):
+                _TimeRE_cache = TimeRE()
+                _regex_cache.clear()
+                locale_time = _TimeRE_cache.locale_time
+            if len(_regex_cache) > _CACHE_MAX_SIZE:
+                _regex_cache.clear()
+            format_regex = _regex_cache.get(format)
+            if not format_regex:
+                try:
+                    format_regex = _TimeRE_cache.compile(format)
+                # KeyError raised when a bad format is found; can be specified as
+                # \\, in which case it was a stray % but with a space after it
+                except KeyError as err:
+                    bad_directive = err.args[0]
+                    if bad_directive == "\\":
+                        bad_directive = "%"
+                    del err
+                    raise ValueError("'%s' is a bad directive in format '%s'" %
+                                        (bad_directive, format)) from None
+                # IndexError only occurs when the format string is "%"
+                except IndexError:
+                    raise ValueError("stray %% in format '%s'" % format) from None
+                _regex_cache[format] = format_regex
+        found = format_regex.match(data_string)
+        if not found:
+>           raise ValueError("time data %r does not match format %r" %
+                             (data_string, format))
+E           ValueError: time data 'Mon, Nov 2, 2026' does not match format '%a %d %b %Y'
+
+/usr/local/lib/python3.12/_strptime.py:432: ValueError
+____________________________ test_not_colour_alone _____________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_not_colour_alone(browser, app_url):
+>       s = scenario(app_url, free_for=(ROSA, SAMUEL), claims=((1, ROSA),), minutes=SEAM_DURATION)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:1178: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def scenario(app_url: str, *, free_for: tuple = (), claims: tuple = (), language: str = "asl", minutes: int = 90,
+                 scheduler: str = RVH_SCHED, soon: bool = False, release: bool = True,
+                 start: datetime | None = None) -> SimpleNamespace:
+        people = {e: Api(app_url, e) for e in dict.fromkeys([*free_for, *(e for _, e in claims)])}
+        if start is None:
+            start = soon_slot(minutes, list(people.values())) if soon else far_slot(
+                minutes, list(people.values()), avoid=booked(app_url, language))
+        sched = Api(app_url, scheduler)
+        disp = Api(app_url, DISPATCHER)
+        created, body = create(sched, start, language=language, minutes=minutes)
+        number = created["number"]
+        if release or claims:
+            r = disp.post(f"/api/assignments/{number}/release")
+            assert r.status_code == 200, r.text
+        for seat, email in claims:
+            r = people[email].post(seat_path(number, seat, "claim"))
+>           assert r.status_code == 200, r.text
+E           AssertionError: {"error":{"code":"seat_taken","message":"Seat already taken."}}
+E           assert 409 == 200
+E            +  where 409 = <Response [409 Conflict]>.status_code
+
+test_app.py:494: AssertionError
+_________________________ test_business_minute_notice __________________________
+
+app_url = 'http://127.0.0.1:4173'
+
+    def test_business_minute_notice(app_url):
+        billing = Api(app_url, BILLING)
+        far_start = far_slot(60, weekday=4, hours=(21,))
+        far = scenario(app_url, start=far_start, minutes=60, language="es")
+        before = datetime.now(timezone.utc)
+        r = far.sched.get(f"/api/assignments/{far.number}/cancellation-quote")
+        after = datetime.now(timezone.utc)
+        assert r.status_code == 200, r.text
+        quote = r.json()
+        assert_notice(quote["business_minutes_notice"], before, after, far_start)
+        assert quote["fee_applies"] is False and quote["fee_cents"] == 0
+        assert quote["business_minutes_notice"] >= NOTICE_LATE_MIN
+    
+        soon = scenario(app_url, soon=True, minutes=60, language="es")
+        before = datetime.now(timezone.utc)
+        q = soon.sched.get(f"/api/assignments/{soon.number}/cancellation-quote").json()
+        after = datetime.now(timezone.utc)
+        assert_notice(q["business_minutes_notice"], before, after, soon.start)
+        assert q["business_minutes_notice"] < NOTICE_LATE_MIN
+        rate = rate_on(billing, "RVH", "spoken", cday(soon.start))
+>       assert q["fee_applies"] is True
+E       assert False is True
+
+test_app.py:1213: AssertionError
+____________________ test_cancellation_decision_and_notices ____________________
+
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffa1115250>
+
+    def test_cancellation_decision_and_notices(app_url, mail):
+        billing = Api(app_url, BILLING)
+        s = scenario(app_url, free_for=(ROSA, SAMUEL), claims=((1, ROSA), (2, SAMUEL)), soon=True)
+        rate = rate_on(billing, "RVH", "asl", cday(s.start))
+        fee = 2 * seat_cents(rate["hourly_rate_cents"], MIN_BILLABLE)[1]
+        before = datetime.now(timezone.utc)
+        r = s.sched.post(f"/api/assignments/{s.number}/cancel")
+        after = datetime.now(timezone.utc)
+        assert r.status_code == 200, r.text
+        done = r.json()
+        assert set(done) == ORG_KEYS and done["status"] == "cancelled"
+        decision = done["cancellation"]
+        assert decision["fee_applies"] is True and decision["fee_cents"] == fee
+        assert_notice(decision["business_minutes_notice"], before, after, s.start)
+>       assert view(s.sched, s.number).json()["cancellation"] == decision
+E       AssertionError: assert None == {'business_minutes_notice': 128, 'cancelled_at': '2026-11-04T06:21:00-06:00', 'fee_applies': True, 'fee_cents': 34300}
+
+test_app.py:1236: AssertionError
+___________________________ test_served_and_verified ___________________________
+
+app_url = 'http://127.0.0.1:4173'
+
+    def test_served_and_verified(app_url):
+        billing = Api(app_url, BILLING)
+        s = scenario(app_url, free_for=(ROSA, SAMUEL), claims=((1, ROSA), (2, SAMUEL)))
+        invoice = f"/api/assignments/{s.number}/invoice"
+        assert_error(billing.post(invoice), 409, "not_billable")
+        first = verify(s.people[ROSA], s.number, 1)
+        assert first.status_code == 201, first.text
+        assert set(first.json()) == HOLDER_KEYS and first.json()["status"] == "served"
+        assert seat_states(first.json())[1][0] == "served"
+        assert_error(billing.post(invoice), 409, "not_billable")
+        assert_error(billing.get(f"/api/assignments/{s.number}/charges"), 409, "not_billable")
+        assert_error(verify(s.people[ROSA], s.number, 1), 409, "already_verified")
+        last = verify(s.people[SAMUEL], s.number, 2)
+        assert last.status_code == 201 and last.json()["status"] == "verified"
+        assert billing_of(billing, s.number)["status"] == "ready"
+        partial = scenario(app_url, free_for=(JORDAN,), claims=((1, JORDAN),))
+>       assert_error(verify(partial.people[JORDAN], partial.number, 1), 409, "invalid_transition")
+
+test_app.py:1373: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+r = <Response [403 Forbidden]>, status = 409, code = 'invalid_transition'
+field = None
+
+    def assert_error(r: httpx.Response, status: int, code: str, field: str | None = None) -> dict:
+>       assert r.status_code == status, f"{r.request.method} {r.request.url}: {r.status_code} {r.text}"
+E       AssertionError: POST http://127.0.0.1:4173/api/assignments/A-1036/seats/1/verification: 403 {"error":{"code":"forbidden","message":"This is not your seat."}}
+E       assert 403 == 409
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+
+test_app.py:260: AssertionError
+____________________________ test_billable_amounts _____________________________
+
+app_url = 'http://127.0.0.1:4173'
+
+    def test_billable_amounts(app_url):
+        billing = Api(app_url, BILLING)
+>       s = scenario(app_url, free_for=(ROSA, SAMUEL), claims=((1, ROSA), (2, SAMUEL)))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:1379: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def scenario(app_url: str, *, free_for: tuple = (), claims: tuple = (), language: str = "asl", minutes: int = 90,
+                 scheduler: str = RVH_SCHED, soon: bool = False, release: bool = True,
+                 start: datetime | None = None) -> SimpleNamespace:
+        people = {e: Api(app_url, e) for e in dict.fromkeys([*free_for, *(e for _, e in claims)])}
+        if start is None:
+            start = soon_slot(minutes, list(people.values())) if soon else far_slot(
+                minutes, list(people.values()), avoid=booked(app_url, language))
+        sched = Api(app_url, scheduler)
+        disp = Api(app_url, DISPATCHER)
+        created, body = create(sched, start, language=language, minutes=minutes)
+        number = created["number"]
+        if release or claims:
+            r = disp.post(f"/api/assignments/{number}/release")
+            assert r.status_code == 200, r.text
+        for seat, email in claims:
+            r = people[email].post(seat_path(number, seat, "claim"))
+>           assert r.status_code == 200, r.text
+E           AssertionError: {"error":{"code":"seat_taken","message":"Seat already taken."}}
+E           assert 409 == 200
+E            +  where 409 = <Response [409 Conflict]>.status_code
+
+test_app.py:494: AssertionError
+____________________________ test_one_invoice_item _____________________________
+
+app_url = 'http://127.0.0.1:4173'
+killbill = <conftest.KillBill object at 0xffffa11446e0>
+
+    def test_one_invoice_item(app_url, killbill):
+        billing = Api(app_url, BILLING)
+>       s = scenario(app_url, free_for=(JORDAN,), claims=((1, JORDAN),), minutes=60, scheduler=CPSD_SCHED)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:1437: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def scenario(app_url: str, *, free_for: tuple = (), claims: tuple = (), language: str = "asl", minutes: int = 90,
+                 scheduler: str = RVH_SCHED, soon: bool = False, release: bool = True,
+                 start: datetime | None = None) -> SimpleNamespace:
+        people = {e: Api(app_url, e) for e in dict.fromkeys([*free_for, *(e for _, e in claims)])}
+        if start is None:
+            start = soon_slot(minutes, list(people.values())) if soon else far_slot(
+                minutes, list(people.values()), avoid=booked(app_url, language))
+        sched = Api(app_url, scheduler)
+        disp = Api(app_url, DISPATCHER)
+        created, body = create(sched, start, language=language, minutes=minutes)
+        number = created["number"]
+        if release or claims:
+            r = disp.post(f"/api/assignments/{number}/release")
+            assert r.status_code == 200, r.text
+        for seat, email in claims:
+            r = people[email].post(seat_path(number, seat, "claim"))
+>           assert r.status_code == 200, r.text
+E           AssertionError: {"error":{"code":"seat_taken","message":"Seat already taken."}}
+E           assert 409 == 200
+E            +  where 409 = <Response [409 Conflict]>.status_code
+
+test_app.py:494: AssertionError
+_______________________ test_queued_while_killbill_down ________________________
+
+app_url = 'http://127.0.0.1:4173'
+killbill = <conftest.KillBill object at 0xffffa11446e0>
+
+    def test_queued_while_killbill_down(app_url, killbill):
+        down = os.environ["APP_KILLBILL_DOWN_URL"]
+        first = scenario(app_url, free_for=(LINH,), claims=((1, LINH),), language="es", minutes=60, scheduler=LFC_SCHED)
+>       assert verify(first.people[LINH], first.number, 1).status_code == 201
+E       AssertionError: assert 403 == 201
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+E        +    where <Response [403 Forbidden]> = verify(<test_app.Api object at 0xffffa1202180>, 'A-1041', 1)
+E        +      where 'A-1041' = namespace(sched=<test_app.Api object at 0xffffa11fa660>, disp=<test_app.Api object at 0xffffa113a8a0>, people={'linh.t..., end=datetime.datetime(2027, 3, 1, 20, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Chicago')), minutes=60, language='es').number
+
+test_app.py:1597: AssertionError
+______________________________ test_rate_in_force ______________________________
+
+app_url = 'http://127.0.0.1:4173'
+
+    def test_rate_in_force(app_url):
+        billing = Api(app_url, BILLING)
+        org, line = "CPSD", "spoken"
+        eff = fresh_effective(billing, org, line)
+        old = rate_on(billing, org, line, eff - timedelta(days=1))
+        new_cents = old["hourly_rate_cents"] + RATE_STEP
+        r = billing.post("/api/rate-cards", {"org": org, "service_line": line, "effective_from": eff.isoformat(),
+                                             "hourly_rate_cents": new_cents, "mileage_cents_per_mile": old["mileage_cents_per_mile"]})
+        assert r.status_code == 201, r.text
+        eve, morning = central(eff - timedelta(days=1), 21), central(eff, 9)
+        who = free_interpreter(app_url, (LINH, ROSA), [(eve, 60), (morning, 60)])
+>       runs = [scenario(app_url, start=t, minutes=60, language="es", scheduler=CPSD_SCHED, claims=((1, who),)) for t in (eve, morning)]
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:1665: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def scenario(app_url: str, *, free_for: tuple = (), claims: tuple = (), language: str = "asl", minutes: int = 90,
+                 scheduler: str = RVH_SCHED, soon: bool = False, release: bool = True,
+                 start: datetime | None = None) -> SimpleNamespace:
+        people = {e: Api(app_url, e) for e in dict.fromkeys([*free_for, *(e for _, e in claims)])}
+        if start is None:
+            start = soon_slot(minutes, list(people.values())) if soon else far_slot(
+                minutes, list(people.values()), avoid=booked(app_url, language))
+        sched = Api(app_url, scheduler)
+        disp = Api(app_url, DISPATCHER)
+        created, body = create(sched, start, language=language, minutes=minutes)
+        number = created["number"]
+        if release or claims:
+            r = disp.post(f"/api/assignments/{number}/release")
+            assert r.status_code == 200, r.text
+        for seat, email in claims:
+            r = people[email].post(seat_path(number, seat, "claim"))
+>           assert r.status_code == 200, r.text
+E           AssertionError: {"error":{"code":"seat_taken","message":"Seat already taken."}}
+E           assert 409 == 200
+E            +  where 409 = <Response [409 Conflict]>.status_code
+
+test_app.py:494: AssertionError
+____________________________ test_monthly_statement ____________________________
+
+app_url = 'http://127.0.0.1:4173'
+
+    def test_monthly_statement(app_url):
+        rosa, samuel, jordan = (Api(app_url, e) for e in ASL_INTERPRETERS)
+        p_start = far_slot(60, [rosa])
+        day = cday(p_start)
+>       p = posted_one(app_url, start=p_start, who=ROSA, scheduler=RVH_SCHED)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:1715: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def posted_one(app_url: str, *, start: datetime, who: str, scheduler: str, minutes: int = 60, actual: int = 61,
+                   miles: int = 45) -> SimpleNamespace:
+        run = scenario(app_url, start=start, minutes=minutes, scheduler=scheduler, claims=((1, who),))
+>       assert verify(run.people[who], run.number, 1, actual, miles).status_code == 201
+E       AssertionError: assert 403 == 201
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+E        +    where <Response [403 Forbidden]> = verify(<test_app.Api object at 0xffffa114c7d0>, 'A-1044', 1, 61, 45)
+E        +      where 'A-1044' = namespace(sched=<test_app.Api object at 0xffffa114dc70>, disp=<test_app.Api object at 0xffffa114d190>, people={'rosa.m...end=datetime.datetime(2027, 6, 23, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Chicago')), minutes=60, language='asl').number
+
+test_app.py:1703: AssertionError
+____________________________ test_session_and_roles ____________________________
+
+app_url = 'http://127.0.0.1:4173'
+
+    def test_session_and_roles(app_url):
+        r = httpx.post(at(app_url, "/api/session"), json={"email": RVH_SCHED, "password": PASSWORD},
+                       headers={"Origin": origin(app_url)}, timeout=HTTP_TIMEOUT_S)
+        assert r.status_code == 200, r.text
+        cookie = next(c for c in r.headers.get_list("set-cookie") if c.startswith(f"{SESSION_COOKIE}="))
+        assert "httponly" in cookie.lower() and "samesite=lax" in cookie.lower()
+        user = r.json()["user"]
+>       assert user["name"] == RVH_SCHED_NAME and user["role"] == "scheduler" and user["initials"] == "".join(part[0] + "." for part in RVH_SCHED_NAME.split())
+E       AssertionError: assert ('Tomas Herrera' == 'Tomas Herrera'
+E         
+E           Tomas Herrera and 'scheduler' == 'scheduler'
+E         
+E           scheduler and None == 'T.H.')
+E        +  where 'T.H.' = <built-in method join of str object at 0xffffa5443868>(<generator object test_session_and_roles.<locals>.<genexpr> at 0xffffa00d5150>)
+E        +    where <built-in method join of str object at 0xffffa5443868> = ''.join
+
+test_app.py:1760: AssertionError
+_______________________ test_error_precedence[body-size] _______________________
+
+app_url = 'http://127.0.0.1:4173', case = 'body-size'
+
+    @pytest.mark.parametrize("case", PRECEDENCE_IDS, ids=PRECEDENCE_IDS)
+    def test_error_precedence(app_url, case):
+        call, status, code = PRECEDENCE[case]
+>       assert_error(call(app_url), status, code, "duration_minutes" if status == 422 else None)
+
+test_app.py:1847: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+r = <Response [401 Unauthorized]>, status = 413, code = 'payload_too_large'
+field = None
+
+    def assert_error(r: httpx.Response, status: int, code: str, field: str | None = None) -> dict:
+>       assert r.status_code == status, f"{r.request.method} {r.request.url}: {r.status_code} {r.text}"
+E       AssertionError: POST http://127.0.0.1:4173/api/assignments: 401 {"error":{"code":"unauthenticated","message":"Sign in first."}}
+E       assert 401 == 413
+E        +  where 401 = <Response [401 Unauthorized]>.status_code
+
+test_app.py:260: AssertionError
+_____________________ test_error_precedence[content-type] ______________________
+
+app_url = 'http://127.0.0.1:4173', case = 'content-type'
+
+    @pytest.mark.parametrize("case", PRECEDENCE_IDS, ids=PRECEDENCE_IDS)
+    def test_error_precedence(app_url, case):
+        call, status, code = PRECEDENCE[case]
+>       assert_error(call(app_url), status, code, "duration_minutes" if status == 422 else None)
+
+test_app.py:1847: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+r = <Response [401 Unauthorized]>, status = 415, code = 'unsupported_media_type'
+field = None
+
+    def assert_error(r: httpx.Response, status: int, code: str, field: str | None = None) -> dict:
+>       assert r.status_code == status, f"{r.request.method} {r.request.url}: {r.status_code} {r.text}"
+E       AssertionError: POST http://127.0.0.1:4173/api/assignments: 401 {"error":{"code":"unauthenticated","message":"Sign in first."}}
+E       assert 401 == 415
+E        +  where 401 = <Response [401 Unauthorized]>.status_code
+
+test_app.py:260: AssertionError
+_________________________ test_error_precedence[role] __________________________
+
+app_url = 'http://127.0.0.1:4173', case = 'role'
+
+    @pytest.mark.parametrize("case", PRECEDENCE_IDS, ids=PRECEDENCE_IDS)
+    def test_error_precedence(app_url, case):
+        call, status, code = PRECEDENCE[case]
+>       assert_error(call(app_url), status, code, "duration_minutes" if status == 422 else None)
+
+test_app.py:1847: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+r = <Response [404 Not Found]>, status = 403, code = 'forbidden', field = None
+
+    def assert_error(r: httpx.Response, status: int, code: str, field: str | None = None) -> dict:
+>       assert r.status_code == status, f"{r.request.method} {r.request.url}: {r.status_code} {r.text}"
+E       AssertionError: POST http://127.0.0.1:4173/api/assignments/A-1046/release: 404 {"error":{"code":"not_found","message":"Not found."}}
+E       assert 404 == 403
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+test_app.py:260: AssertionError
+________________ test_error_precedence[state-before-validation] ________________
+
+app_url = 'http://127.0.0.1:4173', case = 'state-before-validation'
+
+    @pytest.mark.parametrize("case", PRECEDENCE_IDS, ids=PRECEDENCE_IDS)
+    def test_error_precedence(app_url, case):
+        call, status, code = PRECEDENCE[case]
+>       assert_error(call(app_url), status, code, "duration_minutes" if status == 422 else None)
+                     ^^^^^^^^^^^^^
+
+test_app.py:1847: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def _state(app_url: str) -> httpx.Response:
+        s = scenario(app_url, release=False, minutes=60)
+>       assert s.sched.post(f"/api/assignments/{s.number}/cancel").status_code == 200
+E       AssertionError: assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+E        +    where <Response [404 Not Found]> = post('/api/assignments/A-1047/cancel')
+E        +      where post = <test_app.Api object at 0xffffa11171a0>.post
+E        +        where <test_app.Api object at 0xffffa11171a0> = namespace(sched=<test_app.Api object at 0xffffa11171a0>, disp=<test_app.Api object at 0xffffa13a6ba0>, people={}, numb...end=datetime.datetime(2026, 11, 25, 8, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Chicago')), minutes=60, language='asl').sched
+
+test_app.py:1813: AssertionError
+_____________________________ test_server_boundary _____________________________
+
+app_url = 'http://127.0.0.1:4173'
+
+    def test_server_boundary(app_url):
+        good = {"email": DISPATCHER, "password": PASSWORD}
+        r = httpx.post(at(app_url, "/api/session"), json=good, headers={"Origin": FOREIGN_ORIGIN}, timeout=HTTP_TIMEOUT_S)
+        assert_error(r, 403, "cross_origin")
+        assert not any(c.startswith(SESSION_COOKIE) for c in r.headers.get_list("set-cookie"))
+        sched = Api(app_url, RVH_SCHED)
+        body = body_for(far_slot(60), minutes=60)
+        assert_error(sched.post("/api/assignments", body, headers={"Idempotency-Key": idempotency_key(), "Origin": FOREIGN_ORIGIN}),
+                     403, "cross_origin")
+        assert search(sched, body["city"]) == []
+        plain = httpx.get(at(app_url, "/api/health"), headers={"Origin": FOREIGN_ORIGIN}, timeout=HTTP_TIMEOUT_S)
+        assert not any(h.lower().startswith("access-control-") for h in plain.headers)
+    
+        def padded(size: int) -> bytes:
+            doc = {"email": "nobody@northfold.example", "password": "x", "pad": ""}
+            raw = json.dumps(doc, separators=(",", ":")).encode()
+            doc["pad"] = "a" * (size - len(raw))
+            data = json.dumps(doc, separators=(",", ":")).encode()
+            assert len(data) == size
+            return data
+    
+        exact = httpx.post(at(app_url, "/api/session"), content=padded(JSON_LIMIT), headers={"Content-Type": "application/json"}, timeout=HTTP_TIMEOUT_S)
+        assert exact.status_code != 413
+        assert_error(httpx.post(at(app_url, "/api/session"), content=padded(JSON_LIMIT + 1), headers={"Content-Type": "application/json"},
+                                timeout=HTTP_TIMEOUT_S), 413, "payload_too_large")
+        for path in ("/run.json", "/package.json", "/package-lock.json", "/.env", "/tsconfig.json",
+                     "/node_modules/.package-lock.json", "/src/server.ts"):
+>           assert httpx.get(at(app_url, path), timeout=HTTP_TIMEOUT_S).status_code == 404, path
+E           AssertionError: /.env
+E           assert 200 == 404
+E            +  where 200 = <Response [200 OK]>.status_code
+E            +    where <Response [200 OK]> = <function get at 0xffffa36a7420>('http://127.0.0.1:4173/.env', timeout=60)
+E            +      where <function get at 0xffffa36a7420> = httpx.get
+E            +      and   'http://127.0.0.1:4173/.env' = at('http://127.0.0.1:4173', '/.env')
+
+test_app.py:1877: AssertionError
+___________________________ test_keyboard_and_focus ____________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_keyboard_and_focus(browser, app_url):
+        s = scenario(app_url, release=False, minutes=60)
+        week = week_of(s.start)
+        with screen(browser, app_url, DISPATCHER, "/board") as page:
+>           open_week(page, week)
+
+test_app.py:1935: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:631: in open_week
+    shown = datetime.strptime(heading.inner_text().strip()[len("Week of "):], "%a %d %b %Y").date()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/_strptime.py:653: in _strptime_datetime
+    tt, fraction, gmtoff_fraction = _strptime(data_string, format)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data_string = 'Mon, Nov 2, 2026', format = '%a %d %b %Y'
+
+    def _strptime(data_string, format="%a %b %d %H:%M:%S %Y"):
+        """Return a 2-tuple consisting of a time struct and an int containing
+        the number of microseconds based on the input string and the
+        format string."""
+    
+        for index, arg in enumerate([data_string, format]):
+            if not isinstance(arg, str):
+                msg = "strptime() argument {} must be str, not {}"
+                raise TypeError(msg.format(index, type(arg)))
+    
+        global _TimeRE_cache, _regex_cache
+        with _cache_lock:
+            locale_time = _TimeRE_cache.locale_time
+            if (_getlang() != locale_time.lang or
+                time.tzname != locale_time.tzname or
+                time.daylight != locale_time.daylight):
+                _TimeRE_cache = TimeRE()
+                _regex_cache.clear()
+                locale_time = _TimeRE_cache.locale_time
+            if len(_regex_cache) > _CACHE_MAX_SIZE:
+                _regex_cache.clear()
+            format_regex = _regex_cache.get(format)
+            if not format_regex:
+                try:
+                    format_regex = _TimeRE_cache.compile(format)
+                # KeyError raised when a bad format is found; can be specified as
+                # \\, in which case it was a stray % but with a space after it
+                except KeyError as err:
+                    bad_directive = err.args[0]
+                    if bad_directive == "\\":
+                        bad_directive = "%"
+                    del err
+                    raise ValueError("'%s' is a bad directive in format '%s'" %
+                                        (bad_directive, format)) from None
+                # IndexError only occurs when the format string is "%"
+                except IndexError:
+                    raise ValueError("stray %% in format '%s'" % format) from None
+                _regex_cache[format] = format_regex
+        found = format_regex.match(data_string)
+        if not found:
+>           raise ValueError("time data %r does not match format %r" %
+                             (data_string, format))
+E           ValueError: time data 'Mon, Nov 2, 2026' does not match format '%a %d %b %Y'
+
+/usr/local/lib/python3.12/_strptime.py:432: ValueError
+__________________________ test_contrast_and_targets ___________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_contrast_and_targets(browser, app_url):
+>       scenario(app_url, free_for=(ROSA,), claims=((1, ROSA),))
+
+test_app.py:1979: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def scenario(app_url: str, *, free_for: tuple = (), claims: tuple = (), language: str = "asl", minutes: int = 90,
+                 scheduler: str = RVH_SCHED, soon: bool = False, release: bool = True,
+                 start: datetime | None = None) -> SimpleNamespace:
+        people = {e: Api(app_url, e) for e in dict.fromkeys([*free_for, *(e for _, e in claims)])}
+        if start is None:
+            start = soon_slot(minutes, list(people.values())) if soon else far_slot(
+                minutes, list(people.values()), avoid=booked(app_url, language))
+        sched = Api(app_url, scheduler)
+        disp = Api(app_url, DISPATCHER)
+        created, body = create(sched, start, language=language, minutes=minutes)
+        number = created["number"]
+        if release or claims:
+            r = disp.post(f"/api/assignments/{number}/release")
+            assert r.status_code == 200, r.text
+        for seat, email in claims:
+            r = people[email].post(seat_path(number, seat, "claim"))
+>           assert r.status_code == 200, r.text
+E           AssertionError: {"error":{"code":"seat_taken","message":"Seat already taken."}}
+E           assert 409 == 200
+E            +  where 409 = <Response [409 Conflict]>.status_code
+
+test_app.py:494: AssertionError
+___________________ test_wf_request_intake_invalid_recovery ____________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_request_intake_invalid_recovery(browser, app_url):
+        sched = Api(app_url, RVH_SCHED)
+        start = far_slot(90)
+        body = body_for(start)
+        bad = dict(body, patient_initials="R")
+        message = assert_error(sched.post("/api/assignments", bad, headers={"Idempotency-Key": idempotency_key()}),
+                               422, "validation", "patient_initials")["fields"]["patient_initials"]
+        with screen(browser, app_url, RVH_SCHED, "/requests") as page:
+            form = fill_request(page, bad, start)
+            click(form.get_by_role("button", name="Submit request", exact=True))
+            says(page, "Request status", "Check the highlighted fields.")
+>           says(page, "Request status", message)
+
+test_app.py:2056: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+scope = <Page url='http://127.0.0.1:4173/requests'>, name = 'Request status'
+pattern = 'Enter 2 or 3 capital letters A–Z.', timeout = 15000
+
+    def says(scope: Any, name: str, pattern: Any, timeout: int = REAL_MS) -> Any:
+        region = scope.get_by_role("status", name=name, exact=True).filter(has_text=pattern).first
+>       expect(region).to_be_attached(timeout=timeout)
+E       AssertionError: Locator expected to be attached
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_attached with timeout 15000ms
+E         -   - waiting for get_by_role("status", name="Request status", exact=True).filter(has_text="Enter 2 or 3 capital letters A–Z.").first
+
+test_app.py:623: AssertionError
+_____________________ test_wf_dispatch_release_from_board ______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffa114de20>
+
+    def test_wf_dispatch_release_from_board(browser, app_url, mail):
+        s = scenario(app_url, release=False)
+        with screen(browser, app_url, DISPATCHER, "/board") as page:
+>           board = open_week(page, week_of(s.start))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2069: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:631: in open_week
+    shown = datetime.strptime(heading.inner_text().strip()[len("Week of "):], "%a %d %b %Y").date()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/_strptime.py:653: in _strptime_datetime
+    tt, fraction, gmtoff_fraction = _strptime(data_string, format)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data_string = 'Mon, Nov 2, 2026', format = '%a %d %b %Y'
+
+    def _strptime(data_string, format="%a %b %d %H:%M:%S %Y"):
+        """Return a 2-tuple consisting of a time struct and an int containing
+        the number of microseconds based on the input string and the
+        format string."""
+    
+        for index, arg in enumerate([data_string, format]):
+            if not isinstance(arg, str):
+                msg = "strptime() argument {} must be str, not {}"
+                raise TypeError(msg.format(index, type(arg)))
+    
+        global _TimeRE_cache, _regex_cache
+        with _cache_lock:
+            locale_time = _TimeRE_cache.locale_time
+            if (_getlang() != locale_time.lang or
+                time.tzname != locale_time.tzname or
+                time.daylight != locale_time.daylight):
+                _TimeRE_cache = TimeRE()
+                _regex_cache.clear()
+                locale_time = _TimeRE_cache.locale_time
+            if len(_regex_cache) > _CACHE_MAX_SIZE:
+                _regex_cache.clear()
+            format_regex = _regex_cache.get(format)
+            if not format_regex:
+                try:
+                    format_regex = _TimeRE_cache.compile(format)
+                # KeyError raised when a bad format is found; can be specified as
+                # \\, in which case it was a stray % but with a space after it
+                except KeyError as err:
+                    bad_directive = err.args[0]
+                    if bad_directive == "\\":
+                        bad_directive = "%"
+                    del err
+                    raise ValueError("'%s' is a bad directive in format '%s'" %
+                                        (bad_directive, format)) from None
+                # IndexError only occurs when the format string is "%"
+                except IndexError:
+                    raise ValueError("stray %% in format '%s'" % format) from None
+                _regex_cache[format] = format_regex
+        found = format_regex.match(data_string)
+        if not found:
+>           raise ValueError("time data %r does not match format %r" %
+                             (data_string, format))
+E           ValueError: time data 'Mon, Nov 2, 2026' does not match format '%a %d %b %Y'
+
+/usr/local/lib/python3.12/_strptime.py:432: ValueError
+______________________ test_wf_dispatch_release_day_view _______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffa1135370>
+
+    def test_wf_dispatch_release_day_view(browser, app_url, mail):
+        s = scenario(app_url, release=False, minutes=60)
+        with screen(browser, app_url, DISPATCHER, "/board", size=TABLET) as page:
+>           board = open_week(page, week_of(s.start))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2094: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:631: in open_week
+    shown = datetime.strptime(heading.inner_text().strip()[len("Week of "):], "%a %d %b %Y").date()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/_strptime.py:653: in _strptime_datetime
+    tt, fraction, gmtoff_fraction = _strptime(data_string, format)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data_string = 'Mon, Nov 2, 2026', format = '%a %d %b %Y'
+
+    def _strptime(data_string, format="%a %b %d %H:%M:%S %Y"):
+        """Return a 2-tuple consisting of a time struct and an int containing
+        the number of microseconds based on the input string and the
+        format string."""
+    
+        for index, arg in enumerate([data_string, format]):
+            if not isinstance(arg, str):
+                msg = "strptime() argument {} must be str, not {}"
+                raise TypeError(msg.format(index, type(arg)))
+    
+        global _TimeRE_cache, _regex_cache
+        with _cache_lock:
+            locale_time = _TimeRE_cache.locale_time
+            if (_getlang() != locale_time.lang or
+                time.tzname != locale_time.tzname or
+                time.daylight != locale_time.daylight):
+                _TimeRE_cache = TimeRE()
+                _regex_cache.clear()
+                locale_time = _TimeRE_cache.locale_time
+            if len(_regex_cache) > _CACHE_MAX_SIZE:
+                _regex_cache.clear()
+            format_regex = _regex_cache.get(format)
+            if not format_regex:
+                try:
+                    format_regex = _TimeRE_cache.compile(format)
+                # KeyError raised when a bad format is found; can be specified as
+                # \\, in which case it was a stray % but with a space after it
+                except KeyError as err:
+                    bad_directive = err.args[0]
+                    if bad_directive == "\\":
+                        bad_directive = "%"
+                    del err
+                    raise ValueError("'%s' is a bad directive in format '%s'" %
+                                        (bad_directive, format)) from None
+                # IndexError only occurs when the format string is "%"
+                except IndexError:
+                    raise ValueError("stray %% in format '%s'" % format) from None
+                _regex_cache[format] = format_regex
+        found = format_regex.match(data_string)
+        if not found:
+>           raise ValueError("time data %r does not match format %r" %
+                             (data_string, format))
+E           ValueError: time data 'Mon, Nov 2, 2026' does not match format '%a %d %b %Y'
+
+/usr/local/lib/python3.12/_strptime.py:432: ValueError
+_________________________ test_wf_seat_claim_lose_race _________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffa12099a0>
+
+    def test_wf_seat_claim_lose_race(browser, app_url, mail):
+>       s = scenario(app_url, free_for=ASL_INTERPRETERS, claims=((1, ROSA),))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def scenario(app_url: str, *, free_for: tuple = (), claims: tuple = (), language: str = "asl", minutes: int = 90,
+                 scheduler: str = RVH_SCHED, soon: bool = False, release: bool = True,
+                 start: datetime | None = None) -> SimpleNamespace:
+        people = {e: Api(app_url, e) for e in dict.fromkeys([*free_for, *(e for _, e in claims)])}
+        if start is None:
+            start = soon_slot(minutes, list(people.values())) if soon else far_slot(
+                minutes, list(people.values()), avoid=booked(app_url, language))
+        sched = Api(app_url, scheduler)
+        disp = Api(app_url, DISPATCHER)
+        created, body = create(sched, start, language=language, minutes=minutes)
+        number = created["number"]
+        if release or claims:
+            r = disp.post(f"/api/assignments/{number}/release")
+            assert r.status_code == 200, r.text
+        for seat, email in claims:
+            r = people[email].post(seat_path(number, seat, "claim"))
+>           assert r.status_code == 200, r.text
+E           AssertionError: {"error":{"code":"seat_taken","message":"Seat already taken."}}
+E           assert 409 == 200
+E            +  where 409 = <Response [409 Conflict]>.status_code
+
+test_app.py:494: AssertionError
+_________________________ test_wf_seat_claim_give_back _________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_seat_claim_give_back(browser, app_url):
+>       s = scenario(app_url, free_for=(ROSA,), claims=((1, ROSA),), minutes=60)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2167: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def scenario(app_url: str, *, free_for: tuple = (), claims: tuple = (), language: str = "asl", minutes: int = 90,
+                 scheduler: str = RVH_SCHED, soon: bool = False, release: bool = True,
+                 start: datetime | None = None) -> SimpleNamespace:
+        people = {e: Api(app_url, e) for e in dict.fromkeys([*free_for, *(e for _, e in claims)])}
+        if start is None:
+            start = soon_slot(minutes, list(people.values())) if soon else far_slot(
+                minutes, list(people.values()), avoid=booked(app_url, language))
+        sched = Api(app_url, scheduler)
+        disp = Api(app_url, DISPATCHER)
+        created, body = create(sched, start, language=language, minutes=minutes)
+        number = created["number"]
+        if release or claims:
+            r = disp.post(f"/api/assignments/{number}/release")
+            assert r.status_code == 200, r.text
+        for seat, email in claims:
+            r = people[email].post(seat_path(number, seat, "claim"))
+>           assert r.status_code == 200, r.text
+E           AssertionError: {"error":{"code":"seat_taken","message":"Seat already taken."}}
+E           assert 409 == 200
+E            +  where 409 = <Response [409 Conflict]>.status_code
+
+test_app.py:494: AssertionError
+____________________ test_wf_coverage_board_watch_gap_close ____________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_coverage_board_watch_gap_close(browser, app_url):
+        s = scenario(app_url, free_for=(ROSA, SAMUEL))
+        week = week_of(s.start)
+        with screen(browser, app_url, DISPATCHER, "/board") as board_page:
+>           capsule = capsule_of(open_week(board_page, week), s.number)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2181: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:631: in open_week
+    shown = datetime.strptime(heading.inner_text().strip()[len("Week of "):], "%a %d %b %Y").date()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/_strptime.py:653: in _strptime_datetime
+    tt, fraction, gmtoff_fraction = _strptime(data_string, format)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data_string = 'Mon, Nov 2, 2026', format = '%a %d %b %Y'
+
+    def _strptime(data_string, format="%a %b %d %H:%M:%S %Y"):
+        """Return a 2-tuple consisting of a time struct and an int containing
+        the number of microseconds based on the input string and the
+        format string."""
+    
+        for index, arg in enumerate([data_string, format]):
+            if not isinstance(arg, str):
+                msg = "strptime() argument {} must be str, not {}"
+                raise TypeError(msg.format(index, type(arg)))
+    
+        global _TimeRE_cache, _regex_cache
+        with _cache_lock:
+            locale_time = _TimeRE_cache.locale_time
+            if (_getlang() != locale_time.lang or
+                time.tzname != locale_time.tzname or
+                time.daylight != locale_time.daylight):
+                _TimeRE_cache = TimeRE()
+                _regex_cache.clear()
+                locale_time = _TimeRE_cache.locale_time
+            if len(_regex_cache) > _CACHE_MAX_SIZE:
+                _regex_cache.clear()
+            format_regex = _regex_cache.get(format)
+            if not format_regex:
+                try:
+                    format_regex = _TimeRE_cache.compile(format)
+                # KeyError raised when a bad format is found; can be specified as
+                # \\, in which case it was a stray % but with a space after it
+                except KeyError as err:
+                    bad_directive = err.args[0]
+                    if bad_directive == "\\":
+                        bad_directive = "%"
+                    del err
+                    raise ValueError("'%s' is a bad directive in format '%s'" %
+                                        (bad_directive, format)) from None
+                # IndexError only occurs when the format string is "%"
+                except IndexError:
+                    raise ValueError("stray %% in format '%s'" % format) from None
+                _regex_cache[format] = format_regex
+        found = format_regex.match(data_string)
+        if not found:
+>           raise ValueError("time data %r does not match format %r" %
+                             (data_string, format))
+E           ValueError: time data 'Mon, Nov 2, 2026' does not match format '%a %d %b %Y'
+
+/usr/local/lib/python3.12/_strptime.py:432: ValueError
+____________________ test_wf_coverage_board_last_seat_race _____________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_coverage_board_last_seat_race(browser, app_url):
+        s = scenario(app_url, free_for=ASL_INTERPRETERS, claims=((1, ROSA),))
+        with screen(browser, app_url, DISPATCHER, "/board") as page:
+>           capsule = capsule_of(open_week(page, week_of(s.start)), s.number)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2205: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:631: in open_week
+    shown = datetime.strptime(heading.inner_text().strip()[len("Week of "):], "%a %d %b %Y").date()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/_strptime.py:653: in _strptime_datetime
+    tt, fraction, gmtoff_fraction = _strptime(data_string, format)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data_string = 'Mon, Nov 2, 2026', format = '%a %d %b %Y'
+
+    def _strptime(data_string, format="%a %b %d %H:%M:%S %Y"):
+        """Return a 2-tuple consisting of a time struct and an int containing
+        the number of microseconds based on the input string and the
+        format string."""
+    
+        for index, arg in enumerate([data_string, format]):
+            if not isinstance(arg, str):
+                msg = "strptime() argument {} must be str, not {}"
+                raise TypeError(msg.format(index, type(arg)))
+    
+        global _TimeRE_cache, _regex_cache
+        with _cache_lock:
+            locale_time = _TimeRE_cache.locale_time
+            if (_getlang() != locale_time.lang or
+                time.tzname != locale_time.tzname or
+                time.daylight != locale_time.daylight):
+                _TimeRE_cache = TimeRE()
+                _regex_cache.clear()
+                locale_time = _TimeRE_cache.locale_time
+            if len(_regex_cache) > _CACHE_MAX_SIZE:
+                _regex_cache.clear()
+            format_regex = _regex_cache.get(format)
+            if not format_regex:
+                try:
+                    format_regex = _TimeRE_cache.compile(format)
+                # KeyError raised when a bad format is found; can be specified as
+                # \\, in which case it was a stray % but with a space after it
+                except KeyError as err:
+                    bad_directive = err.args[0]
+                    if bad_directive == "\\":
+                        bad_directive = "%"
+                    del err
+                    raise ValueError("'%s' is a bad directive in format '%s'" %
+                                        (bad_directive, format)) from None
+                # IndexError only occurs when the format string is "%"
+                except IndexError:
+                    raise ValueError("stray %% in format '%s'" % format) from None
+                _regex_cache[format] = format_regex
+        found = format_regex.match(data_string)
+        if not found:
+>           raise ValueError("time data %r does not match format %r" %
+                             (data_string, format))
+E           ValueError: time data 'Mon, Nov 2, 2026' does not match format '%a %d %b %Y'
+
+/usr/local/lib/python3.12/_strptime.py:432: ValueError
+____________________ test_wf_coverage_board_refresh_failure ____________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_coverage_board_refresh_failure(browser, app_url):
+        s = scenario(app_url, free_for=(ROSA,), minutes=60)
+        with screen(browser, app_url, DISPATCHER, "/board") as page:
+>           capsule = capsule_of(open_week(page, week_of(s.start)), s.number)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2221: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:631: in open_week
+    shown = datetime.strptime(heading.inner_text().strip()[len("Week of "):], "%a %d %b %Y").date()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/_strptime.py:653: in _strptime_datetime
+    tt, fraction, gmtoff_fraction = _strptime(data_string, format)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+data_string = 'Mon, Nov 2, 2026', format = '%a %d %b %Y'
+
+    def _strptime(data_string, format="%a %b %d %H:%M:%S %Y"):
+        """Return a 2-tuple consisting of a time struct and an int containing
+        the number of microseconds based on the input string and the
+        format string."""
+    
+        for index, arg in enumerate([data_string, format]):
+            if not isinstance(arg, str):
+                msg = "strptime() argument {} must be str, not {}"
+                raise TypeError(msg.format(index, type(arg)))
+    
+        global _TimeRE_cache, _regex_cache
+        with _cache_lock:
+            locale_time = _TimeRE_cache.locale_time
+            if (_getlang() != locale_time.lang or
+                time.tzname != locale_time.tzname or
+                time.daylight != locale_time.daylight):
+                _TimeRE_cache = TimeRE()
+                _regex_cache.clear()
+                locale_time = _TimeRE_cache.locale_time
+            if len(_regex_cache) > _CACHE_MAX_SIZE:
+                _regex_cache.clear()
+            format_regex = _regex_cache.get(format)
+            if not format_regex:
+                try:
+                    format_regex = _TimeRE_cache.compile(format)
+                # KeyError raised when a bad format is found; can be specified as
+                # \\, in which case it was a stray % but with a space after it
+                except KeyError as err:
+                    bad_directive = err.args[0]
+                    if bad_directive == "\\":
+                        bad_directive = "%"
+                    del err
+                    raise ValueError("'%s' is a bad directive in format '%s'" %
+                                        (bad_directive, format)) from None
+                # IndexError only occurs when the format string is "%"
+                except IndexError:
+                    raise ValueError("stray %% in format '%s'" % format) from None
+                _regex_cache[format] = format_regex
+        found = format_regex.match(data_string)
+        if not found:
+>           raise ValueError("time data %r does not match format %r" %
+                             (data_string, format))
+E           ValueError: time data 'Mon, Nov 2, 2026' does not match format '%a %d %b %Y'
+
+/usr/local/lib/python3.12/_strptime.py:432: ValueError
+______________________ test_wf_change_and_cancel_late_fee ______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffa11173b0>
+
+    def test_wf_change_and_cancel_late_fee(browser, app_url, mail):
+        s = scenario(app_url, free_for=(ROSA, SAMUEL), claims=((1, ROSA), (2, SAMUEL)), soon=True)
+        rate = rate_on(Api(app_url, BILLING), "RVH", "asl", cday(s.start))["hourly_rate_cents"]
+        fee = 2 * seat_cents(rate, MIN_BILLABLE)[1]
+        with screen(browser, app_url, RVH_SCHED, "/requests") as page:
+            session(page).send("Emulation.setTimezoneOverride", {"timezoneId": FOREIGN_ZONE})
+            page.reload()
+            drawer = open_row(page, s.number)
+            click(drawer.get_by_role("button", name="Cancel request", exact=True))
+            dialog = page.get_by_role("dialog", name=f"Cancel {s.number}", exact=True)
+            expect(dialog).to_be_visible(timeout=REAL_MS)
+            advance(page, SETTLE_MS)
+            before = datetime.now(timezone.utc)
+            preview = says(page, "Cancellation status", PREVIEW_FEE)
+            after = datetime.now(timezone.utc)
+            m = PREVIEW_FEE.search(preview.inner_text())
+            assert_notice(int(m.group(1)) * 60 + int(m.group(2)), before, after, s.start)
+            assert m.group(3) == money(fee)
+            expect(dialog.get_by_role("button", name="Confirm cancellation", exact=True)).to_be_enabled()
+            click(dialog.get_by_role("button", name="Keep request", exact=True))
+            eventually(page, lambda: expect(dialog).to_be_hidden(timeout=POLL_MS))
+            assert view(s.sched, s.number).json()["cancellation"] is None
+>           click(drawer.get_by_role("button", name="Cancel request", exact=True))
+
+test_app.py:2252: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+conftest.py:119: in click
+    locator.page.mouse.click(*center(locator))
+                              ^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+locator = <Locator frame=<Frame name= url='http://127.0.0.1:4173/requests'> selector='internal:role=dialog[name="Assignment A-1062"s] >> internal:role=button[name="Cancel request"s]'>
+
+    def center(locator: Locator) -> tuple[float, float]:
+>       expect(locator).to_be_visible()
+E       AssertionError: Locator expected to be visible
+E       Actual value: <element(s) not found> 
+E       Call log:
+E         - LocatorAssertions.to_be_visible with timeout 5000ms
+E         -   - waiting for get_by_role("dialog", name="Assignment A-1062", exact=True).get_by_role("button", name="Cancel request", exact=True)
+
+conftest.py:105: AssertionError
+_____________________ test_wf_change_and_cancel_move_time ______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+mail = <conftest.Mailpit object at 0xffffa1137c50>
+
+    def test_wf_change_and_cancel_move_time(browser, app_url, mail):
+>       s = scenario(app_url, free_for=(ROSA, SAMUEL), claims=((1, ROSA), (2, SAMUEL)))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2269: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def scenario(app_url: str, *, free_for: tuple = (), claims: tuple = (), language: str = "asl", minutes: int = 90,
+                 scheduler: str = RVH_SCHED, soon: bool = False, release: bool = True,
+                 start: datetime | None = None) -> SimpleNamespace:
+        people = {e: Api(app_url, e) for e in dict.fromkeys([*free_for, *(e for _, e in claims)])}
+        if start is None:
+            start = soon_slot(minutes, list(people.values())) if soon else far_slot(
+                minutes, list(people.values()), avoid=booked(app_url, language))
+        sched = Api(app_url, scheduler)
+        disp = Api(app_url, DISPATCHER)
+        created, body = create(sched, start, language=language, minutes=minutes)
+        number = created["number"]
+        if release or claims:
+            r = disp.post(f"/api/assignments/{number}/release")
+            assert r.status_code == 200, r.text
+        for seat, email in claims:
+            r = people[email].post(seat_path(number, seat, "claim"))
+>           assert r.status_code == 200, r.text
+E           AssertionError: {"error":{"code":"seat_taken","message":"Seat already taken."}}
+E           assert 409 == 200
+E            +  where 409 = <Response [409 Conflict]>.status_code
+
+test_app.py:494: AssertionError
+_________________________ test_wf_verification_upload __________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_verification_upload(browser, app_url):
+>       s = scenario(app_url, free_for=(ROSA,), claims=((1, ROSA),), minutes=60)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2314: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def scenario(app_url: str, *, free_for: tuple = (), claims: tuple = (), language: str = "asl", minutes: int = 90,
+                 scheduler: str = RVH_SCHED, soon: bool = False, release: bool = True,
+                 start: datetime | None = None) -> SimpleNamespace:
+        people = {e: Api(app_url, e) for e in dict.fromkeys([*free_for, *(e for _, e in claims)])}
+        if start is None:
+            start = soon_slot(minutes, list(people.values())) if soon else far_slot(
+                minutes, list(people.values()), avoid=booked(app_url, language))
+        sched = Api(app_url, scheduler)
+        disp = Api(app_url, DISPATCHER)
+        created, body = create(sched, start, language=language, minutes=minutes)
+        number = created["number"]
+        if release or claims:
+            r = disp.post(f"/api/assignments/{number}/release")
+            assert r.status_code == 200, r.text
+        for seat, email in claims:
+            r = people[email].post(seat_path(number, seat, "claim"))
+>           assert r.status_code == 200, r.text
+E           AssertionError: {"error":{"code":"seat_taken","message":"Seat already taken."}}
+E           assert 409 == 200
+E            +  where 409 = <Response [409 Conflict]>.status_code
+
+test_app.py:494: AssertionError
+______________________ test_wf_verification_private_link _______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_verification_private_link(browser, app_url):
+>       s = scenario(app_url, free_for=(ROSA,), claims=((1, ROSA),), minutes=60)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2344: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def scenario(app_url: str, *, free_for: tuple = (), claims: tuple = (), language: str = "asl", minutes: int = 90,
+                 scheduler: str = RVH_SCHED, soon: bool = False, release: bool = True,
+                 start: datetime | None = None) -> SimpleNamespace:
+        people = {e: Api(app_url, e) for e in dict.fromkeys([*free_for, *(e for _, e in claims)])}
+        if start is None:
+            start = soon_slot(minutes, list(people.values())) if soon else far_slot(
+                minutes, list(people.values()), avoid=booked(app_url, language))
+        sched = Api(app_url, scheduler)
+        disp = Api(app_url, DISPATCHER)
+        created, body = create(sched, start, language=language, minutes=minutes)
+        number = created["number"]
+        if release or claims:
+            r = disp.post(f"/api/assignments/{number}/release")
+            assert r.status_code == 200, r.text
+        for seat, email in claims:
+            r = people[email].post(seat_path(number, seat, "claim"))
+>           assert r.status_code == 200, r.text
+E           AssertionError: {"error":{"code":"seat_taken","message":"Seat already taken."}}
+E           assert 409 == 200
+E            +  where 409 = <Response [409 Conflict]>.status_code
+
+test_app.py:494: AssertionError
+______________________ test_wf_invoicing_post_from_screen ______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+killbill = <conftest.KillBill object at 0xffffa11446e0>
+
+    def test_wf_invoicing_post_from_screen(browser, app_url, killbill):
+>       s = scenario(app_url, free_for=(ROSA, SAMUEL), claims=((1, ROSA), (2, SAMUEL)))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2365: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def scenario(app_url: str, *, free_for: tuple = (), claims: tuple = (), language: str = "asl", minutes: int = 90,
+                 scheduler: str = RVH_SCHED, soon: bool = False, release: bool = True,
+                 start: datetime | None = None) -> SimpleNamespace:
+        people = {e: Api(app_url, e) for e in dict.fromkeys([*free_for, *(e for _, e in claims)])}
+        if start is None:
+            start = soon_slot(minutes, list(people.values())) if soon else far_slot(
+                minutes, list(people.values()), avoid=booked(app_url, language))
+        sched = Api(app_url, scheduler)
+        disp = Api(app_url, DISPATCHER)
+        created, body = create(sched, start, language=language, minutes=minutes)
+        number = created["number"]
+        if release or claims:
+            r = disp.post(f"/api/assignments/{number}/release")
+>           assert r.status_code == 200, r.text
+E           AssertionError: {"error":{"code":"not_found","message":"No such request."}}
+E           assert 404 == 200
+E            +  where 404 = <Response [404 Not Found]>.status_code
+
+test_app.py:491: AssertionError
+_______________________ test_wf_invoicing_queued_outage ________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+killbill = <conftest.KillBill object at 0xffffa11446e0>
+
+    def test_wf_invoicing_queued_outage(browser, app_url, killbill):
+>       s = scenario(app_url, free_for=(LINH,), claims=((1, LINH),), language="es", minutes=60, scheduler=LFC_SCHED)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2394: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def scenario(app_url: str, *, free_for: tuple = (), claims: tuple = (), language: str = "asl", minutes: int = 90,
+                 scheduler: str = RVH_SCHED, soon: bool = False, release: bool = True,
+                 start: datetime | None = None) -> SimpleNamespace:
+        people = {e: Api(app_url, e) for e in dict.fromkeys([*free_for, *(e for _, e in claims)])}
+        if start is None:
+            start = soon_slot(minutes, list(people.values())) if soon else far_slot(
+                minutes, list(people.values()), avoid=booked(app_url, language))
+        sched = Api(app_url, scheduler)
+        disp = Api(app_url, DISPATCHER)
+        created, body = create(sched, start, language=language, minutes=minutes)
+        number = created["number"]
+        if release or claims:
+            r = disp.post(f"/api/assignments/{number}/release")
+            assert r.status_code == 200, r.text
+        for seat, email in claims:
+            r = people[email].post(seat_path(number, seat, "claim"))
+>           assert r.status_code == 200, r.text
+E           AssertionError: {"error":{"code":"seat_taken","message":"Seat already taken."}}
+E           assert 409 == 200
+E            +  where 409 = <Response [409 Conflict]>.status_code
+
+test_app.py:494: AssertionError
+_______________________ test_wf_rate_cards_add_and_apply _______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_rate_cards_add_and_apply(browser, app_url):
+        billing = Api(app_url, BILLING)
+        org, line = "LFC", "asl"
+        eff = fresh_effective(billing, org, line)
+        old = rate_on(billing, org, line, eff - timedelta(days=1))
+        new_cents = old["hourly_rate_cents"] + RATE_STEP
+        with screen(browser, app_url, BILLING, "/billing") as page:
+            fill_rate(page, ORGS[org], line, eff, new_cents, old["mileage_cents_per_mile"])
+            says(page, "Rate status", f"Rate from {eff:%a} {eff.day} {eff:%b} {eff.year} saved.")
+            fill_rate(page, ORGS[org], line, eff, new_cents, old["mileage_cents_per_mile"])
+            says(page, "Rate status", "A rate already starts on that date.")
+        added = [e for e in rate_entries(billing, org) if e["service_line"] == line and e["effective_from"] == eff.isoformat()]
+        assert len(added) == 1 and added[0]["hourly_rate_cents"] == new_cents
+        eve, morning = central(eff - timedelta(days=1), 21), central(eff, 9)
+        who = free_interpreter(app_url, ASL_INTERPRETERS, [(eve, 60), (morning, 60)])
+        totals = []
+        for t, hourly in ((eve, old["hourly_rate_cents"]), (morning, new_cents)):
+>           run = scenario(app_url, start=t, minutes=60, scheduler=LFC_SCHED, claims=((1, who),))
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2444: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def scenario(app_url: str, *, free_for: tuple = (), claims: tuple = (), language: str = "asl", minutes: int = 90,
+                 scheduler: str = RVH_SCHED, soon: bool = False, release: bool = True,
+                 start: datetime | None = None) -> SimpleNamespace:
+        people = {e: Api(app_url, e) for e in dict.fromkeys([*free_for, *(e for _, e in claims)])}
+        if start is None:
+            start = soon_slot(minutes, list(people.values())) if soon else far_slot(
+                minutes, list(people.values()), avoid=booked(app_url, language))
+        sched = Api(app_url, scheduler)
+        disp = Api(app_url, DISPATCHER)
+        created, body = create(sched, start, language=language, minutes=minutes)
+        number = created["number"]
+        if release or claims:
+            r = disp.post(f"/api/assignments/{number}/release")
+            assert r.status_code == 200, r.text
+        for seat, email in claims:
+            r = people[email].post(seat_path(number, seat, "claim"))
+>           assert r.status_code == 200, r.text
+E           AssertionError: {"error":{"code":"seat_taken","message":"Seat already taken."}}
+E           assert 409 == 200
+E            +  where 409 = <Response [409 Conflict]>.status_code
+
+test_app.py:494: AssertionError
+____________________ test_wf_rate_cards_non_future_rejected ____________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_rate_cards_non_future_rejected(browser, app_url):
+        billing = Api(app_url, BILLING)
+        today = now_central().date()
+        org, line = next((o, l) for o in ORGS for l in ("asl", "spoken")
+                         if not any(e["service_line"] == l and e["effective_from"] == today.isoformat() for e in rate_entries(billing, o)))
+        message = assert_error(billing.post("/api/rate-cards", {"org": org, "service_line": line, "effective_from": today.isoformat(),
+                                                                "hourly_rate_cents": 7000, "mileage_cents_per_mile": 70}),
+                               422, "validation", "effective_from")["fields"]["effective_from"]
+        count = len(rate_entries(billing, org))
+        with screen(browser, app_url, BILLING, "/billing") as page:
+            form = fill_rate(page, ORGS[org], line, today, 7000, 70)
+>           expect(form.get_by_role("textbox", name="Effective from", exact=True)).to_have_accessible_description(
+                re.compile(re.escape(message)), timeout=REAL_MS)
+E           AssertionError: Locator expected to have accessible description
+E           Actual value:  
+E           Call log:
+E             - LocatorAssertions.to_have_accessible_description with timeout 15000ms
+E             -   - waiting for get_by_role("form", name="Add rate", exact=True).get_by_role("textbox", name="Effective from", exact=True)
+E             -     19 × locator resolved to <input type="date" name="effective_from" placeholder="YYYY-MM-DD" id="f-effective_from-x66j6z"/>
+E             -        - unexpected value ""
+
+test_app.py:2465: AssertionError
+_____________________ test_wf_org_admin_manage_schedulers ______________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_org_admin_manage_schedulers(browser, app_url):
+        name, email = unique("sched")
+        with screen(browser, app_url, RVH_ADMIN, "/org") as page:
+            form = page.get_by_role("form", name="Add scheduler", exact=True)
+            fill(form.get_by_role("textbox", name="Name", exact=True), name)
+            fill(form.get_by_role("textbox", name="Email", exact=True), email)
+            fill(form.get_by_role("textbox", name="Phone", exact=True), FRESH_PHONE)
+            fill(form.get_by_role("textbox", name="Initial password", exact=True), FRESH_PASSWORD)
+            click(form.get_by_role("button", name="Add scheduler", exact=True))
+            says(page, "Scheduler status", f"{name} can now request interpreters.")
+            table = page.get_by_role("table", name="Schedulers", exact=True)
+            expect(table).to_contain_text(email, timeout=REAL_MS)
+            newbie = Api(app_url, email, FRESH_PASSWORD)
+            assert newbie.user["role"] == "scheduler" and newbie.user["org"]["code"] == "RVH"
+            helen = Api(app_url, RVH_ADMIN)
+            sid = next(x["id"] for x in helen.get("/api/org/schedulers").json()["schedulers"] if x["email"] == email)
+            victor = Api(app_url, CPSD_ADMIN)
+            assert_error(victor.delete(f"/api/org/schedulers/{sid}"), 404, "not_found")
+            assert email not in [x["email"] for x in victor.get("/api/org/schedulers").json()["schedulers"]]
+            click(table.get_by_role("button", name=f"Remove {name}", exact=True))
+            says(page, "Scheduler status", f"{name} no longer has access.")
+>       assert_error(newbie.get("/api/me"), 401, "unauthenticated")
+
+test_app.py:2491: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+r = <Response [200 OK]>, status = 401, code = 'unauthenticated', field = None
+
+    def assert_error(r: httpx.Response, status: int, code: str, field: str | None = None) -> dict:
+>       assert r.status_code == status, f"{r.request.method} {r.request.url}: {r.status_code} {r.text}"
+E       AssertionError: GET http://127.0.0.1:4173/api/me: 200 {"user":null}
+E       assert 200 == 401
+E        +  where 200 = <Response [200 OK]>.status_code
+
+test_app.py:260: AssertionError
+_________________________ test_wf_org_admin_statement __________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_org_admin_statement(browser, app_url):
+        rosa = Api(app_url, ROSA)
+>       run = posted_one(app_url, start=far_slot(60, [rosa]), who=ROSA, scheduler=RVH_SCHED)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test_app.py:2499: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_app.py:1702: in posted_one
+    run = scenario(app_url, start=start, minutes=minutes, scheduler=scheduler, claims=((1, who),))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+app_url = 'http://127.0.0.1:4173'
+
+    def scenario(app_url: str, *, free_for: tuple = (), claims: tuple = (), language: str = "asl", minutes: int = 90,
+                 scheduler: str = RVH_SCHED, soon: bool = False, release: bool = True,
+                 start: datetime | None = None) -> SimpleNamespace:
+        people = {e: Api(app_url, e) for e in dict.fromkeys([*free_for, *(e for _, e in claims)])}
+        if start is None:
+            start = soon_slot(minutes, list(people.values())) if soon else far_slot(
+                minutes, list(people.values()), avoid=booked(app_url, language))
+        sched = Api(app_url, scheduler)
+        disp = Api(app_url, DISPATCHER)
+        created, body = create(sched, start, language=language, minutes=minutes)
+        number = created["number"]
+        if release or claims:
+            r = disp.post(f"/api/assignments/{number}/release")
+            assert r.status_code == 200, r.text
+        for seat, email in claims:
+            r = people[email].post(seat_path(number, seat, "claim"))
+>           assert r.status_code == 200, r.text
+E           AssertionError: {"error":{"code":"seat_taken","message":"Seat already taken."}}
+E           assert 409 == 200
+E            +  where 409 = <Response [409 Conflict]>.status_code
+
+test_app.py:494: AssertionError
+________________________ test_wf_cross_cutting_sign_in _________________________
+
+browser = <Browser type=<BrowserType name=chromium executable_path=/opt/playwright/chromium-1148/chrome-linux/chrome> version=131.0.6778.33>
+app_url = 'http://127.0.0.1:4173'
+
+    def test_wf_cross_cutting_sign_in(browser, app_url):
+        with screen(browser, app_url, None, "/") as page:
+            form = page.get_by_role("form", name="Sign in", exact=True)
+            fill(form.get_by_role("textbox", name="Email", exact=True), DISPATCHER)
+            fill(form.get_by_label("Password", exact=True), "not-the-password")
+            click(form.get_by_role("button", name="Sign in", exact=True))
+            says(page, "Sign-in status", "Email or password is wrong.")
+            fill(form.get_by_label("Password", exact=True), PASSWORD)
+            form.get_by_label("Password", exact=True).press("Enter")
+            expect(page).to_have_url(re.compile(r"/board(?:[?#].*)?$"), timeout=REAL_MS)
+            for shown in (page.get_by_text("All times Central (Chicago)"), page.get_by_text("Dana Whitcombe")):
+                expect(shown.first).to_be_attached(timeout=REAL_MS)
+                assert any(shown.nth(i).is_visible() for i in range(shown.count()))
+            click(page.get_by_role("button", name="Sign out", exact=True))
+>           assert poll(lambda: page.request.get(at(app_url, "/api/me")).status, lambda st: st == 401, MAIL_DEADLINE_S) == 401
+E           assert 200 == 401
+E            +  where 200 = poll(<function test_wf_cross_cutting_sign_in.<locals>.<lambda> at 0xffffa11d22a0>, <function test_wf_cross_cutting_sign_in.<locals>.<lambda> at 0xffffa0ac99e0>, 45)
+
+test_app.py:2541: AssertionError
+=========================== short test summary info ============================
+FAILED test_app.py::test_create_validation[end-after-22] - AssertionError: PO...
+FAILED test_app.py::test_seat_count[patch-90-to-60] - assert [1, 2] == [1]
+FAILED test_app.py::test_seat_count[patch-60-to-90] - assert [1] == [1, 2]
+FAILED test_app.py::test_idempotent_create - AssertionError: ['{"error":{"cod...
+FAILED test_app.py::test_view_projection - assert False
+FAILED test_app.py::test_claim_guards - AssertionError: ['{"number":"A-1018",...
+FAILED test_app.py::test_give_back - AssertionError: assert 'partially_covere...
+FAILED test_app.py::test_claim_emails - AssertionError: assert 409 == 200
+FAILED test_app.py::test_uncovered_minutes - AssertionError: assert 270 == 180
+FAILED test_app.py::test_hatch_seam_on_board - ValueError: time data 'Mon, No...
+FAILED test_app.py::test_reduced_motion_board - ValueError: time data 'Mon, N...
+FAILED test_app.py::test_not_colour_alone - AssertionError: {"error":{"code":...
+FAILED test_app.py::test_business_minute_notice - assert False is True
+FAILED test_app.py::test_cancellation_decision_and_notices - AssertionError: ...
+FAILED test_app.py::test_served_and_verified - AssertionError: POST http://12...
+FAILED test_app.py::test_billable_amounts - AssertionError: {"error":{"code":...
+FAILED test_app.py::test_one_invoice_item - AssertionError: {"error":{"code":...
+FAILED test_app.py::test_queued_while_killbill_down - AssertionError: assert ...
+FAILED test_app.py::test_rate_in_force - AssertionError: {"error":{"code":"se...
+FAILED test_app.py::test_monthly_statement - AssertionError: assert 403 == 201
+FAILED test_app.py::test_session_and_roles - AssertionError: assert ('Tomas H...
+FAILED test_app.py::test_error_precedence[body-size] - AssertionError: POST h...
+FAILED test_app.py::test_error_precedence[content-type] - AssertionError: POS...
+FAILED test_app.py::test_error_precedence[role] - AssertionError: POST http:/...
+FAILED test_app.py::test_error_precedence[state-before-validation] - Assertio...
+FAILED test_app.py::test_server_boundary - AssertionError: /.env
+FAILED test_app.py::test_keyboard_and_focus - ValueError: time data 'Mon, Nov...
+FAILED test_app.py::test_contrast_and_targets - AssertionError: {"error":{"co...
+FAILED test_app.py::test_wf_request_intake_invalid_recovery - AssertionError:...
+FAILED test_app.py::test_wf_dispatch_release_from_board - ValueError: time da...
+FAILED test_app.py::test_wf_dispatch_release_day_view - ValueError: time data...
+FAILED test_app.py::test_wf_seat_claim_lose_race - AssertionError: {"error":{...
+FAILED test_app.py::test_wf_seat_claim_give_back - AssertionError: {"error":{...
+FAILED test_app.py::test_wf_coverage_board_watch_gap_close - ValueError: time...
+FAILED test_app.py::test_wf_coverage_board_last_seat_race - ValueError: time ...
+FAILED test_app.py::test_wf_coverage_board_refresh_failure - ValueError: time...
+FAILED test_app.py::test_wf_change_and_cancel_late_fee - AssertionError: Loca...
+FAILED test_app.py::test_wf_change_and_cancel_move_time - AssertionError: {"e...
+FAILED test_app.py::test_wf_verification_upload - AssertionError: {"error":{"...
+FAILED test_app.py::test_wf_verification_private_link - AssertionError: {"err...
+FAILED test_app.py::test_wf_invoicing_post_from_screen - AssertionError: {"er...
+FAILED test_app.py::test_wf_invoicing_queued_outage - AssertionError: {"error...
+FAILED test_app.py::test_wf_rate_cards_add_and_apply - AssertionError: {"erro...
+FAILED test_app.py::test_wf_rate_cards_non_future_rejected - AssertionError: ...
+FAILED test_app.py::test_wf_org_admin_manage_schedulers - AssertionError: GET...
+FAILED test_app.py::test_wf_org_admin_statement - AssertionError: {"error":{"...
+FAILED test_app.py::test_wf_cross_cutting_sign_in - assert 200 == 401
+================== 47 failed, 53 passed in 236.54s (0:03:56) ===================

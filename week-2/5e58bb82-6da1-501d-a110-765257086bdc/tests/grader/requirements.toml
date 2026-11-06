@@ -1,0 +1,1728 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 92
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "sign-in",
+    "mission-planning",
+    "fleet-readiness",
+    "slipway-launch",
+    "live-telemetry",
+    "link-lost-alerts",
+    "geofence-excursions",
+    "live-coverage",
+    "holiday-infill",
+    "line-file-upload",
+    "storage-outage",
+    "mission-completion",
+    "client-review",
+    "offline-slipway",
+    "mission-handover",
+    "line-rerun",
+    "coverage-grid",
+    "mission-history",
+    "weather-hold",
+    "client-flags",
+    "bulk-reassign",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 89
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Swathdeck <alerts@fathomwright.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 5
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 5
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 5
+Q4 = 5
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_minio_down"
+S3_BUCKET = "${S3_BUCKET}-minio-down"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+DATABASE_URL = "${DATABASE_URL}_mail_down"
+S3_BUCKET = "${S3_BUCKET}-mail-down"
+
+[[outages]]
+id = "short-timer"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+ESCALATION_SECONDS = "20"
+SIGN_IN_WINDOW_SECONDS = "60"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Role landing after sign-in"
+text = "Signing in lands the principal surveyor on `/fleet`, the launch technician on `/launch` and the client reviewer on `/surveys`, or on the user's restored last screen as qualified in Business rules, and reloading that address shows the same screen."
+kind = "behavior"
+primary = "workflow"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_wf_sign_in_landing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Sessions and role permissions"
+text = "Sign-in, session refresh, sign-out and the current-user endpoints behave as listed in API, and every endpoint enforces the permission table in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_dp02_sessions_and_permissions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Deep links and safe return"
+text = "Opening a screen address while signed out shows sign-in and then lands on that address only when the safe-return rule in Business rules accepts it, and every off-site, protocol-relative, backslash, encoded, API or forbidden address lands on the role's home."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_dp03_safe_return",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Sign-in attempt limit"
+text = "Five failed sign-ins for one email within the attempt window lock that email with 429 `too_many_attempts` until one window after the fifth failure, even with the right password, counted atomically and identically for unknown emails, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_dp04_sign_in_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Switching accounts on a shared device"
+text = "Sign-out revokes the session server-side, the browser drops every record, announcement and held dialog of the previous account, and the next account never sees a survey, count or name of the previous one, even from a late response or the Back button."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_dp05_shared_device",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Idle sign-out with a warning"
+text = "After 28 minutes without input a signed-in screen warns with a two-minute countdown dialog that `Stay signed in` or Escape dismisses, and at zero signs out and returns to sign-in with the published copy, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_dp06_idle_sign_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Plan a survey by keyboard"
+text = "The principal surveyor types survey-area vertices, geofence corners, plan settings and survey order without a mouse, with a vertex format help that stays inside the viewport, creates the mission and lands on `/missions/<mission id>/plan`."
+kind = "behavior"
+primary = "workflow"
+workflow = "mission-planning"
+tests = [
+    "test_app.py::test_wf_mission_planning_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Line plan and crossline derivation"
+text = "The server derives swath width, line spacing, every mainscheme line and crossline with its end points, the line and crossline counts and the estimated duration exactly by the line-plan rule in Business rules, and stores them with the survey order."
+kind = "behavior"
+primary = "pytest"
+workflow = "mission-planning"
+tests = [
+    "test_app.py::test_dp08_line_plan_derivation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Preview follows the latest input"
+text = "The plan preview shows the line count, crossline count and duration for the form's current values within one second of the last edit, discards responses to earlier input, equals the stored plan, and its settings live in the address, as qualified in Feedback states. Committed planner edits undo and redo by keyboard, as qualified in Field operations."
+kind = "behavior"
+primary = "pytest"
+workflow = "mission-planning"
+tests = [
+    "test_app.py::test_dp09_preview_latest_input",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Planner validation summary"
+text = "Invalid planner input is refused with 422 and per-field messages, and the form shows an error summary whose links move focus to each named field."
+kind = "behavior"
+primary = "pytest"
+workflow = "mission-planning"
+tests = [
+    "test_app.py::test_dp10_planner_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Idempotent mission creation"
+text = "Replaying mission creation with the same idempotency key and body returns the original mission without creating another, and the same key with a different body returns 409 `idempotency_conflict`."
+kind = "behavior"
+primary = "pytest"
+workflow = "mission-planning"
+tests = [
+    "test_app.py::test_dp11_idempotent_mission_creation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Assign lines across the fleet"
+text = "On the line plan, the principal surveyor assigns every line and crossline to a vessel by keyboard or tap, saves, and sees the saved confirmation or the published refusal in the plan status region. Unsaved picker changes survive a reload and leaving the line plan asks first, as qualified in Field operations."
+kind = "behavior"
+primary = "workflow"
+workflow = "fleet-readiness"
+tests = [
+    "test_app.py::test_wf_fleet_readiness_assign",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Vessel pickers stay reachable"
+text = "At 375x812 and 768x1024 each line-plan row's vessel picker opens fully inside the viewport above every other layer and is operable by tap and keyboard, including on the last row."
+kind = "behavior"
+primary = "pytest"
+workflow = "fleet-readiness"
+tests = [
+    "test_app.py::test_dp13_vessel_pickers_reachable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Overdue-service block"
+text = "The server refuses to assign lines to, mark afloat, launch with or start a line on a vessel whose hours since service exceed its own service interval, never makes it eligible for infill, and the screen shows the overdue block message."
+kind = "behavior"
+primary = "pytest"
+workflow = "fleet-readiness"
+tests = [
+    "test_app.py::test_dp14_overdue_block",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Thruster hours from running time"
+text = "Thruster hours grow only from fix intervals of at most 60 seconds while the vessel runs a line faster than 0.3 m/s, over-speed and off-heading pairs included, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "fleet-readiness"
+tests = [
+    "test_app.py::test_dp15_thruster_hours",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Log a thruster service exactly once"
+text = "The launch technician logs a service for a vessel that is ashore, which resets its hours since service at once; a vessel afloat is refused with 409 `vessel_afloat`, and a repeated idempotency key from the dialog's retry creates exactly one entry, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "fleet-readiness"
+tests = [
+    "test_app.py::test_wf_fleet_readiness_service_retry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "One vessel, one open mission, under races"
+text = "A vessel holds lines on at most one open mission, and of simultaneous assignment saves putting one vessel on two open missions exactly one succeeds and every other answers 409 `vessel_committed` naming the winning mission."
+kind = "behavior"
+primary = "pytest"
+workflow = "fleet-readiness"
+tests = [
+    "test_app.py::test_dp17_vessel_committed_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Per-vessel service interval"
+text = "The principal surveyor edits a vessel's service interval against the vessel version they read, a stale version answers 409 `stale_version` with the current vessel while the typed value stays, and the overdue rule uses the new interval at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "fleet-readiness"
+tests = [
+    "test_app.py::test_dp18_service_interval",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Slipway launch"
+text = "The launch technician marks each assigned vessel afloat from the launch list on a phone, the principal surveyor launches the mission, and both screens show it as Launched."
+kind = "behavior"
+primary = "workflow"
+workflow = "slipway-launch"
+tests = [
+    "test_app.py::test_wf_slipway_launch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Mission state machine"
+text = "Mission status changes only along the edges in Business rules, with their role checks and preconditions, exactly one of simultaneous identical moves succeeds, and every other request is refused with 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "slipway-launch"
+tests = [
+    "test_app.py::test_dp20_mission_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Line state machine"
+text = "Mainscheme lines, crosslines and infill lines move from Pending to Assigned, Running, Surveyed and Delivered only on the triggers in Business rules, and the mission becomes Surveying and Recovering on its own."
+kind = "behavior"
+primary = "pytest"
+workflow = "slipway-launch"
+tests = [
+    "test_app.py::test_dp21_line_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Afloat only when the server says so"
+text = "A launch-list row reads Afloat or Ashore only after the server confirms the mark afloat or recovered, and a refused or dropped request leaves the previous word with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "slipway-launch"
+tests = [
+    "test_app.py::test_dp22_afloat_only_when_confirmed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Fleet board follows the boats"
+text = "With a vessel's detail open at `/fleet/<vessel id>`, each accepted fix updates that vessel's card, detail and recent-fixes list in place within two seconds, keeping the detail open, focus and the list's scroll position. The detail's track replay scrubs the last ten minutes by keyboard, as qualified in Field operations."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-telemetry"
+tests = [
+    "test_app.py::test_wf_live_telemetry_board",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Fix ingest, single and batched"
+text = "Loggers post single fixes or batches of 1 to 100 with their ingest key, and the server stores each new fix once, answers replays without effect, applies batches in time order or refuses them whole, as listed in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-telemetry"
+tests = [
+    "test_app.py::test_dp24_fix_ingest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Server-decided link state"
+text = "Each vessel's link state is decided by the server from the age of its last received fix, every screen shows the server's state within five seconds even when the device clock is wrong, and each observed change is announced once."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-telemetry"
+tests = [
+    "test_app.py::test_dp25_server_link_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Closed sheets are inert"
+text = "At 768x1024 and 375x812 a closed vessel detail or mission detail sheet is absent from the accessibility tree and holds no focusable element while fixes stream in."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-telemetry"
+tests = [
+    "test_app.py::test_dp26_closed_sheets_inert",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Link-lost alert on the board"
+text = "When an afloat vessel on an active mission goes Lost, the principal surveyor's board shows an alert card headed with the link-lost heading and announces it in the fleet announcements region."
+kind = "behavior"
+primary = "workflow"
+workflow = "link-lost-alerts"
+tests = [
+    "test_app.py::test_wf_link_lost_alert",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Alert email and escalation"
+text = "Each alert emails its staff recipients within 30 seconds, and an alert still Active at the escalation delay sends exactly one escalation email to each principal surveyor and launch technician."
+kind = "behavior"
+primary = "pytest"
+workflow = "link-lost-alerts"
+tests = [
+    "test_app.py::test_dp28_alert_email_and_escalation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Acknowledged is not rectified"
+text = "Alerts move between Active, Acknowledged, Rectified and Closed as defined in Business rules, and acknowledged or rectified cards stay on the board with their attribution until Closed."
+kind = "behavior"
+primary = "pytest"
+workflow = "link-lost-alerts"
+tests = [
+    "test_app.py::test_dp29_alert_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Acknowledge an alert by keyboard"
+text = "Staff acknowledge an alert by keyboard or tap, a repeat returns the same alert unchanged, and focus then moves as stated in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "link-lost-alerts"
+tests = [
+    "test_app.py::test_dp30_acknowledge_by_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Alerts board keeps focus and input across refreshes"
+text = "Board refreshes and new alerts never move focus, close a dialog, replay a card's entrance or clear typed text, so Enter acknowledges the alert the user was on."
+kind = "behavior"
+primary = "pytest"
+workflow = "link-lost-alerts"
+tests = [
+    "test_app.py::test_dp31_board_keeps_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Delayed alert email"
+text = "While email is unreachable, including at boot, alerts still appear and are announced, each shows its email as queued, the mail outage banner shows within 15 seconds, and queued email is sent once mail returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "link-lost-alerts"
+tests = [
+    "test_app.py::test_dp32_mail_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Geofence breach alert"
+text = "A fix outside the mission geofence raises a breach card that the board shows within two seconds and announces once per excursion, its clearing is announced once, and the card is fully usable at 375x812. A geofence changed mid-survey re-evaluates every vessel's open breach at once, as qualified in Field operations."
+kind = "behavior"
+primary = "workflow"
+workflow = "geofence-excursions"
+tests = [
+    "test_app.py::test_wf_geofence_breach",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "One alert per excursion, under retries"
+text = "Each excursion raises exactly one breach alert and one email per recipient, even when the logger sends identical fixes at the same time, and re-entry followed by a new exit raises a new one."
+kind = "behavior"
+primary = "pytest"
+workflow = "geofence-excursions"
+tests = [
+    "test_app.py::test_dp34_one_alert_per_excursion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Alert history is attributed and append-only"
+text = "Every alert carries an append-only history of its real state changes with server times and who made them, simultaneous acknowledgements record exactly one, and no request can edit or delete an alert."
+kind = "behavior"
+primary = "pytest"
+workflow = "geofence-excursions"
+tests = [
+    "test_app.py::test_dp35_alert_history_append_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Coverage while surveying"
+text = "As running lines report fixes, the mission console draws the swaths and updates coverage, open holidays, lines remaining and crossline agreement in place."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-coverage"
+tests = [
+    "test_app.py::test_wf_live_coverage_console",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Coverage grid and swath exclusions"
+text = "The server derives each cell's overlap count and the coverage percentage from accepted fixes exactly by the coverage rule in Business rules, so over-speed and off-heading pairs sweep nothing while staying in the track."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-coverage"
+tests = [
+    "test_app.py::test_dp37_coverage_grid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Holidays need a three-cell run"
+text = "Holidays are the connected groups of holiday cells with a straight run of at least three cells, with stable labels and areas, while smaller specks lower coverage but are never labelled, counted, listed, hatched or queued."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-coverage"
+tests = [
+    "test_app.py::test_dp38_holidays_and_specks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Counters derived once"
+text = "Coverage percentage, open-holiday count and lines remaining are decided once on the server and agree across the mission header, mission API, line table, holidays list, coverage CSV and client view after every fix and infill."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-coverage"
+tests = [
+    "test_app.py::test_dp39_counters_agree",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Crossline agreement by survey order"
+text = "Crossline agreement compares crossline and mainscheme depths per cell against the survey order's allowed vertical uncertainty, exactly by the rule in Business rules, and is the same in the API, both headers, the report and the email."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-coverage"
+tests = [
+    "test_app.py::test_dp40_crossline_agreement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Console state survives repaints"
+text = "On the mission console refreshes never move the lens off its ground position, a Mission detail sheet reopened during its close stays open, and an announcement is replaced only by a newer event."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-coverage"
+tests = [
+    "test_app.py::test_dp41_console_state_survives_repaints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Coverage CSV export"
+text = "Staff, and client reviewers of the mission's own organisation, download a per-line coverage CSV with the published header, quoting, line ends, file name and one-decimal SI numbers."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-coverage"
+tests = [
+    "test_app.py::test_dp42_coverage_csv",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Close a holiday before recovery"
+text = "The principal surveyor sweeps the holiday lens with the arrow keys, presses Enter on a holiday, sees the dashed infill line and changed counters once the server confirms, and sees the hatch clear when the infill pass fills the gap."
+kind = "behavior"
+primary = "workflow"
+workflow = "holiday-infill"
+tests = [
+    "test_app.py::test_wf_holiday_infill_lens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Holiday lens"
+text = "The lens follows the pointer or moves by ground distance per arrow press, shows overlap bands and hatched holidays with their area inside it while specks stay unhatched, and Enter or a click on a holiday queues infill."
+kind = "behavior"
+primary = "pytest"
+workflow = "holiday-infill"
+tests = [
+    "test_app.py::test_dp44_holiday_lens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Queue an infill line once"
+text = "Queueing infill creates one infill line across the holiday for the nearest eligible vessel, a repeated or simultaneous queue returns the existing line, and a closed holiday, a mission not surveying or no eligible vessel is refused with 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "holiday-infill"
+tests = [
+    "test_app.py::test_dp45_queue_infill_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Infill appears only when the server confirms it"
+text = "The infill overlay, Queued-to text and changed counters appear only after the server confirms the queue, repeated input while pending sends nothing, and a refused or dropped queue draws nothing and shows the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "holiday-infill"
+tests = [
+    "test_app.py::test_dp46_infill_only_when_confirmed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Announced infill results"
+text = "Every infill result, replay, refusal, move, reorder and holiday closing is announced with its published copy in the fleet announcements region."
+kind = "behavior"
+primary = "pytest"
+workflow = "holiday-infill"
+tests = [
+    "test_app.py::test_dp47_announced_infill_results",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Lens motion and reduced-motion list"
+text = "The lens trails, opens and closes and infill lines draw within the published times, and under reduced motion the lens snaps, lines appear drawn and a Holidays list offers the same queue action, with focus landing on the new line."
+kind = "behavior"
+primary = "pytest"
+workflow = "holiday-infill"
+tests = [
+    "test_app.py::test_dp48_reduced_motion_list",
+    "test_app.py::test_dp48_lens_open_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Infill moves off a lost vessel"
+text = "When a vessel becomes Lost, its Assigned infill lines move to the nearest eligible vessel and the move is announced, while mainscheme lines and crosslines never move."
+kind = "behavior"
+primary = "pytest"
+workflow = "holiday-infill"
+tests = [
+    "test_app.py::test_dp49_infill_moves_off_lost_vessel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Reorder a vessel's infill queue"
+text = "The principal surveyor reorders a vessel's queued infill lines with Alt and the arrow keys, the server stores the order or refuses a stale one with 409 `stale_order`, and focus stays on the moved line."
+kind = "behavior"
+primary = "pytest"
+workflow = "holiday-infill"
+tests = [
+    "test_app.py::test_dp50_reorder_infill_queue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Upload line files at the slipway"
+text = "On a phone the launch technician uploads a surveyed line's file with its logger checksum from a dialog that fits the screen, sees progress in words and sees Stored only after the server confirms, as qualified in Feedback states. Files over 8,000,000 bytes upload in resumable parts, as qualified in Field operations."
+kind = "behavior"
+primary = "workflow"
+workflow = "line-file-upload"
+tests = [
+    "test_app.py::test_wf_line_file_upload_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Stored as recorded, only after a confirmed write"
+text = "A line becomes Delivered with its file Stored only after object storage confirms a write of exactly the uploaded bytes whose stored SHA-256 checksum equals the declared one, and any refusal leaves it Awaiting upload."
+kind = "behavior"
+primary = "pytest"
+workflow = "line-file-upload"
+tests = [
+    "test_app.py::test_dp52_stored_after_confirmed_write",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Upload replay and conflict"
+text = "Re-uploading identical bytes returns the original result, different bytes for a delivered line are refused with 409 `already_delivered`, and of simultaneous uploads to one line exactly one stores."
+kind = "behavior"
+primary = "pytest"
+workflow = "line-file-upload"
+tests = [
+    "test_app.py::test_dp53_upload_replay_and_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Upload survives an expired session"
+text = "When an upload finds the session ended, the upload dialog keeps the chosen file and checksum, asks for sign-in in place, and finishes the upload once the same account signs in, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "line-file-upload"
+tests = [
+    "test_app.py::test_dp54_upload_after_session_ends",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "An abandoned upload leaves nothing behind"
+text = "An upload or download the client abandons mid-body writes no object or incomplete multipart upload, records nothing and releases every lock and connection, so health stays fast and the next upload of that line succeeds at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "line-file-upload"
+tests = [
+    "test_app.py::test_dp55_abandoned_transfers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Launch list through a storage outage"
+text = "With object storage unreachable, including at boot, the launch technician still sees the launch list with the storage outage banner announced once, and its end is announced once when storage returns."
+kind = "behavior"
+primary = "workflow"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_wf_storage_outage_launch_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Storage outage responses"
+text = "While storage is unreachable, health still answers 200, the status endpoint reports storage down within 15 seconds, and uploads, line-file downloads and report reads answer the published 503 with its retry header, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_dp57_storage_outage_responses",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Outage errors reveal nothing"
+text = "Every error response carries only the published code, message and published extra keys, with no host, port, bucket name, SDK error name, stack frame or framework header."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_dp58_outage_errors_reveal_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Held upload resumes once"
+text = "An upload refused because storage is down is held with its file and checksum and sends itself once when storage is reported up, updating its row in place, while a cancelled or replaced held upload never sends."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_dp59_held_upload_resumes_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Downloads during a storage outage"
+text = "While storage is reported down, every line-file and report download control is a disabled button reading Storage unavailable, until storage is reported up again."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_dp60_downloads_while_storage_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Recover and complete a mission"
+text = "Once every line is delivered and every vessel recovered, the launch technician marks the mission complete and both staff screens show Complete."
+kind = "behavior"
+primary = "workflow"
+workflow = "mission-completion"
+tests = [
+    "test_app.py::test_wf_mission_completion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Complete only when the server says so"
+text = "A launch-list mission section reads Complete only after the server confirms Mark mission complete, a refused or dropped request leaves it reading Recovering with the published copy, and success moves focus to the next open mission."
+kind = "behavior"
+primary = "pytest"
+workflow = "mission-completion"
+tests = [
+    "test_app.py::test_dp62_complete_only_when_confirmed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Completion side effects happen once and in order"
+text = "Marking a mission complete commits Complete and report Pending together, writes the report once, and queues each reviewer's single report-ready email only after the report is Ready, even under repeated or simultaneous requests."
+kind = "behavior"
+primary = "pytest"
+workflow = "mission-completion"
+tests = [
+    "test_app.py::test_dp63_completion_once_and_in_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Coverage report in canonical bytes"
+text = "The coverage report is written to object storage in the published canonical bytes, listing only delivered lines and superseded lines whose file is stored, with their stored checksums, and its bytes and SHA-256 never change once Ready."
+kind = "behavior"
+primary = "pytest"
+workflow = "mission-completion"
+tests = [
+    "test_app.py::test_dp64_report_canonical_bytes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Report time zone and vessel totals"
+text = "The report gives the completion time in UTC and in the client organisation's own time zone with that moment's offset, and per-vessel totals summed from unrounded line values and rounded once."
+kind = "behavior"
+primary = "pytest"
+workflow = "mission-completion"
+tests = [
+    "test_app.py::test_dp65_report_time_zone_and_totals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Report-ready email to each reviewer alone"
+text = "Each client reviewer of the mission's organisation receives exactly one plain-text report-ready email addressed to them alone, whose body is exactly the six published lines, and no email or report carries data outside that survey."
+kind = "behavior"
+primary = "pytest"
+workflow = "mission-completion"
+tests = [
+    "test_app.py::test_dp66_report_ready_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Survey line files by vessel"
+text = "On a survey the client reviewer filters the line files to one vessel, the choice lives in the address, and an unknown vessel shows every line with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "mission-completion"
+tests = [
+    "test_app.py::test_dp67_survey_vessel_filter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Client reviews their surveys"
+text = "The client reviewer follows the report link through sign-in to the survey, reads its coverage, crossline agreement and vessels, and downloads a line file, the coverage CSV and the coverage report."
+kind = "behavior"
+primary = "workflow"
+workflow = "client-review"
+tests = [
+    "test_app.py::test_wf_client_review",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Client organisation isolation"
+text = "Every survey, line, holiday, coverage, track, CSV, file and report address answers 404 to a client reviewer of another organisation and shows the not-found page, and unknown ids inside request bodies answer 404 too."
+kind = "behavior"
+primary = "pytest"
+workflow = "client-review"
+tests = [
+    "test_app.py::test_dp69_client_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Client views carry only their own mission's data"
+text = "A client reviewer's tracks, coverage, holidays, vessel markers and line records come only from fixes on that mission's lines, and no client response names another organisation's mission or its positions."
+kind = "behavior"
+primary = "pytest"
+workflow = "client-review"
+tests = [
+    "test_app.py::test_dp70_client_scope",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Client responses are projected"
+text = "Responses to a client reviewer carry no holiday nearest vessel, no vessel link state once the mission is no longer active, and no thruster, service, ingest or acknowledgement field."
+kind = "behavior"
+primary = "pytest"
+workflow = "client-review"
+tests = [
+    "test_app.py::test_dp71_client_projection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Download the recorded bytes"
+text = "A line-file download returns exactly the stored bytes with the stored SHA-256 in a response header, and the survey screen shows that checksum in full."
+kind = "behavior"
+primary = "pytest"
+workflow = "client-review"
+tests = [
+    "test_app.py::test_dp72_download_recorded_bytes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Surveys list in pages"
+text = "The surveys list shows the reviewer's surveys in the published order 20 at a time, and Load more surveys appends the next ones, moves focus to the first new row and announces the count."
+kind = "behavior"
+primary = "pytest"
+workflow = "client-review"
+tests = [
+    "test_app.py::test_dp73_surveys_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Units preference"
+text = "Switching between metric and imperial changes every displayed length, speed and area at the published precision, while the API, the CSV, the report and stored values stay in SI units."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp74_units",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Published breakpoints"
+text = "At 1280x800 the console shows three panes, at 768x1024 two panes with a slide-over detail, and at 375x812 the chart stacked over the list, with no horizontal overflow."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp75_breakpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Keyboard-complete dialogs"
+text = "Every modal dialog and sheet keeps Tab and Shift+Tab inside it, closes on Escape and returns focus to the control that opened it, and every published shortcut works from any control in its region."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp76_keyboard_dialogs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Touch chart"
+text = "On touch screens a one-finger drag pans the chart and a tap places the lens, without scrolling the page sideways."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp77_touch_chart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "No decorative loops"
+text = "Nothing on any screen animates on its own except the named motions, and pending states use words rather than spinners."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp78_no_decorative_loops",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Chart-room look"
+text = "Screens read as a ruled paper chart with near-black ink, a deep sea blue for depth and actions, one signal orange reserved for alerts and holidays, a serif display face, and every number set in mono with its unit."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B9",
+    "B10",
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Procedural survey chart"
+text = "The chart draws the survey area, geofence, mainscheme lines, crosslines, infill lines, depth-tinted swaths, holiday outlines and vessel markers from mission data, never from a picture."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B6",
+    "B7",
+    "B8",
+    "B12",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from `/app/run.json` and answers the health check on the published port."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp81_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Schema and seed on every serve"
+text = "Each serve applies the schema and seed data idempotently, so an empty database comes up with exactly the seed records and an existing one is left as it is."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp82_seed_records",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Server boundary"
+text = "The server enforces the body-size limits, serves only the built app and API, never exposes source or credentials, and no response carries cross-origin access headers."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp83_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Credentials from configuration"
+text = "Every service credential and address is read from the environment at start and never written into source or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Slipway actions queue while offline"
+text = "On the launch list, mark afloat, mark recovered and log service taken while the phone is offline are queued with their idempotency keys, survive a reload, are sent in order when the phone is online again, and a refused action drops the vessel's later queued actions, as qualified in Field operations."
+kind = "behavior"
+primary = "workflow"
+workflow = "offline-slipway"
+tests = [
+    "test_app.py::test_wf_offline_slipway_replay",
+    "test_app.py::test_wf_offline_slipway_discard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Hand a mission to another surveyor"
+text = "Each mission has an owner who alone may launch, abort, hand over, hold, resume, re-run its lines or change its geofence; a handover to another principal surveyor checks the mission version, exactly one of simultaneous handovers succeeds, and the new owner is emailed and told on their open fleet board, as qualified in Field operations."
+kind = "behavior"
+primary = "workflow"
+workflow = "mission-handover"
+tests = [
+    "test_app.py::test_wf_mission_handover_api",
+    "test_app.py::test_wf_mission_handover_console",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-87"
+title = "Re-run a bad line"
+text = "The owner re-runs a Surveyed or Delivered line as a new Pending line, and once the re-run is Delivered the original is Superseded and coverage, holidays, counters and crossline agreement count only the re-run while the original keeps its file, CSV row and report entry, as qualified in Field operations."
+kind = "behavior"
+primary = "workflow"
+workflow = "line-rerun"
+tests = [
+    "test_app.py::test_wf_line_rerun_api",
+    "test_app.py::test_wf_line_rerun_console",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-88"
+title = "Coverage as a keyboard grid"
+text = "The console's coverage chart can be shown as an ARIA grid of its cells with full row and column counts and indexes, operated entirely by keyboard, whose focused cell drives the lens readout and queues infill on Enter, as qualified in Field operations."
+kind = "behavior"
+primary = "workflow"
+workflow = "coverage-grid"
+tests = [
+    "test_app.py::test_wf_coverage_grid_keyboard",
+    "test_app.py::test_wf_coverage_grid_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-89"
+title = "Mission history"
+text = "Staff read every event of a mission newest first with server times, actors and the published summaries, filter the kinds from the address and page back through older events, as qualified in Field operations."
+kind = "behavior"
+primary = "workflow"
+workflow = "mission-history"
+tests = [
+    "test_app.py::test_wf_mission_history_api",
+    "test_app.py::test_wf_mission_history_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-90"
+title = "Hold the survey for weather"
+text = "The owner holds a Surveying mission with no running line, which refuses line starts and suppresses link-lost alerts until the survey resumes, when vessels already Lost raise their alerts, as qualified in Field operations."
+kind = "behavior"
+primary = "workflow"
+workflow = "weather-hold"
+tests = [
+    "test_app.py::test_wf_weather_hold_api",
+    "test_app.py::test_wf_weather_hold_console",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-91"
+title = "Client flags a delivered line"
+text = "A client reviewer flags a Delivered line of their own survey with a counted comment, staff reply once from the flags list, and each side receives exactly one email, as qualified in Field operations."
+kind = "behavior"
+primary = "workflow"
+workflow = "client-flags"
+tests = [
+    "test_app.py::test_wf_client_flags_api",
+    "test_app.py::test_wf_client_flags_screens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-92"
+title = "Reassign many lines and undo"
+text = "On the line plan the surveyor selects several lines by keyboard, assigns them to one vessel in a single all-or-nothing save, and can undo that save for ten seconds, as qualified in Field operations."
+kind = "behavior"
+primary = "workflow"
+workflow = "bulk-reassign"
+tests = [
+    "test_app.py::test_wf_bulk_reassign_undo",
+    "test_app.py::test_wf_bulk_reassign_refused_and_expired",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with string `install`, `build` and `serve` commands and `\"_schema\":\"run-manifest-v1\"`, and those commands alone install, build and start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` names every shipped package (the production dependency tree from `npm ls --omit=dev --all --json`) and every bundled font, each with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the production dependency tree from `npm ls --omit=dev --all --json`) is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0, and every bundled font is under the SIL Open Font License 1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastore beyond the provided Postgres database and object-storage bucket: no SQLite, no Redis and no files on local disk as a record."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration (the compose files and their dev credentials) is left exactly as given."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The app makes no runtime request to any outside host; fonts, scripts and chart drawing are all served or done locally."
+tests = [
+    "test_app.py::test_if_no_outside_requests",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "sign-in"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+]
+critical = [
+    "test_app.py::test_wf_sign_in_landing",
+    "test_app.py::test_dp03_safe_return",
+    "test_app.py::test_dp04_sign_in_limit",
+    "test_app.py::test_dp05_shared_device",
+]
+
+[[workflows]]
+id = "mission-planning"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_wf_mission_planning_keyboard",
+    "test_app.py::test_dp09_preview_latest_input",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "fleet-readiness"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_fleet_readiness_assign",
+    "test_app.py::test_wf_fleet_readiness_service_retry",
+    "test_app.py::test_dp17_vessel_committed_race",
+    "test_app.py::test_dp13_vessel_pickers_reachable",
+]
+checkpoints = [
+    "B4",
+    "B5",
+]
+
+[[workflows]]
+id = "slipway-launch"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_slipway_launch",
+    "test_app.py::test_dp22_afloat_only_when_confirmed",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "live-telemetry"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_live_telemetry_board",
+    "test_app.py::test_dp25_server_link_state",
+    "test_app.py::test_dp26_closed_sheets_inert",
+]
+
+[[workflows]]
+id = "link-lost-alerts"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_link_lost_alert",
+    "test_app.py::test_dp31_board_keeps_focus",
+    "test_app.py::test_dp32_mail_outage",
+]
+
+[[workflows]]
+id = "geofence-excursions"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_geofence_breach",
+    "test_app.py::test_dp34_one_alert_per_excursion",
+    "test_app.py::test_dp35_alert_history_append_only",
+]
+
+[[workflows]]
+id = "live-coverage"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_live_coverage_console",
+    "test_app.py::test_dp39_counters_agree",
+    "test_app.py::test_dp41_console_state_survives_repaints",
+]
+checkpoints = [
+    "B6",
+    "B8",
+]
+critical_checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "holiday-infill"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_holiday_infill_lens",
+    "test_app.py::test_dp46_infill_only_when_confirmed",
+    "test_app.py::test_dp47_announced_infill_results",
+    "test_app.py::test_dp48_reduced_motion_list",
+    "test_app.py::test_dp45_queue_infill_once",
+]
+
+[[workflows]]
+id = "line-file-upload"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_line_file_upload_phone",
+    "test_app.py::test_dp52_stored_after_confirmed_write",
+    "test_app.py::test_dp54_upload_after_session_ends",
+    "test_app.py::test_dp55_abandoned_transfers",
+]
+
+[[workflows]]
+id = "storage-outage"
+requirements = [
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_storage_outage_launch_list",
+    "test_app.py::test_dp58_outage_errors_reveal_nothing",
+    "test_app.py::test_dp59_held_upload_resumes_once",
+]
+
+[[workflows]]
+id = "mission-completion"
+requirements = [
+    "DP-61",
+    "DP-62",
+    "DP-63",
+    "DP-64",
+    "DP-65",
+    "DP-66",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_mission_completion",
+    "test_app.py::test_dp62_complete_only_when_confirmed",
+    "test_app.py::test_dp63_completion_once_and_in_order",
+    "test_app.py::test_dp66_report_ready_email",
+]
+
+[[workflows]]
+id = "client-review"
+requirements = [
+    "DP-68",
+    "DP-69",
+    "DP-70",
+    "DP-71",
+    "DP-72",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_client_review",
+    "test_app.py::test_dp69_client_isolation",
+    "test_app.py::test_dp70_client_scope",
+    "test_app.py::test_dp71_client_projection",
+    "test_app.py::test_dp72_download_recorded_bytes",
+]
+
+[[workflows]]
+id = "offline-slipway"
+requirements = [
+    "DP-85",
+]
+critical = [
+    "test_app.py::test_wf_offline_slipway_replay",
+    "test_app.py::test_wf_offline_slipway_discard",
+]
+
+[[workflows]]
+id = "mission-handover"
+requirements = [
+    "DP-86",
+]
+critical = [
+    "test_app.py::test_wf_mission_handover_api",
+    "test_app.py::test_wf_mission_handover_console",
+]
+
+[[workflows]]
+id = "line-rerun"
+requirements = [
+    "DP-87",
+]
+critical = [
+    "test_app.py::test_wf_line_rerun_api",
+    "test_app.py::test_wf_line_rerun_console",
+]
+
+[[workflows]]
+id = "coverage-grid"
+requirements = [
+    "DP-88",
+]
+critical = [
+    "test_app.py::test_wf_coverage_grid_keyboard",
+    "test_app.py::test_wf_coverage_grid_phone",
+]
+
+[[workflows]]
+id = "mission-history"
+requirements = [
+    "DP-89",
+]
+critical = [
+    "test_app.py::test_wf_mission_history_api",
+    "test_app.py::test_wf_mission_history_screen",
+]
+
+[[workflows]]
+id = "weather-hold"
+requirements = [
+    "DP-90",
+]
+critical = [
+    "test_app.py::test_wf_weather_hold_api",
+    "test_app.py::test_wf_weather_hold_console",
+]
+
+[[workflows]]
+id = "client-flags"
+requirements = [
+    "DP-91",
+]
+critical = [
+    "test_app.py::test_wf_client_flags_api",
+    "test_app.py::test_wf_client_flags_screens",
+]
+
+[[workflows]]
+id = "bulk-reassign"
+requirements = [
+    "DP-92",
+]
+critical = [
+    "test_app.py::test_wf_bulk_reassign_undo",
+    "test_app.py::test_wf_bulk_reassign_refused_and_expired",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-74",
+    "DP-75",
+    "DP-76",
+    "DP-77",
+    "DP-78",
+    "DP-79",
+    "DP-80",
+    "DP-81",
+    "DP-82",
+    "DP-83",
+    "DP-84",
+]
+critical = [
+    "test_app.py::test_dp75_breakpoints",
+    "test_app.py::test_dp81_health",
+    "test_app.py::test_dp83_server_boundary",
+]
+checkpoints = [
+    "B1",
+    "B3",
+    "B9",
+]
