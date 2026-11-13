@@ -1,0 +1,1776 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 93
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "onboarding",
+    "plan-rules",
+    "year-strip",
+    "swaps",
+    "swap-race",
+    "answer-window",
+    "costs",
+    "receipts",
+    "amendments",
+    "year-record",
+    "share-links",
+    "notices",
+    "makeup-nights",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 80
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Twohouse <notices@halfwayhollow.test>" } },
+    { name = "minio", env = {} },
+    { name = "gotenberg", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 5
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "peer-process"
+port = 4174
+url_env = "APP_PEER_URL"
+
+[outages.env]
+ANSWER_WINDOW_SECONDS = "172800"
+
+[[outages]]
+id = "gotenberg-down"
+port = 4175
+url_env = "APP_GOTENBERG_DOWN_URL"
+
+[outages.env]
+GOTENBERG_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4176
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mail-down"
+port = 4177
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "mail-down-isolated"
+port = 4178
+url_env = "APP_MAIL_DOWN_ISOLATED_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+DATABASE_URL = "${DATABASE_URL}_maildown"
+S3_BUCKET = "${S3_BUCKET}-maildown"
+
+[[outages]]
+id = "short-window"
+port = 4179
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+ANSWER_WINDOW_SECONDS = "20"
+REMINDER_LEAD_SECONDS = "10"
+INVITE_TTL_SECONDS = "6"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[outages]]
+id = "short-window-peer"
+port = 4180
+url_env = "APP_SHORT_PEER_URL"
+
+[outages.env]
+ANSWER_WINDOW_SECONDS = "20"
+REMINDER_LEAD_SECONDS = "10"
+INVITE_TTL_SECONDS = "6"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[outages]]
+id = "short-window-maildown"
+port = 4181
+url_env = "APP_SHORT_MAILDOWN_URL"
+
+[outages.env]
+ANSWER_WINDOW_SECONDS = "20"
+REMINDER_LEAD_SECONDS = "10"
+INVITE_TTL_SECONDS = "6"
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+DATABASE_URL = "${DATABASE_URL}_shortmail"
+S3_BUCKET = "${S3_BUCKET}-shortmail"
+
+[[requirements]]
+id = "DP-01"
+title = "Start a household"
+text = "Anyone without a session can create a household by naming it, its ISO 4217 currency, themselves as its planning parent and the other parent, and is then signed in as the planning parent."
+kind = "behavior"
+primary = "pytest"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_start_household",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Sessions"
+text = "Both parents sign in with email and password to an opaque bearer token; signing out ends that session at once on every process, and every private page and endpoint refuses a missing or ended session."
+kind = "behavior"
+primary = "pytest"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Shared sign-in limit"
+text = "Failed sign-ins for one email are limited in a sliding window shared by every app process on the database, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_sign_in_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Invite the other parent"
+text = "The planning parent emails the other parent a single-use join link whose lifetime comes from the environment, and sending again kills every earlier link."
+kind = "behavior"
+primary = "pytest"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_invite_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Join by invite"
+text = "The other parent opens the join link, sets a password and lands on the Calendar signed in; a used, replaced or expired link shows the dead-link page, and two simultaneous joins give exactly one success."
+kind = "behavior"
+primary = "pytest"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_join_by_invite",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Onboarding journey"
+text = "The planning parent is refused for giving the other parent the same email in different case, lands on the Plan editor with its landing copy, adopts a first plan and invites twice; failed sign-ins split across two processes lock the email, the replaced link is refused on the join screen already holding it open, two browsers racing the newest link give one join, a signed-out request link returns to Requests while a hostile return path lands on the Calendar, and both Calendars show the same year digest."
+kind = "behavior"
+primary = "workflow"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_wf_onboarding_landing",
+    "test_app.py::test_wf_onboarding_session_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Plan rule model"
+text = "A plan version holds an exchange zone, a first exchange instant, a base rotation, a cost split, a run limit and an ordered list of holiday, school-break and vacation rules, validated as specified in The API."
+kind = "behavior"
+primary = "pytest"
+workflow = "plan-rules"
+tests = [
+    "test_app.py::test_plan_rule_model",
+]
+criteria = []
+parameter_cases = [
+    "valid_shape",
+    "written_in_utc",
+    "zone",
+    "seconds",
+    "fractional",
+    "wrong_date",
+    "pattern",
+    "split",
+    "run_limit",
+    "leap_day",
+    "duplicate_name",
+    "reserved_id",
+    "start_offset",
+    "holiday_nights",
+    "break_nights",
+    "vacation_nights",
+]
+
+[[requirements]]
+id = "DP-08"
+title = "Derived-day precedence"
+text = "The server derives each night's parent once, by the precedence in Business rules, and reports the winning rule and the rule it beat."
+kind = "behavior"
+primary = "pytest"
+workflow = "year-strip"
+tests = [
+    "test_app.py::test_derived_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Holiday and break dates"
+text = "Holiday occurrences (fixed dates, nth weekdays and offsets from Western Easter) and school-break halves follow the odd/even-year rules in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "year-strip"
+tests = [
+    "test_app.py::test_holiday_and_break_dates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Exchange instants"
+text = "Every handover carries an RFC 3339 instant at the governing wall-clock exchange time in the governing IANA zone, with DST gaps and folds resolved as Business rules state."
+kind = "behavior"
+primary = "pytest"
+workflow = "year-strip"
+tests = [
+    "test_app.py::test_exchange_instants",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "One derived year"
+text = "The derived year is one RFC 8785 canonical JSON document per household and year with a strong ETag, and that same digest appears on the Calendar, in share links and in year records."
+kind = "behavior"
+primary = "pytest"
+workflow = "year-strip"
+tests = [
+    "test_app.py::test_one_derived_year",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Rule order list"
+text = "The rule order list is a keyboard-operable listbox where a rule moves only within its own kind, and each move is saved to the plan draft as a conditional write."
+kind = "behavior"
+primary = "pytest"
+workflow = "plan-rules"
+tests = [
+    "test_app.py::test_rule_order_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Month grid"
+text = "The month grid follows the WAI-ARIA APG grid pattern, and the focused day's parent and reason appear in the day answer region."
+kind = "behavior"
+primary = "pytest"
+workflow = "year-strip"
+tests = [
+    "test_app.py::test_month_grid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Live plan preview"
+text = "Editing the plan draft updates each parent's night count in place from the server's preview, with no submit and no reload, including when Plan opens."
+kind = "behavior"
+primary = "pytest"
+workflow = "plan-rules"
+tests = [
+    "test_app.py::test_live_plan_preview",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Precedence journey"
+text = "Using only the keyboard, the planning parent is refused for a fixed holiday date that does not exist every year, adds a holiday inside a school break typed in the interface's forms and read back exactly from the API, saves two quick holiday moves, and is refused when moving a rule another screen changed; after adopting, the other parent's grid and day answer name the holiday and the rule it beat."
+kind = "behavior"
+primary = "workflow"
+workflow = "plan-rules"
+tests = [
+    "test_app.py::test_wf_plan_rules_keyboard",
+    "test_app.py::test_wf_plan_rules_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Field swap scroll"
+text = "On the Calendar, the first 1200 pixels of page scroll sweep the shown year day by day, and the pinned stage takes the field colour of the parent who has the focused night, as qualified in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "year-strip"
+tests = [
+    "test_app.py::test_field_swap_scroll",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Night counters"
+text = "Two counters show each parent's nights from 1 January through the focused day, reach the exact derived values within the time in Motion and effects, and go up or down as the scroll moves."
+kind = "behavior"
+primary = "pytest"
+workflow = "year-strip"
+tests = [
+    "test_app.py::test_night_counters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Override stickers"
+text = "A rule sticker settles into place at the first day of each override run when the sweep reaches it, leaves when the sweep moves back before that day, and never overlaps another sticker or the stage controls."
+kind = "behavior"
+primary = "pytest"
+workflow = "year-strip"
+tests = [
+    "test_app.py::test_override_stickers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Reduced-motion year"
+text = "Under reduced motion no transition runs at all, the year shows its end state at once, and the Day box and arrow-key stepping give the same per-day answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "year-strip"
+tests = [
+    "test_app.py::test_reduced_motion_year",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Tonight card"
+text = "The Tonight card shows who has the child tonight and the next handover from the server's answer, refreshed as stated in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "year-strip"
+tests = [
+    "test_app.py::test_tonight_card",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Year strip journey"
+text = "On a 375x812 touch phone with a wrong device clock, the other parent reads the server's Tonight card, taps a strip day, is refused for a day outside the year, reads a handover in a DST gap at its published instant, and scrubs forward and back with field, counters and stickers matching the derived year; a swap accepted on another screen recolours the strip within three seconds without moving the scroll, and reduced motion gives totals at once and arrow-key stepping."
+kind = "behavior"
+primary = "workflow"
+workflow = "year-strip"
+tests = [
+    "test_app.py::test_wf_year_strip_phone",
+    "test_app.py::test_wf_year_strip_day_box",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Swap request lifecycle"
+text = "Swap requests move only along the request edges in Business rules, and every other edge is refused with its stated code."
+kind = "behavior"
+primary = "pytest"
+workflow = "swaps"
+tests = [
+    "test_app.py::test_swap_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Swap nights"
+text = "A swap names a half-open interval of nights that all belong to the giving parent and whose first handover is still in the future when sent, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "swaps"
+tests = [
+    "test_app.py::test_swap_nights",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Conditional writes"
+text = "Every change to an existing plan draft, swap or cost is an RFC 9110 conditional request against a strong ETag, so exactly one of two writes against the same version succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "swaps"
+tests = [
+    "test_app.py::test_conditional_writes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Idempotent requests"
+text = "Every state-changing POST honours an Idempotency-Key with stored-response replay and reuse refusal, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "swaps"
+tests = [
+    "test_app.py::test_idempotent_requests",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Swap by keyboard"
+text = "The Request a swap dialog opens from a shortcut anywhere in the Calendar region, keeps Tab and Shift+Tab inside itself, closes on Escape and returns focus to the control that opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "swaps"
+tests = [
+    "test_app.py::test_swap_by_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Swap journey"
+text = "The planning parent types inclusive nights in the dialog by keyboard, is refused for nights already theirs, and sends a swap whose half-open interval the API reports and whose display is unchanged in a negative-offset zone; it appears live for the other parent, a withdraw racing an accept across two processes lets exactly one win with the loser told the stale copy, an accepted swap changes both calendars, and each outcome is announced even when repeated."
+kind = "behavior"
+primary = "workflow"
+workflow = "swaps"
+tests = [
+    "test_app.py::test_wf_swaps_journey",
+    "test_app.py::test_wf_swaps_withdraw_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "One-winner overlapping swaps"
+text = "Sends of swaps whose nights or make-up nights overlap are linearizable one-winner claims across every process, and every loser is refused naming the winning request."
+kind = "behavior"
+primary = "pytest"
+workflow = "swap-race"
+tests = [
+    "test_app.py::test_overlapping_swaps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Live household stream"
+text = "Each household has a server-sent event stream of its record log that reaches every open screen within three seconds of a commit on any process, and resumes from Last-Event-ID without gaps or duplicates."
+kind = "behavior"
+primary = "pytest"
+workflow = "swap-race"
+tests = [
+    "test_app.py::test_live_stream",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Swap race journey"
+text = "Both parents send overlapping swaps for one weekend from two processes at once; exactly one is sent and the loser sees the overlap copy, the same key replays the stored refusal with its replay header while a different body under that key is refused, the winner appears on the other screen within three seconds, a reconnected stream misses and repeats no entry, and closing the tab releases the stream."
+kind = "behavior"
+primary = "workflow"
+workflow = "swap-race"
+tests = [
+    "test_app.py::test_wf_swap_race_ui",
+    "test_app.py::test_wf_swap_race_stream",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Answer window"
+text = "The server stores a sent request's answer-by instant from the environment's window, and refuses any answer at or after it, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "answer-window"
+tests = [
+    "test_app.py::test_answer_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Sweeps act once"
+text = "Lapsing, reminders and settling run on every process but act exactly once per request on its stored moments, each with its one record-log entry and its notices."
+kind = "behavior"
+primary = "pytest"
+workflow = "answer-window"
+tests = [
+    "test_app.py::test_sweeps_act_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Device clock never decides"
+text = "Every screen shows a request's status and deadline exactly as the server reports them, whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "answer-window"
+tests = [
+    "test_app.py::test_device_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Lapse journey"
+text = "On the short-window copies the planning parent sends a reimbursement request; the other parent sees the server's answer-by time despite a wrong device clock, is refused for a decline with no reason, gets exactly one reminder, and is refused with the lapsed copy for accepting after the deadline with a stale version, while both parents get exactly one lapsed email and the log holds one lapse entry across both processes."
+kind = "behavior"
+primary = "workflow"
+workflow = "answer-window"
+tests = [
+    "test_app.py::test_wf_answer_window_lapse",
+    "test_app.py::test_wf_answer_window_screens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Log a shared cost"
+text = "A parent logs a cost they paid in exact integer minor units with a category, an incurred instant and a description, validated as specified in The API."
+kind = "behavior"
+primary = "pytest"
+workflow = "costs"
+tests = [
+    "test_app.py::test_log_cost",
+]
+criteria = []
+parameter_cases = [
+    "zero",
+    "too_big",
+    "exponent",
+    "decimal",
+    "minus_zero",
+    "string",
+    "empty_description",
+    "category",
+    "no_offset",
+    "too_early",
+    "valid",
+]
+
+[[requirements]]
+id = "DP-36"
+title = "Largest-remainder split"
+text = "Each cost is split by the version governing its custody day, or by its agreed split, using largest-remainder allocation in integer minor units with ties to the paying parent, so the two shares always add up to the amount."
+kind = "behavior"
+primary = "pytest"
+workflow = "costs"
+tests = [
+    "test_app.py::test_largest_remainder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Live cost quote"
+text = "The cost form shows each parent's share in place from the server's quote as the amount, date or time changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "costs"
+tests = [
+    "test_app.py::test_live_cost_quote",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Cost request lifecycle"
+text = "Reimbursement requests follow the request edges in Business rules, and only the paying parent can confirm settlement."
+kind = "behavior"
+primary = "pytest"
+workflow = "costs"
+tests = [
+    "test_app.py::test_cost_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Cost journey"
+text = "The other parent types an amount in the household's money form while the split follows the latest input through reordered replies, and is refused for too many decimals; both parents edit one split under conditional writes with exactly one winner, the loser sees the stale copy, the answerer accepts, a stale second accept is refused, the planning parent is refused when settling the other's cost, the payer settles, and ledger, Balance and a byte-identical rebuilt statement agree on both screens."
+kind = "behavior"
+primary = "workflow"
+workflow = "costs"
+tests = [
+    "test_app.py::test_wf_costs_journey",
+    "test_app.py::test_wf_costs_one_press",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Byte-exact receipts"
+text = "A receipt is stored byte for byte and reported as stored only after the stored copy has been read back and matches."
+kind = "behavior"
+primary = "pytest"
+workflow = "receipts"
+tests = [
+    "test_app.py::test_byte_exact_receipts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Receipt storage outage"
+text = "When storage is unreachable, a receipt upload is refused with nothing recorded and no key result kept, and the screen says so and offers a retry."
+kind = "behavior"
+primary = "pytest"
+workflow = "receipts"
+tests = [
+    "test_app.py::test_receipt_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Receipt journey"
+text = "On the storage-outage copy an upload shows the outage copy with nothing saved, and a retry with the same key on the working app stores one object; a file with no recognised signature is refused, the other parent downloads the receipt byte-identical under its non-ASCII name, a receipt id from another household returns nothing, deleting the draft on the outage copy changes nothing, and deleting it on the working app removes the stored object."
+kind = "behavior"
+primary = "workflow"
+workflow = "receipts"
+tests = [
+    "test_app.py::test_wf_receipts_journey",
+    "test_app.py::test_wf_receipts_file_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Effective-dated amendments"
+text = "An adopted amendment applies only from its effective date, which is after the household's today, so earlier nights and every non-draft cost keep the earlier version on every surface."
+kind = "behavior"
+primary = "pytest"
+workflow = "amendments"
+tests = [
+    "test_app.py::test_effective_dated_amendments",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Amendment journey"
+text = "The planning parent drafts a 55/45 amendment and is refused for an effective date equal to the household's today and for a date with sent costs on or after it; they adopt from a later date, a draft on that custody day moves to the new split while one incurred that morning before the handover keeps the old, an accept racing the adoption across processes never accepts moved nights, and per-night versions read identically on every surface after a process restarts."
+kind = "behavior"
+primary = "workflow"
+workflow = "amendments"
+tests = [
+    "test_app.py::test_wf_amendments_journey",
+    "test_app.py::test_wf_amendments_accept_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Year record job"
+text = "A year record is a resumable job with recorded progress and cancellation that any process may run but only one completes, pinned to the derived year as requested, and shown pending until its PDF is rendered and the stored copy is confirmed."
+kind = "behavior"
+primary = "pytest"
+workflow = "year-record"
+tests = [
+    "test_app.py::test_year_record_job",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Year record PDF"
+text = "The year record PDF carries the published lines for the pinned year, its swaps and its cost ledger, and downloads byte-identical to the stored copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "year-record"
+tests = [
+    "test_app.py::test_year_record_pdf",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Year record journey"
+text = "On the PDF-outage copy the planning parent requests a year record, is refused for a second request for the same year, and watches it move through waiting to failed while their typed share-link label and focus survive every refresh, then cancels another; on the working app a record requested just before an amendment keeps its pinned digest, a stopped worker's record finishes on another process, and the other parent sees it stored live and downloads the PDF."
+kind = "behavior"
+primary = "workflow"
+workflow = "year-record"
+tests = [
+    "test_app.py::test_wf_year_record_outage",
+    "test_app.py::test_wf_year_record_storage_outage",
+    "test_app.py::test_wf_year_record_working",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Read-only share links"
+text = "The planning parent creates share links that expire, can be revoked and can be regenerated, and that answer reads only; every dead link looks exactly like an unknown one."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_read_only_share_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Share page contents"
+text = "A share link shows a year's handover dates, instants, parent names and year digest, and nothing about costs, receipts, notes or requests."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_share_contents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Share journey"
+text = "The planning parent types an expiry in the plan's zone and creates a share link; the school opens it bare and its address gains the year without a new history entry, its digest hashes the canonical year bytes, it moves to the next year and back and is refused for a write; regenerating kills the old link, revoking kills the new one and reaches the other parent's open screen within three seconds, an expiry passes on the server clock whatever the page clock says, and the other parent is refused when creating one."
+kind = "behavior"
+primary = "workflow"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_wf_share_links_journey",
+    "test_app.py::test_wf_share_links_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Transactional notices"
+text = "Every email notice is committed with its state change through a transactional outbox, fanned out as one notice per recipient, sent at least once by whichever process claims it, carries only the household name and a link, and stays queued while mail is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "notices"
+tests = [
+    "test_app.py::test_transactional_notices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Append-only record log"
+text = "Every state change writes exactly one entry in a gapless per-household sequence in commit order, and a refused or replayed action writes none."
+kind = "behavior"
+primary = "pytest"
+workflow = "notices"
+tests = [
+    "test_app.py::test_record_log",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Notices journey"
+text = "On the isolated mail-outage copy a parent sends a swap and sees success copy that stays true, a second invite replaces the first in the Notices table, a refused send adds no log entry, and the mail-down copy shows; on the shared mail-outage copy a fan-out notice reaches each parent in Mailpit exactly once after delivery recovers, and the log pages without repeats while entries arrive live."
+kind = "behavior"
+primary = "workflow"
+workflow = "notices"
+tests = [
+    "test_app.py::test_wf_notices_isolated",
+    "test_app.py::test_wf_notices_shared",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Problem details"
+text = "Every error, including unknown routes and server faults, is an RFC 9457 problem details body with a stable code, chosen by the single error ladder in The API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_problems",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Household isolation"
+text = "A parent reaches only their own household's records, and another household's id, in a path or in a body, is answered as if it did not exist."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_household_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Input hygiene"
+text = "Request bodies refuse unknown fields, inexact numbers and hidden characters, keep built-in property names as ordinary data, and count NFC-normalised text in graphemes, as stated in The API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_input_hygiene",
+]
+criteria = []
+parameter_cases = [
+    "c0",
+    "c1",
+    "zero_width",
+    "bidi",
+    "bom",
+    "final_line_feed",
+    "too_many_graphemes",
+    "inner_line_feed",
+    "grapheme_limit",
+    "flag_limit",
+    "builtin_value",
+    "untrimmed",
+]
+
+[[requirements]]
+id = "DP-57"
+title = "Server boundary"
+text = "State-changing requests must carry the app's own Origin, request bodies have the stated size limits, and the server never serves its source, configuration or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Published layouts"
+text = "Each screen shows its published arrangement at 375x812, 768x1024 and 1280x800 with no page-level horizontal scrolling, and the Household bar and the ledger's own scroller both keep working at 768."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Two-field look"
+text = "Every screen is built from equal mint and pink fields on a near-white ground, with Dela Gothic One headlines, white rounded cards and green on the control button only, and colour is never the only carrier of a status."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Configuration from the environment"
+text = "Every service URL, credential and duration is read from the environment at start, and is never written into the source or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Landing routes"
+text = "Every sign-in, join, sign-out and household creation lands on its published route, and a return path is followed only to a published private page, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_return_path",
+]
+criteria = []
+parameter_cases = [
+    "requests",
+    "plan_query",
+    "missing",
+    "protocol_relative",
+    "backslash",
+    "absolute",
+    "script",
+    "share",
+    "api",
+    "unknown",
+]
+
+[[requirements]]
+id = "DP-62"
+title = "Share page year in the URL"
+text = "The share page keeps its year in the address, replaces a missing or bad year with the default without a new history entry, and offers Previous year and Next year links that Back and Forward restore."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_share_year_in_url",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Deleting a draft cost deletes its receipts"
+text = "Deleting a draft cost removes its stored receipt objects in the same decision, and when storage is unreachable nothing is deleted and nothing is logged."
+kind = "behavior"
+primary = "pytest"
+workflow = "receipts"
+tests = [
+    "test_app.py::test_delete_draft_receipts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Latest quote wins"
+text = "The Cost split and Plan preview regions only ever show the server's reply to the latest input, and discard any reply to an earlier input that arrives later."
+kind = "behavior"
+primary = "pytest"
+workflow = "costs"
+tests = [
+    "test_app.py::test_latest_quote_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Today is the plan zone's date"
+text = "A household's today is the server clock's date in the plan's zone, and it decides amendment dates, the cost date range and Tonight."
+kind = "behavior"
+primary = "pytest"
+workflow = "amendments"
+tests = [
+    "test_app.py::test_today_plan_zone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Accept rechecks the nights"
+text = "Accepting a swap rechecks that every night and make-up night still belongs to its giver under the versions in effect now, linearized with adoptions and other accepts in the household, and a moved night makes the accept fail with its stated code and copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "amendments"
+tests = [
+    "test_app.py::test_accept_rechecks_nights",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Drafts move to the new version"
+text = "Adopting an amendment re-splits every draft cost whose custody day is on or after its effective date by the new version, with a new ETag, in the same transaction as the adoption."
+kind = "behavior"
+primary = "pytest"
+workflow = "amendments"
+tests = [
+    "test_app.py::test_drafts_move",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Bounded lists"
+text = "Every list endpoint takes keyset pages with a bounded limit and valid cursors only, never repeats or skips an entry under concurrent commits, and the Record log screen shows every entry once."
+kind = "behavior"
+primary = "pytest"
+workflow = "notices"
+tests = [
+    "test_app.py::test_bounded_lists",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Polling never resets the user's work"
+text = "The Records screen's background refreshes update its lists and status in place without resetting typed text, chosen values or focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "year-record"
+tests = [
+    "test_app.py::test_polling_keeps_work",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Cost statement projection"
+text = "The household's cost statement is a canonical document kept in step with every cost change, and rebuilding it from the costs gives byte-identical output on any process."
+kind = "behavior"
+primary = "pytest"
+workflow = "costs"
+tests = [
+    "test_app.py::test_statement_projection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Make-up nights"
+text = "A swap may carry make-up nights that go back to the giver, and both intervals form one claim that is checked, overlap-tested, accepted and settled together."
+kind = "behavior"
+primary = "pytest"
+workflow = "makeup-nights"
+tests = [
+    "test_app.py::test_makeup_nights",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Consecutive-night limit"
+text = "A swap that would leave a moved night in a same-owner run longer than the plan's limit, measured across year and version boundaries, cannot be sent or accepted."
+kind = "behavior"
+primary = "pytest"
+workflow = "makeup-nights"
+tests = [
+    "test_app.py::test_run_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Make-up journey"
+text = "By keyboard the planning parent is refused for a make-up length mismatch and a run over the limit that crosses a year end, then sends a swap with make-up nights in the next year; the other parent accepts, both year documents change and the PDF shows both lines, an amendment moving only a make-up night blocks another accept, and of two adjacent swaps that together break the limit exactly one accept wins with the run-limit copy for the loser."
+kind = "behavior"
+primary = "workflow"
+workflow = "makeup-nights"
+tests = [
+    "test_app.py::test_wf_makeup_nights_keyboard",
+    "test_app.py::test_wf_makeup_nights_amendment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Stage state from any arrival"
+text = "Reload, Back or a one-frame jump to any scroll position shows the exact stage state before any scroll event, and turning reduced motion on or off and receiving a live swap take effect at once without a reload or a scroll move."
+kind = "behavior"
+primary = "pytest"
+workflow = "year-strip"
+tests = [
+    "test_app.py::test_stage_any_arrival",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Ordered rule moves"
+text = "Quick rule moves are written in order, each with the previous reply's ETag, and a refused move restores the server's order with the stale copy and focus on that rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "plan-rules"
+tests = [
+    "test_app.py::test_ordered_rule_moves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Hidden rule fields"
+text = "Rule fields for another kind or date type are out of the accessibility tree and Tab order, and their values are never sent."
+kind = "behavior"
+primary = "pytest"
+workflow = "plan-rules"
+tests = [
+    "test_app.py::test_hidden_rule_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Focus and announcements after actions"
+text = "When an action removes the focused button, focus moves to its list item or row and never to the page body, focus is never hidden under the fixed bars, and each outcome is announced even when the words repeat and is never overwritten by a later refresh."
+kind = "behavior"
+primary = "pytest"
+workflow = "swaps"
+tests = [
+    "test_app.py::test_focus_and_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Expired session keeps entries"
+text = "A 401 sends the parent to sign in, and signing in as the same parent reopens an interrupted swap or cost dialog with its entries and sends nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_expired_session_keeps_entries",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Share page re-reads every view"
+text = "Every year view of a share page, Back and Forward included, reads the server, so a dead link shows the dead-link heading on its next view whatever offset its expiry was written in."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_share_rereads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Lost upload races leave nothing"
+text = "A receipt upload that loses to another write on its cost leaves no stored object, and within five seconds the bucket's receipt prefix holds exactly one object per receipt row."
+kind = "behavior"
+primary = "pytest"
+workflow = "receipts"
+tests = [
+    "test_app.py::test_lost_upload_races",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Superseded notices"
+text = "A queued invite killed by a newer invite, or a queued reminder whose request is no longer sent, is superseded in the same transaction and never reaches SMTP."
+kind = "behavior"
+primary = "pytest"
+workflow = "notices"
+tests = [
+    "test_app.py::test_superseded_notices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Streams end with their session"
+text = "An open stream closes within three seconds of its session ending on any process, and abandoned streams release their database resources."
+kind = "behavior"
+primary = "pytest"
+workflow = "swap-race"
+tests = [
+    "test_app.py::test_streams_end",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Dates and night ranges on screen"
+text = "Dates are typed and read as the interface states and night ranges read inclusively on screen, while the API reports the forms it states, in both directions and in every zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "swaps"
+tests = [
+    "test_app.py::test_dates_and_ranges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Wall-clock handovers"
+text = "A handover recurs at the plan's wall-clock time in its zone across clock changes, whichever offset the first exchange was written in."
+kind = "behavior"
+primary = "pytest"
+workflow = "plan-rules"
+tests = [
+    "test_app.py::test_wall_clock_handovers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Custody day"
+text = "A custody day starts at the handover, so a cost incurred before that day's handover belongs to the previous custody day, which decides its governing version and its statement year."
+kind = "behavior"
+primary = "pytest"
+workflow = "costs"
+tests = [
+    "test_app.py::test_custody_day",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Money by currency"
+text = "Money reads and is typed in the interface's form with the household currency's own decimals, and the API holds integer minor units, for currencies with zero, two and three decimals."
+kind = "behavior"
+primary = "pytest"
+workflow = "costs"
+tests = [
+    "test_app.py::test_money_by_currency",
+]
+criteria = []
+parameter_cases = [
+    "cad",
+    "kwd",
+    "jpy",
+]
+
+[[requirements]]
+id = "DP-87"
+title = "Split percentages"
+text = "The screen shows whole percentages that always sum to 100 and the API holds integer basis points, as stated in each section."
+kind = "behavior"
+primary = "pytest"
+workflow = "costs"
+tests = [
+    "test_app.py::test_split_percentages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-88"
+title = "Exact numbers and ids"
+text = "Amounts and totals beyond 32-bit range are JSON numbers, ids are JSON strings kept exact beyond 2^53, and an id out of any range is a plain 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "costs"
+tests = [
+    "test_app.py::test_exact_numbers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-89"
+title = "Names and labels"
+text = "API fields are camelCase and enums use the API's words, while the screen shows the interface's words for the same values."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_names_and_labels",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-90"
+title = "Partial cost edits"
+text = "A cost PATCH leaves absent fields unchanged and clears null ones, so clearing a note or an agreed split on screen clears it in the API, and any split change is re-allocated with a new ETag."
+kind = "behavior"
+primary = "pytest"
+workflow = "costs"
+tests = [
+    "test_app.py::test_partial_cost_edits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-91"
+title = "Receipt file contract"
+text = "A receipt's type comes from its leading bytes alone, its size limit is exact to the byte, and its download carries a strong ETag and its original name."
+kind = "behavior"
+primary = "pytest"
+workflow = "receipts"
+tests = [
+    "test_app.py::test_receipt_file_contract",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-92"
+title = "Bearer-only API"
+text = "The API accepts the bearer token only, on every route including the event stream, and never a cookie."
+kind = "behavior"
+primary = "pytest"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_bearer_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-93"
+title = "Database recovery"
+text = "When the database connection is cut, the process stays up, answers 503 with its code and copy, and the next request after recovery succeeds without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_database_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists and holds exactly the string fields _schema (run-manifest-v1), install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package with its licence, plus both typefaces with theirs; shipped packages means the production dependency tree, as npm ls --omit=dev --all --json reports it."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package is licensed under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0 or 0BSD, and fonts may also be under SIL OFL 1.1; nothing else is allowed, so MIT-0 and any LGPL build, wasm included, are out."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app keeps state only in the provided Postgres and MinIO: no other database, cache, queue or on-disk state file."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "All server, browser and script source is TypeScript with strict enabled in tsconfig.json."
+tests = [
+    "test_app.py::test_if_typescript_strict",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The app serves its own fonts, scripts and styles, and at runtime contacts no host other than the four provided services."
+tests = [
+    "test_app.py::test_if_self_hosted",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The app loads the seed at serve time, idempotently, and the build step writes nothing to any service."
+tests = [
+    "test_app.py::test_if_seed_at_serve",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "onboarding"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-61",
+    "DP-78",
+    "DP-92",
+]
+critical = [
+    "test_app.py::test_wf_onboarding_landing",
+    "test_app.py::test_expired_session_keeps_entries",
+]
+checkpoints = [
+    "B1",
+    "B2",
+]
+
+[[workflows]]
+id = "plan-rules"
+requirements = [
+    "DP-07",
+    "DP-12",
+    "DP-14",
+    "DP-15",
+    "DP-75",
+    "DP-76",
+    "DP-84",
+]
+critical = [
+    "test_app.py::test_wf_plan_rules_keyboard",
+    "test_app.py::test_ordered_rule_moves",
+    "test_app.py::test_hidden_rule_fields",
+    "test_app.py::test_live_plan_preview",
+]
+
+[[workflows]]
+id = "year-strip"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-13",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-74",
+]
+critical = [
+    "test_app.py::test_wf_year_strip_phone",
+    "test_app.py::test_exchange_instants",
+    "test_app.py::test_field_swap_scroll",
+]
+checkpoints = [
+    "B3",
+    "B6",
+]
+critical_checkpoints = [
+    "B3",
+]
+
+[[workflows]]
+id = "swaps"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-77",
+    "DP-83",
+]
+critical = [
+    "test_app.py::test_wf_swaps_journey",
+    "test_app.py::test_swap_by_keyboard",
+    "test_app.py::test_conditional_writes",
+    "test_app.py::test_focus_and_announcements",
+]
+
+[[workflows]]
+id = "swap-race"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-82",
+]
+critical = [
+    "test_app.py::test_wf_swap_race_ui",
+    "test_app.py::test_overlapping_swaps",
+    "test_app.py::test_streams_end",
+]
+
+[[workflows]]
+id = "answer-window"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_answer_window_lapse",
+    "test_app.py::test_device_clock",
+]
+
+[[workflows]]
+id = "costs"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-64",
+    "DP-70",
+    "DP-85",
+    "DP-86",
+    "DP-87",
+    "DP-88",
+    "DP-90",
+]
+critical = [
+    "test_app.py::test_wf_costs_journey",
+    "test_app.py::test_latest_quote_wins",
+    "test_app.py::test_largest_remainder",
+    "test_app.py::test_live_cost_quote",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "receipts"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-63",
+    "DP-80",
+    "DP-91",
+]
+critical = [
+    "test_app.py::test_wf_receipts_journey",
+    "test_app.py::test_delete_draft_receipts",
+    "test_app.py::test_lost_upload_races",
+]
+
+[[workflows]]
+id = "amendments"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-65",
+    "DP-66",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_amendments_journey",
+    "test_app.py::test_today_plan_zone",
+    "test_app.py::test_drafts_move",
+]
+
+[[workflows]]
+id = "year-record"
+requirements = [
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-69",
+]
+critical = [
+    "test_app.py::test_wf_year_record_working",
+    "test_app.py::test_wf_year_record_outage",
+    "test_app.py::test_wf_year_record_storage_outage",
+    "test_app.py::test_polling_keeps_work",
+    "test_app.py::test_year_record_job",
+]
+
+[[workflows]]
+id = "share-links"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-62",
+    "DP-79",
+]
+critical = [
+    "test_app.py::test_wf_share_links_journey",
+    "test_app.py::test_share_year_in_url",
+    "test_app.py::test_share_rereads",
+    "test_app.py::test_read_only_share_links",
+]
+
+[[workflows]]
+id = "notices"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-68",
+    "DP-81",
+]
+critical = [
+    "test_app.py::test_wf_notices_isolated",
+    "test_app.py::test_bounded_lists",
+    "test_app.py::test_transactional_notices",
+]
+
+[[workflows]]
+id = "makeup-nights"
+requirements = [
+    "DP-71",
+    "DP-72",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_makeup_nights_keyboard",
+    "test_app.py::test_wf_makeup_nights_amendment",
+    "test_app.py::test_run_limit",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-89",
+    "DP-93",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_problems",
+    "test_app.py::test_wf_cross_cutting_layouts",
+    "test_app.py::test_wf_cross_cutting_database_recovery",
+]
+checkpoints = [
+    "B7",
+    "B8",
+    "B9",
+]
