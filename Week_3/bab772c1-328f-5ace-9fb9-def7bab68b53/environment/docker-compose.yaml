@@ -1,0 +1,343 @@
+services:
+  main:
+    environment:
+      APP_PUBLIC_PORT: '4173'
+      APP_PUBLIC_URL: http://127.0.0.1:4173
+      DATABASE_URL: postgresql://gf_app:gf-app-dev-2b7d41@postgres:5432/gf_dev
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: gf-dev
+      S3_FORCE_PATH_STYLE: 'true'
+      S3_ACCESS_KEY_ID: gf-dev-root-71c3e0
+      S3_SECRET_ACCESS_KEY: gf-dev-secret-4b8d92
+      MEILISEARCH_URL: http://meilisearch:7700
+      MEILISEARCH_API_KEY: gfkit-dev-master-key-0123456789
+      AMQP_URL: amqp://gfkit:gfkit-dev@rabbitmq:5672/%2F
+      WIREMOCK_URL: http://wiremock:8080
+      GOTENBERG_URL: http://gotenberg:3000
+      VALKEY_URL: redis://app:gfkit-dev@valkey:6379/0
+      KILLBILL_URL: http://killbill:8080
+      KILLBILL_USERNAME: admin
+      KILLBILL_PASSWORD: password
+      KILLBILL_API_KEY: gfkit-dev
+      KILLBILL_API_SECRET: gfkit-dev-secret
+      SVIX_URL: http://svix:8071
+      SVIX_API_KEY: eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJpYXQiOiAxNzkzNTAwMDAwLCAibmJmIjogMTc5MzUwMDAwMCwgImV4cCI6IDQxMDI0NDQ4MDAsICJpc3MiOiAic3ZpeC1zZXJ2ZXIiLCAic3ViIjogIm9yZ19nZmtpdERldjAwMDAwMDAwMDAwMDAwMDAwMDAifQ.q5nmv_FJWaemmYCi7Kt9XjVkpj6bwf2JoPcKHyCBP3Q
+      NTFY_URL: http://ntfy
+      NTFY_USERNAME: app
+      NTFY_PASSWORD: gfkit-dev
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    depends_on:
+      postgres-seed:
+        condition: service_completed_successfully
+      minio-seed:
+        condition: service_completed_successfully
+      meilisearch:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      wiremock:
+        condition: service_healthy
+      gotenberg:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      killbill-seed:
+        condition: service_completed_successfully
+      svix:
+        condition: service_healthy
+      ntfy:
+        condition: service_healthy
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-dev-9e4a02
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  postgres-seed:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      PGHOST: postgres
+      PGUSER: gf_admin
+      PGPASSWORD: gf-admin-dev-9e4a02
+      PGDATABASE: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      psql -Atqc "SELECT 1 FROM pg_roles WHERE rolname = 'gf_app'" | grep -q 1 ||
+        psql -qc "CREATE ROLE gf_app LOGIN PASSWORD 'gf-app-dev-2b7d41'"
+      psql -Atqc "SELECT 1 FROM pg_database WHERE datname = 'gf_dev'" | grep -q 1 ||
+        psql -qc "CREATE DATABASE gf_dev OWNER gf_app"
+  minio:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-dev-root-71c3e0
+      MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92
+    command: server /data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - MC_HOST_local=http://$$MINIO_ROOT_USER:$$MINIO_ROOT_PASSWORD@localhost:9000 mc ready local >/dev/null
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  minio-seed:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-dev-root-71c3e0
+      MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      export MC_HOST_local="http://$$MINIO_ROOT_USER:$$MINIO_ROOT_PASSWORD@minio:9000"
+      mc mb --ignore-existing local/gf-dev
+      mc anonymous set none local/gf-dev
+  meilisearch:
+    image: getmeili/meilisearch:v1.56.0@sha256:1f578fa865f8251894b3bf38d6668d6209a3f451f8f65ab953e129d4c1db5ef4
+    environment:
+      MEILI_MASTER_KEY: gfkit-dev-master-key-0123456789
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: 'true'
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - -o
+      - /dev/null
+      - http://127.0.0.1:7700/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  rabbitmq:
+    image: rabbitmq:4.4.0-management-alpine@sha256:b768d2e09a809b48458d6c3c32fc2894643a6bfafd76264c120373eff0ee6532
+    environment:
+      RABBITMQ_DEFAULT_USER: gfkit
+      RABBITMQ_DEFAULT_PASS: gfkit-dev
+    healthcheck:
+      test:
+      - CMD
+      - rabbitmq-diagnostics
+      - -q
+      - ping
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 10s
+  wiremock:
+    image: wiremock/wiremock:3.13.2@sha256:0d4ecb3e4dc8213fd7a4d37d6a78f6e6b553a6d2e15bd51b0999781282ac61b3
+    entrypoint:
+    - sh
+    - -c
+    - if [ -n "$$WIREMOCK_STUBS" ]; then printf '%s' "$$WIREMOCK_STUBS" > mappings/baseline.json; fi; exec /docker-entrypoint.sh
+      --port 8080 --disable-banner --max-request-journal-entries 20000 --admin-api-basic-auth gfkit-admin:gfkit-dev
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -sf
+      - -u
+      - gfkit-admin:gfkit-dev
+      - http://127.0.0.1:8080/__admin/health
+      interval: 2s
+      timeout: 5s
+      retries: 60
+    environment:
+      WIREMOCK_STUBS: '{"mappings": [{"priority": 1, "request": {"headers": {"If-None-Match": {"equalTo": "\"hollis-tessera3-v1\""}},
+        "method": "GET", "queryParameters": {"target": {"equalTo": "TESSERA-3"}}, "urlPath": "/v3/vectors"}, "response":
+        {"headers": {"ETag": "\"hollis-tessera3-v1\""}, "status": 304}}, {"priority": 5, "request": {"method": "GET",
+        "queryParameters": {"target": {"equalTo": "TESSERA-3"}}, "urlPath": "/v3/vectors"}, "response": {"headers":
+        {"Content-Type": "application/json", "ETag": "\"hollis-tessera3-v1\""}, "jsonBody": {"frame": "MCMF", "target":
+        "TESSERA-3", "units": {"position": "km", "time": "unix_ms", "velocity": "km/s"}, "vectors": [{"t": 1773450000000,
+        "vx": 0.0, "vy": 1.38564, "vz": 0.8, "x": 1837.4, "y": 0.0, "z": 0.0}, {"t": 1773453600000, "vx": 0.0, "vy":
+        -1.47224, "vz": -0.85, "x": -1757.4, "y": 0.0, "z": 0.0}, {"t": 1773457200000, "vx": 0.0, "vy": 1.38564,
+        "vz": 0.8, "x": 1837.4, "y": 0.0, "z": 0.0}]}, "status": 200}}, {"priority": 10, "request": {"method": "GET",
+        "urlPath": "/v3/vectors"}, "response": {"headers": {"Content-Type": "application/json"}, "jsonBody": {"code":
+        "unknown_target"}, "status": 404}}]}'
+  gotenberg:
+    image: gotenberg/gotenberg:8.39.0@sha256:13672f317b443c793e972b1bd2155ec62a3e7b6891b411e8196442cc053ee5f5
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - -o
+      - /dev/null
+      - http://127.0.0.1:3000/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  valkey:
+    image: valkey/valkey:9.1.3-alpine@sha256:bf09d58e96d6b4524a15396b65b242bbe18beebbcc15a04d8ee75ddac62fae0b
+    command:
+    - valkey-server
+    - --requirepass
+    - gfkit-dev-admin
+    - --save
+    - ''
+    - --appendonly
+    - 'no'
+    - --user
+    - app
+    - 'on'
+    - '>gfkit-dev'
+    - ~*
+    - '&*'
+    - +@all
+    - -@admin
+    - -flushall
+    - -flushdb
+    healthcheck:
+      test:
+      - CMD
+      - valkey-cli
+      - -a
+      - gfkit-dev-admin
+      - --no-auth-warning
+      - ping
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  killbill-db:
+    image: killbill/mariadb:0.24@sha256:8fddf7d564befcea3e3d762c01b3e65fb4b45fb8db077297998ad935468372fa
+    environment:
+      MYSQL_ROOT_PASSWORD: killbill
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - mariadb-admin ping -h 127.0.0.1 -uroot -pkillbill --silent
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+  killbill:
+    image: killbill/killbill:0.24.21@sha256:e6b6ab4a0e6287ebf57aafa2d5f22cfa6250dfa056682c74d7c208b4a39d0c9b
+    environment:
+      KB_org_killbill_dao_url: jdbc:mysql://killbill-db:3306/killbill
+      KB_org_killbill_dao_user: root
+      KB_org_killbill_dao_password: killbill
+      KB_org_killbill_billing_osgi_dao_url: jdbc:mysql://killbill-db:3306/killbill
+      KB_org_killbill_billing_osgi_dao_user: root
+      KB_org_killbill_billing_osgi_dao_password: killbill
+      KB_ADMIN_PASSWORD: password
+    depends_on:
+      killbill-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -fsS -o /dev/null http://127.0.0.1:8080/1.0/healthcheck
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 120s
+  killbill-seed:
+    image: curlimages/curl:8.16.0@sha256:463eaf6072688fe96ac64fa623fe73e1dbe25d8ad6c34404a669ad3ce1f104b6
+    environment:
+      KILLBILL_URL: http://killbill:8080
+      KILLBILL_USERNAME: admin
+      KILLBILL_PASSWORD: password
+      KILLBILL_API_KEY: gfkit-dev
+      KILLBILL_API_SECRET: gfkit-dev-secret
+    depends_on:
+      killbill:
+        condition: service_started
+    restart: 'no'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      auth="$$KILLBILL_USERNAME:$$KILLBILL_PASSWORD"
+      curl -fsS -o /dev/null --retry 120 --retry-delay 5 --retry-all-errors --retry-max-time 600 \
+        "$$KILLBILL_URL/1.0/healthcheck"
+      curl -sS -o /dev/null -u "$$auth" -H 'Content-Type: application/json' \
+        -H 'X-Killbill-CreatedBy: gfkit-seed' \
+        -d "{\"apiKey\":\"$$KILLBILL_API_KEY\",\"apiSecret\":\"$$KILLBILL_API_SECRET\"}" \
+        "$$KILLBILL_URL/1.0/kb/tenants"
+      curl -fsS -o /dev/null -u "$$auth" "$$KILLBILL_URL/1.0/kb/tenants?apiKey=$$KILLBILL_API_KEY"
+  svix-db:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: svix
+      POSTGRES_PASSWORD: svix
+      POSTGRES_DB: svix
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U svix -d svix
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  svix:
+    image: svix/svix-server:v1.104.0@sha256:fb0872f4d53e5ced46eef9349a15cc02e0ddae35d041a6f9f00fbee9dd1a0711
+    command:
+    - svix-server
+    - --run-migrations
+    - --wait-for
+    - '60'
+    environment:
+      SVIX_JWT_SECRET: gfkit-dev-svix-jwt-secret-0123456789
+      SVIX_DB_DSN: postgresql://svix:svix@svix-db:5432/svix
+      SVIX_QUEUE_TYPE: memory
+      SVIX_CACHE_TYPE: memory
+      SVIX_WHITELIST_SUBNETS: '[0.0.0.0/0]'
+    depends_on:
+      svix-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - svix-server
+      - healthcheck
+      - http://127.0.0.1:8071
+      interval: 2s
+      timeout: 5s
+      retries: 60
+  ntfy:
+    image: binwiederhier/ntfy:v2.36.0@sha256:fb48c413eb11d50339962b5d62cddce0f800e7f77c626d638a7c20cb7e9c4465
+    command:
+    - serve
+    environment:
+      NTFY_AUTH_FILE: /tmp/ntfy-auth.db
+      NTFY_AUTH_DEFAULT_ACCESS: deny-all
+      NTFY_VISITOR_REQUEST_LIMIT_EXEMPT_HOSTS: 0.0.0.0/0
+      NTFY_VISITOR_TOPIC_CREATION_LIMIT_BURST: '100000'
+      NTFY_AUTH_USERS: gfkit-admin:$$2a$$10$$HZJkmBS/HmPoMWwBJGIcY.3HYVfyY4Y4L3f0FS9QcvimLh2AHZYha:admin,app:$$2a$$10$$gM/OVEm10tjKt0mPbgWUfO8o6CUjyndt1oQMQC.PMQMuNeFuj6eMy:user
+      NTFY_AUTH_ACCESS: app:*:rw
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - --spider
+      - http://127.0.0.1/v1/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+x-minio-root:
+  MINIO_ROOT_USER: gf-dev-root-71c3e0
+  MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92

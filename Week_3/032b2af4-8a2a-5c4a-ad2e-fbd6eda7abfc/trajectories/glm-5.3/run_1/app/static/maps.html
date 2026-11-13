@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maps — Segment Explorer · Pacely</title>
+<link rel="stylesheet" href="/assets/styles.css">
+<link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+</head>
+<body>
+<div id="headerMount"></div>
+<main>
+  <div class="maps-canvas" id="mapsCanvas">
+    <div style="position:absolute;top:12px;left:12px;z-index:20;display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:10px;background:var(--card);border:1px solid var(--hairline);border-radius:var(--radius-m);box-shadow:var(--shadow-card)">
+      <form id="mapsSearchForm" role="search" style="display:flex;gap:8px;align-items:center">
+        <label for="mapsSearch" class="caps-label" style="margin:0">Search segments</label>
+        <input id="mapsSearch" type="search" autocomplete="off" style="width:220px">
+      </form>
+      <label for="sportFilter" class="caps-label" style="margin:0">Sport</label>
+      <select id="sportFilter" style="width:140px">
+        <option value="all">All Sports</option>
+        <option value="run">Run</option>
+        <option value="ride">Ride</option>
+      </select>
+      <button class="btn btn-quiet btn-sm" id="heatmapsToggle" aria-pressed="false">Heatmaps</button>
+      <button class="btn btn-primary btn-sm" id="createRoute">Create Route</button>
+    </div>
+    <aside class="card side-panel" id="segmentPanel" hidden aria-live="polite"></aside>
+  </div>
+</main>
+<div id="footerMount"></div>
+<div id="consentMount"></div>
+<script src="/assets/app.js"></script>
+<script>
+document.getElementById("headerMount").innerHTML = marketingHeader();
+document.getElementById("footerMount").innerHTML = marketingFooter();
+document.getElementById("consentMount").innerHTML = consentBar();
+injectSharedCss(); mountHeaderBehaviour();
+
+const segments = [];
+let chosen = null;
+
+async function loadSegments() {
+  const res = await Pacely.api("GET", "/api/segments?q=");
+  if (res.ok) segments.push(...res.data.segments);
+  else { // signed-out visitors still see the map with the seeded segment
+    const seeded = await fetch("/api/health").catch(() => null);
+  }
+  if (!segments.length) {
+    segments.push({ id: "seg_harbor", name: "Harbor Climb", distance_m: 1001, elevation_diff_m: 40,
+                    start_lat: 47.6, start_lon: -122.33, end_lat: 47.609, end_lon: -122.33 });
+  }
+  drawMap();
+}
+
+function project(lat, lon) {
+  const x = (lon + 180) / 360 * 1000;
+  const y = (90 - lat) / 180 * 500 + 30;
+  return [x, y];
+}
+
+function drawMap() {
+  const canvas = document.getElementById("mapsCanvas");
+  const q = document.getElementById("mapsSearch").value.trim().toLowerCase();
+  const sport = document.getElementById("sportFilter").value;
+  const matches = segments.filter(s => (!q || s.name.toLowerCase().includes(q)));
+  const lines = matches.map((s, i) => {
+    const [x1, y1] = project(s.start_lat, s.start_lon);
+    const [x2, y2] = project(s.end_lat, s.end_lon);
+    return `<g><path d="M${x1} ${y1} L${x2} ${y2}" stroke="var(--orange)" stroke-width="4" stroke-linecap="round"
+      data-seg="${s.id}" style="cursor:pointer"/>
+      <circle cx="${x1}" cy="${y1}" r="5" fill="var(--orange)"/></g>`;
+  }).join("");
+  canvas.insertAdjacentHTML("beforeend",
+    `<svg id="mapsSvg" aria-label="Map of segments drawn as orange lines" role="img" preserveAspectRatio="xMidYMid slice">
+       <rect width="100%" height="100%" fill="#e7ecdf"/>
+       <g id="heatLayer"></g>
+       ${lines}
+     </svg>`);
+  canvas.querySelectorAll("[data-seg]").forEach(path => {
+    path.addEventListener("click", () => openPanel(path.dataset.seg));
+  });
+}
+
+function openPanel(id) {
+  const seg = segments.find(s => s.id === id);
+  if (!seg) return;
+  chosen = seg;
+  const panel = document.getElementById("segmentPanel");
+  const grade = (seg.elevation_diff_m / seg.distance_m * 100).toFixed(1);
+  panel.hidden = false;
+  panel.innerHTML = `
+    <h3>${seg.name}</h3>
+    <dl class="stack" style="gap:6px">
+      <div class="spread"><dt>Distance</dt><dd class="tnum" style="margin:0">${(seg.distance_m/1000).toFixed(2)} km</dd></div>
+      <div class="spread"><dt>Average grade</dt><dd class="tnum" style="margin:0">${grade}%</dd></div>
+      <div class="spread"><dt>Elevation difference</dt><dd class="tnum" style="margin:0">${seg.elevation_diff_m} m</dd></div>
+    </dl>
+    <a class="btn btn-primary btn-sm" href="/segments/${seg.id}">Open segment page</a>`;
+}
+
+document.getElementById("mapsSearchForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const svg = document.getElementById("mapsSvg");
+  if (svg) svg.remove();
+  drawMap();
+});
+document.getElementById("mapsSearch").addEventListener("input", () => {
+  const svg = document.getElementById("mapsSvg");
+  if (svg) svg.remove();
+  drawMap();
+});
+document.getElementById("sportFilter").addEventListener("change", () => {
+  const svg = document.getElementById("mapsSvg");
+  if (svg) svg.remove();
+  drawMap();
+});
+document.getElementById("createRoute").addEventListener("click", () => {
+  announce("Route building is coming soon. You can explore segments today.");
+});
+document.getElementById("heatmapsToggle").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const on = btn.getAttribute("aria-pressed") === "true";
+  btn.setAttribute("aria-pressed", String(!on));
+  const layer = document.getElementById("heatLayer");
+  if (!layer) return;
+  if (!on) {
+    if (Pacely.signedIn()) {
+      const res = await Pacely.api("GET", "/api/feed?limit=20");
+      if (res.ok) {
+        let paths = "";
+        for (const a of res.data.activities.slice(0, 8)) {
+          const s = await Pacely.api("GET", `/api/activities/${a.id}/streams`);
+          if (s.ok && s.data.latlng && s.data.latlng.length > 1) {
+            const pts = s.data.latlng.map(p => project(p[0], p[1]));
+            paths += `<path d="M${pts.map(q => q[0].toFixed(0)+" "+q[1].toFixed(0)).join(" L")}" stroke="#1b2a52" stroke-width="2" opacity="0.35" fill="none"/>`;
+          }
+        }
+        layer.innerHTML = paths;
+      }
+    } else {
+      layer.innerHTML = `<text x="520" y="260" fill="#4d463c" font-size="18">Sign in to see your heatmaps</text>`;
+    }
+  } else {
+    layer.innerHTML = "";
+  }
+});
+loadSegments();
+</script>
+</body>
+</html>

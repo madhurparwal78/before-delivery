@@ -1,0 +1,1231 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "deck-authoring",
+    "question-images",
+    "room-opening",
+    "run-the-night",
+    "answering",
+    "player-controller",
+    "scoring",
+    "reveal",
+    "reconnect",
+    "valkey-fallback",
+    "night-end",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B13",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B14",
+    "B12",
+    "S1",
+    "S2",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 85
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "valkey", env = {} },
+    { name = "minio", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B13 = 3
+B2 = 3
+B3 = 5
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 5
+B10 = 5
+B11 = 3
+B14 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "valkey-down"
+port = 4174
+url_env = "APP_VALKEY_DOWN_URL"
+
+[outages.env]
+VALKEY_URL = "redis://127.0.0.1:9/0"
+DATABASE_URL = "${DATABASE_URL}_valkeydown"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_miniodown"
+
+[[outages]]
+id = "short-timers"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+ROOM_IDLE_SECONDS = "5"
+IMAGE_URL_TTL_SECONDS = "3"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Quizmaster accounts"
+text = "A quizmaster creates an account, signs in and signs out with email and password, and every host screen and host endpoint requires a signed-in session, as detailed in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "deck-authoring"
+tests = [
+    "test_app.py::test_wf_deck_authoring_accounts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Decks stay with their quizmaster"
+text = "A quizmaster sees, edits and opens rooms only from their own decks, and another quizmaster's deck, question, room or night answers as if it did not exist."
+kind = "behavior"
+primary = "pytest"
+workflow = "deck-authoring"
+tests = [
+    "test_app.py::test_wf_deck_authoring_foreign_invalid",
+    "test_app.py::test_wf_deck_authoring_malformed_id",
+    "test_app.py::test_decks_isolated_by_owner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Question types and their rules"
+text = "A deck holds multiple-choice, estimate and sequence questions, each saved only when it meets the field rules in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "deck-authoring"
+tests = [
+    "test_app.py::test_question_rules",
+]
+criteria = []
+parameter_cases = [
+    "mc_two_options",
+    "mc_one_option",
+    "mc_five_options",
+    "mc_correct_index_outside",
+    "mc_option_at_limit",
+    "mc_option_too_long",
+    "prompt_empty",
+    "prompt_at_limit",
+    "prompt_too_long",
+    "time_below_min",
+    "time_at_min",
+    "time_at_max",
+    "time_above_max",
+    "time_fractional",
+    "est_min_not_below_max",
+    "est_step_zero",
+    "est_answer_outside",
+    "est_tolerance_negative",
+    "est_tolerance_full_range",
+    "est_tolerance_beyond_range",
+    "est_unit_at_limit",
+    "est_unit_too_long",
+    "seq_two_items",
+    "seq_six_items",
+    "seq_seven_items",
+    "seq_duplicate_ignoring_case",
+    "deck_title_blank",
+    "deck_title_at_limit",
+    "deck_title_too_long",
+    "deck_full",
+]
+
+[[requirements]]
+id = "DP-04"
+title = "Edits never overwrite newer versions"
+text = "Saving a deck title or a question with an out-of-date version is refused and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "deck-authoring"
+tests = [
+    "test_app.py::test_wf_deck_authoring_stale_invalid",
+    "test_app.py::test_wf_deck_authoring_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Authoring a deck"
+text = "Signed in, the quizmaster creates a deck in the deck editor, adds one question of each type, attaches a picture, and finds the deck with its question count on the decks screen after a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "deck-authoring"
+tests = [
+    "test_app.py::test_wf_deck_authoring_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Pictures judged by their content"
+text = "A question picture is accepted only when its bytes are a real PNG, JPEG or WebP, whatever its file name or declared type, and every other file is refused with a named reason."
+kind = "behavior"
+primary = "pytest"
+workflow = "question-images"
+tests = [
+    "test_app.py::test_wf_question_images_sniffing",
+]
+criteria = []
+parameter_cases = [
+    "png_named_as_text",
+    "jpeg_declared_as_text",
+    "webp_declared_as_png",
+    "svg_with_script",
+    "gif",
+    "html_declared_jpeg",
+    "plain_text_named_webp",
+]
+
+[[requirements]]
+id = "DP-07"
+title = "Picture size limit"
+text = "A question picture larger than the published byte limit, or an empty one, is refused with its named reason and nothing is stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "question-images"
+tests = [
+    "test_app.py::test_picture_size_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Attached only once stored"
+text = "A picture counts as attached only after the image store confirms the stored object, which then exists under the published key with the sniffed content type."
+kind = "behavior"
+primary = "pytest"
+workflow = "question-images"
+tests = [
+    "test_app.py::test_wf_question_images_malformed_id",
+    "test_app.py::test_wf_question_images_stored",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Editor shows the stored state"
+text = "The deck editor shows a picture thumbnail only after the server reports it attached, and shows the uploading copy with no thumbnail while the upload is pending."
+kind = "behavior"
+primary = "pytest"
+workflow = "question-images"
+tests = [
+    "test_app.py::test_editor_upload_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Picture storage outage"
+text = "When the image store is unreachable, an upload is refused with the outage response and copy, the question stays without a picture, and decks and nights keep working."
+kind = "behavior"
+primary = "pytest"
+workflow = "question-images"
+tests = [
+    "test_app.py::test_wf_question_images_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Short-lived picture links"
+text = "Every question opening issues fresh picture links that stop working once their configured lifetime has passed."
+kind = "behavior"
+primary = "pytest"
+workflow = "question-images"
+tests = [
+    "test_app.py::test_wf_question_images_link_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Opening a room"
+text = "Opening a room from a deck freezes that deck's questions for the night and starts the room in the lobby with a fresh PIN."
+kind = "behavior"
+primary = "pytest"
+workflow = "room-opening"
+tests = [
+    "test_app.py::test_wf_room_opening_unknown_ids",
+    "test_app.py::test_room_open_snapshot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Live PINs are unique"
+text = "A PIN is six digits, never shared by two live rooms, and joins nothing once its room has ended."
+kind = "behavior"
+primary = "pytest"
+workflow = "room-opening"
+tests = [
+    "test_app.py::test_live_pins_unique",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Joining a room"
+text = "A player joins a live room with its PIN and a nickname and receives a seat, a rejoin token and a client id, with each refusal named in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "room-opening"
+tests = [
+    "test_app.py::test_join_room",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Nicknames unique in a room"
+text = "Within one room nicknames are unique ignoring letter case, and of simultaneous joins with the same nickname exactly one succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "room-opening"
+tests = [
+    "test_app.py::test_wf_room_opening_nickname_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Filling the lobby"
+text = "With a room open on the stage, players who join from phones appear in the stage's player list and connected count, and each phone shows that it is in and waiting."
+kind = "behavior"
+primary = "workflow"
+workflow = "room-opening"
+tests = [
+    "test_app.py::test_wf_room_opening_lobby",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Forward-only room states"
+text = "The room moves only along the published state machine, and a repeated or out-of-order host command is refused and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "run-the-night"
+tests = [
+    "test_app.py::test_wf_run_the_night_foreign_unknown_command",
+    "test_app.py::test_wf_run_the_night_malformed_room_id",
+    "test_app.py::test_room_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "One winner per host command"
+text = "Of several simultaneous identical host commands, exactly one succeeds and the room records one transition."
+kind = "behavior"
+primary = "pytest"
+workflow = "run-the-night"
+tests = [
+    "test_app.py::test_wf_run_the_night_command_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Server deadlines and auto-lock"
+text = "Each open question has a server deadline, the room locks itself at that deadline whether or not the stage is connected, and a reopened stage resumes the room where it stands."
+kind = "behavior"
+primary = "pytest"
+workflow = "run-the-night"
+tests = [
+    "test_app.py::test_wf_run_the_night_autolock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Stage runs from the keyboard"
+text = "The quizmaster runs every step of the night with the published single-key shortcuts, which work whichever stage control has focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "run-the-night"
+tests = [
+    "test_app.py::test_stage_shortcuts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "End-the-night dialog"
+text = "Ending the night asks for confirmation in a dialog that keeps keyboard focus inside it, closes on Escape and returns focus to its opener."
+kind = "behavior"
+primary = "pytest"
+workflow = "run-the-night"
+tests = [
+    "test_app.py::test_end_night_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Running a full night"
+text = "The quizmaster opens, locks, reveals and shows the leaderboard for every question, then shows the podium and ends the night, and the stage reflects each step."
+kind = "behavior"
+primary = "workflow"
+workflow = "run-the-night"
+tests = [
+    "test_app.py::test_wf_run_the_night_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Answer window judged by the server"
+text = "An answer counts only if the server receives it at or before the question's deadline, and a later one is refused with the server's remaining milliseconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "answering"
+tests = [
+    "test_app.py::test_wf_answering_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "One answer per seat per question"
+text = "A seat records at most one answer per question, and of simultaneous answers from one seat exactly one is recorded."
+kind = "behavior"
+primary = "pytest"
+workflow = "answering"
+tests = [
+    "test_app.py::test_wf_answering_double",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Answers kept as received"
+text = "Every recorded answer is stored with its server-measured latency and, from its reveal on, the points it earned, as published in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "answering"
+tests = [
+    "test_app.py::test_answers_stored",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Countdown and status from server time"
+text = "Phones and stage draw the countdown from the server's deadline corrected for their own clock, and switch to the locked view only when the server says the question is locked."
+kind = "behavior"
+primary = "pytest"
+workflow = "answering"
+tests = [
+    "test_app.py::test_wf_answering_clock_skew",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Nothing correct before the reveal"
+text = "Every player-facing payload carries only the published fields, so no correct option, estimate answer, tolerance or sequence order reaches a phone or the stage before the reveal."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-controller"
+tests = [
+    "test_app.py::test_wf_player_controller_projection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "One-thumb controller"
+text = "At 375 by 812 the phone controller keeps every answer control in the bottom thumb zone at the phone touch size from Visual design, with the question echoed above."
+kind = "visual"
+primary = "pytest"
+workflow = "player-controller"
+tests = [
+    "test_app.py::test_wf_player_controller_thumb_zone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Every answer type without a pointer"
+text = "A player answers multiple-choice, estimate and sequence questions, including reordering items, with the keyboard alone and by touch."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-controller"
+tests = [
+    "test_app.py::test_wf_player_controller_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Answer feedback on the phone"
+text = "Sending, locked in, too late, already answered and seat-moved outcomes each show on the phone and are announced in its answer status region."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-controller"
+tests = [
+    "test_app.py::test_phone_answer_feedback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Points decay with response time"
+text = "A correct answer earns integer points that fall linearly from the maximum at the opening to half at the deadline, by the formula in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_wf_scoring_decay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Streak multiplier"
+text = "Consecutive fully correct answers raise a seat's streak and multiply its points by the published capped multiplier, and any other outcome resets the streak."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_streak_multiplier",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Sequence partial credit"
+text = "A sequence answer earns the share of points given by its longest run of items in correct relative order."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_sequence_partial_credit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Estimate tolerance"
+text = "An estimate counts as correct when it lies within the question's tolerance of the answer, edges included."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_estimate_tolerance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Ranking and tie-breaks"
+text = "Seats rank by total score, then by lower cumulative response time, then by earlier join."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_wf_scoring_ranking",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Leaderboard matches stored standings"
+text = "After every reveal the live leaderboard set and the stored standings hold the same score for every seat."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_wf_scoring_reconcile",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Leaderboard and own rank on screen"
+text = "The stage shows the top ten at the leaderboard step and each phone shows its own rank, the seated count and its score, updated at each reveal."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_leaderboard_on_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Server-decided reveal numbers"
+text = "The reveal event carries the counts, bins or buckets and the correct answer computed by the server, identical for every client."
+kind = "behavior"
+primary = "pytest"
+workflow = "reveal"
+tests = [
+    "test_app.py::test_wf_reveal_numbers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Tally Pour reveal"
+text = "At reveal the stage raises one pillar per option in tile order with staggered starts, counts each label up to the server count without overshoot, then marks the correct pillar in brass."
+kind = "visual"
+primary = "pytest"
+workflow = "reveal"
+tests = [
+    "test_app.py::test_wf_reveal_tally_pour",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Replayed reveal shows final heights"
+text = "A reveal shown after a reload or reconnect appears at its final heights and counts at once, with the correct answer already marked."
+kind = "visual"
+primary = "pytest"
+workflow = "reveal"
+tests = [
+    "test_app.py::test_replayed_reveal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Reveal without motion or WebGL"
+text = "Under reduced motion or without WebGL the stage shows the reveal as a still list of bars with the same counts, shares and correct-answer marking."
+kind = "visual"
+primary = "pytest"
+workflow = "reveal"
+tests = [
+    "test_app.py::test_wf_reveal_still_list",
+]
+criteria = []
+parameter_cases = [
+    "reduced_motion",
+    "no_webgl",
+]
+
+[[requirements]]
+id = "DP-42"
+title = "Podium"
+text = "At the podium step the stage moves its view to the top three over the published duration, or under reduced motion or without WebGL shows them at once as a still ranked list with the same names and scores."
+kind = "visual"
+primary = "pytest"
+workflow = "reveal"
+tests = [
+    "test_app.py::test_podium",
+]
+criteria = []
+parameter_cases = [
+    "webgl",
+    "reduced_motion",
+    "no_webgl",
+]
+
+[[requirements]]
+id = "DP-43"
+title = "Stage look"
+text = "The stage reads from across a room as a dark bottle-green space with chalk numerals, a wide serif question band in the upper third and answer tiles told apart by letter, tally mark and position."
+kind = "visual"
+primary = "rubric"
+workflow = "reveal"
+tests = []
+criteria = [
+    "B1",
+    "B13",
+    "B2",
+    "B3",
+    "B4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Ordered events and exact replay"
+text = "Each room's events carry strictly increasing ids, and a reconnect with the last seen id receives exactly the missed events in order without duplicates."
+kind = "behavior"
+primary = "pytest"
+workflow = "reconnect"
+tests = [
+    "test_app.py::test_event_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Rejoin restores the seat"
+text = "A rejoin token restores exactly its own seat, nickname, score and streak until the room ends, after which it is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "reconnect"
+tests = [
+    "test_app.py::test_wf_reconnect_rejoin_after_end",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "One live client per seat"
+text = "Each rejoin gives the seat a new client and retires the previous one, so two tabs racing on one token end with one seated client."
+kind = "behavior"
+primary = "pytest"
+workflow = "reconnect"
+tests = [
+    "test_app.py::test_wf_reconnect_racing_tabs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Streams released when a client leaves"
+text = "When a phone or stage closes its stream, its client leaves the room's connected set and the server holds no work or database session for it."
+kind = "behavior"
+primary = "pytest"
+workflow = "reconnect"
+tests = [
+    "test_app.py::test_wf_reconnect_stream_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "A reload keeps the seat"
+text = "A player reloads the phone mid-question and comes back to the same seat, score and streak, and sees the current question or any reveal they missed."
+kind = "behavior"
+primary = "workflow"
+workflow = "reconnect"
+tests = [
+    "test_app.py::test_wf_reconnect_reload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Backup link when the live service is down"
+text = "When the live service is unreachable, streams are refused with the outage response and phones and stage carry on over the backup link, with every command, answer and reveal still working."
+kind = "behavior"
+primary = "pytest"
+workflow = "valkey-fallback"
+tests = [
+    "test_app.py::test_wf_valkey_fallback_backup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Back to live without a restart"
+text = "When the live service returns, phones and stage move back to live streams and the leaderboard set is rebuilt, without restarting the app."
+kind = "behavior"
+primary = "pytest"
+workflow = "valkey-fallback"
+tests = [
+    "test_app.py::test_wf_valkey_fallback_recover",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Backup link shown on stage and phone"
+text = "While on the backup link, the stage and each phone show and announce the backup-link copy, and replace it with the return copy when back on live."
+kind = "behavior"
+primary = "pytest"
+workflow = "valkey-fallback"
+tests = [
+    "test_app.py::test_wf_valkey_fallback_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Ending a night closes every seat"
+text = "Ending a night broadcasts the end, refuses its rejoin tokens and clients, and frees its PIN for a new room."
+kind = "behavior"
+primary = "pytest"
+workflow = "night-end"
+tests = [
+    "test_app.py::test_wf_night_end_close",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Idle rooms end themselves"
+text = "A room with no connected client for the configured idle limit ends itself on the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "night-end"
+tests = [
+    "test_app.py::test_wf_night_end_idle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Results of every night"
+text = "Every ended night keeps its deck title, end time and final standings, listed newest first for its quizmaster."
+kind = "behavior"
+primary = "pytest"
+workflow = "night-end"
+tests = [
+    "test_app.py::test_wf_night_end_malformed_night_id",
+    "test_app.py::test_night_results",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Looking back at past nights"
+text = "From the decks screen the quizmaster opens Past nights, picks a night and sees its final standings table."
+kind = "behavior"
+primary = "workflow"
+workflow = "night-end"
+tests = [
+    "test_app.py::test_wf_night_end_past_nights",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Health check and run manifest"
+text = "The app installs, builds and serves from its run manifest and answers the health check, even when the live service or image store is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read from the environment at start and never hard-coded or sent to the browser, except the image store address and access key id inside presigned picture links as allowed in Server boundary."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Server boundary"
+text = "The server answers same-origin requests only, refuses bodies over the published limit, and never serves source files, configuration or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_size_before_session",
+    "test_app.py::test_wf_cross_cutting_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "No sideways scrolling at any size"
+text = "Every screen fits 375 by 812, 768 by 1024 and 1280 by 800 without horizontal scrolling."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_layout_every_screen",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-60"
+title = "After-hours look"
+text = "Every screen uses the bottle-green ground, chalk text, brass only for correct answers and the podium, coral only for lateness, Fraunces display numerals and Atkinson Hyperlegible body text."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B14",
+    "B12",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\", and the app runs from those commands alone."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package, meaning the production dependency tree from npm ls --omit=dev --all --json, with its name, version and licence, plus the two fonts."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the production dependency tree from npm ls --omit=dev --all --json) is licensed MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0, and the fonts are under the SIL Open Font License 1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in the provided Postgres, Valkey and MinIO. It uses no other datastore, embedded database or data files written at runtime."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Fraunces and Atkinson Hyperlegible are served from the app itself, and no page loads fonts, scripts or styles from another origin."
+tests = [
+    "test_app.py::test_if_self_hosted_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "package-lock.json is committed and install uses it."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The provided service configuration for Postgres, Valkey and MinIO (the dev compose files and their seed jobs) is left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "deck-authoring"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+]
+critical = [
+    "test_app.py::test_wf_deck_authoring_happy",
+    "test_app.py::test_wf_deck_authoring_conflict",
+    "test_app.py::test_wf_deck_authoring_accounts",
+]
+
+[[workflows]]
+id = "question-images"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_wf_question_images_sniffing",
+    "test_app.py::test_wf_question_images_stored",
+    "test_app.py::test_wf_question_images_outage",
+    "test_app.py::test_wf_question_images_link_expiry",
+]
+
+[[workflows]]
+id = "room-opening"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_wf_room_opening_lobby",
+    "test_app.py::test_wf_room_opening_nickname_race",
+]
+checkpoints = [
+    "B4",
+]
+
+[[workflows]]
+id = "run-the-night"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_run_the_night_keyboard",
+    "test_app.py::test_wf_run_the_night_command_race",
+    "test_app.py::test_wf_run_the_night_autolock",
+]
+checkpoints = [
+    "B1",
+    "B13",
+    "B3",
+]
+
+[[workflows]]
+id = "answering"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_answering_window",
+    "test_app.py::test_wf_answering_double",
+    "test_app.py::test_wf_answering_clock_skew",
+]
+
+[[workflows]]
+id = "player-controller"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_player_controller_projection",
+    "test_app.py::test_wf_player_controller_keyboard",
+    "test_app.py::test_wf_player_controller_thumb_zone",
+]
+checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "scoring"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_scoring_decay",
+    "test_app.py::test_wf_scoring_reconcile",
+    "test_app.py::test_wf_scoring_ranking",
+]
+
+[[workflows]]
+id = "reveal"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_reveal_numbers",
+    "test_app.py::test_wf_reveal_still_list",
+    "test_app.py::test_wf_reveal_tally_pour",
+]
+checkpoints = [
+    "B10",
+    "B11",
+    "B14",
+]
+critical_checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "reconnect"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_reconnect_racing_tabs",
+    "test_app.py::test_wf_reconnect_rejoin_after_end",
+    "test_app.py::test_wf_reconnect_stream_release",
+    "test_app.py::test_wf_reconnect_reload",
+]
+
+[[workflows]]
+id = "valkey-fallback"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_valkey_fallback_backup",
+    "test_app.py::test_wf_valkey_fallback_recover",
+    "test_app.py::test_wf_valkey_fallback_copy",
+]
+
+[[workflows]]
+id = "night-end"
+requirements = [
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_night_end_close",
+    "test_app.py::test_wf_night_end_idle",
+    "test_app.py::test_wf_night_end_past_nights",
+]
+checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_health",
+    "test_app.py::test_wf_cross_cutting_boundary",
+]
+checkpoints = [
+    "B5",
+    "B9",
+]

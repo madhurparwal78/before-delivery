@@ -1,0 +1,1283 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 66
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "order-placement",
+    "keel-section-planning",
+    "window-commit",
+    "assignment-notices",
+    "amend-cancel",
+    "move-lifecycle",
+    "pilot-phone",
+    "ladder-report",
+    "tariff-revisions",
+    "billing-invoices",
+    "outage-recovery",
+    "board-layout",
+    "handover",
+    "access-roles",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 87
+solo_criteria = []
+services = [
+    { name = "mailpit", env = { MAIL_FROM = "dispatch@ebbstone.example" } },
+    { name = "killbill", env = {} },
+    { name = "minio", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 5
+S1 = 5
+S2 = 5
+S3 = 5
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 5
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4176
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "short-detention"
+port = 4177
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+DETENTION_UNIT_SECONDS = "6"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Order a pilot move"
+text = "A port agent places an order for their own vessel on the orders screen and it appears as `Ordered` in their list and in the dispatcher's order queue."
+kind = "behavior"
+primary = "workflow"
+workflow = "order-placement"
+tests = [
+    "test_app.py::test_wf_order_placement_place_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Draught in either unit"
+text = "Draught is accepted in metres or feet and inches, stored once in whole millimetres, and switching the displayed unit never changes a clearance or a charge."
+kind = "behavior"
+primary = "pytest"
+workflow = "order-placement"
+tests = [
+    "test_app.py::test_draught_units",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Live order form"
+text = "Editing draught, speed, boarding time or vessel details on the order form updates clearances, window state and the tariff estimate in place with no submit, and announces the result, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "order-placement"
+tests = [
+    "test_app.py::test_wf_order_placement_live_form",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Agency isolation"
+text = "A port agent reaches only their own agency's vessels, moves, reports, photos, invoices, search results, exports and per-revision move lists, and any other agency's record answers exactly as a record that does not exist."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-roles"
+tests = [
+    "test_app.py::test_wf_access_roles_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Keyed requests replay"
+text = "Repeating a keyed request with the same key and body, even while the first is still in progress, returns the first response, and reusing a key with a different body is refused, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "order-placement"
+tests = [
+    "test_app.py::test_order_keyed_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Published clearance formula"
+text = "The server computes each waypoint's leg speed, arrival, squat, clearance, required clearance, margin and pinch by the published formula and leg speed limits, and the screen shows those same values."
+kind = "behavior"
+primary = "pytest"
+workflow = "keel-section-planning"
+tests = [
+    "test_app.py::test_plan_formula",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Tide height in real elapsed time"
+text = "Tide height at any instant comes from cosine interpolation between published high and low waters over real elapsed time, with each waypoint's published time and height offset, on daylight-saving changeover dates as on any other."
+kind = "behavior"
+primary = "pytest"
+workflow = "keel-section-planning"
+tests = [
+    "test_app.py::test_tide_interpolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Open windows from the server"
+text = "The server returns the open boarding windows for a move and day in 5-minute port-time steps that skip any hour that does not exist, and the strip under the time handle marks exactly those windows."
+kind = "behavior"
+primary = "pytest"
+workflow = "keel-section-planning"
+tests = [
+    "test_app.py::test_open_windows_api",
+    "test_app.py::test_wf_keel_section_planning_dst_handle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Keel Section long section"
+text = "The planning view shows a to-scale long section from boarding ground to berth with a seabed line, six waypoints, speed-limit labels on the limited legs, a hull at draught plus squat, and a water line drawn at each waypoint's height when the hull arrives there."
+kind = "visual"
+primary = "rubric"
+workflow = "keel-section-planning"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Time handle response"
+text = "Moving the time handle updates, in order, the water line, each waypoint's bar and numerals, and the Pinch marker from the server's plan for the latest handle value only, and crossing the limit changes the gate ribbon, its text and the Commit control."
+kind = "behavior"
+primary = "pytest"
+workflow = "keel-section-planning"
+tests = [
+    "test_app.py::test_wf_keel_section_planning_handle_latest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Section announcements"
+text = "Each change of pinch waypoint or gate state and each commit result is announced in the named live region with the published copy, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "keel-section-planning"
+tests = [
+    "test_app.py::test_wf_keel_section_planning_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Keyboard night planning"
+text = "A dispatcher completes the whole journey from order queue through the time handle and commit to pilot assignment by keyboard alone, with published shortcuts and focus held inside every open panel."
+kind = "behavior"
+primary = "pytest"
+workflow = "keel-section-planning"
+tests = [
+    "test_app.py::test_wf_keel_section_planning_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Server decides commit"
+text = "On commit the server checks the move version, recomputes the plan, and its result alone decides whether the window is committed."
+kind = "behavior"
+primary = "pytest"
+workflow = "window-commit"
+tests = [
+    "test_app.py::test_commit_api_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Stale commit refused"
+text = "A commit made against an older move version, tide data or draught is refused, the section redraws from the fresh values, and nothing is committed."
+kind = "behavior"
+primary = "pytest"
+workflow = "window-commit"
+tests = [
+    "test_app.py::test_wf_window_commit_stale_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Hull transit on commit"
+text = "After an accepted commit the hull travels from boarding ground to berth once and the move row shows the committed time and pinch margin."
+kind = "visual"
+primary = "pytest"
+workflow = "window-commit"
+tests = [
+    "test_app.py::test_wf_window_commit_board_and_agent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Tide table revisions"
+text = "A dispatcher publishes a tide revision for a date, the tide version advances, and committed moves that no longer clear return to `Ordered`."
+kind = "behavior"
+primary = "pytest"
+workflow = "window-commit"
+tests = [
+    "test_app.py::test_tide_revision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Commit from queue to board"
+text = "A dispatcher takes a queued order to a committed window and sees it on the board, on the agent's view and in the move's history."
+kind = "behavior"
+primary = "workflow"
+workflow = "window-commit"
+tests = [
+    "test_app.py::test_wf_window_commit_queue_to_board",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Licence cover and eligibility"
+text = "The server reports each pilot's turn position, licence cover and rest verdict for a move, and refuses a pilot whose licence does not cover the vessel's length and draught."
+kind = "behavior"
+primary = "pytest"
+workflow = "assignment-notices"
+tests = [
+    "test_app.py::test_wf_assignment_notices_licence_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Next eligible in turn"
+text = "Only the next eligible pilot can be assigned without override, skipped pilots keep their turn position with the reason recorded, and the assigned pilot moves to the end of the turn list."
+kind = "behavior"
+primary = "pytest"
+workflow = "assignment-notices"
+tests = [
+    "test_app.py::test_assignment_turn_and_licence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Rest rules"
+text = "Assignment is refused when the published rest or consecutive-day rules, counted in real elapsed time, would be breached before or after the duty."
+kind = "behavior"
+primary = "pytest"
+workflow = "assignment-notices"
+tests = [
+    "test_app.py::test_rest_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Simultaneous assignment"
+text = "When two dispatchers assign the same pilot or the same move at once exactly one succeeds and the other receives the published conflict with fresh data."
+kind = "behavior"
+primary = "pytest"
+workflow = "assignment-notices"
+tests = [
+    "test_app.py::test_assignment_concurrency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Assign the rested pilot"
+text = "A dispatcher opens the assignment panel for a committed move, assigns the next eligible pilot, and sees the move as `Pilot assigned` with its notice states."
+kind = "behavior"
+primary = "workflow"
+workflow = "assignment-notices"
+tests = [
+    "test_app.py::test_wf_assignment_notices_panel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Rest-rule override"
+text = "A rest breach can be overridden only with a typed immediate-safety reason, which is attributed, immutable and shown only to dispatchers."
+kind = "behavior"
+primary = "pytest"
+workflow = "assignment-notices"
+tests = [
+    "test_app.py::test_rest_override",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Private fields stay private"
+text = "Pilot rest figures, rest-override reasons and dispatcher notes never appear in any mail or in anything a port agent can read."
+kind = "behavior"
+primary = "pytest"
+workflow = "assignment-notices"
+tests = [
+    "test_app.py::test_private_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Assignment panel survives refresh"
+text = "An open assignment panel, its selection and a half-typed note stay intact and focused while the board refreshes on its timer."
+kind = "behavior"
+primary = "pytest"
+workflow = "assignment-notices"
+tests = [
+    "test_app.py::test_wf_assignment_notices_panel_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Order and assignment notices"
+text = "Each state change listed in Services sends its notice exactly once to the listed recipients, and its delivery state shows on the move."
+kind = "behavior"
+primary = "pytest"
+workflow = "assignment-notices"
+tests = [
+    "test_app.py::test_order_and_assignment_notices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Amendment re-check"
+text = "An amendment re-checks the plan on the server and returns a committed or assigned move to `Ordered`, releasing any pilot, when the window no longer clears."
+kind = "behavior"
+primary = "pytest"
+workflow = "amend-cancel"
+tests = [
+    "test_app.py::test_amend_and_cancel_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Server-decided notice cutoff"
+text = "Whether an amendment or cancellation is under the notice cutoff comes only from the server's clock and the screen shows the server's verdict even when the device clock is wrong."
+kind = "behavior"
+primary = "pytest"
+workflow = "amend-cancel"
+tests = [
+    "test_app.py::test_wf_amend_cancel_amendments",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Cancellation branches"
+text = "A cancellation before `On board` ends in `Cancelled` or `Cancelled late` by the server's notice verdict, and any later cancellation is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "amend-cancel"
+tests = [
+    "test_app.py::test_cancellation_branches",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Published late-notice wording"
+text = "The late-cancellation and late-amendment notices and the ladder-refused heading render and announce character for character."
+kind = "behavior"
+primary = "pytest"
+workflow = "amend-cancel"
+tests = [
+    "test_app.py::test_wf_amend_cancel_late_wording",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Amend and cancel near boarding"
+text = "A port agent amends and cancels moves close to boarding and sees the resulting state, notice wording and charge on the move."
+kind = "behavior"
+primary = "workflow"
+workflow = "amend-cancel"
+tests = [
+    "test_app.py::test_wf_amend_cancel_late_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Move state machine"
+text = "Every legal move transition succeeds once for the permitted role, simultaneous requests for the same transition yield exactly one success, and every illegal one is refused with the published rejection."
+kind = "behavior"
+primary = "pytest"
+workflow = "move-lifecycle"
+tests = [
+    "test_app.py::test_move_state_machine",
+    "test_app.py::test_wf_move_lifecycle_status_actions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Pilot's next job on a phone"
+text = "A pilot on a phone sees their next job and its clearances, and confirms pilot away, boarding and completion."
+kind = "behavior"
+primary = "workflow"
+workflow = "pilot-phone"
+tests = [
+    "test_app.py::test_wf_pilot_phone_next_job",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Touch handle and reduced motion"
+text = "The time handle works by touch on a phone, and under reduced motion every change snaps to its end state with the same values and controls."
+kind = "behavior"
+primary = "pytest"
+workflow = "pilot-phone"
+tests = [
+    "test_app.py::test_wf_pilot_phone_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Closed drawer and sheet"
+text = "A closed jobs drawer or waypoint sheet is hidden and inert, so none of its controls can be reached or read at any viewport."
+kind = "behavior"
+primary = "pytest"
+workflow = "pilot-phone"
+tests = [
+    "test_app.py::test_wf_pilot_phone_drawer_sheet_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Evidence checked and stored as submitted"
+text = "Ladder photos and vessel pilot-card PDFs whose bytes match their declared type are stored and downloaded byte for byte with a matching SHA-256 checksum shown, and a mismatched file is refused before anything reaches the store."
+kind = "behavior"
+primary = "pytest"
+workflow = "ladder-report"
+tests = [
+    "test_app.py::test_evidence_upload_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Reports claim confirmed photos only"
+text = "A ladder report can claim a photo only after the store has confirmed it, and the claim must be for the same move."
+kind = "behavior"
+primary = "pytest"
+workflow = "ladder-report"
+tests = [
+    "test_app.py::test_report_photo_claims",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Ladder report and refusal rules"
+text = "The pilot records compliance and defects on a ladder report, a refusal moves `Pilot away` to `Refused at ladder`, and a corrected re-order returns the move to `Ordered`."
+kind = "behavior"
+primary = "pytest"
+workflow = "ladder-report"
+tests = [
+    "test_app.py::test_ladder_report_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Ladder defect notice"
+text = "A non-compliant report sends one notice to the agent and harbour authority with its defects, checksum and attached photo bytes, and its delivery state shows on the move."
+kind = "behavior"
+primary = "pytest"
+workflow = "ladder-report"
+tests = [
+    "test_app.py::test_ladder_notice_mail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "File a ladder report from the deck"
+text = "A pilot on a phone photographs a ladder, files a non-compliant report, and the port agent opens the report and downloads the photo."
+kind = "behavior"
+primary = "workflow"
+workflow = "ladder-report"
+tests = [
+    "test_app.py::test_wf_ladder_report_deck",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Effective-dated tariff revisions"
+text = "A clerk publishes a revision with a future effective port-local time, and each move is priced by the revision in force at its port-local boarding time on every surface, the moves export and the agent's order rows included."
+kind = "behavior"
+primary = "pytest"
+workflow = "tariff-revisions"
+tests = [
+    "test_app.py::test_wf_tariff_revisions_effective",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Exact tariff lines"
+text = "Draft-foot, tonnage-band, minimum-charge, night, detention and cancellation lines follow the published rules, order and rounding and sum to exact cents."
+kind = "behavior"
+primary = "pytest"
+workflow = "tariff-revisions"
+tests = [
+    "test_app.py::test_tariff_lines_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Lines fixed at the billing event"
+text = "A move's tariff lines are computed once at its billing event and stored, and later revisions never reprice them."
+kind = "behavior"
+primary = "pytest"
+workflow = "tariff-revisions"
+tests = [
+    "test_app.py::test_tariff_lines_fixed_at_event",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Publish a tariff revision"
+text = "A clerk publishes a revision on the accounts screen and sees it listed with its effective time beside the earlier revisions and the moves each one priced."
+kind = "behavior"
+primary = "workflow"
+workflow = "tariff-revisions"
+tests = [
+    "test_app.py::test_wf_tariff_revisions_publish_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Detention timing"
+text = "Detention is a timed sub-state of `On board` that accrues by the server's clock from the ordered time and bills per started half hour after the allowance."
+kind = "behavior"
+primary = "pytest"
+workflow = "move-lifecycle"
+tests = [
+    "test_app.py::test_wf_move_lifecycle_detention",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Charges on the agency account"
+text = "Each billing event posts its lines once as external charges on one draft invoice of the agency's Kill Bill account, even under parallel completion or a retry after an ambiguous reply, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-invoices"
+tests = [
+    "test_app.py::test_billing_charges_posted",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Provider-confirmed invoices"
+text = "An invoice shows as issued, with a number and balance, only after Kill Bill confirms it, shows as pending until then, and simultaneous issue requests commit it exactly once with one number."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-invoices"
+tests = [
+    "test_app.py::test_invoice_issue_once",
+    "test_app.py::test_wf_billing_invoices_pending",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Review and issue an invoice"
+text = "A clerk reviews a completed move's lines, issues the invoice, and sees it issued while the agent reads the same invoice and the move shows `Invoiced`."
+kind = "behavior"
+primary = "workflow"
+workflow = "billing-invoices"
+tests = [
+    "test_app.py::test_wf_billing_invoices_issue_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Per-service state"
+text = "The server and the screen report billing, storage and mail state separately and truthfully, and health stays OK while a provider is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_wf_outage_recovery_instances",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Pending steps run once"
+text = "Completion, charge posting and notice sending are recorded separately, so an outage leaves a truthful pending state and each pending step later runs exactly once with no restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_wf_outage_recovery_relay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Server-confirmed screen state"
+text = "Move, photo, invoice and notice states change on screen only from a server reply, and a failure, no-reply or outage message stays until the user acts again or the state truly changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_wf_outage_recovery_store_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Work through an outage"
+text = "A dispatcher continues planning and completing moves with a provider down and sees the pending and recovered states on the moves affected."
+kind = "behavior"
+primary = "workflow"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_wf_outage_recovery_work_through",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Board breakpoints"
+text = "The board shows three panes at 1280 wide and above, two panes from 768 up to 1279, and one pane with a drawer and bottom sheet below 768, with no horizontal overflow."
+kind = "behavior"
+primary = "pytest"
+workflow = "board-layout"
+tests = [
+    "test_app.py::test_wf_board_layout_breakpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Search moves in place"
+text = "Typing in the board's or agent's move search filters the list in place, announces the result count, and is limited to what the user may read."
+kind = "behavior"
+primary = "pytest"
+workflow = "board-layout"
+tests = [
+    "test_app.py::test_wf_board_layout_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Handover at the board"
+text = "Two dispatchers at a shift handover commit or assign the same move, and the one who loses sees the conflict message with the fresh move data and can carry on."
+kind = "behavior"
+primary = "workflow"
+workflow = "handover"
+tests = [
+    "test_app.py::test_wf_handover_commit",
+    "test_app.py::test_wf_handover_assign",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Sign-in and roles"
+text = "Seeded users sign in, land on their role's screen, and are refused any action outside their role."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-roles"
+tests = [
+    "test_app.py::test_wf_access_roles_signin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from the run manifest, starts with any provider down, and answers its health path."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_health_and_port",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Server boundary"
+text = "The server is same-origin, applies the published request limits and one error shape, and never serves source files or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Nocturnal instrument look"
+text = "Every screen uses the near-black ground, pale cool ink, mono numerals with units beside them, hairline rules and square corners, with the section pinned above the board."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Provider wiring in source"
+text = "Provider credentials and URLs come only from the environment, and charge, object and mail state in the source comes from real provider calls and their confirmations."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Safe moves export"
+text = "The moves export is standard CSV whose text cells can never run as spreadsheet formulas, with margins and totals as plain integers and revision labels shown as literal text everywhere."
+kind = "behavior"
+primary = "pytest"
+workflow = "tariff-revisions"
+tests = [
+    "test_app.py::test_moves_export_csv",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Board survives reload"
+text = "The board's loaded move and search text and the agent's search text live in the page address, so a reload or a shared link restores them and a board refresh never changes it."
+kind = "behavior"
+primary = "pytest"
+workflow = "board-layout"
+tests = [
+    "test_app.py::test_wf_board_layout_search_url",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Retry after a lost reply"
+text = "When an action's reply is lost after the server applied it, acting again on the same control with unchanged inputs shows the server's original result and never a refusal for the action already done, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-recovery"
+tests = [
+    "test_app.py::test_wf_outage_recovery_lost_reply",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Notice cutoff in real elapsed time"
+text = "Each move carries and shows its notice cutoff exactly 2 hours of real time before boarding with its UTC offset and zone abbreviation, across clock changes, as published in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "amend-cancel"
+tests = [
+    "test_app.py::test_notice_cutoff_dst",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Latest live plan wins"
+text = "The order form's clearances, window state, estimate and announcement come only from the plan reply for the form's current inputs and keep the last painted values while that reply is outstanding, a late reply for earlier inputs never paints or announces, and switching draught units sends no plan request."
+kind = "behavior"
+primary = "pytest"
+workflow = "order-placement"
+tests = [
+    "test_app.py::test_wf_order_placement_latest_plan_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "One assignment per key"
+text = "A double-pressed, parallel or replayed assignment with one key yields one assignment, one version step, one history entry, one skip record per skipped pilot and one of each assignment mail."
+kind = "behavior"
+primary = "pytest"
+workflow = "assignment-notices"
+tests = [
+    "test_app.py::test_assignment_one_key",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` holds string `install`, `build`, `serve` and `\"_schema\":\"run-manifest-v1\"`."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` names every shipped package and bundled font with its licence; shipped packages means the production dependency tree (`npm ls --omit=dev --all --json`)."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Shipped packages and fonts use only MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1 licences."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "No datastore server or external datastore is added beyond the listed services and the one embedded file store."
+tests = [
+    "test_app.py::test_if_no_datastore_server",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided development service definitions and their images stay untouched."
+tests = [
+    "test_app.py::test_if_service_definitions_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The repository holds no provider credential values; every credential is read from the environment."
+tests = [
+    "test_app.py::test_if_no_credentials_in_repository",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "order-placement"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-05",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_order_placement_place_order",
+    "test_app.py::test_wf_order_placement_live_form",
+    "test_app.py::test_wf_order_placement_latest_plan_wins",
+    "test_app.py::test_order_keyed_replay",
+]
+
+[[workflows]]
+id = "keel-section-planning"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_keel_section_planning_keyboard",
+    "test_app.py::test_wf_keel_section_planning_dst_handle",
+    "test_app.py::test_wf_keel_section_planning_handle_latest",
+    "test_app.py::test_wf_keel_section_planning_announcements",
+    "test_app.py::test_plan_formula",
+]
+checkpoints = [
+    "B1",
+    "B5",
+    "B3",
+]
+
+[[workflows]]
+id = "window-commit"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_window_commit_board_and_agent",
+    "test_app.py::test_wf_window_commit_stale_refused",
+    "test_app.py::test_wf_window_commit_queue_to_board",
+    "test_app.py::test_commit_api_rules",
+]
+
+[[workflows]]
+id = "assignment-notices"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_assignment_notices_panel",
+    "test_app.py::test_wf_assignment_notices_licence_refused",
+    "test_app.py::test_wf_assignment_notices_panel_refresh",
+    "test_app.py::test_assignment_one_key",
+    "test_app.py::test_assignment_concurrency",
+    "test_app.py::test_private_fields",
+]
+
+[[workflows]]
+id = "amend-cancel"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_amend_cancel_late_cancel",
+    "test_app.py::test_wf_amend_cancel_amendments",
+    "test_app.py::test_wf_amend_cancel_late_wording",
+    "test_app.py::test_notice_cutoff_dst",
+]
+
+[[workflows]]
+id = "move-lifecycle"
+requirements = [
+    "DP-32",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_move_lifecycle_status_actions",
+    "test_app.py::test_wf_move_lifecycle_detention",
+    "test_app.py::test_move_state_machine",
+]
+
+[[workflows]]
+id = "pilot-phone"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_pilot_phone_next_job",
+    "test_app.py::test_wf_pilot_phone_drawer_sheet_touch",
+    "test_app.py::test_wf_pilot_phone_reduced_motion",
+]
+
+[[workflows]]
+id = "ladder-report"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+]
+critical = [
+    "test_app.py::test_wf_ladder_report_deck",
+    "test_app.py::test_evidence_upload_rules",
+    "test_app.py::test_report_photo_claims",
+    "test_app.py::test_ladder_report_rules",
+]
+
+[[workflows]]
+id = "tariff-revisions"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_tariff_revisions_effective",
+    "test_app.py::test_wf_tariff_revisions_publish_ui",
+    "test_app.py::test_moves_export_csv",
+    "test_app.py::test_tariff_lines_exact",
+]
+
+[[workflows]]
+id = "billing-invoices"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_billing_invoices_issue_ui",
+    "test_app.py::test_wf_billing_invoices_pending",
+    "test_app.py::test_invoice_issue_once",
+    "test_app.py::test_billing_charges_posted",
+]
+
+[[workflows]]
+id = "outage-recovery"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-63",
+]
+critical = [
+    "test_app.py::test_wf_outage_recovery_relay",
+    "test_app.py::test_wf_outage_recovery_instances",
+    "test_app.py::test_wf_outage_recovery_work_through",
+    "test_app.py::test_wf_outage_recovery_lost_reply",
+    "test_app.py::test_wf_outage_recovery_store_down",
+]
+
+[[workflows]]
+id = "board-layout"
+requirements = [
+    "DP-53",
+    "DP-54",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_board_layout_breakpoints",
+    "test_app.py::test_wf_board_layout_search_url",
+    "test_app.py::test_wf_board_layout_search",
+]
+
+[[workflows]]
+id = "handover"
+requirements = [
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_handover_commit",
+    "test_app.py::test_wf_handover_assign",
+]
+
+[[workflows]]
+id = "access-roles"
+requirements = [
+    "DP-04",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_access_roles_isolation",
+    "test_app.py::test_wf_access_roles_signin",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_health_and_port",
+    "test_app.py::test_wf_cross_cutting_boundary",
+]
+checkpoints = [
+    "B7",
+    "B12",
+]

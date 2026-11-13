@@ -1,0 +1,115 @@
+services:
+  main:
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    security_opt:
+    - seccomp=unconfined
+    - systempaths=unconfined
+    - apparmor=unconfined
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      gotenberg:
+        condition: service_healthy
+      wiremock:
+        condition: service_healthy
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-5c1e8a37
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  minio:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-root-6d29b4
+      MINIO_ROOT_PASSWORD: gf-root-secret-a83f17c5
+    command: server /data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - MC_HOST_local=http://gf-root-6d29b4:gf-root-secret-a83f17c5@localhost:9000 mc ready local >/dev/null
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  gotenberg:
+    image: gotenberg/gotenberg:8.39.0@sha256:13672f317b443c793e972b1bd2155ec62a3e7b6891b411e8196442cc053ee5f5
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - -o
+      - /dev/null
+      - http://127.0.0.1:3000/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  wiremock:
+    image: wiremock/wiremock:3.13.2@sha256:0d4ecb3e4dc8213fd7a4d37d6a78f6e6b553a6d2e15bd51b0999781282ac61b3
+    entrypoint:
+    - sh
+    - -c
+    - if [ -n "$$WIREMOCK_STUBS" ]; then printf '%s' "$$WIREMOCK_STUBS" > /home/wiremock/mappings/baseline.json;
+      fi; exec /docker-entrypoint.sh --port 8080 --disable-banner --max-request-journal-entries 20000 --admin-api-basic-auth
+      gfkit-admin:gfkit-wm-4fce2a657cbe2442
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -sf
+      - -u
+      - gfkit-admin:gfkit-wm-4fce2a657cbe2442
+      - http://127.0.0.1:8080/__admin/health
+      interval: 2s
+      timeout: 5s
+      retries: 60
+    environment:
+      WIREMOCK_STUBS: '{"mappings": [{"priority": 9, "request": {"method": "GET", "queryParameters": {"model": {"equalTo":
+        "VK-20"}}, "urlPath": "/v1/stock"}, "response": {"headers": {"Content-Type": "application/json"}, "jsonBody":
+        {"available": 4, "dayRateCents": 16500, "model": "VK-20"}, "status": 200}}, {"priority": 9, "request": {"method":
+        "GET", "queryParameters": {"model": {"equalTo": "VK-12"}}, "urlPath": "/v1/stock"}, "response": {"headers":
+        {"Content-Type": "application/json"}, "jsonBody": {"available": 0, "dayRateCents": 11000, "model": "VK-12"},
+        "status": 200}}, {"priority": 9, "request": {"method": "POST", "urlPath": "/v1/holds"}, "response": {"headers":
+        {"Content-Type": "application/json"}, "jsonBody": {"expiresInSeconds": 1800, "holdRef": "H-20417", "loggedHours":
+        0, "serial": "KV-20-0417", "status": "held"}, "status": 201}}, {"priority": 8, "request": {"bodyPatterns":
+        [{"matchesJsonPath": "$$[?(@.model == ''VK-12'')]"}], "method": "POST", "urlPath": "/v1/holds"}, "response":
+        {"headers": {"Content-Type": "application/json"}, "jsonBody": {"error": "no_stock"}, "status": 409}}, {"priority":
+        9, "request": {"bodyPatterns": [{"matchesJsonPath": "$$[?(@.days == 1)]"}], "method": "POST", "urlPath":
+        "/v1/quotes"}, "response": {"headers": {"Content-Type": "application/json"}, "jsonBody": {"dayRateCents":
+        16500, "days": 1, "factorPermille": 1000, "netCents": 16500, "totalCents": 19965, "vatCents": 3465}, "status":
+        200}}, {"priority": 9, "request": {"bodyPatterns": [{"matchesJsonPath": "$$[?(@.days == 2)]"}], "method":
+        "POST", "urlPath": "/v1/quotes"}, "response": {"headers": {"Content-Type": "application/json"}, "jsonBody":
+        {"dayRateCents": 16500, "days": 2, "factorPermille": 1800, "netCents": 29700, "totalCents": 35937, "vatCents":
+        6237}, "status": 200}}, {"priority": 9, "request": {"bodyPatterns": [{"matchesJsonPath": "$$[?(@.days ==
+        3)]"}], "method": "POST", "urlPath": "/v1/quotes"}, "response": {"headers": {"Content-Type": "application/json"},
+        "jsonBody": {"dayRateCents": 16500, "days": 3, "factorPermille": 2500, "netCents": 41250, "totalCents":
+        49912, "vatCents": 8662}, "status": 200}}, {"priority": 9, "request": {"bodyPatterns": [{"matchesJsonPath":
+        "$$[?(@.days == 4)]"}], "method": "POST", "urlPath": "/v1/quotes"}, "response": {"headers": {"Content-Type":
+        "application/json"}, "jsonBody": {"dayRateCents": 16500, "days": 4, "factorPermille": 3100, "netCents":
+        51150, "totalCents": 61892, "vatCents": 10742}, "status": 200}}, {"priority": 9, "request": {"bodyPatterns":
+        [{"matchesJsonPath": "$$[?(@.days == 5)]"}], "method": "POST", "urlPath": "/v1/quotes"}, "response": {"headers":
+        {"Content-Type": "application/json"}, "jsonBody": {"dayRateCents": 16500, "days": 5, "factorPermille": 3600,
+        "netCents": 59400, "totalCents": 71874, "vatCents": 12474}, "status": 200}}, {"priority": 9, "request":
+        {"bodyPatterns": [{"matchesJsonPath": "$$[?(@.days == 6)]"}], "method": "POST", "urlPath": "/v1/quotes"},
+        "response": {"headers": {"Content-Type": "application/json"}, "jsonBody": {"dayRateCents": 16500, "days":
+        6, "factorPermille": 4100, "netCents": 67650, "totalCents": 81856, "vatCents": 14206}, "status": 200}},
+        {"priority": 9, "request": {"bodyPatterns": [{"matchesJsonPath": "$$[?(@.days == 7)]"}], "method": "POST",
+        "urlPath": "/v1/quotes"}, "response": {"headers": {"Content-Type": "application/json"}, "jsonBody": {"dayRateCents":
+        16500, "days": 7, "factorPermille": 4600, "netCents": 75900, "totalCents": 91839, "vatCents": 15939}, "status":
+        200}}, {"priority": 9, "request": {"method": "POST", "urlPathPattern": "/v1/holds/[^/]+/confirm"}, "response":
+        {"headers": {"Content-Type": "application/json"}, "jsonBody": {"status": "hired"}, "status": 200}}, {"priority":
+        9, "request": {"method": "POST", "urlPathPattern": "/v1/holds/[^/]+/release"}, "response": {"headers": {"Content-Type":
+        "application/json"}, "jsonBody": {"status": "released"}, "status": 200}}]}'

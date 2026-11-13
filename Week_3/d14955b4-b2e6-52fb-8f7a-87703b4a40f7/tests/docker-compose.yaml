@@ -1,0 +1,83 @@
+services:
+  main:
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    security_opt:
+    - seccomp=unconfined
+    - systempaths=unconfined
+    - apparmor=unconfined
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      wiremock:
+        condition: service_healthy
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-5c1e8a37
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  minio:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-root-6d29b4
+      MINIO_ROOT_PASSWORD: gf-root-secret-a83f17c5
+    command: server /data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - MC_HOST_local=http://gf-root-6d29b4:gf-root-secret-a83f17c5@localhost:9000 mc ready local >/dev/null
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  wiremock:
+    image: wiremock/wiremock:3.13.2@sha256:0d4ecb3e4dc8213fd7a4d37d6a78f6e6b553a6d2e15bd51b0999781282ac61b3
+    entrypoint:
+    - sh
+    - -c
+    - if [ -n "$$WIREMOCK_STUBS" ]; then printf '%s' "$$WIREMOCK_STUBS" > /home/wiremock/mappings/baseline.json;
+      fi; exec /docker-entrypoint.sh --port 8080 --disable-banner --max-request-journal-entries 20000 --admin-api-basic-auth
+      gfkit-admin:gfkit-wm-4fce2a657cbe2442
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -sf
+      - -u
+      - gfkit-admin:gfkit-wm-4fce2a657cbe2442
+      - http://127.0.0.1:8080/__admin/health
+      interval: 2s
+      timeout: 5s
+      retries: 60
+    environment:
+      WIREMOCK_STUBS: '{"mappings": [{"request": {"method": "GET", "urlPath": "/v1/games/gloamrunner/players/p-ash-17/receipts"},
+        "response": {"headers": {"Content-Type": "application/json"}, "jsonBody": {"player_id": "p-ash-17", "receipts":
+        [{"amount_minor": 499, "currency": "USD", "item": "Lantern Pack", "purchased_at": "2026-11-02T18:04:00Z",
+        "receipt_id": "gr-rcpt-1001", "status": "paid"}, {"amount_minor": 1200, "currency": "JPY", "item": "Ember
+        Lantern Bundle", "purchased_at": "2026-11-02T18:20:00Z", "receipt_id": "gr-rcpt-1002", "status": "partly_refunded"}]},
+        "status": 200}}, {"request": {"method": "GET", "urlPath": "/v1/games/tiny-ferry/players/p-otter-5/receipts"},
+        "response": {"headers": {"Content-Type": "application/json"}, "jsonBody": {"player_id": "p-otter-5", "receipts":
+        [{"amount_minor": 299, "currency": "USD", "item": "Harbour Bell Skin", "purchased_at": "2026-11-01T20:30:00Z",
+        "receipt_id": "tf-rcpt-2001", "status": "paid"}]}, "status": 200}}, {"priority": 10, "request": {"method":
+        "GET", "urlPathPattern": "/v1/games/[^/]+/players/[^/]+/receipts"}, "response": {"headers": {"Content-Type":
+        "application/json"}, "jsonBody": {"error": "unknown player"}, "status": 404}}, {"request": {"method": "GET",
+        "urlPath": "/web/patch-notes"}, "response": {"body": "<!doctype html><html><head><title>Gloamrunner patch
+        0.9.4</title><meta property=\"og:title\" content=\"Gloamrunner patch 0.9.4\"><meta property=\"og:description\"
+        content=\"The Hollow boss no longer freezes after the second lantern.\"></head><body><p>Patch notes for
+        Gloamrunner 0.9.4.</p></body></html>", "headers": {"Content-Type": "text/html; charset=utf-8"}, "status":
+        200}}, {"request": {"method": "GET", "urlPath": "/web/patch-notes-short"}, "response": {"headers": {"Location":
+        "/web/patch-notes"}, "status": 302}}, {"request": {"method": "GET", "urlPath": "/web/free-skins"}, "response":
+        {"headers": {"Location": "http://169.254.169.254/latest/meta-data/"}, "status": 302}}, {"request": {"method":
+        "GET", "urlPath": "/web/back-door"}, "response": {"headers": {"Location": "http://127.0.0.1:4173/api/health"},
+        "status": 302}}]}'

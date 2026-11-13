@@ -1,0 +1,215 @@
+import { CAMPAIGN } from '../shared/constants.js';
+import { runCommandLog } from '../shared/simulation.js';
+import type { Command, Definition, Metrics, SimulationConfig, Transfer } from '../shared/types.js';
+import { requireObjects, requireStore } from './app.js';
+import type { AppContext } from './app.js';
+import {
+  canonicalDefinitionText,
+  canonicalEvidenceText,
+  digestOfText,
+  evidenceJson,
+} from './digests.js';
+import { ObjectStoreError, evidenceObjectKey, levelObjectKey } from './objects.js';
+import type { RunRecord, StoredTicket } from './store.js';
+import { canonicalize } from '../shared/canonical.js';
+
+const decoder = new TextDecoder();
+
+export interface ConfirmedEvidence {
+  definition: Definition;
+  commands: Command[];
+  endTick: number;
+}
+
+/**
+ * Writes the immutable definition and evidence objects, then reads both exact objects back and
+ * validates their digests. Returns null when object access is unavailable.
+ */
+export async function confirmEvidenceObjects(
+  context: AppContext,
+  ticket: StoredTicket,
+  commands: Command[],
+  endTick: number,
+  expectedEvidenceDigest: string,
+): Promise<ConfirmedEvidence | null> {
+  const objects = requireObjects(context);
+  const definitionText = canonicalDefinitionText(ticket.definition);
+  const evidenceText = canonicalEvidenceText(commands, endTick);
+  try {
+    await objects.putImmutable(levelObjectKey(ticket.levelDigest), Buffer.from(definitionText, 'utf8'));
+    await objects.putImmutable(
+      evidenceObjectKey(expectedEvidenceDigest),
+      Buffer.from(evidenceText, 'utf8'),
+    );
+    const storedDefinition = await objects.get(levelObjectKey(ticket.levelDigest));
+    const storedEvidence = await objects.get(evidenceObjectKey(expectedEvidenceDigest));
+    if (storedDefinition === null || storedEvidence === null) return null;
+    const definitionBytes = decoder.decode(storedDefinition);
+    const evidenceBytes = decoder.decode(storedEvidence);
+    if (digestOfText(definitionBytes) !== ticket.levelDigest) return null;
+    if (digestOfText(evidenceBytes) !== expectedEvidenceDigest) return null;
+    const definition = JSON.parse(definitionBytes) as Definition;
+    const evidence = JSON.parse(evidenceBytes) as { commands: Command[]; endTick: number };
+    if (canonicalize(evidenceJson(evidence.commands, evidence.endTick)) !== evidenceBytes) return null;
+    return { definition, commands: evidence.commands, endTick: evidence.endTick };
+  } catch (error) {
+    if (error instanceof ObjectStoreError) return null;
+    throw error;
+  }
+}
+
+export function simulationConfigOf(ticket: StoredTicket, definition: Definition): SimulationConfig {
+  return {
+    definition,
+    loadout: ticket.loadout,
+    initialReserve: ticket.initialReserve,
+    initialHealth: ticket.initialHealth,
+  };
+}
+
+interface Reproduction {
+  metrics: Metrics | null;
+  failure: { tick: number; seq: number | null; reason: string } | null;
+  ledger: Transfer[];
+  lastAvailableTick: number;
+}
+
+export function reproduce(ticket: StoredTicket, evidence: ConfirmedEvidence): Reproduction {
+  const config = simulationConfigOf(ticket, evidence.definition);
+  const outcome = runCommandLog(config, evidence.commands, evidence.endTick);
+  if (outcome.terminal === null) {
+    return {
+      metrics: null,
+      failure: outcome.failure,
+      ledger: outcome.ledger,
+      lastAvailableTick: outcome.lastAvailableTick,
+    };
+  }
+  const terminal = outcome.terminal;
+  return {
+    metrics: {
+      outcome: terminal.outcome as Metrics['outcome'],
+      breaches: terminal.breaches,
+      completionTick: terminal.tick,
+      remainingCharge: terminal.reserve,
+      health: terminal.health,
+    },
+    failure: null,
+    ledger: outcome.ledger,
+    lastAvailableTick: outcome.lastAvailableTick,
+  };
+}
+
+/** Commits one terminal result together with its ledger and qualifying effects. */
+export async function commitTerminalResult(
+  context: AppContext,
+  ticket: StoredTicket,
+  reproduction: Reproduction,
+): Promise<RunRecord> {
+  const store = await requireStore(context);
+  const accepted = reproduction.metrics !== null;
+  const state = accepted ? 'accepted' : 'rejected';
+  await store.transaction(async (client) => {
+    const updated = await client.query(
+      `UPDATE runs SET state = $2, metrics = $3, failure = $4, last_available_tick = $5, committed_at = now()
+       WHERE id = $1 AND state IN ('verifying','submitted')`,
+      [
+        ticket.id,
+        state,
+        reproduction.metrics === null ? null : JSON.stringify(reproduction.metrics),
+        reproduction.failure === null ? null : JSON.stringify(reproduction.failure),
+        reproduction.lastAvailableTick,
+      ],
+    );
+    if ((updated.rowCount ?? 0) !== 1) return;
+
+    const entries = reproduction.ledger;
+    const chunkSize = 400;
+    for (let offset = 0; offset < entries.length; offset += chunkSize) {
+      const chunk = entries.slice(offset, offset + chunkSize);
+      const values: unknown[] = [];
+      const placeholders = chunk.map((entry, index) => {
+        const base = index * 8;
+        values.push(
+          ticket.id,
+          offset + index,
+          entry.movementId,
+          entry.tick,
+          entry.account,
+          entry.delta,
+          entry.reason,
+          entry.deviceId,
+        );
+        return `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8})`;
+      });
+      await client.query(
+        `INSERT INTO ledger_entries (run_id, ordinal, movement_id, tick, account, delta, reason, device_id)
+         VALUES ${placeholders.join(',')}`,
+        values,
+      );
+    }
+
+    const victory = accepted && (reproduction.metrics as Metrics).outcome === 'victory';
+
+    if (ticket.mode === 'campaign' && victory) {
+      await client.query(
+        `INSERT INTO completions (account_id, encounter_id, run_id) VALUES ($1,$2,$3)
+         ON CONFLICT (account_id, encounter_id) DO NOTHING`,
+        [ticket.accountId, ticket.sourceId, ticket.id],
+      );
+    }
+
+    if (ticket.mode === 'playtest') {
+      const proof = await client.query<{ level_id: string; revision: number }>(
+        `SELECT level_id, revision FROM proofs WHERE run_id = $1 AND state = 'verifying'`,
+        [ticket.id],
+      );
+      const row = proof.rows[0];
+      if (row !== undefined) {
+        const level = await client.query<{ revision: number; state: string; proof_run_id: string | null }>(
+          'SELECT revision, state, proof_run_id FROM levels WHERE id = $1 FOR UPDATE',
+          [row.level_id],
+        );
+        const current = level.rows[0];
+        const proofState = !victory
+          ? 'failed'
+          : current.revision === row.revision
+            ? 'qualified'
+            : 'obsolete';
+        await client.query(`UPDATE proofs SET state = $2 WHERE run_id = $1 AND state = 'verifying'`, [
+          ticket.id,
+          proofState,
+        ]);
+        if (proofState === 'qualified' && current.state === 'private' && current.proof_run_id === null) {
+          await client.query(
+            `UPDATE levels SET proof_run_id = $2 WHERE id = $1 AND state = 'private' AND proof_run_id IS NULL`,
+            [row.level_id, ticket.id],
+          );
+        }
+      }
+    }
+
+    if (accepted) {
+      await client.query(
+        'INSERT INTO presentations (run_id, version, tick, playing) VALUES ($1,0,0,false) ON CONFLICT (run_id) DO NOTHING',
+        [ticket.id],
+      );
+    }
+  });
+  return (await store.run(ticket.id)) as RunRecord;
+}
+
+export function campaignUnlocks(completed: string[]): { completed: string[]; unlocked: string[] } {
+  const completedSet = new Set(completed);
+  const unlocked = new Set<string>([CAMPAIGN[0].id]);
+  CAMPAIGN.forEach((encounter, index) => {
+    if (!completedSet.has(encounter.id)) return;
+    unlocked.add(encounter.id);
+    const next = CAMPAIGN[index + 1];
+    if (next !== undefined) unlocked.add(next.id);
+  });
+  return {
+    completed: CAMPAIGN.filter((encounter) => completedSet.has(encounter.id)).map((e) => e.id),
+    unlocked: CAMPAIGN.filter((encounter) => unlocked.has(encounter.id)).map((e) => e.id),
+  };
+}

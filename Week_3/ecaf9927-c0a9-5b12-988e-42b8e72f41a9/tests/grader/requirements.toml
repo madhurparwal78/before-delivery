@@ -1,0 +1,950 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "first-run",
+    "sketch-constrain",
+    "over-constraint",
+    "units",
+    "extrude",
+    "booleans",
+    "part-storage",
+    "storage-outage",
+    "bom-rollup",
+    "assembly-build",
+    "collaboration",
+    "bom-on-phone",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 85
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 5
+B6 = 5
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 1
+S1 = 5
+S2 = 5
+S3 = 5
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Member sign-in"
+text = "A seeded member signs in with email and password and gets a session cookie, and every endpoint except health refuses requests without a session, as specified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "first-run"
+tests = [
+    "test_app.py::test_sign_in_issues_session_cookie",
+    "test_app.py::test_endpoints_refuse_without_session",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Exact sample product"
+text = "On first boot against an empty database the workspace holds exactly the records in Seed data and nothing else, with every seeded part that has extrudes Stored and its body object present once storage confirms the boot write, and the Switch Cover reading No body."
+kind = "behavior"
+primary = "pytest"
+workflow = "first-run"
+tests = [
+    "test_app.py::test_seed_records_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "First sign-in opens the lamp"
+text = "When the founder signs in, the Ostra Desk Lamp opens in the Model tab with its Assembly tree, Arm Assembly collapsed, and totals equal to the server's rollup."
+kind = "behavior"
+primary = "workflow"
+workflow = "first-run"
+tests = [
+    "test_app.py::test_wf_first_run_open_lamp",
+    "test_app.py::test_wf_first_run_wrong_password",
+    "test_app.py::test_wf_first_run_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Degrees of freedom from the solver"
+text = "The server computes each sketch's slack from the entity freedoms minus the rank of its consistent constraints and reports every sketch point's remaining freedom of 0, 1 or 2, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "sketch-constrain"
+tests = [
+    "test_app.py::test_slack_and_point_freedom_from_solver",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Constraint ranks and redundancy"
+text = "Each accepted constraint lowers slack by the freedom it actually removes, and a consistent constraint that removes none is accepted and marked redundant."
+kind = "behavior"
+primary = "pytest"
+workflow = "sketch-constrain"
+tests = [
+    "test_app.py::test_constraint_rank_and_redundancy",
+    "test_app.py::test_wf_sketch_constrain_redundant",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Slack rings and readout"
+text = "Each sketch point with remaining freedom shows a slack-coloured ring whose radius grows with its freedom, the bottom strip reads Slack N, and a sketch at zero turns its strokes to ink with the readout Fully held."
+kind = "behavior"
+primary = "pytest"
+workflow = "sketch-constrain"
+tests = [
+    "test_app.py::test_slack_rings_and_readout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Slack ring motion order"
+text = "When a constraint is accepted, the affected rings first resize and only then does the readout count step by step to the new total, within the timings in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "sketch-constrain"
+tests = [
+    "test_app.py::test_ring_resize_before_readout_count",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Constrain a profile until Fully held"
+text = "The founder selects entities on the Switch Cover sketch and applies constraints and dimensions until the readout shows Fully held and every stroke is ink."
+kind = "behavior"
+primary = "workflow"
+workflow = "sketch-constrain"
+tests = [
+    "test_app.py::test_wf_sketch_constrain_fully_held",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Over-constraint refused"
+text = "A constraint that would over-constrain a sketch is refused, the sketch and its revision stay unchanged, and the response names the existing constraint it conflicts with by the rule in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "over-constraint"
+tests = [
+    "test_app.py::test_over_constraint_refused_names_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Conflict flash"
+text = "A refused constraint's glyph and the named existing constraint's glyph both flash twice in the conflict colour while the Model message names both constraints."
+kind = "behavior"
+primary = "pytest"
+workflow = "over-constraint"
+tests = [
+    "test_app.py::test_conflict_flash_twice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Resolve a conflicting constraint"
+text = "The founder tries a conflicting constraint, reads which constraint blocks it, deletes that constraint and then applies the new one successfully."
+kind = "behavior"
+primary = "workflow"
+workflow = "over-constraint"
+tests = [
+    "test_app.py::test_wf_over_constraint_resolve",
+    "test_app.py::test_wf_over_constraint_horizontal_vertical",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Millimetre storage"
+text = "Every length is stored once in millimetres at full precision, and changing display units or decimals never changes a stored value, so switching mm to in and back shows the original figure."
+kind = "behavior"
+primary = "pytest"
+workflow = "units"
+tests = [
+    "test_app.py::test_lengths_stored_once_in_mm",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Dimension input with units"
+text = "Every length input accepts a decimal or fraction with an optional mm or in suffix, stores the exact converted millimetre value, and rejects anything else as a field error."
+kind = "behavior"
+primary = "pytest"
+workflow = "units"
+tests = [
+    "test_app.py::test_dimension_input_grammar",
+    "test_app.py::test_wf_units_bad_input",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Tolerances"
+text = "A dimension carries an optional symmetric or asymmetric tolerance stored separately in millimetres and shown at the member's display precision in the formats in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "units"
+tests = [
+    "test_app.py::test_tolerances_stored_in_mm",
+    "test_app.py::test_tolerance_display_formats",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Switch units and precision"
+text = "The founder switches display to inches with three decimals, types a dimension in inches with a tolerance, and switches back to see the original millimetre figures."
+kind = "behavior"
+primary = "workflow"
+workflow = "units"
+tests = [
+    "test_app.py::test_wf_units_inches_round_trip",
+    "test_app.py::test_wf_units_preference_saved",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Extrude rules"
+text = "Only a closed, fully held profile can be extruded, with the operation order, depth limits and directions in Business rules, and a sketch that drives an extrude must stay fully held."
+kind = "behavior"
+primary = "pytest"
+workflow = "extrude"
+tests = [
+    "test_app.py::test_extrude_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "One feature per Extrude press"
+text = "Extrude requests carry an Idempotency-Key, a replay returns the first response without a second feature, and pressing Confirm extrude twice on a slow connection adds one feature."
+kind = "behavior"
+primary = "pytest"
+workflow = "extrude"
+tests = [
+    "test_app.py::test_extrude_idempotency",
+    "test_app.py::test_wf_extrude_double_confirm",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Live depth preview"
+text = "While the depth handle is dragged or the depth typed, the Measurements region shows Preview volume and mass that update in place, and the confirmed server figures replace them when the change commits."
+kind = "behavior"
+primary = "pytest"
+workflow = "extrude"
+tests = [
+    "test_app.py::test_depth_preview_updates_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Extrude a part from a sketch"
+text = "The founder extrudes the fully held Switch Cover sketch using only the keyboard and sees the part Stored with confirmed volume and mass."
+kind = "behavior"
+primary = "workflow"
+workflow = "extrude"
+tests = [
+    "test_app.py::test_wf_extrude_keyboard",
+    "test_app.py::test_wf_extrude_escape_cancels",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Booleans give one connected body"
+text = "Join, cut and intersect always give one connected closed body, and a result that is empty or in separate pieces is refused with nothing changed."
+kind = "behavior"
+primary = "pytest"
+workflow = "booleans"
+tests = [
+    "test_app.py::test_booleans_give_one_connected_body",
+    "test_app.py::test_wf_booleans_intersect_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Server mass properties"
+text = "The server computes volume, surface area, centroid and mass from the stored body, agreeing with closed-form values within the tolerances in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "booleans"
+tests = [
+    "test_app.py::test_mass_properties_closed_form",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Cut a hole and read the mass"
+text = "The founder sketches a hole on the extruded Switch Cover, cuts it, changes the material and reads the new confirmed mass."
+kind = "behavior"
+primary = "workflow"
+workflow = "booleans"
+tests = [
+    "test_app.py::test_wf_booleans_cut_hole",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Stored only after storage confirms"
+text = "A part save marks the part Stored and replaces its confirmed figures only after the body object is written at the key and in the format given in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "part-storage"
+tests = [
+    "test_app.py::test_part_stored_only_after_object_written",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Save a part and see Stored"
+text = "The founder changes a part, watches Save status pass from Saving… to Stored, and the Part view draws the newly stored body."
+kind = "behavior"
+primary = "workflow"
+workflow = "part-storage"
+tests = [
+    "test_app.py::test_wf_part_storage_depth_change",
+    "test_app.py::test_wf_part_storage_save_part",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Storage outage keeps confirmed figures"
+text = "When storage refuses a save, the change is kept, the part is Not stored, its confirmed figures and every assembly figure stay at the last stored values, and the next save after storage returns is Stored without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_storage_refusal_keeps_confirmed_figures",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Save during a storage outage"
+text = "With storage unreachable the founder edits a part, sees the outage banner and Not stored, and the lamp's figures stay unchanged."
+kind = "behavior"
+primary = "workflow"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_wf_storage_outage_edit_part",
+    "test_app.py::test_wf_storage_outage_body_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Multi-level BOM rollup"
+text = "A bill of materials multiplies quantities through every nesting level, merges each part into one line, includes purchased parts at their declared mass, and totals mass as the sum of its lines."
+kind = "behavior"
+primary = "pytest"
+workflow = "bom-rollup"
+tests = [
+    "test_app.py::test_bom_multi_level_rollup",
+    "test_app.py::test_wf_bom_rollup_bom_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Redesign ripples to every assembly"
+text = "After the founder changes the Pivot Bracket's depth or material, every assembly containing it shows the server's new rolled-up quantity, mass and piece count, including collapsed subassembly rows."
+kind = "behavior"
+primary = "workflow"
+workflow = "bom-rollup"
+tests = [
+    "test_app.py::test_wf_bom_rollup_redesign",
+    "test_app.py::test_wf_bom_rollup_quantity",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "No assembly contains itself"
+text = "Adding an assembly to itself, or to any assembly it contains at any depth, is refused with a named message."
+kind = "behavior"
+primary = "pytest"
+workflow = "assembly-build"
+tests = [
+    "test_app.py::test_assembly_cycles_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "One instance per Add"
+text = "Add-to-assembly requests carry an Idempotency-Key, a replay returns the first response without a second instance, and pressing Add twice on a slow connection adds one instance."
+kind = "behavior"
+primary = "pytest"
+workflow = "assembly-build"
+tests = [
+    "test_app.py::test_add_instance_idempotent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Purchased parts"
+text = "The founder records purchased parts with a declared mass and places them in assemblies, and the bill of materials shows them as Purchased lines."
+kind = "behavior"
+primary = "pytest"
+workflow = "assembly-build"
+tests = [
+    "test_app.py::test_purchased_parts_in_bill_of_materials",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Build a subassembly"
+text = "The founder creates a subassembly, adds a part and a purchased fastener to it, places it in the lamp, and is refused when trying to place the lamp inside it."
+kind = "behavior"
+primary = "workflow"
+workflow = "assembly-build"
+tests = [
+    "test_app.py::test_wf_assembly_build_hinge",
+    "test_app.py::test_wf_assembly_build_purchased",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Stale saves refused"
+text = "A change carrying an older base revision is refused with a conflict naming who saved the newer revision, and of simultaneous changes from the same revision exactly one succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "collaboration"
+tests = [
+    "test_app.py::test_stale_revisions_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Contract engineer scope"
+text = "The contract engineer can change sketches and save parts but is refused every founder-only action listed in Business rules, and the browser does not show them those controls."
+kind = "behavior"
+primary = "pytest"
+workflow = "collaboration"
+tests = [
+    "test_app.py::test_engineer_refused_founder_actions",
+    "test_app.py::test_wf_collaboration_engineer_controls",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Two people on one sketch"
+text = "The founder and the contract engineer edit the same sketch, the later stale change shows the Save conflict naming the other person, and Reload shows that person's change intact."
+kind = "behavior"
+primary = "workflow"
+workflow = "collaboration"
+tests = [
+    "test_app.py::test_wf_collaboration_stale_sketch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Check the BOM on a phone"
+text = "On a phone-width screen the founder opens the lamp's bill of materials, reads stacked rows with the same figures as the server, and opens the feature tree as a bottom sheet."
+kind = "behavior"
+primary = "workflow"
+workflow = "bom-on-phone"
+tests = [
+    "test_app.py::test_wf_bom_on_phone_stacked",
+    "test_app.py::test_wf_bom_on_phone_properties",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Keyboard-complete sketching"
+text = "Drawing a line, selecting entities, applying a parallel or dimension constraint with units and confirming an extrude all work with the keyboard alone, with visible focus on the canvas selection and the panel fields."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_keyboard_sketching",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Sheets, dialogs and shortcuts"
+text = "Tab and Shift+Tab wrap inside every open dialog and sheet, Escape closes it and returns focus to its opener, and sketch shortcuts work whichever control in the sketch workspace has focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dialog_focus_trap_and_shortcuts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Published layouts"
+text = "At 1280×800, 768×1024 and 375×812 the workspace shows the published layout with no horizontal page overflow, the feature tree becomes a bottom sheet below 768 px, and the bill of materials becomes stacked rows below 600 px."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Live regions and feedback copy"
+text = "Every async action shows its pending, success, error and outage states with the exact copy in Feedback states, announced through the named live regions."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_feedback_copy_live_regions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Reduced motion"
+text = "With reduced motion requested, every motion is replaced by the instant or steady substitute in Motion and effects, with the same information on screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion_substitutes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Vellum workspace look"
+text = "The workspace reads as a full-bleed vellum canvas with a hairline grid, light floating panels, tabular figures, and blue used only for slack, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Run manifest and health"
+text = "The run manifest installs, builds and serves the app on the published port, and the health endpoint answers once the database and seed are ready, as specified in Deployment."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_manifest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Server boundary"
+text = "The server refuses cross-origin writes and non-JSON or oversized bodies, never serves source or configuration files, seeds once when two processes start together, and starts normally without storage."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_two_processes_boot_without_reseeding",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Real wiring"
+text = "Credentials and URLs come from the environment, slack and mass figures come from a real solver and real geometry on the server, and bodies are really written to and read from object storage."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with exactly the string fields install, build, serve and \"_schema\":\"run-manifest-v1\"."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package (the production dependency tree as reported by npm ls --omit=dev --all --json) and every bundled font with name, version and licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (as defined in IF-02) and every bundled font uses MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, or OFL-1.1 for fonts."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app keeps state only in the provided Postgres database and MinIO bucket; no other database, cache server, embedded datastore or on-disk state file."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "package-lock.json is committed and npm ci installs from it."
+tests = [
+    "test_app.py::test_if_lockfile_committed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided development service configuration and its credentials are left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "All scripts, styles and fonts are served from the app's own origin, with no external CDN or font service."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "Server and browser source is TypeScript; no hand-written JavaScript source exists outside tool configuration files."
+tests = [
+    "test_app.py::test_if_typescript_only",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "first-run"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+]
+critical = [
+    "test_app.py::test_wf_first_run_open_lamp",
+    "test_app.py::test_wf_first_run_phone",
+]
+checkpoints = [
+    "B1",
+    "B3",
+]
+
+[[workflows]]
+id = "sketch-constrain"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_wf_sketch_constrain_fully_held",
+]
+checkpoints = [
+    "B5",
+    "B7",
+]
+
+[[workflows]]
+id = "over-constraint"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_wf_over_constraint_resolve",
+]
+
+[[workflows]]
+id = "units"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_units_inches_round_trip",
+]
+
+[[workflows]]
+id = "extrude"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_extrude_keyboard",
+    "test_app.py::test_wf_extrude_double_confirm",
+]
+
+[[workflows]]
+id = "booleans"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_booleans_cut_hole",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "part-storage"
+requirements = [
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_part_storage_depth_change",
+    "test_app.py::test_wf_part_storage_save_part",
+]
+
+[[workflows]]
+id = "storage-outage"
+requirements = [
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_storage_outage_edit_part",
+]
+
+[[workflows]]
+id = "bom-rollup"
+requirements = [
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_bom_rollup_redesign",
+    "test_app.py::test_wf_bom_rollup_quantity",
+]
+
+[[workflows]]
+id = "assembly-build"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_assembly_build_hinge",
+]
+
+[[workflows]]
+id = "collaboration"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_collaboration_stale_sketch",
+]
+
+[[workflows]]
+id = "bom-on-phone"
+requirements = [
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_bom_on_phone_stacked",
+]
+checkpoints = [
+    "B10",
+    "B11",
+]
+critical_checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_keyboard_sketching",
+    "test_app.py::test_wf_cross_cutting_layouts",
+]

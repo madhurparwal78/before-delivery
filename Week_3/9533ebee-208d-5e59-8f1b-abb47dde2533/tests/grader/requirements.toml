@@ -1,0 +1,1340 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 65
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "funding-ledger",
+    "lp-supply",
+    "swap",
+    "borrow",
+    "margin-grace",
+    "price-post",
+    "oracle-feed",
+    "stale-feed",
+    "liquidation",
+    "liquidation-race",
+    "shock-ruler",
+    "webhooks",
+    "outages",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 86
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Quillmoor Reserve <notices@quillmoor.example>" } },
+    { name = "wiremock", env = {} },
+    { name = "svix", env = {} },
+    { name = "gotenberg", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 5
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 5
+S4 = 5
+S5 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "short-timer"
+port = 4174
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+GRACE_SECONDS = "5"
+STALENESS_SECONDS = "20"
+QUOTE_TTL_SECONDS = "5"
+ORACLE_PATH_PREFIX = "/short"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+GRACE_SECONDS = "5"
+STALENESS_SECONDS = "20"
+QUOTE_TTL_SECONDS = "5"
+ORACLE_PATH_PREFIX = "/minio-down"
+
+[[outages]]
+id = "gotenberg-down"
+port = 4176
+url_env = "APP_GOTENBERG_DOWN_URL"
+
+[outages.env]
+GOTENBERG_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+GRACE_SECONDS = "5"
+STALENESS_SECONDS = "20"
+QUOTE_TTL_SECONDS = "5"
+ORACLE_PATH_PREFIX = "/gotenberg-down"
+
+[[outages]]
+id = "oracle-down"
+port = 4177
+url_env = "APP_ORACLE_DOWN_URL"
+
+[outages.env]
+WIREMOCK_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+GRACE_SECONDS = "5"
+STALENESS_SECONDS = "20"
+QUOTE_TTL_SECONDS = "5"
+ORACLE_PATH_PREFIX = "/oracle-down"
+
+[[outages]]
+id = "mailpit-down"
+port = 4178
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+DATABASE_URL = "${DATABASE_URL}_maildown"
+S3_BUCKET = "${S3_BUCKET}-maildown"
+ORACLE_PATH_PREFIX = "/mail-down"
+
+[[outages]]
+id = "svix-down"
+port = 4179
+url_env = "APP_SVIX_DOWN_URL"
+
+[outages.env]
+SVIX_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_svixdown"
+S3_BUCKET = "${S3_BUCKET}-svixdown"
+ORACLE_PATH_PREFIX = "/svix-down"
+
+[[requirements]]
+id = "DP-01"
+title = "Member sessions and roles"
+text = "Choosing a member opens a bearer-token session for them, every request except the health check, the member list and session creation carries that token, and the server refuses missing or unknown tokens and actions outside the member's role as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "funding-ledger"
+tests = [
+    "test_app.py::test_sessions_and_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Onboarding and inbound transfers"
+text = "The risk steward adds a member with a name, an email and one role, and records an inbound transfer typed in desk format that reaches the member's wallet as one balanced posting of the exact minor units."
+kind = "behavior"
+primary = "pytest"
+workflow = "funding-ledger"
+tests = [
+    "test_app.py::test_onboarding_and_transfers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Balanced journals"
+text = "Every posting sums to zero per asset it touches, postings are never edited, and the trial balance on the Ledger view nets to zero in every asset after any sequence of actions."
+kind = "behavior"
+primary = "pytest"
+workflow = "funding-ledger"
+tests = [
+    "test_app.py::test_balanced_journals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Ledger view state in the URL"
+text = "The Ledger view's asset, count and desk-time window filters live in the URL as set out in Interactions, so Back, Forward and reload restore them and an unknown value falls back to its default without adding a history entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "funding-ledger"
+tests = [
+    "test_app.py::test_ledger_url_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Steward funding journey"
+text = "The risk steward onboards a borrower, records a transfer typed in desk format while the borrower's open wallet shows it without a reload, filters the Ledger view to that asset and a desk-time window across the daylight-saving change, and sees the transfer's legs and a zero net, with a request that breaks two rungs of the error ladder answered at the higher rung."
+kind = "behavior"
+primary = "workflow"
+workflow = "funding-ledger"
+tests = [
+    "test_app.py::test_wf_funding_ledger_happy",
+    "test_app.py::test_wf_funding_ledger_ladder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Pool shares and withdrawals"
+text = "A liquidity provider supplies an asset for shares and withdraws up to their share value and the pool's available liquidity, with mint and burn rounded in the pool's favour and each withdrawal settled with a statement."
+kind = "behavior"
+primary = "pytest"
+workflow = "lp-supply"
+tests = [
+    "test_app.py::test_pool_shares_and_withdrawals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Pool figures read from the ledger"
+text = "Every pool's available liquidity, total borrowed, utilization and share price equal the values computed from ledger balances at the moment of reading, after every swap, supply, withdrawal, draw, repay, accrual and liquidation."
+kind = "behavior"
+primary = "pytest"
+workflow = "lp-supply"
+tests = [
+    "test_app.py::test_pool_figures_from_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Last-liquidity contest"
+text = "When concurrent withdrawals, draws or swaps together ask for more than a pool's available liquidity, even through different server processes, they are served one at a time and the one that no longer fits gets the insufficient-liquidity conflict with nothing moved."
+kind = "behavior"
+primary = "pytest"
+workflow = "lp-supply"
+tests = [
+    "test_app.py::test_last_liquidity_contest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Supply form survives refresh"
+text = "On the Supply view, typed amounts, the chosen pool, browser-side field errors, focus and the last announcement survive every 5-second refresh while the pool cards update in place."
+kind = "behavior"
+primary = "pytest"
+workflow = "lp-supply"
+tests = [
+    "test_app.py::test_supply_form_survives_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Liquidity provider journey"
+text = "A liquidity provider supplies to a pool, watches the pool card's share price rise without a reload after a trader's swap in another browser that pays with that pool's asset, keeps a half-typed withdrawal through refreshes, withdraws, retries the withdrawal with the same key to get the original receipt, and opens a receipt that reads Settled."
+kind = "behavior"
+primary = "workflow"
+workflow = "lp-supply"
+tests = [
+    "test_app.py::test_wf_lp_supply_happy",
+    "test_app.py::test_wf_lp_supply_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Live swap preview"
+text = "As a trader types an amount or changes either asset, the swap preview shows the server's fee and output for the latest input only, in place with no submit, even when an earlier reply arrives later or carries an error."
+kind = "behavior"
+primary = "pytest"
+workflow = "swap"
+tests = [
+    "test_app.py::test_live_swap_preview_latest_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Firm quotes and fee split"
+text = "A firm quote computes the pool fee and output in integer minor units at the posted prices, rounded in the pool's favour, splits the fee between liquidity providers and the reserve by largest remainder, and fixes its expiry on the server clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "swap"
+tests = [
+    "test_app.py::test_firm_quote_fee_split",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Swap execution, expiry and single use"
+text = "Executing a live quote posts balanced legs whose digits equal the quote and the receipt, while a quote executed at or after its expiry, already used or touching a stale market is refused with its published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "swap"
+tests = [
+    "test_app.py::test_swap_execution_expiry_single_use",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Trader journey"
+text = "A trader types an amount in desk format, watches the preview follow the latest keystroke, takes a firm quote, swaps, and sees a receipt and wallet whose digits match the quote while a liquidity provider's open Supply view shows the fee in the share price of the pool of the asset the trader pays with, and an expired quote is refused with the expiry copy."
+kind = "behavior"
+primary = "workflow"
+workflow = "swap"
+tests = [
+    "test_app.py::test_wf_swap_happy",
+    "test_app.py::test_wf_swap_expired",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Positions and draws within loan-to-value"
+text = "A borrower opens a position by locking collateral against a different asset and draws within the loan-to-value limit and the pool's available liquidity, each draw settled with a statement."
+kind = "behavior"
+primary = "pytest"
+workflow = "borrow"
+tests = [
+    "test_app.py::test_positions_and_draws_within_ltv",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Idempotent money movements"
+text = "Withdrawals, swaps, draws and liquidations follow Idempotency-Key semantics, so a replay returns the stored response marked as a replay and moves nothing, and the same key with a different body is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "borrow"
+tests = [
+    "test_app.py::test_idempotent_draws_and_swaps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Per-second interest accrual"
+text = "Debt grows per second of server time from a cumulative borrow index on the asset's kinked utilization curve, rounded toward the pool, and every accrual posts balanced legs split between liquidity providers and the reserve."
+kind = "behavior"
+primary = "pytest"
+workflow = "borrow"
+tests = [
+    "test_app.py::test_interest_accrual",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Repayment and collateral changes"
+text = "A borrower repays an amount or the whole debt accrued to the second of the request, adds collateral at any time and withdraws it only within loan-to-value, and the reply carries the new debt, health factor and state."
+kind = "behavior"
+primary = "pytest"
+workflow = "borrow"
+tests = [
+    "test_app.py::test_repayment_and_collateral",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Keyboard-complete borrowing"
+text = "A borrower opens a position, draws, retries after a lost reply and repays with the keyboard alone, with Enter submitting each amount field's own action and Retry directly after Draw in the Tab order."
+kind = "behavior"
+primary = "pytest"
+workflow = "borrow"
+tests = [
+    "test_app.py::test_keyboard_complete_borrowing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Borrower journey"
+text = "A borrower opens a position and draws with amounts typed in desk format, loses the reply, presses Retry and sees one draw in the wallet and on the receipt, then presses Repay all and sees no debt remain while the steward's open Ledger view lists one draw posting and the accrual postings."
+kind = "behavior"
+primary = "workflow"
+workflow = "borrow"
+tests = [
+    "test_app.py::test_wf_borrow_happy",
+    "test_app.py::test_wf_borrow_ltv_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Position state machine"
+text = "Each position moves between healthy, warned, liquidatable in grace, liquidatable, partially liquidated and closed only along the edges in Business rules, and the server alone decides each move."
+kind = "behavior"
+primary = "pytest"
+workflow = "margin-grace"
+tests = [
+    "test_app.py::test_position_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Health factor and liquidation price"
+text = "The server computes each position's health factor and liquidation price with the published formulas, precision and rounding."
+kind = "behavior"
+primary = "pytest"
+workflow = "margin-grace"
+tests = [
+    "test_app.py::test_health_factor_and_liquidation_price",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Background evaluation and margin notices"
+text = "The server evaluates every open position in the background with no request touching it, so grace expiry and price- or interest-driven drops change state on time, and each drop from healthy to below the warning level sends exactly one margin notice email."
+kind = "behavior"
+primary = "pytest"
+workflow = "margin-grace"
+tests = [
+    "test_app.py::test_background_evaluation_and_margin_notice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Server-decided position status"
+text = "The position page shows debt, health factor, state and grace end exactly as the server last returned them, refreshed on the published schedule, whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "margin-grace"
+tests = [
+    "test_app.py::test_server_decided_status",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Borrower margin journey"
+text = "A borrower's open position page moves to Margin warning without a reload after the steward's price post in another browser, the margin email arrives once, the page moves to Liquidatable in grace and then Liquidatable now on the server clock with the device clock set hours away, and a repay brings it back to Healthy."
+kind = "behavior"
+primary = "workflow"
+workflow = "margin-grace"
+tests = [
+    "test_app.py::test_wf_margin_grace_happy",
+    "test_app.py::test_wf_margin_grace_notice_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Manual price posts"
+text = "The risk steward posts a price typed in desk format, a move of more than 60% needs explicit confirmation, every post re-evaluates every open position, and the reply counts the positions below health factor 1."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-post"
+tests = [
+    "test_app.py::test_manual_price_posts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Price evidence as submitted"
+text = "Every price post stores an evidence object before it counts, holding a manual post's submitted fields exactly as sent or an oracle reading's raw response body byte for byte, and a post whose evidence cannot be stored records nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-post"
+tests = [
+    "test_app.py::test_price_evidence_as_submitted",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Risk parameters under conditional requests"
+text = "The risk steward sets loan-to-value, liquidation threshold, liquidation bonus and reserve factor per asset within the published bounds under RFC 9110 conditional requests, and every open position is re-evaluated at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-post"
+tests = [
+    "test_app.py::test_risk_parameters_conditional",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Announced price and repay results"
+text = "A price post announces its count of positions below health factor 1 and a repay announces the new health factor in the Announcements live region, without moving focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-post"
+tests = [
+    "test_app.py::test_announced_price_and_repay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Steward price journey"
+text = "The risk steward types a price in desk format, confirms a large move after the field error asks for it, hears the published count, sees those positions appear in a liquidator's open queue without a reload, and saves risk parameters that a second steward's stale save then cannot overwrite."
+kind = "behavior"
+primary = "workflow"
+workflow = "price-post"
+tests = [
+    "test_app.py::test_wf_price_post_happy",
+    "test_app.py::test_wf_price_post_stale_save",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Oracle readings"
+text = "The server polls the published oracle for every asset, converts each mantissa and exponent to price units with integer arithmetic, and applies a reading exactly once and only when it is strictly newer by round and by publication time than the current price, so a manual post holds until a later publication."
+kind = "behavior"
+primary = "pytest"
+workflow = "oracle-feed"
+tests = [
+    "test_app.py::test_oracle_readings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Oracle faults and recovery"
+text = "An oracle that is unreachable, slow, malformed, behind on rounds or moving more than 60% never replaces the last good price, each case reports its own status and copy, and a fresh reading applies on the next poll without a restart, even when the oracle was down at boot."
+kind = "behavior"
+primary = "pytest"
+workflow = "oracle-feed"
+tests = [
+    "test_app.py::test_oracle_faults_and_recovery",
+]
+criteria = []
+parameter_cases = [
+    "unreachable",
+    "slow",
+    "malformed",
+    "wrong_feed",
+    "future",
+    "zero_price",
+    "old_round",
+    "large_move",
+]
+
+[[requirements]]
+id = "DP-33"
+title = "Oracle feed journey"
+text = "The risk steward and a borrower watch an oracle round move the price live in the price rail, see an outage, a malformed body and an older round each leave the last good price with their own copy, post a manual override that a late older publication cannot replace, and see the next later publication take over."
+kind = "behavior"
+primary = "workflow"
+workflow = "oracle-feed"
+tests = [
+    "test_app.py::test_wf_oracle_feed_happy",
+    "test_app.py::test_wf_oracle_feed_large_move",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Stale feed pause and banner"
+text = "When an asset's current price was published longer ago than the staleness limit, its market is stale, draws, collateral withdrawals, liquidations and swaps touching it are refused, and every view shows the stale-feed banner until a fresh post, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "stale-feed"
+tests = [
+    "test_app.py::test_stale_feed_pause",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Recovery grace after a stale feed"
+text = "A post that reopens a stale market puts every position on that asset still below health factor 1 back into a recovery grace, during which liquidation is refused, before it becomes liquidatable again."
+kind = "behavior"
+primary = "pytest"
+workflow = "stale-feed"
+tests = [
+    "test_app.py::test_recovery_grace_after_stale",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Feed recovery journey"
+text = "With the oracle failing, the price ages past the limit and the stale banner appears live for borrower, trader and liquidator, a draw is refused with the banner copy, the oracle returns with a fresh round, the banner clears within one refresh, and a position below health factor 1 reads Liquidatable in grace before it becomes liquidatable."
+kind = "behavior"
+primary = "workflow"
+workflow = "stale-feed"
+tests = [
+    "test_app.py::test_wf_stale_feed_happy",
+    "test_app.py::test_wf_stale_feed_supply_continues",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Liquidation fills and write-off"
+text = "A liquidator repays up to the close factor of a liquidatable position's debt and receives collateral worth the repayment plus the bonus at posted prices, rounded in the pool's favour, and a fill limited by the remaining collateral seizes all of it, writes off the rest and closes the position."
+kind = "behavior"
+primary = "pytest"
+workflow = "liquidation"
+tests = [
+    "test_app.py::test_liquidation_fills_and_write_off",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Liquidation queue grid"
+text = "The liquidation queue is a WAI-ARIA grid with a roving tab stop listing every position below health factor 1 with its state and maximum repay, its Liquidate position dialog holds a menu button whose menu Escape closes before the dialog, and it shows the published empty copy when there are none."
+kind = "behavior"
+primary = "pytest"
+workflow = "liquidation"
+tests = [
+    "test_app.py::test_liquidation_queue_grid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "All-or-nothing liquidation settlement"
+text = "A liquidation commits its ledger legs, statement objects, queued borrower notice and outbox event together or none of them, so a failed attempt leaves the position untouched, still liquidatable and with no event sent."
+kind = "behavior"
+primary = "pytest"
+workflow = "liquidation"
+tests = [
+    "test_app.py::test_all_or_nothing_liquidation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Settlement finality from storage"
+text = "A settlement receipt reads Settled only when the server confirms at the time of asking that both its statement JSON and its PDF are in storage, and reads Pending statement otherwise."
+kind = "behavior"
+primary = "pytest"
+workflow = "liquidation"
+tests = [
+    "test_app.py::test_settlement_finality_from_storage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Settlement statements in desk time"
+text = "Each settlement's text statement and PDF carry the published lines in order, with amounts in desk format and the settlement instant both in the desk time zone with its abbreviation and in UTC."
+kind = "behavior"
+primary = "pytest"
+workflow = "liquidation"
+tests = [
+    "test_app.py::test_statements_in_desk_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Liquidator journey"
+text = "A liquidator moves through the queue grid by keyboard, opens a position, picks a repay from the menu, confirms, and lands on a receipt that moves from Pending statement to Settled without a reload while the borrower's open position page shows the fill and the liquidation notice arrives once, and a liquidation tried while the statement store is down leaves the position liquidatable."
+kind = "behavior"
+primary = "workflow"
+workflow = "liquidation"
+tests = [
+    "test_app.py::test_wf_liquidation_happy",
+    "test_app.py::test_wf_liquidation_store_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "One winner per liquidation round"
+text = "Of two or more liquidations submitted at once for the same round of a position, even through different server processes, exactly one fills and every other gets the already-liquidated conflict with no ledger movement, statement or event."
+kind = "behavior"
+primary = "pytest"
+workflow = "liquidation-race"
+tests = [
+    "test_app.py::test_one_winner_per_round",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Losing liquidator feedback"
+text = "A liquidator whose submission lost the round sees the already-liquidated copy in the Problems alert, focus returns to the row, and the queue row refreshes to the new round."
+kind = "behavior"
+primary = "pytest"
+workflow = "liquidation-race"
+tests = [
+    "test_app.py::test_losing_liquidator_feedback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Liquidation race journey"
+text = "Two liquidators in two browsers open the same liquidatable position and confirm at once, one lands on a Settled receipt and the other sees the conflict copy live, the winner's retry with the same key returns the original fill, and the borrower receives exactly one liquidation notice and one fill event."
+kind = "behavior"
+primary = "workflow"
+workflow = "liquidation-race"
+tests = [
+    "test_app.py::test_wf_liquidation_race_happy",
+    "test_app.py::test_wf_liquidation_race_closing_fill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Shock ruler ticks and counters"
+text = "The shock ruler draws one tick per open position collateralised in the chosen asset at its server liquidation price, and its positions-at-risk and collateral-exposed counters update in place on every step."
+kind = "behavior"
+primary = "pytest"
+workflow = "shock-ruler"
+tests = [
+    "test_app.py::test_shock_ruler_ticks_and_counters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Shock ruler keyboard control and reading"
+text = "The shock ruler is a slider that moves in half-percent steps with the arrow keys, five-percent steps with Shift and to either end with Home and End while focus stays on it, and after the published pause the Shock reading live region announces the at-risk count."
+kind = "behavior"
+primary = "pytest"
+workflow = "shock-ruler"
+tests = [
+    "test_app.py::test_shock_ruler_keyboard_and_reading",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Shock handle motion and reduced motion"
+text = "The visible shock handle and the tick fills move with the short transitions in Motion and effects, and under reduced motion they change with no transition."
+kind = "visual"
+primary = "pytest"
+workflow = "shock-ruler"
+tests = [
+    "test_app.py::test_shock_handle_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Shock ruler tick rendering"
+text = "Ticks the shock crosses turn from ink to signal red, and under reduced motion each crossed tick also carries a hatch, so at-risk status never rests on colour alone."
+kind = "visual"
+primary = "rubric"
+workflow = "shock-ruler"
+tests = []
+criteria = [
+    "B10",
+    "S5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Post this price journey"
+text = "The risk steward drags the shock ruler to a level while a liquidator's read-only ruler shows the same ticks, presses Post this price, posts the prefilled price, and sees both rulers recentre and the crossed positions in the queue, with the whole run repeated by keyboard under reduced motion."
+kind = "behavior"
+primary = "workflow"
+workflow = "shock-ruler"
+tests = [
+    "test_app.py::test_wf_shock_ruler_happy",
+    "test_app.py::test_wf_shock_ruler_keyboard_reduced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Integrator events from committed changes"
+text = "Every settlement and every position state change, including the ones the clock causes, reaches Svix as one message after its transaction commits, with the message id equal to the ledger event id and nothing sent for a rolled-back change."
+kind = "behavior"
+primary = "pytest"
+workflow = "webhooks"
+tests = [
+    "test_app.py::test_events_from_committed_changes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Integrator event format and order"
+text = "Integrator events carry the published payload with minor-unit string amounts and UTC instants without fractional seconds, and reach Svix in sequence order per position."
+kind = "behavior"
+primary = "pytest"
+workflow = "webhooks"
+tests = [
+    "test_app.py::test_event_format_and_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Integrator webhook journey"
+text = "A borrower's draw, a price drop, a grace expiry with no request touching the position, and a liquidator's fill each appear in Svix once and in order with the receipt reading Webhook delivered, while a fill refused during a storage outage adds no message."
+kind = "behavior"
+primary = "workflow"
+workflow = "webhooks"
+tests = [
+    "test_app.py::test_wf_webhooks_happy",
+    "test_app.py::test_wf_webhooks_refused_fill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Statement store outage"
+text = "While object storage is unreachable, draws, liquidity withdrawals, liquidations and manual price posts are refused with the storage outage copy and nothing moves, while every other action keeps working."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_statement_store_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Mail, PDF renderer, webhook and database outages"
+text = "Each of mail, the PDF renderer, Svix and the database fails in its own published way that says whether money moved, queued effects are delivered once the service returns, and the server recovers from dropped database connections without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_service_outages",
+]
+criteria = []
+parameter_cases = [
+    "mail",
+    "svix",
+    "database",
+]
+
+[[requirements]]
+id = "DP-56"
+title = "Background jobs exactly once"
+text = "Notice delivery, PDF rendering, webhook delivery, oracle rounds and background evaluation each run exactly once per item across every server process sharing the database."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_background_jobs_exactly_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Outage recovery journey"
+text = "A borrower draws while the PDF renderer is down and sees Pending statement with funds moved, another process renders the PDF once and the receipt turns Settled without a reload, and a liquidation during a mail outage shows its notice as queued, not yet sent, while the liquidator's receipt is unaffected."
+kind = "behavior"
+primary = "workflow"
+workflow = "outages"
+tests = [
+    "test_app.py::test_wf_outages_pdf_down",
+    "test_app.py::test_wf_outages_mail_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Run manifest and health check"
+text = "The app installs, builds and serves from `/app/run.json` on the published port and answers the health check as set out in Deployment."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_run_manifest_and_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Configuration and boot"
+text = "Every service URL and credential is read from the environment at start with no literal fallback, never sent to the browser, and the server refuses to start when a required variable is missing."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "API boundary and problem details"
+text = "The API serves one origin, enforces body limits, strict JSON types and unknown-key rejection, and answers every error as RFC 9457 problem details under the published precedence."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_api_boundary",
+]
+criteria = []
+parameter_cases = [
+    "too_large",
+    "exact_limit",
+    "cross_origin",
+    "media_type",
+    "invalid_json",
+    "unknown_field",
+    "proto_key",
+    "wrong_type",
+    "control_char",
+    "unknown_api",
+    "never_served",
+    "precedence",
+]
+
+[[requirements]]
+id = "DP-61"
+title = "Desk formats"
+text = "The interface types and shows amounts, prices, percentages, health factors, durations and wall-clock times in the published desk formats while the API speaks only its own published formats."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_desk_formats",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Responsive ledger-sheet layout"
+text = "The three-zone ledger-sheet layout rearranges for 375 by 812, 768 by 1024 and 1280 by 800 viewports, with nothing scrolling sideways."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Keyboard, focus and touch targets"
+text = "Every control is reachable in the published Tab order with a visible focus mark that is never hidden, dialogs trap and return focus, a refused submission moves focus to the first field in error, and touch targets meet the size in Visual design."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_focus_targets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Ledger-sheet visual design"
+text = "Every screen reads as a ruled ledger sheet: figures in tabular monospace aligned on the decimal comma, hairline rules, and red reserved for liquidation states."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Single source for each domain rule"
+text = "Each domain rule, conversion and error shape is decided in exactly one place in the server source, and the browser renders server values without recomputing them."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists, with string install, build and serve fields and \"_schema\":\"run-manifest-v1\", and nothing else is needed to start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and every bundled font, each with name, version and licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (as defined in IF-02) and every bundled font uses one of MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores state only in Postgres and MinIO: no SQLite, Redis, other databases or state files on disk."
+tests = [
+    "test_app.py::test_if_state_only_in_postgres_and_minio",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration (the dev compose fragments, their images and their credentials) is left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "package-lock.json is committed, and the server and browser source is TypeScript compiled with strict type checking on."
+tests = [
+    "test_app.py::test_if_typescript_strict",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "funding-ledger"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+]
+critical = [
+    "test_app.py::test_wf_funding_ledger_happy",
+    "test_app.py::test_balanced_journals",
+    "test_app.py::test_ledger_url_state",
+]
+checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "lp-supply"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_lp_supply_happy",
+    "test_app.py::test_pool_figures_from_ledger",
+    "test_app.py::test_supply_form_survives_refresh",
+    "test_app.py::test_last_liquidity_contest",
+]
+checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "swap"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_swap_happy",
+    "test_app.py::test_firm_quote_fee_split",
+    "test_app.py::test_live_swap_preview_latest_wins",
+    "test_app.py::test_swap_execution_expiry_single_use",
+]
+
+[[workflows]]
+id = "borrow"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_borrow_happy",
+    "test_app.py::test_idempotent_draws_and_swaps",
+    "test_app.py::test_keyboard_complete_borrowing",
+    "test_app.py::test_positions_and_draws_within_ltv",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "margin-grace"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_margin_grace_happy",
+    "test_app.py::test_server_decided_status",
+    "test_app.py::test_background_evaluation_and_margin_notice",
+]
+
+[[workflows]]
+id = "price-post"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_price_post_happy",
+    "test_app.py::test_price_evidence_as_submitted",
+    "test_app.py::test_announced_price_and_repay",
+    "test_app.py::test_manual_price_posts",
+]
+
+[[workflows]]
+id = "oracle-feed"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_oracle_feed_happy",
+    "test_app.py::test_oracle_faults_and_recovery",
+    "test_app.py::test_oracle_readings",
+]
+
+[[workflows]]
+id = "stale-feed"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_stale_feed_happy",
+    "test_app.py::test_recovery_grace_after_stale",
+]
+
+[[workflows]]
+id = "liquidation"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_liquidation_happy",
+    "test_app.py::test_settlement_finality_from_storage",
+    "test_app.py::test_statements_in_desk_time",
+    "test_app.py::test_all_or_nothing_liquidation",
+]
+
+[[workflows]]
+id = "liquidation-race"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_liquidation_race_happy",
+    "test_app.py::test_one_winner_per_round",
+    "test_app.py::test_losing_liquidator_feedback",
+]
+
+[[workflows]]
+id = "shock-ruler"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_shock_ruler_happy",
+    "test_app.py::test_shock_ruler_ticks_and_counters",
+    "test_app.py::test_shock_ruler_keyboard_and_reading",
+]
+checkpoints = [
+    "B10",
+]
+critical_checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "webhooks"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_webhooks_happy",
+    "test_app.py::test_event_format_and_order",
+    "test_app.py::test_events_from_committed_changes",
+]
+
+[[workflows]]
+id = "outages"
+requirements = [
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+]
+critical = [
+    "test_app.py::test_wf_outages_pdf_down",
+    "test_app.py::test_statement_store_outage",
+    "test_app.py::test_background_jobs_exactly_once",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-61",
+    "DP-62",
+    "DP-63",
+    "DP-64",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_run_manifest_and_health",
+]

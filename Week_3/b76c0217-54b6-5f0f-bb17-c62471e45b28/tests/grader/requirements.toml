@@ -1,0 +1,1130 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 51
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "page-authoring",
+    "sidebar-reorder",
+    "rename-redirect",
+    "publish-blocked",
+    "live-preview",
+    "versions-switcher",
+    "openapi-tryit",
+    "search-shortcut",
+    "phone-reading",
+    "components-a11y",
+    "ratings-analytics",
+    "team-roles",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 88
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 5
+B11 = 5
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 5
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+GRADING_ROUTES = "on"
+INVITE_TTL_MS = "20000"
+PREVIEW_LINK_TTL_MS = "6000"
+PRESENCE_TIMEOUT_MS = "4000"
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Galley <docs@galley.test>"
+MAIL_RETRY_MS = "2000"
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_minio_down"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+MAILPIT_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_mailpit_down"
+S3_BUCKET = "${S3_BUCKET}-mailpit-down"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health check"
+text = "The app installs, builds and serves from `/app/run.json` as set in Deployment, and its health route answers as set there on every instance, including outage instances."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_on_every_instance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read at start from the environment variables named in Configuration and secrets, and none is hard-coded in source or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Same-origin server boundary"
+text = "The server enforces the body limits, origin rule and never-served list in Server boundary, and no page or request the app makes ever goes to an outside host."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary_limits_origin_and_never_served",
+    "test_app.py::test_no_request_leaves_the_origin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Grading routes behind a switch"
+text = "The seed and outage routes described under Grading routes work only when `GRADING_ROUTES` is `on` and answer as not found otherwise."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_routes_switch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Autosave and page JSON"
+text = "The editor saves a page with its revision after the autosave pause and announces the saved message, and page JSON returns the saved source and the next revision, as qualified in Writing pages."
+kind = "behavior"
+primary = "pytest"
+workflow = "page-authoring"
+tests = [
+    "test_app.py::test_autosave_and_page_json",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Slash menu"
+text = "Typing `/` at the start of an empty line opens the `Insert component` listbox, which filters, moves and inserts each component's published snippet by keyboard while focus stays in the page source."
+kind = "behavior"
+primary = "pytest"
+workflow = "page-authoring"
+tests = [
+    "test_app.py::test_slash_menu_inserts_snippets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Allowlisted page source"
+text = "Preview, shared previews and the public site render only the published markdown and the six published components, show raw HTML as escaped text, and make links only from the published link kinds."
+kind = "behavior"
+primary = "pytest"
+workflow = "page-authoring"
+tests = [
+    "test_app.py::test_page_source_allowlisted_on_every_surface",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Image upload to file storage"
+text = "The `Image` button stores a PNG, JPEG or WebP image in file storage before it inserts the image line, and when storage is unreachable the page source stays unchanged and the editor shows the image-outage message."
+kind = "behavior"
+primary = "pytest"
+workflow = "page-authoring"
+tests = [
+    "test_app.py::test_image_upload_to_file_storage",
+    "test_app.py::test_wf_page_authoring_image_pending",
+    "test_app.py::test_wf_page_authoring_outage_message_stays",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Authoring a page end to end"
+text = "An editor writes a page with the slash menu and an image, sees it autosave, and checks every component and an escaped script tag in preview."
+kind = "behavior"
+primary = "workflow"
+workflow = "page-authoring"
+tests = [
+    "test_app.py::test_wf_page_authoring_happy",
+    "test_app.py::test_wf_page_authoring_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Navigation JSON and live moves"
+text = "Moving a page or group saves at once to navigation JSON and appears in every other open editor's `Pages` tree within one second without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "sidebar-reorder"
+tests = [
+    "test_app.py::test_navigation_moves_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Keyboard reorder in the Pages tree"
+text = "The `Pages` tree is a single tab stop with published levels and positions, and Alt+ArrowUp and Alt+ArrowDown move the focused row across group boundaries, keep focus on it and announce the move."
+kind = "behavior"
+primary = "pytest"
+workflow = "sidebar-reorder"
+tests = [
+    "test_app.py::test_tree_keyboard_reorder",
+    "test_app.py::test_wf_sidebar_reorder_tab_enters_first_row",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Reorganising the sidebar end to end"
+text = "An editor drags a page into another group and moves pages and a group by keyboard, including on a phone, while a second editor sees each move live."
+kind = "behavior"
+primary = "workflow"
+workflow = "sidebar-reorder"
+tests = [
+    "test_app.py::test_wf_sidebar_reorder_drag_and_live",
+    "test_app.py::test_wf_sidebar_reorder_phone",
+    "test_app.py::test_wf_sidebar_reorder_drag_escape_cancels",
+    "test_app.py::test_wf_sidebar_reorder_tree_focus_return",
+    "test_app.py::test_wf_sidebar_reorder_last_row_kept_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "One-hop redirects on rename"
+text = "A rename files one redirect from the old path, points every older redirect straight at the new path, removes the redirect instead of looping when a page is renamed back, and rewrites and counts the links that point to the page, as qualified in Redirects."
+kind = "behavior"
+primary = "pytest"
+workflow = "rename-redirect"
+tests = [
+    "test_app.py::test_rename_one_hop_redirects",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Refused redirects"
+text = "A rename or manual redirect that would loop, leave the site, point at a missing page or take a live page's path is refused with its published code and message, and nothing changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "rename-redirect"
+tests = [
+    "test_app.py::test_refused_redirects",
+]
+criteria = []
+parameter_cases = [
+    "rename_loop",
+    "manual_loop",
+    "self_loop",
+    "off_site_url",
+    "off_site_scheme_relative",
+    "target_missing",
+    "redirect_exists",
+    "rename_path_taken",
+    "create_path_taken",
+    "bad_path",
+]
+
+[[requirements]]
+id = "DP-15"
+title = "Public redirects and the not-found page"
+text = "After a publish, an old path answers a single permanent redirect to the new path on the same site with the fragment kept, and a removed path answers with the not-found page and its search box."
+kind = "behavior"
+primary = "pytest"
+workflow = "rename-redirect"
+tests = [
+    "test_app.py::test_public_redirects_and_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Rename splice"
+text = "Confirming a rename plays the strike, set, file and count phases on the published timers, keeps focus on the renamed row, announces the rename message, and under reduced motion shows the end state at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "rename-redirect"
+tests = [
+    "test_app.py::test_rename_splice_phases",
+    "test_app.py::test_rename_splice_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Renaming a page end to end"
+text = "An editor renames a page twice by keyboard and publishes, and a reader who follows the oldest link lands on the renamed page's heading through a single redirect."
+kind = "behavior"
+primary = "workflow"
+workflow = "rename-redirect"
+tests = [
+    "test_app.py::test_wf_rename_redirect_happy",
+    "test_app.py::test_wf_rename_redirect_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Publish gate rules"
+text = "Checking a version reports every broken link, broken anchor, unknown or invalid component, invalid image and duplicate path with its published file, line, code and message in the published order, and any problem blocks the publish."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-blocked"
+tests = [
+    "test_app.py::test_publish_gate_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Publish dialog and live gate count"
+text = "Publish, from the button or the shortcut, announces the check and then opens the blocked or confirm dialog; each problem row jumps to its line, and the gate count drops live as problems are fixed."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-blocked"
+tests = [
+    "test_app.py::test_publish_dialog_and_live_gate_count",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Storage-confirmed publish"
+text = "A publish goes live only after its snapshot manifest is confirmed in file storage, replays by idempotency key, lets one of two concurrent publishes win, and on a storage failure keeps the previous snapshot serving and shows the publish-outage message."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-blocked"
+tests = [
+    "test_app.py::test_publish_storage_confirmed_replay_and_race",
+    "test_app.py::test_publish_storage_outage_keeps_snapshot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Fixing a blocked publish end to end"
+text = "An editor fixes each gate problem by keyboard from the dialog, watches the count fall to none, and publishes."
+kind = "behavior"
+primary = "workflow"
+workflow = "publish-blocked"
+tests = [
+    "test_app.py::test_wf_publish_blocked_fix_and_publish",
+    "test_app.py::test_wf_publish_blocked_storage_outage",
+    "test_app.py::test_wf_publish_blocked_row_opens_other_page",
+    "test_app.py::test_wf_publish_blocked_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Live preview and reader update banner"
+text = "The signed-in preview updates within one second of each autosave, and a reader who has a changed page open sees the update banner and gets the new content only after choosing Reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-preview"
+tests = [
+    "test_app.py::test_live_preview_and_update_banner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Shared preview links"
+text = "A shared preview link shows only its one draft page without sign-in, accepts no writes, and shows the expiry message once it is revoked or older than `PREVIEW_LINK_TTL_MS`."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-preview"
+tests = [
+    "test_app.py::test_shared_preview_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Presence and revision conflicts"
+text = "Two editors on one page each see the other's presence notice, and a save against an old revision is refused with the conflict message while the local text is kept and autosave stops."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-preview"
+tests = [
+    "test_app.py::test_presence_and_revision_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Previewing and sharing a draft end to end"
+text = "An editor watches the preview update live, shares the draft with a signed-out reviewer until the link expires, then meets a conflict with a second editor and publishes."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-preview"
+tests = [
+    "test_app.py::test_wf_live_preview_share_and_publish",
+    "test_app.py::test_wf_live_preview_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Versions from their own snapshots"
+text = "A new version is a copy of an existing one with its own ids, and each published version serves only pages from its own snapshot."
+kind = "behavior"
+primary = "pytest"
+workflow = "versions-switcher"
+tests = [
+    "test_app.py::test_versions_from_own_snapshots",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Version switcher"
+text = "The public version switcher works by keyboard and keeps the page path when that page exists; otherwise it shows the version-fallback notice on the first page with focus on its heading. Every public page carries the published document title."
+kind = "behavior"
+primary = "pytest"
+workflow = "versions-switcher"
+tests = [
+    "test_app.py::test_version_switcher",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Switching versions end to end"
+text = "An editor creates and publishes a new version, and a reader switches between versions by keyboard on a desktop and on a phone."
+kind = "behavior"
+primary = "workflow"
+workflow = "versions-switcher"
+tests = [
+    "test_app.py::test_wf_versions_switcher_desktop",
+    "test_app.py::test_wf_versions_switcher_phone",
+    "test_app.py::test_wf_versions_switcher_published_only",
+    "test_app.py::test_wf_versions_switcher_phone_fallback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "OpenAPI file kept byte for byte"
+text = "An imported OpenAPI 3.0 JSON file is stored in file storage exactly as uploaded, and `Download source` returns those exact bytes."
+kind = "behavior"
+primary = "pytest"
+workflow = "openapi-tryit"
+tests = [
+    "test_app.py::test_openapi_source_byte_for_byte",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Generated reference pages"
+text = "Import creates the `API reference` group with one page per operation in file order, each page with the published sections in order, generated identically every time and keeping page ids on re-import."
+kind = "behavior"
+primary = "pytest"
+workflow = "openapi-tryit"
+tests = [
+    "test_app.py::test_reference_pages_generated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Try-it panel"
+text = "The `Try it` panel checks required parameters before sending, sends only to the app's own mock route, and shows and announces the chosen documented response, by keyboard and on a phone."
+kind = "behavior"
+primary = "pytest"
+workflow = "openapi-tryit"
+tests = [
+    "test_app.py::test_try_it_panel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Trying an endpoint end to end"
+text = "An editor imports the fixture, downloads its source and publishes, and a reader tries an operation by keyboard alone."
+kind = "behavior"
+primary = "workflow"
+workflow = "openapi-tryit"
+tests = [
+    "test_app.py::test_wf_openapi_tryit_happy",
+    "test_app.py::test_wf_openapi_tryit_invalid_file",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Search ranking"
+text = "Public search returns each published page of the current version once, in its best band (title, then heading, then body text), in navigation order within a band, with the published result lines."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-shortcut"
+tests = [
+    "test_app.py::test_search_ranking",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Search dialog"
+text = "The `Search docs` dialog opens from its shortcuts, updates results and the announced count in place as the reader types, opens a result with Enter, and returns focus to its opener on Escape."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-shortcut"
+tests = [
+    "test_app.py::test_search_dialog",
+    "test_app.py::test_wf_search_shortcut_slash_from_radio",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Finding an answer end to end"
+text = "A reader opens search by shortcut, moves to a heading result by keyboard, lands on that heading, and searches again from the not-found page."
+kind = "behavior"
+primary = "workflow"
+workflow = "search-shortcut"
+tests = [
+    "test_app.py::test_wf_search_shortcut_heading_and_not_found",
+    "test_app.py::test_wf_search_shortcut_no_results",
+    "test_app.py::test_wf_search_shortcut_slash_in_field",
+    "test_app.py::test_wf_search_shortcut_phone",
+    "test_app.py::test_wf_search_shortcut_same_page_heading",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Reader layout and table of contents"
+text = "The public site shows the published reader layout for each published width, with no sideways page scroll, and a table of contents that marks the heading in view."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-reading"
+tests = [
+    "test_app.py::test_reader_layout_and_toc",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Sidebar drawer"
+text = "At phone width the `Menu` button opens the sidebar as a modal drawer that keeps focus inside, closes on Escape or a backdrop tap, returns focus to `Menu`, is hidden and inert when closed, reverses smoothly mid-motion, and is instant under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-reading"
+tests = [
+    "test_app.py::test_site_drawer",
+    "test_app.py::test_site_drawer_reduced_motion",
+    "test_app.py::test_wf_phone_reading_versions_escape_in_drawer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Reading on a phone end to end"
+text = "A reader on a phone opens and closes the drawer, uses the `On this page` disclosure and heading links, and reads without sideways scrolling."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone-reading"
+tests = [
+    "test_app.py::test_wf_phone_reading_happy",
+    "test_app.py::test_wf_phone_reading_tablet_disclosure",
+    "test_app.py::test_wf_phone_reading_anchor_tap_size",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Tabs and code groups"
+text = "Tabs and code groups follow the published tabs keyboard pattern; a code-group choice selects the same title in every code group on the page and is restored on the next load, and `Copy` announces the copied message."
+kind = "behavior"
+primary = "pytest"
+workflow = "components-a11y"
+tests = [
+    "test_app.py::test_tabs_and_code_groups",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Accordion, steps, callouts and cards"
+text = "Accordions expose their state and keep closed content out of focus and find-in-page, and they open instantly under reduced motion; steps render as a numbered list with the published headings, callouts are named notes, and cards are links."
+kind = "behavior"
+primary = "pytest"
+workflow = "components-a11y"
+tests = [
+    "test_app.py::test_accordion_steps_callouts_cards",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Using page components end to end"
+text = "A reader works every component on a page by keyboard and finds their code-group choice kept after a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "components-a11y"
+tests = [
+    "test_app.py::test_wf_components_a11y_keyboard",
+    "test_app.py::test_wf_components_a11y_phone_reduced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Ratings and search terms recorded"
+text = "A reader's helpful vote counts once per browser per page and can be changed or removed, and a search term is logged once per pause or Enter, as qualified in Feedback and analytics."
+kind = "behavior"
+primary = "pytest"
+workflow = "ratings-analytics"
+tests = [
+    "test_app.py::test_ratings_and_search_terms_recorded",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Live analytics"
+text = "The analytics screen computes helpful percentages and search-term counts from stored votes and logged searches for the team's own sites, and updates within one second of each new vote or logged search."
+kind = "behavior"
+primary = "pytest"
+workflow = "ratings-analytics"
+tests = [
+    "test_app.py::test_live_analytics",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Reading feedback end to end"
+text = "A reader votes and searches while an editor and a viewer watch the analytics tables change live."
+kind = "behavior"
+primary = "workflow"
+workflow = "ratings-analytics"
+tests = [
+    "test_app.py::test_wf_ratings_analytics_live",
+    "test_app.py::test_wf_ratings_analytics_change_vote",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Sign-in and roles"
+text = "Email and password sign-in returns only to same-site paths, viewers get no edit or publish controls and are refused on every write, and a role change reaches an open session within one second."
+kind = "behavior"
+primary = "pytest"
+workflow = "team-roles"
+tests = [
+    "test_app.py::test_sign_in_next_and_viewer_refusals",
+    "test_app.py::test_role_change_reaches_open_session",
+    "test_app.py::test_wf_team_roles_viewer_f2_no_path_field",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Team invites by mail"
+text = "An owner's invite is mailed with the published subject and a single-use, expiring link, and when mail is unreachable the invite is held and retried until the mail server accepts it."
+kind = "behavior"
+primary = "pytest"
+workflow = "team-roles"
+tests = [
+    "test_app.py::test_invites_mailed_single_use_expiring",
+    "test_app.py::test_invite_held_until_mail_returns",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Managing the team end to end"
+text = "An owner invites a viewer by keyboard, the viewer joins from the mailed link, and the owner promotes them to editor while their session is open."
+kind = "behavior"
+primary = "workflow"
+workflow = "team-roles"
+tests = [
+    "test_app.py::test_wf_team_roles_invite_and_promote",
+    "test_app.py::test_wf_team_roles_held_invite",
+    "test_app.py::test_wf_team_roles_safe_sign_in",
+    "test_app.py::test_wf_team_roles_promoted_viewer_autosaves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Light, dark and system themes"
+text = "The `Theme` radio group, in the editor top bar and on the public site, switches both between the published light and dark colours, follows the system setting by default, cross-fades (instantly under reduced motion), and is one choice shared by the editor and the public site that is remembered after a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_theme_light_dark_system",
+    "test_app.py::test_wf_cross_cutting_theme_keyboard_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Editor layout"
+text = "The editor shows its published layout at each published width, with the `Pages` tree in a drawer at phone width and the keyboard reorder and rename paths still working there."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_editor_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Proof-room look"
+text = "The reader site looks like a proofed galley page: warm paper ground, hairline rules, proof-red marks, serif headings, sans body text and monospace for every path and count, with no shadow deeper than a hairline."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Editor proof margin"
+text = "The editor looks like the published page with a proof margin on the right that holds redirect chips, the rewritten-link count and gate issues as proof marks."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with string `install`, `build` and `serve` commands and `\"_schema\":\"run-manifest-v1\"`, and nothing else is needed to install, build or serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` lists every shipped package (the production dependency tree from `npm ls --omit=dev --all --json`) with its version and licence, plus the bundled fonts."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0, and the fonts are under OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses only Postgres, MinIO and Mailpit: no other datastore, queue, search engine, cache server or outside service, and no AI or language-model package or key."
+tests = [
+    "test_app.py::test_if_only_three_services",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "All application source is TypeScript; plain JavaScript appears only in generated build output and tool config files."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service configuration (the dev compose file and its seeded credentials) is left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "page-authoring"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+]
+critical = [
+    "test_app.py::test_wf_page_authoring_happy",
+    "test_app.py::test_wf_page_authoring_storage_outage",
+    "test_app.py::test_slash_menu_inserts_snippets",
+    "test_app.py::test_page_source_allowlisted_on_every_surface",
+    "test_app.py::test_image_upload_to_file_storage",
+    "test_app.py::test_wf_page_authoring_image_pending",
+    "test_app.py::test_wf_page_authoring_outage_message_stays",
+]
+
+[[workflows]]
+id = "sidebar-reorder"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_sidebar_reorder_drag_and_live",
+    "test_app.py::test_wf_sidebar_reorder_phone",
+    "test_app.py::test_wf_sidebar_reorder_drag_escape_cancels",
+    "test_app.py::test_wf_sidebar_reorder_tree_focus_return",
+    "test_app.py::test_tree_keyboard_reorder",
+    "test_app.py::test_wf_sidebar_reorder_tab_enters_first_row",
+    "test_app.py::test_wf_sidebar_reorder_last_row_kept_live",
+]
+
+[[workflows]]
+id = "rename-redirect"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_rename_redirect_happy",
+    "test_app.py::test_wf_rename_redirect_refused",
+    "test_app.py::test_rename_splice_reduced_motion",
+    "test_app.py::test_public_redirects_and_not_found",
+    "test_app.py::test_rename_splice_phases",
+]
+checkpoints = [
+    "B10",
+]
+critical_checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "publish-blocked"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_publish_blocked_fix_and_publish",
+    "test_app.py::test_wf_publish_blocked_storage_outage",
+    "test_app.py::test_wf_publish_blocked_row_opens_other_page",
+    "test_app.py::test_wf_publish_blocked_phone",
+    "test_app.py::test_publish_dialog_and_live_gate_count",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "live-preview"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_live_preview_share_and_publish",
+    "test_app.py::test_wf_live_preview_conflict",
+    "test_app.py::test_live_preview_and_update_banner",
+    "test_app.py::test_shared_preview_links",
+]
+
+[[workflows]]
+id = "versions-switcher"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_versions_switcher_desktop",
+    "test_app.py::test_wf_versions_switcher_phone",
+    "test_app.py::test_wf_versions_switcher_published_only",
+    "test_app.py::test_wf_versions_switcher_phone_fallback",
+    "test_app.py::test_version_switcher",
+]
+
+[[workflows]]
+id = "openapi-tryit"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_openapi_tryit_happy",
+    "test_app.py::test_wf_openapi_tryit_invalid_file",
+    "test_app.py::test_try_it_panel",
+    "test_app.py::test_reference_pages_generated",
+]
+
+[[workflows]]
+id = "search-shortcut"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_search_shortcut_heading_and_not_found",
+    "test_app.py::test_wf_search_shortcut_no_results",
+    "test_app.py::test_wf_search_shortcut_slash_in_field",
+    "test_app.py::test_wf_search_shortcut_phone",
+    "test_app.py::test_search_dialog",
+    "test_app.py::test_wf_search_shortcut_slash_from_radio",
+    "test_app.py::test_wf_search_shortcut_same_page_heading",
+]
+checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "phone-reading"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_phone_reading_happy",
+    "test_app.py::test_reader_layout_and_toc",
+    "test_app.py::test_site_drawer_reduced_motion",
+    "test_app.py::test_site_drawer",
+    "test_app.py::test_wf_phone_reading_tablet_disclosure",
+    "test_app.py::test_wf_phone_reading_versions_escape_in_drawer",
+    "test_app.py::test_wf_phone_reading_anchor_tap_size",
+]
+checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "components-a11y"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_components_a11y_keyboard",
+    "test_app.py::test_wf_components_a11y_phone_reduced",
+    "test_app.py::test_tabs_and_code_groups",
+    "test_app.py::test_accordion_steps_callouts_cards",
+]
+
+[[workflows]]
+id = "ratings-analytics"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-44",
+]
+critical = [
+    "test_app.py::test_wf_ratings_analytics_live",
+    "test_app.py::test_ratings_and_search_terms_recorded",
+    "test_app.py::test_live_analytics",
+    "test_app.py::test_wf_ratings_analytics_change_vote",
+]
+
+[[workflows]]
+id = "team-roles"
+requirements = [
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_team_roles_invite_and_promote",
+    "test_app.py::test_wf_team_roles_held_invite",
+    "test_app.py::test_wf_team_roles_safe_sign_in",
+    "test_app.py::test_role_change_reaches_open_session",
+    "test_app.py::test_invites_mailed_single_use_expiring",
+    "test_app.py::test_wf_team_roles_promoted_viewer_autosaves",
+    "test_app.py::test_wf_team_roles_viewer_f2_no_path_field",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_health_on_every_instance",
+    "test_app.py::test_wf_cross_cutting_theme_keyboard_phone",
+    "test_app.py::test_no_request_leaves_the_origin",
+    "test_app.py::test_theme_light_dark_system",
+    "test_app.py::test_editor_layout",
+]
+checkpoints = [
+    "B1",
+    "B8",
+]
+critical_checkpoints = [
+    "B1",
+]

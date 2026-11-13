@@ -1,0 +1,1039 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "signup",
+    "lookup",
+    "requests",
+    "live-letters",
+    "sender-offline",
+    "recipient-offline",
+    "image-letters",
+    "file-letters",
+    "deleting",
+    "blocking",
+    "seal-numbers",
+    "username-change",
+    "notifications",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B14",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 91
+solo_criteria = []
+services = [
+    { name = "postgres", env = { GRADING = "1" } },
+    { name = "minio", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 3
+B14 = 3
+B8 = 3
+B9 = 5
+B10 = 3
+B11 = 5
+B12 = 3
+B13 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+GRADING = "1"
+
+[[outages]]
+id = "short"
+port = 4175
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+GRADING = "1"
+ATTACHMENT_MAX_BYTES = "524288"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Username rules"
+text = "Usernames are 3 to 32 characters of lowercase letters, digits, underscores and dots, start with a letter, do not end with a dot, compare case-insensitively, are unique, and the availability check answers with the reasons in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup"
+tests = [
+    "test_app.py::test_username_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Sealed sign-up"
+text = "Signing up takes only a username, a public identity key, a recovery verifier and a sealed key backup, sets a session cookie, and stores no plaintext private key, recovery code, display name or photo."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup"
+tests = [
+    "test_app.py::test_sealed_signup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Sign-up journey"
+text = "On a 375 by 812 phone, a new person picks a username with the live availability chip, writes down and checks their recovery code, sets a display name and optional photo, and lands on the empty letters list, all by keyboard."
+kind = "behavior"
+primary = "workflow"
+workflow = "signup"
+tests = [
+    "test_app.py::test_wf_signup_keyboard",
+    "test_app.py::test_wf_signup_mistakes",
+    "test_app.py::test_wf_signup_touch_phone",
+    "test_app.py::test_wf_signup_chip_debounce",
+    "test_app.py::test_wf_signup_photo_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Exact username lookup"
+text = "Lookup matches the whole username case-insensitively, never by prefix, never returns the caller or a held name, and shows a non-contact only their username and a plain avatar."
+kind = "behavior"
+primary = "pytest"
+workflow = "lookup"
+tests = [
+    "test_app.py::test_exact_lookup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Lookup journey"
+text = "From Contacts, a correspondent types a username, presses Enter, hears the result announced and lands focused on the result card or the not-found message, then opens a conversation from the card."
+kind = "behavior"
+primary = "workflow"
+workflow = "lookup"
+tests = [
+    "test_app.py::test_wf_lookup_found",
+    "test_app.py::test_wf_lookup_not_found",
+    "test_app.py::test_wf_lookup_phone_touch",
+    "test_app.py::test_wf_lookup_self_and_released",
+    "test_app.py::test_wf_lookup_existing_conversation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Letter requests"
+text = "A first letter from someone the recipient has not accepted lands in Letter requests, where opening sends no read receipt and shows no profile, and Accept, Delete and Block behave as Business rules state."
+kind = "behavior"
+primary = "pytest"
+workflow = "lookup"
+tests = [
+    "test_app.py::test_letter_requests",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Request journey"
+text = "In two browsers, a request row and count appear live for the recipient, Accept by keyboard moves the conversation to Chats, and the sender then sees the recipient's display name and photo without reloading."
+kind = "behavior"
+primary = "workflow"
+workflow = "requests"
+tests = [
+    "test_app.py::test_wf_requests_accept",
+    "test_app.py::test_wf_requests_delete_block",
+    "test_app.py::test_wf_requests_no_receipt_live",
+    "test_app.py::test_wf_requests_count_phone",
+    "test_app.py::test_wf_requests_profiles_both_ways",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Published sealing scheme"
+text = "Every letter body, profile and attachment is sealed in the browser with exactly the published scheme, so a letter sealed by another implementation of the scheme opens in Airfold and an Airfold letter opens with the scheme."
+kind = "behavior"
+primary = "pytest"
+workflow = "seal-numbers"
+tests = [
+    "test_app.py::test_published_sealing_scheme",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "One letter per letter id"
+text = "Repeating a send with the same client letter id returns the original letter instead of creating a second one, and reusing an id for different content is refused with 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-letters"
+tests = [
+    "test_app.py::test_one_letter_per_id",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Delivery states"
+text = "A posted letter is sent while held, becomes delivered when the recipient's browser collects it (server time, set once, held copy deleted), then read, or failed when returned after 30 days, and no other transition happens."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-letters"
+tests = [
+    "test_app.py::test_delivery_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Reciprocal read receipts"
+text = "A letter becomes read only if both people have read receipts on and the conversation is accepted when the recipient opens it, so turning receipts off stops both sending and seeing read."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-letters"
+tests = [
+    "test_app.py::test_reciprocal_read_receipts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Live letters journey"
+text = "In two browsers, Enter sends a letter, focus stays in the composer, the sender's postmark goes Sending, Sent, Delivered, Read live, the recipient hears the new letter announced, and both lists show the last letter and its state after reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-letters"
+tests = [
+    "test_app.py::test_wf_live_letters_happy",
+    "test_app.py::test_wf_live_letters_double_send",
+    "test_app.py::test_wf_live_letters_layout",
+    "test_app.py::test_wf_live_letters_shift_enter",
+    "test_app.py::test_wf_live_letters_receipts_off",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Outbox and retries"
+text = "Letters written while offline wait in a persistent outbox on the Sending postmark, retry on the published backoff and immediately on reconnect, and post in the order written."
+kind = "behavior"
+primary = "pytest"
+workflow = "sender-offline"
+tests = [
+    "test_app.py::test_wf_sender_offline_outbox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Offline sending journey"
+text = "A sender who goes offline sees the Connecting bar after the published delay, writes five letters that stay Sending, and on reconnect the five arrive once each, in order, in the other browser while the bar leaves."
+kind = "behavior"
+primary = "workflow"
+workflow = "sender-offline"
+tests = [
+    "test_app.py::test_wf_sender_offline_five",
+    "test_app.py::test_wf_sender_offline_phone_touch",
+    "test_app.py::test_wf_sender_offline_row_and_announcement",
+    "test_app.py::test_wf_sender_offline_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Held queue in order"
+text = "The exchange holds letters for an offline recipient in posting order, hands them over in that order on collection, deletes each held copy once delivered, and returns uncollected letters after 30 days."
+kind = "behavior"
+primary = "pytest"
+workflow = "recipient-offline"
+tests = [
+    "test_app.py::test_held_queue_in_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Unread counts"
+text = "Each conversation's unread count, the Chats tab badge and the tab title equal the number of delivered, unopened, not deleted letters the server holds for the viewer, before and after reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "recipient-offline"
+tests = [
+    "test_app.py::test_unread_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Collecting journey"
+text = "A recipient whose browser was offline reconnects, sees the Updating bar with the held count, receives the letters in order with matching badges, and leaves the exchange holding nothing for them."
+kind = "behavior"
+primary = "workflow"
+workflow = "recipient-offline"
+tests = [
+    "test_app.py::test_wf_recipient_offline_collect",
+    "test_app.py::test_wf_recipient_offline_keyboard",
+    "test_app.py::test_wf_recipient_offline_sender_sees_delivered",
+    "test_app.py::test_wf_recipient_offline_one_letter",
+    "test_app.py::test_wf_recipient_offline_phone_tap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Photo preparation"
+text = "A photo is re-encoded in the browser without any location or camera metadata, no longer than 2048 pixels on its long edge, with a tiny blurred preview sealed inside the letter."
+kind = "behavior"
+primary = "pytest"
+workflow = "image-letters"
+tests = [
+    "test_app.py::test_photo_preparation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Stored before posted"
+text = "A photo or file letter is posted only after the exchange confirms its sealed attachment is stored at the declared size; until then the letter reads as uploading, and a failed upload leaves no letter."
+kind = "behavior"
+primary = "pytest"
+workflow = "image-letters"
+tests = [
+    "test_app.py::test_wf_image_letters_stored_first",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Participants only"
+text = "Only the two participants can read a conversation, its letters and its attachments, and anyone else gets the same 404 as for something that never existed, including for ids inside request bodies."
+kind = "behavior"
+primary = "pytest"
+workflow = "image-letters"
+tests = [
+    "test_app.py::test_participants_only",
+    "test_app.py::test_wf_image_letters_outsider",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Photo letters journey"
+text = "On a phone, a correspondent attaches a photo by touch, the recipient sees the blurred preview then the photo with its published alt text, and the photo viewer opens by keyboard and closes with Escape back to the photo."
+kind = "behavior"
+primary = "workflow"
+workflow = "image-letters"
+tests = [
+    "test_app.py::test_wf_image_letters_photo",
+    "test_app.py::test_wf_image_letters_viewer_touch",
+    "test_app.py::test_wf_image_letters_wrong_type",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Attachment limits"
+text = "Attachments are accepted only as declared photos, files or profile photos up to the published size cap, are refused over the cap before anything is stored, and are always served as a download, never shown inline."
+kind = "behavior"
+primary = "pytest"
+workflow = "file-letters"
+tests = [
+    "test_app.py::test_attachment_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Attachment check"
+text = "The recipient's browser checks each downloaded attachment against the digest sealed in its letter and, on a mismatch, discards it and shows the corrupted notice with no download."
+kind = "behavior"
+primary = "pytest"
+workflow = "file-letters"
+tests = [
+    "test_app.py::test_attachment_digest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Storage outage"
+text = "When object storage is unreachable, uploads and downloads fail with 503 and the published banner, health reports unavailable, and text letters keep flowing."
+kind = "behavior"
+primary = "pytest"
+workflow = "file-letters"
+tests = [
+    "test_app.py::test_storage_outage_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "File letters journey"
+text = "A correspondent is stopped before any upload when a file is over the cap, sends a file within it that the recipient downloads intact, and on the storage-outage instance sees the upload fail with Retry upload."
+kind = "behavior"
+primary = "workflow"
+workflow = "file-letters"
+tests = [
+    "test_app.py::test_wf_file_letters_download",
+    "test_app.py::test_wf_file_letters_outage",
+    "test_app.py::test_wf_file_letters_row_and_announce",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Deleting letters"
+text = "Delete for me removes a letter from this browser after the Undo window, and Delete for everyone, allowed for your own letter within 24 hours of posting, replaces it with the published notice for both people."
+kind = "behavior"
+primary = "pytest"
+workflow = "deleting"
+tests = [
+    "test_app.py::test_deleting_letters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Deletion journey"
+text = "Letter actions open by keyboard and by long-press, Undo by keyboard restores a letter, Delete for everyone changes the other browser live, and after the server clock passes 24 hours the option is gone."
+kind = "behavior"
+primary = "workflow"
+workflow = "deleting"
+tests = [
+    "test_app.py::test_wf_deleting_journey",
+    "test_app.py::test_wf_deleting_unread",
+    "test_app.py::test_wf_deleting_undo_window",
+    "test_app.py::test_wf_deleting_received_letter",
+    "test_app.py::test_wf_deleting_phone_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Blocking"
+text = "Blocking someone drops every letter they post while blocked, so they see Sent and never Delivered, the blocker never receives those letters even after unblocking, and new letters flow again after unblocking."
+kind = "behavior"
+primary = "pytest"
+workflow = "blocking"
+tests = [
+    "test_app.py::test_wf_blocking_dropped",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Block journey"
+text = "A correspondent blocks a contact through a confirm dialog that keeps focus inside and cancels with Escape, sees the Blocked contacts list, and unblocks, with each effect visible in both browsers."
+kind = "behavior"
+primary = "workflow"
+workflow = "blocking"
+tests = [
+    "test_app.py::test_wf_blocking_journey",
+    "test_app.py::test_wf_blocking_phone_card",
+    "test_app.py::test_wf_blocking_conversation_unblock",
+    "test_app.py::test_wf_blocking_reduced_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Seal numbers"
+text = "Both people see the same 60-digit seal number in 12 groups of 5 derived as published, and can mark the contact verified, which shows a Verified mark."
+kind = "behavior"
+primary = "pytest"
+workflow = "seal-numbers"
+tests = [
+    "test_app.py::test_seal_numbers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Recovery in a new browser"
+text = "Entering the username and recovery code in another browser restores the account with a new identity key, signs out every other browser, and still opens every letter held before the restore."
+kind = "behavior"
+primary = "pytest"
+workflow = "seal-numbers"
+tests = [
+    "test_app.py::test_wf_seal_numbers_restore",
+    "test_app.py::test_wf_seal_numbers_restore_mistakes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Key change pauses letters"
+text = "When a contact's identity key changes, their correspondents see the key-change warning and cannot post to them until they accept the new seal number, which the server enforces with 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "seal-numbers"
+tests = [
+    "test_app.py::test_key_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Seal number journey"
+text = "Two people compare and verify seal numbers, one restores in a new browser, and the other sees the key-change warning, letters paused until Accept new seal number, and then a different seal number."
+kind = "behavior"
+primary = "workflow"
+workflow = "seal-numbers"
+tests = [
+    "test_app.py::test_wf_seal_numbers_journey",
+    "test_app.py::test_wf_seal_numbers_key_change_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Username changes"
+text = "A username can change once every 7 days, and a released name is not found and cannot be claimed by anyone for 14 days, both measured by the server clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "username-change"
+tests = [
+    "test_app.py::test_username_changes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Username change journey"
+text = "A correspondent changes their username in Settings with the availability chip, gets the published cooldown message on a second try, and succeeds after the server clock passes seven days."
+kind = "behavior"
+primary = "workflow"
+workflow = "username-change"
+tests = [
+    "test_app.py::test_wf_username_change_journey",
+    "test_app.py::test_wf_username_change_mistakes",
+    "test_app.py::test_wf_username_change_old_name_hold",
+    "test_app.py::test_wf_username_change_phone_touch",
+    "test_app.py::test_wf_username_change_cooldown_date",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Toasts, preview and mute"
+text = "A letter arriving in a conversation that is not open raises a polite toast worded by the preview setting, except in a muted conversation, whose unread badge still counts."
+kind = "behavior"
+primary = "pytest"
+workflow = "notifications"
+tests = [
+    "test_app.py::test_toasts_preview_mute",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Notifications journey"
+text = "In two browsers, toasts follow each preview setting word for word without taking focus, badges count on the row and the Chats tab, and a muted conversation raises no toast."
+kind = "behavior"
+primary = "workflow"
+workflow = "notifications"
+tests = [
+    "test_app.py::test_wf_notifications_journey",
+    "test_app.py::test_wf_notifications_mute",
+    "test_app.py::test_wf_notifications_tap_toast",
+    "test_app.py::test_wf_notifications_open_conversation",
+    "test_app.py::test_wf_notifications_mute_hour_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from /app/run.json on port 4173 (or APP_PUBLIC_PORT) and answers GET /api/health with the published body."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_config",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Server boundary"
+text = "The server accepts same-origin requests only, enforces the published body limits, serves no source files or credentials, and starts even when object storage is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Published layouts"
+text = "At 375 by 812 the app shows one pane at a time with a bottom tab bar, at 768 by 1024 the list and the open conversation sit side by side, and from 1200 pixels wide a contact card column joins them, with no sideways scrolling."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_live_letters_breakpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Keyboard and focus"
+text = "Every action works by keyboard with a visible focus mark, dialogs keep Tab and Shift+Tab inside, Escape closes them and returns focus to their opener, and focus returns to the composer after each send."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_and_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Fold and postmark"
+text = "Sending folds the letter in thirds, closes the flap, shrinks it into its row and strikes the postmark, and each later state change re-strikes the postmark, with the published timings and no motion after reload."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_fold_and_postmark",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Reduced motion and touch"
+text = "With reduced motion every fold, shrink and strike becomes a fade of at most 120 milliseconds or an instant change and nothing loops, and every control is at least 44 pixels for touch."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion_and_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Aerogramme look"
+text = "Every screen is a white aerogramme sheet with the airmail stripe edge on a hot orange field, set in Zilla Slab, with the landing hero, folded-letter rows, postmarks, form wells and tear-off error slips described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B14",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Honest sealing in source"
+text = "The source seals and opens everything in the browser with the built-in Web Crypto interface, keeps the private key non-extractable in the browser's own store, and reads every credential from the environment."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve and \"_schema\":\"run-manifest-v1\", and nothing else is needed to start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package (the production tree from npm ls --omit=dev --all --json) with its version and licence, plus the Zilla Slab font and its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the production tree from npm ls --omit=dev --all --json) is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0 or 0BSD, and fonts are under the SIL Open Font License."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores state only in the provided PostgreSQL database and MinIO bucket (and the browser's own storage); there is no other database, cache, queue or state file on disk."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The running app makes no request to any host other than its PostgreSQL and MinIO, and the client loads no remote fonts, scripts, styles, images or analytics."
+tests = [
+    "test_app.py::test_if_same_origin_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Sealing uses only the browser's built-in Web Crypto interface; no third-party cryptography package is shipped."
+tests = [
+    "test_app.py::test_if_webcrypto_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The provided service compose files and their dev credentials are left unchanged."
+tests = [
+    "test_app.py::test_if_compose_untouched",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "signup"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+]
+critical = [
+    "test_app.py::test_wf_signup_keyboard",
+    "test_app.py::test_wf_signup_mistakes",
+    "test_app.py::test_wf_signup_touch_phone",
+    "test_app.py::test_wf_signup_chip_debounce",
+    "test_app.py::test_wf_signup_photo_keyboard",
+]
+
+[[workflows]]
+id = "lookup"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-06",
+]
+critical = [
+    "test_app.py::test_wf_lookup_found",
+    "test_app.py::test_wf_lookup_not_found",
+    "test_app.py::test_wf_lookup_phone_touch",
+    "test_app.py::test_wf_lookup_self_and_released",
+    "test_app.py::test_wf_lookup_existing_conversation",
+    "test_app.py::test_letter_requests",
+]
+
+[[workflows]]
+id = "requests"
+requirements = [
+    "DP-07",
+]
+critical = [
+    "test_app.py::test_wf_requests_accept",
+    "test_app.py::test_wf_requests_delete_block",
+    "test_app.py::test_wf_requests_no_receipt_live",
+    "test_app.py::test_wf_requests_count_phone",
+    "test_app.py::test_wf_requests_profiles_both_ways",
+]
+
+[[workflows]]
+id = "live-letters"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_live_letters_happy",
+    "test_app.py::test_wf_live_letters_double_send",
+    "test_app.py::test_wf_live_letters_layout",
+    "test_app.py::test_wf_live_letters_shift_enter",
+    "test_app.py::test_wf_live_letters_receipts_off",
+]
+
+[[workflows]]
+id = "sender-offline"
+requirements = [
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_sender_offline_five",
+    "test_app.py::test_wf_sender_offline_outbox",
+    "test_app.py::test_wf_sender_offline_phone_touch",
+    "test_app.py::test_wf_sender_offline_row_and_announcement",
+    "test_app.py::test_wf_sender_offline_reduced_motion",
+]
+
+[[workflows]]
+id = "recipient-offline"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_recipient_offline_collect",
+    "test_app.py::test_wf_recipient_offline_keyboard",
+    "test_app.py::test_wf_recipient_offline_sender_sees_delivered",
+    "test_app.py::test_wf_recipient_offline_one_letter",
+    "test_app.py::test_wf_recipient_offline_phone_tap",
+]
+
+[[workflows]]
+id = "image-letters"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_image_letters_photo",
+    "test_app.py::test_wf_image_letters_stored_first",
+    "test_app.py::test_wf_image_letters_outsider",
+    "test_app.py::test_wf_image_letters_viewer_touch",
+    "test_app.py::test_wf_image_letters_wrong_type",
+]
+
+[[workflows]]
+id = "file-letters"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_file_letters_download",
+    "test_app.py::test_wf_file_letters_outage",
+    "test_app.py::test_attachment_limits",
+    "test_app.py::test_wf_file_letters_row_and_announce",
+    "test_app.py::test_attachment_digest",
+]
+
+[[workflows]]
+id = "deleting"
+requirements = [
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_deleting_journey",
+    "test_app.py::test_wf_deleting_unread",
+    "test_app.py::test_wf_deleting_undo_window",
+    "test_app.py::test_wf_deleting_received_letter",
+    "test_app.py::test_wf_deleting_phone_touch",
+]
+
+[[workflows]]
+id = "blocking"
+requirements = [
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_blocking_journey",
+    "test_app.py::test_wf_blocking_dropped",
+    "test_app.py::test_wf_blocking_phone_card",
+    "test_app.py::test_wf_blocking_conversation_unblock",
+    "test_app.py::test_wf_blocking_reduced_dialog",
+]
+
+[[workflows]]
+id = "seal-numbers"
+requirements = [
+    "DP-08",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_seal_numbers_journey",
+    "test_app.py::test_wf_seal_numbers_restore",
+    "test_app.py::test_wf_seal_numbers_restore_mistakes",
+    "test_app.py::test_wf_seal_numbers_key_change_keyboard",
+    "test_app.py::test_seal_numbers",
+    "test_app.py::test_published_sealing_scheme",
+]
+
+[[workflows]]
+id = "username-change"
+requirements = [
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_username_change_journey",
+    "test_app.py::test_wf_username_change_mistakes",
+    "test_app.py::test_wf_username_change_old_name_hold",
+    "test_app.py::test_wf_username_change_phone_touch",
+    "test_app.py::test_wf_username_change_cooldown_date",
+]
+
+[[workflows]]
+id = "notifications"
+requirements = [
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_notifications_journey",
+    "test_app.py::test_wf_notifications_mute",
+    "test_app.py::test_wf_notifications_tap_toast",
+    "test_app.py::test_wf_notifications_open_conversation",
+    "test_app.py::test_wf_notifications_mute_hour_keyboard",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_health_and_config",
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_wf_live_letters_breakpoints",
+    "test_app.py::test_keyboard_and_focus",
+    "test_app.py::test_fold_and_postmark",
+    "test_app.py::test_reduced_motion_and_touch",
+]
+checkpoints = [
+    "B1",
+    "B5",
+    "B7",
+]
+critical_checkpoints = [
+    "B7",
+]

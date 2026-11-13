@@ -1,0 +1,1748 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 88
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "views-shortcuts-address",
+    "drag-create-draft",
+    "move-resize-undo",
+    "overlap-midnight-more",
+    "create-repeats",
+    "scope-this-event",
+    "scope-this-and-following",
+    "scope-all-and-delete",
+    "trash-restore",
+    "time-zones-daylight",
+    "guests-and-replies",
+    "propose-a-new-time",
+    "out-of-office-focus",
+    "find-a-time",
+    "sharing-and-private",
+    "reminders",
+    "two-people-one-event",
+    "find-copy-print-files",
+    "zone-rule-change",
+    "guest-switches-link",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 90
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "gotenberg", env = {} },
+    { name = "minio", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 5
+S1 = 5
+S2 = 3
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 5
+Q5 = 5
+Q6 = 5
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "gotenberg-down"
+port = 4174
+url_env = "APP_GOTENBERG_DOWN_URL"
+
+[outages.env]
+GOTENBERG_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "gotenberg-returns"
+port = 4176
+url_env = "APP_GOTENBERG_RETURNS_URL"
+
+[outages.env]
+GOTENBERG_URL = "http://127.0.0.1:4190"
+
+[[outages]]
+id = "short-timers"
+port = 4177
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+TRASH_RETENTION_SECONDS = "8"
+SHARE_LINK_TTL_SECONDS = "8"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[outages]]
+id = "fast-clock"
+port = 4178
+url_env = "APP_FAST_CLOCK_URL"
+
+[outages.env]
+CLOCK_START = "2027-03-08T00:00:00Z"
+CLOCK_RATE = "3600"
+DATABASE_URL = "${DATABASE_URL}_fast"
+S3_BUCKET = "${S3_BUCKET}-fast"
+
+[[outages]]
+id = "reminder-clock"
+port = 4179
+url_env = "APP_REMINDER_CLOCK_URL"
+
+[outages.env]
+CLOCK_START = "2027-03-08T08:00:00Z"
+CLOCK_RATE = "60"
+DATABASE_URL = "${DATABASE_URL}_reminder"
+S3_BUCKET = "${S3_BUCKET}-reminder"
+
+[[requirements]]
+id = "DP-01"
+title = "Clock time kept."
+text = "An event keeps its clock time in its own zone across every daylight change, and viewers in other zones see the instant shift only for the weeks the changes differ."
+kind = "behavior"
+primary = "pytest"
+workflow = "time-zones-daylight"
+tests = [
+    "test_app.py::test_wf_time_zones_daylight_weekly_across_change",
+    "test_app.py::test_wf_time_zones_daylight_keys_across_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Gaps and repeated hours."
+text = "A local time that does not exist on a change day moves forward for that occurrence only, and a local time that happens twice uses the first, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "time-zones-daylight"
+tests = [
+    "test_app.py::test_wf_time_zones_daylight_gaps_and_repeats",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Calendar-date repeats."
+text = "A monthly repeat on a day some months lack skips those months, and a yearly repeat on February 29 shows only in leap years."
+kind = "behavior"
+primary = "pytest"
+workflow = "create-repeats"
+tests = [
+    "test_app.py::test_wf_create_repeats_calendar_dates",
+    "test_app.py::test_wf_create_repeats_chip_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Repeat rule limits."
+text = "The server accepts the published repeat rule forms, including the nth and last weekday of a month, and rejects every other form with a field error."
+kind = "behavior"
+primary = "pytest"
+workflow = "create-repeats"
+tests = [
+    "test_app.py::test_rrule_forms",
+]
+criteria = []
+parameter_cases = [
+    "daily",
+    "weekly_list",
+    "any_order",
+    "monthly_until",
+    "second_tuesday",
+    "last_friday",
+    "yearly_interval",
+    "lowercase",
+    "weekly_lower_day",
+    "weekly_repeat_day",
+    "weekly_prefix",
+    "interval_zero",
+    "interval_high",
+    "count_zero",
+    "count_high",
+    "monthly_no_prefix",
+    "monthly_fifth",
+    "monthly_two_days",
+    "monthly_monthday",
+    "until_timestamp",
+    "count_and_until",
+    "no_freq",
+    "hourly",
+    "start_not_second_tuesday",
+    "start_not_in_list",
+    "until_before_start",
+]
+
+[[requirements]]
+id = "DP-05"
+title = "Server clock and now line."
+text = "The now line, today and every default date come from the server clock, so a wrong device clock never moves them."
+kind = "behavior"
+primary = "pytest"
+workflow = "time-zones-daylight"
+tests = [
+    "test_app.py::test_wf_time_zones_daylight_wrong_device_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Scope choice on repeats."
+text = "Every edit, move, resize or delete of a repeating occurrence asks for This event, This and following events or All events, and Cancel changes nothing."
+kind = "behavior"
+primary = "workflow"
+workflow = "scope-this-event"
+tests = [
+    "test_app.py::test_wf_scope_this_event_cancel_changes_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "This and following split."
+text = "Changing or deleting this and following splits the series at that occurrence, and each exception and answer stays on its date in whichever series now holds that date."
+kind = "behavior"
+primary = "pytest"
+workflow = "scope-this-and-following"
+tests = [
+    "test_app.py::test_wf_scope_this_and_following_split_keeps_dates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "All events keeps exceptions."
+text = "Changing all events applies the change to everything else and leaves each exception's overridden values in place, unless that overridden field is the one being edited."
+kind = "behavior"
+primary = "pytest"
+workflow = "scope-all-and-delete"
+tests = [
+    "test_app.py::test_wf_scope_all_and_delete_all_keeps_exceptions",
+    "test_app.py::test_wf_scope_all_and_delete_all_on_grid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "First save wins."
+text = "Of any number of simultaneous saves against one event version exactly one succeeds, and every other receives the conflict response with the winner's values."
+kind = "behavior"
+primary = "pytest"
+workflow = "two-people-one-event"
+tests = [
+    "test_app.py::test_wf_two_people_one_event_simultaneous_saves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Conflict choice."
+text = "The losing editor sees a dialog with the winner's values and can reapply their own changes or keep the winner's."
+kind = "behavior"
+primary = "workflow"
+workflow = "two-people-one-event"
+tests = [
+    "test_app.py::test_wf_two_people_one_event_reapply",
+    "test_app.py::test_wf_two_people_one_event_keep_theirs",
+    "test_app.py::test_wf_two_people_one_event_socket_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Create events."
+text = "A consultant creates events, repeats, focus time and out of office from the New event dialog, and they appear on every open screen that can read them."
+kind = "behavior"
+primary = "workflow"
+workflow = "drag-create-draft"
+tests = [
+    "test_app.py::test_wf_drag_create_draft_new_event_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Drag and resize."
+text = "Dragging an event block moves it and dragging its edges resizes it, in 15-minute steps, with the result saved on release in the event's own zone."
+kind = "behavior"
+primary = "workflow"
+workflow = "move-resize-undo"
+tests = [
+    "test_app.py::test_wf_move_resize_undo_drag_saves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Three clocks ribbon."
+text = "While dragging or resizing on the week or day grid, a ribbon beside the block shows the moving edge's time in New York, London and Auckland, with rolling numerals and a working-hours bar for each city."
+kind = "behavior"
+primary = "pytest"
+workflow = "move-resize-undo"
+tests = [
+    "test_app.py::test_three_clocks_ribbon",
+    "test_app.py::test_wf_move_resize_undo_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Three clocks settle."
+text = "On release the ribbon settles into the quick dialog's title row, and its final values equal the saved event."
+kind = "behavior"
+primary = "pytest"
+workflow = "move-resize-undo"
+tests = [
+    "test_app.py::test_three_clocks_settle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Alt-arrow moves."
+text = "A focused event moves by Alt with arrow keys and resizes by Alt+Shift with arrow keys, keeps focus, and announces each result."
+kind = "behavior"
+primary = "pytest"
+workflow = "move-resize-undo"
+tests = [
+    "test_app.py::test_alt_arrow_moves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Single-key shortcuts."
+text = "The published shortcut list works whichever control in the calendar has focus, including number keys for the views, and switches off in text fields and while a dialog is open."
+kind = "behavior"
+primary = "pytest"
+workflow = "views-shortcuts-address"
+tests = [
+    "test_app.py::test_single_key_shortcuts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Dialog focus."
+text = "Tab and Shift+Tab wrap inside every open dialog, Escape closes it, and focus returns to the same control or event that opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "move-resize-undo"
+tests = [
+    "test_app.py::test_dialog_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Undo."
+text = "A move, resize or trash can be undone by button or shortcut for 10 seconds, which puts back exactly what it altered and is announced, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "move-resize-undo"
+tests = [
+    "test_app.py::test_wf_move_resize_undo_undo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Address holds the view."
+text = "View, date, chosen calendars and open event live in the address and survive reload, Back and Forward and a second tab."
+kind = "behavior"
+primary = "pytest"
+workflow = "views-shortcuts-address"
+tests = [
+    "test_app.py::test_wf_views_shortcuts_address_reload_back_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Published layouts."
+text = "The grid, mini month and calendar list take their published arrangement at 375x812, 768x1024 and 1280x800 with no horizontal overflow."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "More count follows height."
+text = "Each month cell shows as many events as fit plus a +N more control, and both change with window height without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "overlap-midnight-more"
+tests = [
+    "test_app.py::test_more_count_follows_height",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Search as you type."
+text = "Search results and their announced count update in place as the person types, match title, location, notes and readable guest names, and never include anything they cannot read in full."
+kind = "behavior"
+primary = "pytest"
+workflow = "find-copy-print-files"
+tests = [
+    "test_app.py::test_search_as_you_type",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Find a time."
+text = "Find a time lists the earliest common slots inside everyone's working hours for chosen colleagues, each with its three city times, and opens a chosen slot as a new event."
+kind = "behavior"
+primary = "workflow"
+workflow = "find-a-time"
+tests = [
+    "test_app.py::test_wf_find_a_time_book_earliest",
+    "test_app.py::test_find_a_time_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Invitations and answers."
+text = "A guest answers Yes, No or Maybe for one occurrence or the series, and each answer follows the reply rules in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "guests-and-replies"
+tests = [
+    "test_app.py::test_answers_follow_reply_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "RSVP live."
+text = "Answer counts, declines and proposed times update in place within a second on every open screen allowed to see them."
+kind = "behavior"
+primary = "workflow"
+workflow = "guests-and-replies"
+tests = [
+    "test_app.py::test_wf_guests_and_replies_answer_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "One live connection."
+text = "Each page opens one WebSocket, sends nothing before it opens, and receives every missed change by sequence number after a drop."
+kind = "behavior"
+primary = "pytest"
+workflow = "guests-and-replies"
+tests = [
+    "test_app.py::test_one_live_connection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Out of office and focus declines."
+text = "A new invitation or moved occurrence overlapping an out-of-office or focus window answers No with the window's message or the published copy, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "out-of-office-focus"
+tests = [
+    "test_app.py::test_automatic_decline_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Decisions announced once."
+text = "Every accepted or declined proposal and every automatic decline is announced exactly once on each open screen allowed to see it, including after a reconnect."
+kind = "behavior"
+primary = "workflow"
+workflow = "out-of-office-focus"
+tests = [
+    "test_app.py::test_wf_out_of_office_focus_invite_declined",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Propose a new time."
+text = "A guest proposes a new time for one occurrence or a single event, and the proposal follows its state rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "propose-a-new-time"
+tests = [
+    "test_app.py::test_proposal_state_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Decide a proposal."
+text = "The organiser or anyone with edit access accepts or declines a proposal, exactly one decision wins, and acceptance moves that occurrence only."
+kind = "behavior"
+primary = "workflow"
+workflow = "propose-a-new-time"
+tests = [
+    "test_app.py::test_wf_propose_a_new_time_accept",
+    "test_app.py::test_wf_propose_a_new_time_simultaneous",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Moved times reopen replies."
+text = "Any change to an occurrence's time returns its guests to waiting, except the accepted proposer, and rechecks out of office and focus time."
+kind = "behavior"
+primary = "pytest"
+workflow = "propose-a-new-time"
+tests = [
+    "test_app.py::test_moved_times_reopen_replies",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Modify event switch."
+text = "A guest without Modify event sees no edit controls and the server refuses the edit anyway."
+kind = "behavior"
+primary = "pytest"
+workflow = "guest-switches-link"
+tests = [
+    "test_app.py::test_modify_switch",
+    "test_app.py::test_wf_guest_switches_link_edit_appears_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Hidden guest lists."
+text = "With See guest list off, no page, API response, live message, notice, search result, file or link carries other guests or answer counts to anyone below edit access, except guests of an event with Modify event on, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "guest-switches-link"
+tests = [
+    "test_app.py::test_hidden_guest_lists",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Published field lists."
+text = "Each event and occurrence response carries exactly the published fields for the caller's access level and no email address."
+kind = "behavior"
+primary = "pytest"
+workflow = "guest-switches-link"
+tests = [
+    "test_app.py::test_published_field_lists",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Private reads as Busy."
+text = "A private event reads as Busy on every surface for anyone below edit access who is not its guest, and free/busy access shows every event that way."
+kind = "behavior"
+primary = "pytest"
+workflow = "sharing-and-private"
+tests = [
+    "test_app.py::test_private_reads_busy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Shared link."
+text = "An event's shared link is a read-only page that can be regenerated, turned off and expires, and a dead link answers the same as an unknown one."
+kind = "behavior"
+primary = "pytest"
+workflow = "guest-switches-link"
+tests = [
+    "test_app.py::test_shared_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Link dies with the guest list."
+text = "Turning See guest list off kills the event's shared link for good, and turning it on again does not revive it."
+kind = "behavior"
+primary = "workflow"
+workflow = "guest-switches-link"
+tests = [
+    "test_app.py::test_wf_guest_switches_link_switch_off_kills_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Share levels."
+text = "Only the office manager, a calendar's owner and people with Manage sharing on it set or remove its share levels, and the server refuses everyone else."
+kind = "behavior"
+primary = "pytest"
+workflow = "sharing-and-private"
+tests = [
+    "test_app.py::test_share_level_authority",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Access changes at once."
+text = "A lowered or removed share level applies on the colleague's next request and changes or removes the events on their open screen within a second, with an announcement."
+kind = "behavior"
+primary = "workflow"
+workflow = "sharing-and-private"
+tests = [
+    "test_app.py::test_wf_sharing_and_private_lowered_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Guest defaults and office hours."
+text = "The office manager sets guest switch defaults for new events and each office's working hours, and existing events keep the switches they already have."
+kind = "behavior"
+primary = "pytest"
+workflow = "guest-switches-link"
+tests = [
+    "test_app.py::test_guest_defaults_and_hours",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Recording zone rules."
+text = "Only the office manager records an effective-dated zone rule change with its new offset, and a recorded rule appears on every open screen allowed to see it."
+kind = "behavior"
+primary = "pytest"
+workflow = "zone-rule-change"
+tests = [
+    "test_app.py::test_recording_zone_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Zone warning."
+text = "Only occurrences from the effective date of timed events in the rule's zone saved after that date, and whose own shift is not zero, show the warning naming both clock times and the shifted time on the grid at the same instant, while earlier saves, zero-shift occurrences and ordinary daylight changes bring no warning."
+kind = "behavior"
+primary = "workflow"
+workflow = "zone-rule-change"
+tests = [
+    "test_app.py::test_wf_zone_rule_change_warning_scope",
+    "test_app.py::test_wf_zone_rule_change_season_on_grid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Move action."
+text = "Move, at full access only, applies as This and following and returns only the warned occurrences to their saved clock time, changing their instants, leaves zero-shift and earlier occurrences as they were, and clears those warnings."
+kind = "behavior"
+primary = "pytest"
+workflow = "zone-rule-change"
+tests = [
+    "test_app.py::test_move_action_rules",
+    "test_app.py::test_wf_zone_rule_change_move_on_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Restore a series."
+text = "Restoring a trashed event or series brings back its guests, answers, switches, proposals, exceptions and shared link exactly."
+kind = "behavior"
+primary = "workflow"
+workflow = "trash-restore"
+tests = [
+    "test_app.py::test_wf_trash_restore_series_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Restore one occurrence."
+text = "A deleted occurrence is its own trash item, and restoring it brings back that occurrence only with its own values and answers."
+kind = "behavior"
+primary = "pytest"
+workflow = "trash-restore"
+tests = [
+    "test_app.py::test_wf_trash_restore_one_occurrence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Trash retention and purge."
+text = "A trashed item lasts for the published retention on the server clock, then is purged from every surface, and can also be deleted for good by hand."
+kind = "behavior"
+primary = "pytest"
+workflow = "trash-restore"
+tests = [
+    "test_app.py::test_wf_trash_restore_purge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Printed week document."
+text = "The office manager prints a Monday-to-Sunday week to a PDF showing the published content, with no guest names and with access rules applied."
+kind = "behavior"
+primary = "pytest"
+workflow = "find-copy-print-files"
+tests = [
+    "test_app.py::test_printed_week_document",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Stored means confirmed."
+text = "A print reads as stored and can be downloaded only after MinIO confirms the object exists."
+kind = "behavior"
+primary = "pytest"
+workflow = "find-copy-print-files"
+tests = [
+    "test_app.py::test_stored_means_confirmed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Retry reuses the key."
+text = "Retry and replays of a print request never create a second object, as a print's single storage key is fixed when it is created."
+kind = "behavior"
+primary = "pytest"
+workflow = "find-copy-print-files"
+tests = [
+    "test_app.py::test_retry_reuses_key",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Print through outages."
+text = "While the document service or file storage is down the print stays pending with Retry and the published copy, and it completes once the service is back, without a restart."
+kind = "behavior"
+primary = "workflow"
+workflow = "find-copy-print-files"
+tests = [
+    "test_app.py::test_wf_find_copy_print_files_print_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "iCalendar round trip."
+text = "A repeating event with modified and deleted occurrences survives export and import with identical occurrences, including zone, clock time and rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "find-copy-print-files"
+tests = [
+    "test_app.py::test_icalendar_round_trip",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "iCalendar files and outage."
+text = "Every exported or imported iCalendar file is stored in MinIO before the action succeeds, and while storage is down the action changes nothing and shows the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "find-copy-print-files"
+tests = [
+    "test_app.py::test_icalendar_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "All-day reminders."
+text = "An all-day reminder fires once at 17:00 the day before in each person's own zone on the server clock and appears as an in-app notice announced once."
+kind = "behavior"
+primary = "pytest"
+workflow = "reminders"
+tests = [
+    "test_app.py::test_all_day_reminders",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Sign-in and seeded people."
+text = "People sign in with a seeded email and passcode, and the seed data in Seed data is present at first start and never duplicated."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Platform and boundary."
+text = "The app starts from the run manifest, answers the health check, applies its schema on serve, and keeps to the published server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_platform_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Status region."
+text = "A polite status region named Wren status is on every page from first paint, and every async result is announced there with its exact published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_status_region",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Phone schedule and reduced motion."
+text = "At phone width the schedule view has no overflow and targets of at least 44 pixels, and reduced motion swaps every animation for its published end state with the same function."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_phone_schedule_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Landing look."
+text = "The landing page is the published single off-centre column on the plum-black ground, with a Three clocks example panel peeking in at the bottom edge."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Workspace look."
+text = "The calendar and every working screen hang on the same left edge and carry the published type, surfaces, event colour and restrained accent use."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Configuration from the environment."
+text = "Every service address and credential is read from the environment at start and is never in source or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Custom days and personal view."
+text = "Custom days, week start, hidden weekends and a second zone come from the person's server settings, follow them to any browser and reach their other open tabs within a second."
+kind = "behavior"
+primary = "pytest"
+workflow = "views-shortcuts-address"
+tests = [
+    "test_app.py::test_wf_views_shortcuts_address_personal_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Event page keys."
+text = "Ctrl+S saves the event page, and Escape returns to the grid with focus on the same event, fully in view, through the address."
+kind = "behavior"
+primary = "pytest"
+workflow = "views-shortcuts-address"
+tests = [
+    "test_app.py::test_wf_views_shortcuts_address_event_page_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Slot keyboard model."
+text = "Arrow keys, Home, End, Ctrl+Home and Ctrl+End move among the grid's 15-minute slots and bring the focused slot fully into view, clear of the sticky headings."
+kind = "behavior"
+primary = "pytest"
+workflow = "views-shortcuts-address"
+tests = [
+    "test_app.py::test_slot_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Complete first draw."
+text = "On first load the grid shows every event of the period at its final position, scrolled to working hours, with or without the WebSocket."
+kind = "behavior"
+primary = "pytest"
+workflow = "overlap-midnight-more"
+tests = [
+    "test_app.py::test_first_draw",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Server-kept draft."
+text = "An unsaved new event is kept on the server per person, and comes back with focus in its title after a reload, in another browser and in an open second tab, and is removed on Save, Cancel or Escape."
+kind = "behavior"
+primary = "workflow"
+workflow = "drag-create-draft"
+tests = [
+    "test_app.py::test_wf_drag_create_draft_sketch_returns",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Drag to create."
+text = "Dragging across empty slots snaps both ends to 15 minutes and opens the New event quick dialog with those times and focus in its title, creating nothing until Save."
+kind = "behavior"
+primary = "workflow"
+workflow = "drag-create-draft"
+tests = [
+    "test_app.py::test_wf_drag_create_draft_drag_across_slots",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Overlap layout."
+text = "Overlapping events share a day column by the published lane rule, measured on screen, and take their new lanes when a change arrives live."
+kind = "behavior"
+primary = "pytest"
+workflow = "overlap-midnight-more"
+tests = [
+    "test_app.py::test_wf_overlap_midnight_more_lanes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Midnight and the top band."
+text = "All-day and 24-hour events sit in the top band, and a shorter event crossing midnight in the viewer's zone shows a block on each of its two days."
+kind = "behavior"
+primary = "pytest"
+workflow = "overlap-midnight-more"
+tests = [
+    "test_app.py::test_wf_overlap_midnight_more_midnight_band",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Nth and last weekday repeats."
+text = "A monthly repeat on the nth or last weekday shows on the right dates on the grid, in the viewer's zone, ending on a date or after a count."
+kind = "behavior"
+primary = "pytest"
+workflow = "create-repeats"
+tests = [
+    "test_app.py::test_wf_create_repeats_nth_and_last",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Repeat controls."
+text = "The repeat choices are radiogroups driven by the keyboard, read their options from the start date, and save the published rule."
+kind = "behavior"
+primary = "workflow"
+workflow = "create-repeats"
+tests = [
+    "test_app.py::test_wf_create_repeats_controls",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "This event exception."
+text = "Changing This event moves only that occurrence on the grid, focus stays on it, and all other occurrences stay where they were."
+kind = "behavior"
+primary = "workflow"
+workflow = "scope-this-event"
+tests = [
+    "test_app.py::test_wf_scope_this_event_keyboard_exception",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Split on the grid."
+text = "After This and following, the grid shows both series on their right dates, with each exception and answer on its date, and no Undo is offered."
+kind = "behavior"
+primary = "workflow"
+workflow = "scope-this-and-following"
+tests = [
+    "test_app.py::test_wf_scope_this_and_following_grid",
+    "test_app.py::test_wf_scope_this_and_following_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Delete choices."
+text = "Deleting a repeating occurrence offers the same three choices, each removes the right occurrences from the grid and creates the right trash item, and focus goes to the published place when the opener is gone."
+kind = "behavior"
+primary = "workflow"
+workflow = "scope-all-and-delete"
+tests = [
+    "test_app.py::test_wf_scope_all_and_delete_choices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "In-app invitations."
+text = "An invitation reaches the invited person only in the app: a notice, announced once, with the event on their grid without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "guests-and-replies"
+tests = [
+    "test_app.py::test_wf_guests_and_replies_invitation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Focus across a redraw."
+text = "A live change that redraws the grid leaves focus on the same event at its new position, in view, or on its old slot if the event is gone."
+kind = "behavior"
+primary = "pytest"
+workflow = "guests-and-replies"
+tests = [
+    "test_app.py::test_focus_across_redraw",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Focus time modes."
+text = "Focus time declines only new invitations or new and existing meetings, the second by default, can repeat, and each decline reaches the organiser's open screen live."
+kind = "behavior"
+primary = "pytest"
+workflow = "out-of-office-focus"
+tests = [
+    "test_app.py::test_wf_out_of_office_focus_modes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Conflicts to answer."
+text = "Setting out of office lists the person's existing overlapping meetings to answer, without changing them, and each answer shows in place and reaches the organiser."
+kind = "behavior"
+primary = "workflow"
+workflow = "out-of-office-focus"
+tests = [
+    "test_app.py::test_wf_out_of_office_focus_conflicts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Busy blocks."
+text = "Find a time draws each chosen person's merged busy blocks in the viewer's zone, cut at each local midnight into one block per date, without titles, on screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "find-a-time"
+tests = [
+    "test_app.py::test_wf_find_a_time_busy_blocks",
+    "test_app.py::test_wf_find_a_time_midnight_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Manage sharing level."
+text = "The manage level gives edit access plus changing that calendar's shares and default reminders, from an open screen, and its removal applies at once."
+kind = "behavior"
+primary = "workflow"
+workflow = "sharing-and-private"
+tests = [
+    "test_app.py::test_wf_sharing_and_private_manage_level",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Timed reminders and defaults."
+text = "A calendar's default reminders are copied by each new timed event, and each fires once on the server clock at its minutes before each occurrence, on an open page without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "reminders"
+tests = [
+    "test_app.py::test_wf_reminders_timed_fire",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Snooze."
+text = "Snooze moves a fired reminder by the chosen minutes on the server clock, and it fires and is announced once more."
+kind = "behavior"
+primary = "workflow"
+workflow = "reminders"
+tests = [
+    "test_app.py::test_wf_reminders_snooze",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Moved and deleted reminders."
+text = "Moving an occurrence moves its pending reminders, trashing cancels them, and restoring brings back those still in the future."
+kind = "behavior"
+primary = "pytest"
+workflow = "reminders"
+tests = [
+    "test_app.py::test_moved_and_deleted_reminders",
+    "test_app.py::test_wf_reminders_moved_on_grid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Search result opens the date."
+text = "Choosing a search result opens its date with that event's block focused and fully in view."
+kind = "behavior"
+primary = "workflow"
+workflow = "find-copy-print-files"
+tests = [
+    "test_app.py::test_wf_find_copy_print_files_open_result",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Duplicate and move."
+text = "An event can be duplicated, or moved to another calendar the person may edit, by the published rules, and open screens follow within a second."
+kind = "behavior"
+primary = "workflow"
+workflow = "find-copy-print-files"
+tests = [
+    "test_app.py::test_wf_find_copy_print_files_duplicate_move",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Public holidays."
+text = "A read-only holidays calendar can be switched on from the rail, and every change to it is refused on screen and by the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "find-copy-print-files"
+tests = [
+    "test_app.py::test_public_holidays",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Guest sees the warning only."
+text = "A guest sees the same zone rule warning and shown times on the grid, quick dialog and event page with no Move control, the server refuses Move anyway, and the guest's open grid follows when the organiser moves."
+kind = "behavior"
+primary = "workflow"
+workflow = "zone-rule-change"
+tests = [
+    "test_app.py::test_wf_zone_rule_change_guest_sees_warning",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-87"
+title = "Modify shows the guest list."
+text = "Turning Modify event on shows every guest of that event the guest list and counts on their open screen, even with See guest list off, while viewers at details or busy access who are not its guests still see neither."
+kind = "behavior"
+primary = "workflow"
+workflow = "guest-switches-link"
+tests = [
+    "test_app.py::test_wf_guest_switches_link_modify_shows_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-88"
+title = "Phone schedule keeps the day."
+text = "At phone width the focused day of the schedule moves by keys, is fully in view under the toolbar, and stays in place when a live change adds rows above it."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_phone_schedule_keeps_day",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build, serve and \"_schema\":\"run-manifest-v1\"."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package and bundled font with its licence. Shipped packages means the production dependency tree: for Go, the modules the program imports; for npm, npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_notices_list_packages",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Shipped packages use only MIT, BSD, Apache-2.0, ISC or MPL-2.0 licences, and the bundled Sora font uses the SIL Open Font License."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The only datastores are Postgres and MinIO; no embedded database, local file store or extra cache holds product state."
+tests = [
+    "test_app.py::test_if_only_postgres_and_minio",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "go.sum and the npm lockfile are committed."
+tests = [
+    "test_app.py::test_if_lockfiles_committed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "No service credential or address appears in committed source; each is read from its named environment variable."
+tests = [
+    "test_app.py::test_if_no_credentials_in_source",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "No shipped page loads any script, style or font from another origin."
+tests = [
+    "test_app.py::test_if_same_origin_pages",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "views-shortcuts-address"
+requirements = [
+    "DP-16",
+    "DP-19",
+    "DP-61",
+    "DP-62",
+    "DP-63",
+]
+critical = [
+    "test_app.py::test_wf_views_shortcuts_address_reload_back_tab",
+    "test_app.py::test_wf_views_shortcuts_address_personal_view",
+    "test_app.py::test_wf_views_shortcuts_address_event_page_keys",
+    "test_app.py::test_single_key_shortcuts",
+    "test_app.py::test_slot_keyboard",
+]
+checkpoints = [
+    "B5",
+    "B6",
+]
+
+[[workflows]]
+id = "drag-create-draft"
+requirements = [
+    "DP-11",
+    "DP-65",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_drag_create_draft_new_event_dialog",
+    "test_app.py::test_wf_drag_create_draft_sketch_returns",
+    "test_app.py::test_wf_drag_create_draft_drag_across_slots",
+]
+
+[[workflows]]
+id = "move-resize-undo"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_move_resize_undo_drag_saves",
+    "test_app.py::test_wf_move_resize_undo_undo",
+    "test_app.py::test_wf_move_resize_undo_reduced_motion",
+    "test_app.py::test_alt_arrow_moves",
+    "test_app.py::test_dialog_focus",
+    "test_app.py::test_three_clocks_settle",
+]
+checkpoints = [
+    "B12",
+]
+critical_checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "overlap-midnight-more"
+requirements = [
+    "DP-21",
+    "DP-64",
+    "DP-67",
+    "DP-68",
+]
+critical = [
+    "test_app.py::test_wf_overlap_midnight_more_lanes",
+    "test_app.py::test_wf_overlap_midnight_more_midnight_band",
+    "test_app.py::test_more_count_follows_height",
+    "test_app.py::test_first_draw",
+]
+checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "create-repeats"
+requirements = [
+    "DP-03",
+    "DP-04",
+    "DP-69",
+    "DP-70",
+]
+critical = [
+    "test_app.py::test_wf_create_repeats_calendar_dates",
+    "test_app.py::test_wf_create_repeats_nth_and_last",
+    "test_app.py::test_wf_create_repeats_controls",
+    "test_app.py::test_rrule_forms",
+    "test_app.py::test_wf_create_repeats_chip_focus",
+]
+
+[[workflows]]
+id = "scope-this-event"
+requirements = [
+    "DP-06",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_wf_scope_this_event_cancel_changes_nothing",
+    "test_app.py::test_wf_scope_this_event_keyboard_exception",
+]
+
+[[workflows]]
+id = "scope-this-and-following"
+requirements = [
+    "DP-07",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_scope_this_and_following_split_keeps_dates",
+    "test_app.py::test_wf_scope_this_and_following_grid",
+    "test_app.py::test_wf_scope_this_and_following_keys",
+]
+
+[[workflows]]
+id = "scope-all-and-delete"
+requirements = [
+    "DP-08",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_scope_all_and_delete_all_keeps_exceptions",
+    "test_app.py::test_wf_scope_all_and_delete_choices",
+    "test_app.py::test_wf_scope_all_and_delete_all_on_grid",
+]
+
+[[workflows]]
+id = "trash-restore"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_trash_restore_series_exact",
+    "test_app.py::test_wf_trash_restore_one_occurrence",
+    "test_app.py::test_wf_trash_restore_purge",
+]
+
+[[workflows]]
+id = "time-zones-daylight"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-05",
+]
+critical = [
+    "test_app.py::test_wf_time_zones_daylight_weekly_across_change",
+    "test_app.py::test_wf_time_zones_daylight_gaps_and_repeats",
+    "test_app.py::test_wf_time_zones_daylight_wrong_device_clock",
+    "test_app.py::test_wf_time_zones_daylight_keys_across_change",
+]
+
+[[workflows]]
+id = "guests-and-replies"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-74",
+    "DP-75",
+]
+critical = [
+    "test_app.py::test_wf_guests_and_replies_answer_live",
+    "test_app.py::test_wf_guests_and_replies_invitation",
+    "test_app.py::test_answers_follow_reply_rules",
+    "test_app.py::test_one_live_connection",
+    "test_app.py::test_focus_across_redraw",
+]
+
+[[workflows]]
+id = "propose-a-new-time"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_propose_a_new_time_accept",
+    "test_app.py::test_wf_propose_a_new_time_simultaneous",
+    "test_app.py::test_proposal_state_rules",
+]
+
+[[workflows]]
+id = "out-of-office-focus"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-76",
+    "DP-77",
+]
+critical = [
+    "test_app.py::test_wf_out_of_office_focus_invite_declined",
+    "test_app.py::test_wf_out_of_office_focus_modes",
+    "test_app.py::test_wf_out_of_office_focus_conflicts",
+]
+
+[[workflows]]
+id = "find-a-time"
+requirements = [
+    "DP-23",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_find_a_time_book_earliest",
+    "test_app.py::test_wf_find_a_time_busy_blocks",
+    "test_app.py::test_wf_find_a_time_midnight_phone",
+]
+
+[[workflows]]
+id = "sharing-and-private"
+requirements = [
+    "DP-35",
+    "DP-38",
+    "DP-39",
+    "DP-79",
+]
+critical = [
+    "test_app.py::test_wf_sharing_and_private_lowered_live",
+    "test_app.py::test_wf_sharing_and_private_manage_level",
+    "test_app.py::test_share_level_authority",
+    "test_app.py::test_private_reads_busy",
+]
+
+[[workflows]]
+id = "reminders"
+requirements = [
+    "DP-53",
+    "DP-80",
+    "DP-81",
+    "DP-82",
+]
+critical = [
+    "test_app.py::test_wf_reminders_timed_fire",
+    "test_app.py::test_wf_reminders_snooze",
+    "test_app.py::test_all_day_reminders",
+    "test_app.py::test_wf_reminders_moved_on_grid",
+    "test_app.py::test_moved_and_deleted_reminders",
+]
+
+[[workflows]]
+id = "two-people-one-event"
+requirements = [
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_two_people_one_event_simultaneous_saves",
+    "test_app.py::test_wf_two_people_one_event_reapply",
+    "test_app.py::test_wf_two_people_one_event_keep_theirs",
+    "test_app.py::test_wf_two_people_one_event_socket_down",
+]
+
+[[workflows]]
+id = "find-copy-print-files"
+requirements = [
+    "DP-22",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-83",
+    "DP-84",
+    "DP-85",
+]
+critical = [
+    "test_app.py::test_wf_find_copy_print_files_open_result",
+    "test_app.py::test_wf_find_copy_print_files_duplicate_move",
+    "test_app.py::test_wf_find_copy_print_files_print_outage",
+    "test_app.py::test_stored_means_confirmed",
+    "test_app.py::test_search_as_you_type",
+]
+
+[[workflows]]
+id = "zone-rule-change"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-86",
+]
+critical = [
+    "test_app.py::test_wf_zone_rule_change_warning_scope",
+    "test_app.py::test_wf_zone_rule_change_move_on_page",
+    "test_app.py::test_wf_zone_rule_change_guest_sees_warning",
+    "test_app.py::test_wf_zone_rule_change_season_on_grid",
+]
+
+[[workflows]]
+id = "guest-switches-link"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-36",
+    "DP-37",
+    "DP-40",
+    "DP-87",
+]
+critical = [
+    "test_app.py::test_wf_guest_switches_link_switch_off_kills_link",
+    "test_app.py::test_wf_guest_switches_link_modify_shows_list",
+    "test_app.py::test_modify_switch",
+    "test_app.py::test_shared_link",
+    "test_app.py::test_wf_guest_switches_link_edit_appears_live",
+    "test_app.py::test_hidden_guest_lists",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-20",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-88",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_layouts",
+    "test_app.py::test_wf_cross_cutting_sign_in",
+    "test_app.py::test_phone_schedule_keeps_day",
+    "test_app.py::test_phone_schedule_reduced_motion",
+    "test_app.py::test_status_region",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B3",
+]

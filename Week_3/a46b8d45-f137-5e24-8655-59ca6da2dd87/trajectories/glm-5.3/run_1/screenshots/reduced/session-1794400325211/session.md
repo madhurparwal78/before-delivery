@@ -1,0 +1,198 @@
+
+### Tool call: browser_resize
+- Args
+```json
+{
+  "width": 1280,
+  "height": 800
+}
+```
+- Result
+```json
+{
+  "page": "- Page URL: about:blank"
+}
+```
+
+### Tool call: browser_navigate
+- Args
+```json
+{
+  "url": "http://127.0.0.1:4173/claim/new"
+}
+```
+- Result
+```json
+{
+  "page": "- Page URL: http://127.0.0.1:4173/claim/new\n- Page Title: Holmgarth Aftercare — Fittings Desk",
+  "snapshot": "- generic [ref=e2]:\n  - link \"Skip to claim\" [ref=e3] [cursor=pointer]:\n    - /url: \"#main\"\n  - banner [ref=e4]:\n    - heading \"Holmgarth Aftercare\" [level=1] [ref=e5]\n    - radiogroup \"Language · Język\" [ref=e6]:\n      - radio \"English\" [checked] [ref=e8]\n      - generic [ref=e9]: English\n      - radio \"Polski\" [ref=e10]\n      - generic [ref=e11]: Polski\n  - main [ref=e12]:\n    - heading \"Claim a part\" [level=2] [ref=e13]\n    - alert [ref=e14]\n    - status [ref=e15]\n    - generic [ref=e16]:\n      - paragraph [ref=e18]: Model\n      - generic [ref=e19]:\n        - generic [ref=e20]:\n          - generic [ref=e21]:\n            - generic [ref=e22]: Your name\n            - textbox \"Your name\" [ref=e23]\n            - paragraph [ref=e24]\n          - generic [ref=e25]:\n            - generic [ref=e26]: Email\n            - textbox \"Email\" [ref=e27]\n            - paragraph [ref=e28]\n          - generic [ref=e29]:\n            - generic [ref=e30]: Postcode\n            - textbox \"Postcode\" [ref=e31]\n            - paragraph [ref=e32]\n          - generic [ref=e33]:\n            - generic [ref=e34]: Model\n            - combobox \"Model\" [ref=e35]:\n              - option \"—\" [selected]\n              - option \"Aldra Wardrobe\"\n              - option \"Bramwell Sofa Frame\"\n              - option \"Kestle Shelving Unit\"\n              - option \"Fenwick Bed Frame\"\n            - paragraph [ref=e36]\n          - generic [ref=e37]:\n            - generic [ref=e38]: Date of purchase\n            - textbox \"Date of purchase\" [ref=e39]\n            - paragraph [ref=e40]\n          - generic [ref=e41]:\n            - generic [ref=e42]: Quantity\n            - spinbutton \"Quantity\" [ref=e43]: \"1\"\n            - paragraph [ref=e44]\n          - generic [ref=e45]:\n            - generic [ref=e46]: What happened\n            - textbox \"What happened\" [ref=e47]\n            - paragraph [ref=e48]\n          - generic [ref=e49]:\n            - generic [ref=e50]: Damage photos\n            - button \"Damage photos\" [ref=e51]\n            - paragraph [ref=e52]\n          - button \"Start claim\" [ref=e53] [cursor=pointer]\n        - paragraph\n        - region \"Estimate carriage\" [ref=e54]:\n          - paragraph\n          - button \"Estimate carriage\" [ref=e55] [cursor=pointer]"
+}
+```
+
+### Tool call: browser_snapshot
+- Args
+```json
+{
+  "depth": 5
+}
+```
+- Result
+```json
+{
+  "page": "- Page URL: http://127.0.0.1:4173/claim/new\n- Page Title: Holmgarth Aftercare — Fittings Desk",
+  "inlineSnapshot": "- generic [ref=e2]:\n  - link \"Skip to claim\" [ref=e3] [cursor=pointer]:\n    - /url: \"#main\"\n  - banner [ref=e4]:\n    - heading \"Holmgarth Aftercare\" [level=1] [ref=e5]\n    - radiogroup \"Language · Język\" [ref=e6]:\n      - radio \"English\" [checked] [ref=e8]\n      - generic [ref=e9]: English\n      - radio \"Polski\" [ref=e10]\n      - generic [ref=e11]: Polski\n  - main [ref=e12]:\n    - heading \"Claim a part\" [level=2] [ref=e13]\n    - alert [ref=e14]\n    - status [ref=e15]\n    - generic [ref=e16]:\n      - paragraph [ref=e18]: Model\n      - generic [ref=e19]:\n        - generic [ref=e20]:\n          - generic [ref=e21]\n          - generic [ref=e25]\n          - generic [ref=e29]\n          - generic [ref=e33]\n          - generic [ref=e37]\n          - generic [ref=e41]\n          - generic [ref=e45]\n          - generic [ref=e49]\n          - button \"Start claim\" [ref=e53] [cursor=pointer]\n        - paragraph\n        - region \"Estimate carriage\" [ref=e54]:\n          - paragraph\n          - button \"Estimate carriage\" [ref=e55] [cursor=pointer]"
+}
+```
+
+### Tool call: browser_fill_form
+- Args
+```json
+{
+  "fields": [
+    {
+      "target": "e35",
+      "name": "Model",
+      "type": "combobox",
+      "value": "Kestle Shelving Unit"
+    }
+  ]
+}
+```
+- Result
+```json
+{}
+```
+
+### Tool call: browser_snapshot
+- Args
+```json
+{
+  "depth": 7
+}
+```
+- Result
+```json
+{
+  "page": "- Page URL: http://127.0.0.1:4173/claim/new\n- Page Title: Holmgarth Aftercare — Fittings Desk",
+  "inlineSnapshot": "- generic [ref=e2]:\n  - link \"Skip to claim\" [ref=e3] [cursor=pointer]:\n    - /url: \"#main\"\n  - banner [ref=e4]:\n    - heading \"Holmgarth Aftercare\" [level=1] [ref=e5]\n    - radiogroup \"Language · Język\" [ref=e6]:\n      - radio \"English\" [checked] [ref=e8]\n      - generic [ref=e9]: English\n      - radio \"Polski\" [ref=e10]\n      - generic [ref=e11]: Polski\n  - main [ref=e12]:\n    - heading \"Claim a part\" [level=2] [ref=e13]\n    - alert [ref=e14]\n    - status [ref=e15]\n    - generic [ref=e16]:\n      - generic [ref=e17]:\n        - paragraph [ref=e18]: Model\n        - region \"Fitting fan\" [ref=e56]:\n          - generic [ref=e57]: Separate parts\n          - slider \"Separate parts\" [ref=e58]: \"100\"\n          - generic [ref=e59]:\n            - 'button \"Part 1: Upright\" [ref=e60] [cursor=pointer]':\n              - generic [aria-hidden] [ref=e62]: \"1\"\n            - 'button \"Part 2: Shelf board\" [ref=e63] [cursor=pointer]':\n              - generic [aria-hidden] [ref=e65]: \"2\"\n            - 'button \"Part 3: Shelf pin\" [ref=e66] [cursor=pointer]':\n              - generic [aria-hidden] [ref=e68]: \"3\"\n            - 'button \"Part 4: Wall bracket\" [ref=e69] [cursor=pointer]':\n              - generic [aria-hidden] [ref=e71]: \"4\"\n            - 'button \"Part 5: Back brace\" [disabled] [ref=e72]':\n              - generic [aria-hidden] [ref=e73]: \"5\"\n      - generic [ref=e19]:\n        - generic [ref=e20]:\n          - generic [ref=e21]:\n            - generic [ref=e22]: Your name\n            - textbox \"Your name\" [ref=e23]\n            - paragraph [ref=e24]\n          - generic [ref=e25]:\n            - generic [ref=e26]: Email\n            - textbox \"Email\" [ref=e27]\n            - paragraph [ref=e28]\n          - generic [ref=e29]:\n            - generic [ref=e30]: Postcode\n            - textbox \"Postcode\" [ref=e31]\n            - paragraph [ref=e32]\n          - generic [ref=e33]:\n            - generic [ref=e34]: Model\n            - combobox \"Model\" [ref=e35]:\n              - option \"—\"\n              - option \"Aldra Wardrobe\"\n              - option \"Bramwell Sofa Frame\"\n              - option \"Kestle Shelving Unit\" [selected]\n              - option \"Fenwick Bed Frame\"\n            - paragraph [ref=e36]\n          - generic [ref=e37]:\n            - generic [ref=e38]: Date of purchase\n            - textbox \"Date of purchase\" [ref=e39]\n            - paragraph [ref=e40]\n          - generic [ref=e41]:\n            - generic [ref=e42]: Quantity\n            - spinbutton \"Quantity\" [ref=e43]: \"1\"\n            - paragraph [ref=e44]\n          - generic [ref=e45]:\n            - generic [ref=e46]: What happened\n            - textbox \"What happened\" [ref=e47]\n            - paragraph [ref=e48]\n          - generic [ref=e49]:\n            - generic [ref=e50]: Damage photos\n            - button \"Damage photos\" [ref=e51]\n            - paragraph [ref=e52]\n          - button \"Start claim\" [ref=e53] [cursor=pointer]\n        - paragraph\n        - region \"Estimate carriage\" [ref=e54]:\n          - paragraph\n          - button \"Estimate carriage\" [ref=e55] [cursor=pointer]"
+}
+```
+
+### Tool call: browser_evaluate
+- Args
+```json
+{
+  "element": "Fitting fan",
+  "target": "e56",
+  "function": "(e)=>{const s=getComputedStyle(e); const parts=[...e.querySelectorAll('.fan-part')].map(p=>{const ps=getComputedStyle(p); const label=p.querySelector('.fan-number,span'); const ls=label?getComputedStyle(label):null; return {name:p.getAttribute('aria-label'),border:ps.borderColor,outline:ps.outlineColor,color:ps.color,labelFont:ls?.fontFamily,labelColor:ls?.color, pseudoBefore:getComputedStyle(p,'::before').cssText,pseudoBorder:getComputedStyle(p,'::before').borderColor}});return {backgroundImage:s.backgroundImage,backgroundSize:s.backgroundSize,backgroundColor:s.backgroundColor,parts}}"
+}
+```
+- Result
+```json
+{
+  "result": "{\n  \"backgroundImage\": \"linear-gradient(0deg, rgba(47, 107, 181, 0.07) 1px, rgba(0, 0, 0, 0) 1px), linear-gradient(90deg, rgba(47, 107, 181, 0.07) 1px, rgba(0, 0, 0, 0) 1px), none\",\n  \"backgroundSize\": \"8px 8px, 8px 8px, auto\",\n  \"backgroundColor\": \"rgba(255, 255, 255, 0.35)\",\n  \"parts\": [\n    {\n      \"name\": \"Part 1: Upright\",\n      \"border\": \"rgb(47, 107, 181)\",\n      \"outline\": \"rgb(27, 36, 56)\",\n      \"color\": \"rgb(27, 36, 56)\",\n      \"labelFont\": \"\\\"IBM Plex Sans\\\", system-ui, sans-serif\",\n      \"labelColor\": \"rgb(27, 36, 56)\",\n      \"pseudoBefore\": \"\",\n      \"pseudoBorder\": \"rgb(27, 36, 56)\"\n    },\n    {\n      \"name\": \"Part 2: Shelf board\",\n      \"border\": \"rgb(47, 107, 181)\",\n      \"outline\": \"rgb(27, 36, 56)\",\n      \"color\": \"rgb(27, 36, 56)\",\n      \"labelFont\": \"\\\"IBM Plex Sans\\\", system-ui, sans-serif\",\n      \"labelColor\": \"rgb(27, 36, 56)\",\n      \"pseudoBefore\": \"\",\n      \"pseudoBorder\": \"rgb(27, 36, 56)\"\n    },\n    {\n      \"name\": \"Part 3: Shelf pin\",\n      \"border\": \"rgb(47, 107, 181)\",\n      \"outline\": \"rgb(27, 36, 56)\",\n      \"color\": \"rgb(27, 36, 56)\",\n      \"labelFont\": \"\\\"IBM Plex Sans\\\", system-ui, sans-serif\",\n      \"labelColor\": \"rgb(27, 36, 56)\",\n      \"pseudoBefore\": \"\",\n      \"pseudoBorder\": \"rgb(27, 36, 56)\"\n    },\n    {\n      \"name\": \"Part 4: Wall bracket\",\n      \"border\": \"rgb(47, 107, 181)\",\n      \"outline\": \"rgb(27, 36, 56)\",\n      \"color\": \"rgb(27, 36, 56)\",\n      \"labelFont\": \"\\\"IBM Plex Sans\\\", system-ui, sans-serif\",\n      \"labelColor\": \"rgb(27, 36, 56)\",\n      \"pseudoBefore\": \"\",\n      \"pseudoBorder\": \"rgb(27, 36, 56)\"\n    },\n    {\n      \"name\": \"Part 5: Back brace\",\n      \"border\": \"rgb(47, 107, 181)\",\n      \"outline\": \"rgb(27, 36, 56)\",\n      \"color\": \"rgb(27, 36, 56)\",\n      \"labelFont\": \"\\\"IBM Plex Sans\\\", system-ui, sans-serif\",\n      \"labelColor\": \"rgb(27, 36, 56)\",\n      \"pseudoBefore\": \"\",\n      \"pseudoBorder\": \"rgb(27, 36, 56)\"\n    }\n  ]\n}"
+}
+```
+
+### Tool call: browser_take_screenshot
+- Args
+```json
+{
+  "element": "Fitting fan",
+  "target": "e56",
+  "scale": "css"
+}
+```
+- Result
+```json
+{
+  "result": "- [Screenshot of Fitting fan](evidence/reduced/element-2026-11-11T12-32-27-248Z.png)",
+  "attachments": [
+    {
+      "type": "image",
+      "data": "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",
+      "mimeType": "image/png"
+    }
+  ]
+}
+```
+
+### Tool call: browser_evaluate
+- Args
+```json
+{
+  "element": "Part 1",
+  "target": "e60",
+  "function": "e=>({html:e.innerHTML, descendants:[...e.querySelectorAll('*')].map(x=>({cls:x.className,txt:x.textContent, font:getComputedStyle(x).fontFamily,width:getComputedStyle(x).borderTopWidth,color:getComputedStyle(x).color}))})"
+}
+```
+- Result
+```json
+{
+  "result": "{\n  \"html\": \"<span class=\\\"fan-part-shape\\\" aria-hidden=\\\"true\\\"></span><span class=\\\"fan-callout\\\" aria-hidden=\\\"true\\\">1</span>\",\n  \"descendants\": [\n    {\n      \"cls\": \"fan-part-shape\",\n      \"txt\": \"\",\n      \"font\": \"\\\"IBM Plex Sans\\\", system-ui, sans-serif\",\n      \"width\": \"0px\",\n      \"color\": \"rgb(27, 36, 56)\"\n    },\n    {\n      \"cls\": \"fan-callout\",\n      \"txt\": \"1\",\n      \"font\": \"\\\"IBM Plex Mono\\\", \\\"Courier New\\\", monospace\",\n      \"width\": \"0px\",\n      \"color\": \"rgb(47, 107, 181)\"\n    }\n  ]\n}"
+}
+```
+
+### Tool call: browser_evaluate
+- Args
+```json
+{
+  "element": "Fitting fan",
+  "target": "e56",
+  "function": "e=>[...e.querySelectorAll('.fan-callout')].map(x=>{let a=getComputedStyle(x,'::before'),b=getComputedStyle(x,'::after');return {text:x.textContent,font:getComputedStyle(x).fontFamily,before:{content:a.content,width:a.width,height:a.height,border:a.borderTopWidth,color:a.backgroundColor},after:{content:b.content,width:b.width,height:b.height,border:b.borderTopWidth,color:b.backgroundColor}}})"
+}
+```
+- Result
+```json
+{
+  "result": "[\n  {\n    \"text\": \"1\",\n    \"font\": \"\\\"IBM Plex Mono\\\", \\\"Courier New\\\", monospace\",\n    \"before\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px\",\n      \"color\": \"rgba(0, 0, 0, 0)\"\n    },\n    \"after\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px\",\n      \"color\": \"rgba(0, 0, 0, 0)\"\n    }\n  },\n  {\n    \"text\": \"2\",\n    \"font\": \"\\\"IBM Plex Mono\\\", \\\"Courier New\\\", monospace\",\n    \"before\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px\",\n      \"color\": \"rgba(0, 0, 0, 0)\"\n    },\n    \"after\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px\",\n      \"color\": \"rgba(0, 0, 0, 0)\"\n    }\n  },\n  {\n    \"text\": \"3\",\n    \"font\": \"\\\"IBM Plex Mono\\\", \\\"Courier New\\\", monospace\",\n    \"before\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px\",\n      \"color\": \"rgba(0, 0, 0, 0)\"\n    },\n    \"after\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px\",\n      \"color\": \"rgba(0, 0, 0, 0)\"\n    }\n  },\n  {\n    \"text\": \"4\",\n    \"font\": \"\\\"IBM Plex Mono\\\", \\\"Courier New\\\", monospace\",\n    \"before\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px\",\n      \"color\": \"rgba(0, 0, 0, 0)\"\n    },\n    \"after\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px\",\n      \"color\": \"rgba(0, 0, 0, 0)\"\n    }\n  },\n  {\n    \"text\": \"5\",\n    \"font\": \"\\\"IBM Plex Mono\\\", \\\"Courier New\\\", monospace\",\n    \"before\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px\",\n      \"color\": \"rgba(0, 0, 0, 0)\"\n    },\n    \"after\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px\",\n      \"color\": \"rgba(0, 0, 0, 0)\"\n    }\n  }\n]"
+}
+```
+
+### Tool call: browser_evaluate
+- Args
+```json
+{
+  "element": "Fitting fan",
+  "target": "e56",
+  "function": "e=>[...e.querySelectorAll('.fan-callout')].map(x=>{let s=getComputedStyle(x);return {text:x.textContent,borderLeft:s.borderLeft,borderTop:s.borderTop,width:s.width,height:s.height,box:s.boxSizing}})"
+}
+```
+- Result
+```json
+{
+  "result": "[\n  {\n    \"text\": \"1\",\n    \"borderLeft\": \"0px none rgb(47, 107, 181)\",\n    \"borderTop\": \"0px none rgb(47, 107, 181)\",\n    \"width\": \"8.15625px\",\n    \"height\": \"20.3906px\",\n    \"box\": \"border-box\"\n  },\n  {\n    \"text\": \"2\",\n    \"borderLeft\": \"0px none rgb(47, 107, 181)\",\n    \"borderTop\": \"0px none rgb(47, 107, 181)\",\n    \"width\": \"8.15625px\",\n    \"height\": \"20.3906px\",\n    \"box\": \"border-box\"\n  },\n  {\n    \"text\": \"3\",\n    \"borderLeft\": \"0px none rgb(47, 107, 181)\",\n    \"borderTop\": \"0px none rgb(47, 107, 181)\",\n    \"width\": \"8.15625px\",\n    \"height\": \"20.3906px\",\n    \"box\": \"border-box\"\n  },\n  {\n    \"text\": \"4\",\n    \"borderLeft\": \"0px none rgb(47, 107, 181)\",\n    \"borderTop\": \"0px none rgb(47, 107, 181)\",\n    \"width\": \"8.15625px\",\n    \"height\": \"20.3906px\",\n    \"box\": \"border-box\"\n  },\n  {\n    \"text\": \"5\",\n    \"borderLeft\": \"0px none rgb(47, 107, 181)\",\n    \"borderTop\": \"0px none rgb(47, 107, 181)\",\n    \"width\": \"8.15625px\",\n    \"height\": \"20.3906px\",\n    \"box\": \"border-box\"\n  }\n]"
+}
+```
+
+### Tool call: browser_evaluate
+- Args
+```json
+{
+  "element": "Fitting fan",
+  "target": "e56",
+  "function": "e=>[...e.querySelectorAll('.fan-part-shape')].map(x=>{let a=getComputedStyle(x,'::after'),b=getComputedStyle(x,'::before');return {after:{content:a.content,width:a.width,height:a.height,border:a.borderTop,bg:a.backgroundColor},before:{content:b.content,width:b.width,height:b.height,border:b.borderTop,bg:b.backgroundColor}}})"
+}
+```
+- Result
+```json
+{
+  "result": "[\n  {\n    \"after\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px none rgb(27, 36, 56)\",\n      \"bg\": \"rgba(0, 0, 0, 0)\"\n    },\n    \"before\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px none rgb(27, 36, 56)\",\n      \"bg\": \"rgba(0, 0, 0, 0)\"\n    }\n  },\n  {\n    \"after\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px none rgb(27, 36, 56)\",\n      \"bg\": \"rgba(0, 0, 0, 0)\"\n    },\n    \"before\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px none rgb(27, 36, 56)\",\n      \"bg\": \"rgba(0, 0, 0, 0)\"\n    }\n  },\n  {\n    \"after\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px none rgb(27, 36, 56)\",\n      \"bg\": \"rgba(0, 0, 0, 0)\"\n    },\n    \"before\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px none rgb(27, 36, 56)\",\n      \"bg\": \"rgba(0, 0, 0, 0)\"\n    }\n  },\n  {\n    \"after\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px none rgb(27, 36, 56)\",\n      \"bg\": \"rgba(0, 0, 0, 0)\"\n    },\n    \"before\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px none rgb(27, 36, 56)\",\n      \"bg\": \"rgba(0, 0, 0, 0)\"\n    }\n  },\n  {\n    \"after\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px none rgb(27, 36, 56)\",\n      \"bg\": \"rgba(0, 0, 0, 0)\"\n    },\n    \"before\": {\n      \"content\": \"none\",\n      \"width\": \"auto\",\n      \"height\": \"auto\",\n      \"border\": \"0px none rgb(27, 36, 56)\",\n      \"bg\": \"rgba(0, 0, 0, 0)\"\n    }\n  }\n]"
+}
+```
+
+### Tool call: browser_evaluate
+- Args
+```json
+{
+  "element": "Fitting fan",
+  "target": "e56",
+  "function": "e=>[...e.querySelectorAll('.fan-part')].map(x=>{let s=getComputedStyle(x,'::before'),l=getComputedStyle(x.querySelector('.fan-callout'));return {name:x.getAttribute('aria-label'),lineWidth:s.width,lineHeight:s.height,lineColor:s.backgroundColor,label:l.fontFamily}})"
+}
+```
+- Result
+```json
+{
+  "result": "[\n  {\n    \"name\": \"Part 1: Upright\",\n    \"lineWidth\": \"1px\",\n    \"lineHeight\": \"14px\",\n    \"lineColor\": \"rgb(47, 107, 181)\",\n    \"label\": \"\\\"IBM Plex Mono\\\", \\\"Courier New\\\", monospace\"\n  },\n  {\n    \"name\": \"Part 2: Shelf board\",\n    \"lineWidth\": \"1px\",\n    \"lineHeight\": \"14px\",\n    \"lineColor\": \"rgb(47, 107, 181)\",\n    \"label\": \"\\\"IBM Plex Mono\\\", \\\"Courier New\\\", monospace\"\n  },\n  {\n    \"name\": \"Part 3: Shelf pin\",\n    \"lineWidth\": \"1px\",\n    \"lineHeight\": \"14px\",\n    \"lineColor\": \"rgb(47, 107, 181)\",\n    \"label\": \"\\\"IBM Plex Mono\\\", \\\"Courier New\\\", monospace\"\n  },\n  {\n    \"name\": \"Part 4: Wall bracket\",\n    \"lineWidth\": \"1px\",\n    \"lineHeight\": \"14px\",\n    \"lineColor\": \"rgb(47, 107, 181)\",\n    \"label\": \"\\\"IBM Plex Mono\\\", \\\"Courier New\\\", monospace\"\n  },\n  {\n    \"name\": \"Part 5: Back brace\",\n    \"lineWidth\": \"1px\",\n    \"lineHeight\": \"14px\",\n    \"lineColor\": \"rgb(47, 107, 181)\",\n    \"label\": \"\\\"IBM Plex Mono\\\", \\\"Courier New\\\", monospace\"\n  }\n]"
+}
+```

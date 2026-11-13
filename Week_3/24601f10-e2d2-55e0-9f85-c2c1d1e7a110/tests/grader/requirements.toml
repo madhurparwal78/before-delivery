@@ -1,0 +1,1321 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "seeding-keyboard-start",
+    "bracket-keyboard-scoring",
+    "report-confirm-dispute",
+    "coorganizer-conflict",
+    "shutter-trace-edit",
+    "double-elimination-final",
+    "round-robin-standings",
+    "swiss-round-two",
+    "check-in-clock",
+    "phone-bracket",
+    "advance-motion-announce",
+    "roster-upload-outage",
+    "final-ranking-history",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 97
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+B13 = 5
+B14 = 3
+B15 = 3
+B16 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+CUPFOLD_GRADING = "1"
+CUPFOLD_CONFIRM_WINDOW_MS = "20000"
+CUPFOLD_MATCH_LIMIT_MS = "15000"
+CUPFOLD_SWISS_ROUND_MS = "30000"
+CUPFOLD_CHECKIN_DEFAULT_MS = "30000"
+CUPFOLD_REPORT_RATE = "20"
+CUPFOLD_LOGIN_RATE = "10"
+CUPFOLD_ROSTER_MAX_BYTES = "65536"
+CUPFOLD_LOGO_MAX_BYTES = "524288"
+CUPFOLD_TOAST_MS = "4000"
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from /app/run.json on port 4173 (honouring APP_PUBLIC_PORT), and GET /api/health answers as specified in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_served_files",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Accounts and sessions"
+text = "Sign-up, sign-in and sign-out use a local username and password with the published validation, rate limit and session cookie, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "roster-upload-outage"
+tests = [
+    "test_app.py::test_accounts_signup_signin_signout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Errors and rate limits"
+text = "Every API error uses the one published body shape and code list, follows the one published error precedence, and applies the published per-minute limits on sign-in attempts and match writes."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_precedence",
+    "test_app.py::test_match_write_rate_limit",
+    "test_app.py::test_sign_in_errors_in_alert_band",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Grading routes"
+text = "When CUPFOLD_GRADING=1, POST /api/grading/seed, POST /api/grading/session and POST /api/grading/clock behave exactly as published, and without it they answer 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_routes",
+    "test_app.py::test_grading_routes_absent_without_flag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Server clock and timers"
+text = "Every deadline is decided on server time and every timer and limit reads its published environment variable, with the client reading its values from GET /api/config."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_config_limits_from_environment",
+    "test_app.py::test_timers_and_limits_follow_environment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Create a tournament"
+text = "A signed-in user creates a tournament in any of the four formats and lands on /t/<tournament id>/setup, which survives reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "roster-upload-outage"
+tests = [
+    "test_app.py::test_wf_roster_upload_outage_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Tournament lifecycle"
+text = "A tournament moves only along the published states, and every illegal move is refused with 409 and its published message."
+kind = "behavior"
+primary = "pytest"
+workflow = "seeding-keyboard-start"
+tests = [
+    "test_app.py::test_lifecycle_refusals",
+]
+criteria = []
+parameter_cases = [
+    "draft",
+    "checkin_open",
+    "checkin_closed",
+    "running",
+    "finished",
+]
+
+[[requirements]]
+id = "DP-08"
+title = "Co-organizers"
+text = "The organizer adds and removes co-organizers by username, and co-organizers hold every organizer power except deleting the tournament and managing co-organizers."
+kind = "behavior"
+primary = "pytest"
+workflow = "coorganizer-conflict"
+tests = [
+    "test_app.py::test_co_organizer_powers",
+    "test_app.py::test_wf_coorganizer_conflict_add_co_organizer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Keyboard seed reorder"
+text = "In list \"Seeding\", Alt+ArrowUp and Alt+ArrowDown move the focused entrant one seed, save the order, renumber the list, keep focus on the moved entrant and announce the move."
+kind = "behavior"
+primary = "workflow"
+workflow = "seeding-keyboard-start"
+tests = [
+    "test_app.py::test_wf_seeding_keyboard_start_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Typed and dragged seeds"
+text = "A seed typed into spinbutton \"Seed for <name>\" or a drag in the list moves the entrant, the round 1 preview follows each move, and a stale reorder is refused with the published message."
+kind = "behavior"
+primary = "pytest"
+workflow = "seeding-keyboard-start"
+tests = [
+    "test_app.py::test_seed_typed_dragged_and_stale",
+    "test_app.py::test_wf_seeding_keyboard_start_typed_seed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Standard seeding and byes"
+text = "Elimination brackets use the next power of two with the published seed placement, byes go to the top seeds, no round 1 match has two byes, and bye matches are won automatically."
+kind = "behavior"
+primary = "pytest"
+workflow = "seeding-keyboard-start"
+tests = [
+    "test_app.py::test_bracket_seed_placement",
+]
+criteria = []
+parameter_cases = [
+    "three",
+    "five",
+    "six",
+    "eight",
+]
+
+[[requirements]]
+id = "DP-12"
+title = "Start lands on the bracket"
+text = "Starting a tournament lands the organizer on /t/<tournament id>/bracket with every round 1 card named as published, and reload shows the same bracket."
+kind = "behavior"
+primary = "pytest"
+workflow = "seeding-keyboard-start"
+tests = [
+    "test_app.py::test_wf_seeding_keyboard_start_start",
+    "test_app.py::test_wf_seeding_keyboard_start_six_byes",
+    "test_app.py::test_wf_seeding_keyboard_start_phone_start",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Match card names"
+text = "Every match card is a button whose accessible name, visible status text and data- hooks follow the published grammar in every state, and status is never shown by colour alone."
+kind = "behavior"
+primary = "pytest"
+workflow = "bracket-keyboard-scoring"
+tests = [
+    "test_app.py::test_card_names_every_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Bracket regions and focus"
+text = "Each bracket region is a named region that takes one Tab stop, with exactly one of its cards in the Tab order."
+kind = "behavior"
+primary = "pytest"
+workflow = "bracket-keyboard-scoring"
+tests = [
+    "test_app.py::test_bracket_regions_tab_stops",
+    "test_app.py::test_wf_bracket_keyboard_scoring_roving_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Bracket arrow keys"
+text = "Arrow keys, Home and End move focus between match cards as published, and Enter or Space opens the card's dialog."
+kind = "behavior"
+primary = "workflow"
+workflow = "bracket-keyboard-scoring"
+tests = [
+    "test_app.py::test_wf_bracket_keyboard_scoring_arrows",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Score dialog"
+text = "dialog \"Report score\" takes each side's games by keyboard, keeps Tab inside, closes on Escape with nothing changed, returns focus to the card after every save, and refuses draws in elimination matches."
+kind = "behavior"
+primary = "pytest"
+workflow = "bracket-keyboard-scoring"
+tests = [
+    "test_app.py::test_wf_bracket_keyboard_scoring_report",
+    "test_app.py::test_wf_bracket_keyboard_scoring_organizer_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Who may report"
+text = "Only the two entrants of a match or an organizer may report it, and a player can never confirm their own report."
+kind = "behavior"
+primary = "pytest"
+workflow = "report-confirm-dispute"
+tests = [
+    "test_app.py::test_who_may_report",
+    "test_app.py::test_wf_report_confirm_dispute_reporter_details",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Confirm or dispute"
+text = "The opponent of the reporter confirms or disputes in dialog \"Confirm score\", and every open screen shows the new card state live."
+kind = "behavior"
+primary = "workflow"
+workflow = "report-confirm-dispute"
+tests = [
+    "test_app.py::test_wf_report_confirm_dispute_dispute",
+    "test_app.py::test_wf_report_confirm_dispute_confirm",
+    "test_app.py::test_wf_report_confirm_dispute_keyboard_confirm",
+    "test_app.py::test_wf_report_confirm_dispute_phone_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Resolve a dispute"
+text = "Only organizers resolve a disputed match in dialog \"Resolve dispute\", and resolving lands them on /t/<tournament id>/bracket?match=<match id> with that card focused."
+kind = "behavior"
+primary = "pytest"
+workflow = "report-confirm-dispute"
+tests = [
+    "test_app.py::test_wf_report_confirm_dispute_resolve",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Auto-confirm on server time"
+text = "A reported score becomes confirmed when the confirm window passes on server time unless answered first, and the card's countdown is display only and survives reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "final-ranking-history"
+tests = [
+    "test_app.py::test_auto_confirm_on_server_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Overdue flag"
+text = "A called match not reported within the match time limit, or a Swiss match unreported when the round time ends, is flagged Overdue to organizers only."
+kind = "behavior"
+primary = "pytest"
+workflow = "swiss-round-two"
+tests = [
+    "test_app.py::test_overdue_flag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Stale match writes"
+text = "A match write carrying a version that is no longer current is refused with 409 and the current match, and the dialog stays open showing who updated it and the current score."
+kind = "behavior"
+primary = "workflow"
+workflow = "coorganizer-conflict"
+tests = [
+    "test_app.py::test_wf_coorganizer_conflict_stale_save",
+    "test_app.py::test_wf_coorganizer_conflict_confirm_after_overwrite",
+    "test_app.py::test_wf_coorganizer_conflict_race_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Simultaneous conflicting reports"
+text = "When both players report one match, the second report is treated as the opponent's answer, so conflicting scores become exactly one dispute and never two results."
+kind = "behavior"
+primary = "pytest"
+workflow = "coorganizer-conflict"
+tests = [
+    "test_app.py::test_conflicting_reports_one_dispute",
+    "test_app.py::test_wf_coorganizer_conflict_both_players_report",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "One resolution per dispute"
+text = "When two organizers resolve the same dispute, exactly one resolution stands and the other is told whose resolution stands and its result."
+kind = "behavior"
+primary = "pytest"
+workflow = "coorganizer-conflict"
+tests = [
+    "test_app.py::test_one_resolution_per_dispute",
+    "test_app.py::test_wf_coorganizer_conflict_double_resolve",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Shutter trace preview"
+text = "The edit preview returns the exact dependent set of a proposed result change in reset order, with the reset count and the confirmed count, without changing anything."
+kind = "behavior"
+primary = "pytest"
+workflow = "shutter-trace-edit"
+tests = [
+    "test_app.py::test_edit_preview_dependent_set",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Edit commits the previewed set"
+text = "Confirming an edit resets exactly the previewed dependent set, no fewer and no more, and Escape or Cancel leaves the server unchanged and returns focus to button \"Edit result\"."
+kind = "behavior"
+primary = "workflow"
+workflow = "shutter-trace-edit"
+tests = [
+    "test_app.py::test_wf_shutter_trace_edit_commit",
+    "test_app.py::test_wf_shutter_trace_edit_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Stale preview refused"
+text = "An edit whose dependent set or versions changed after its preview is refused with 409 and the published stale-preview message."
+kind = "behavior"
+primary = "pytest"
+workflow = "shutter-trace-edit"
+tests = [
+    "test_app.py::test_stale_preview_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Shutter trace motion"
+text = "Shutter trace draws the path card by card in reset order, half-closes each card's slats, counts up in the dialog, and reverses step by step on cancel, at the published timings."
+kind = "visual"
+primary = "pytest"
+workflow = "shutter-trace-edit"
+tests = [
+    "test_app.py::test_shutter_trace_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Shutter trace under reduced motion"
+text = "With reduced motion, every dependent card is outlined and labelled Will reset at once, the full reset list and count appear without animation, and confirm and cancel land focus in the same places."
+kind = "visual"
+primary = "pytest"
+workflow = "shutter-trace-edit"
+tests = [
+    "test_app.py::test_shutter_trace_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Resets reach every screen"
+text = "A committed edit updates every open screen in reset order within 2 seconds and announces the reset count there."
+kind = "behavior"
+primary = "pytest"
+workflow = "shutter-trace-edit"
+tests = [
+    "test_app.py::test_resets_reach_every_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Losers bracket mapping"
+text = "Losers of winners rounds drop into the published losers rounds and matches, in the published order."
+kind = "behavior"
+primary = "pytest"
+workflow = "double-elimination-final"
+tests = [
+    "test_app.py::test_losers_bracket_mapping",
+    "test_app.py::test_wf_double_elimination_final_drop_live",
+    "test_app.py::test_wf_double_elimination_final_bye_paths",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Grand final and reset"
+text = "The grand final pairs the two bracket winners, and a grand final reset is played only when the losers-side finalist wins grand final 1; otherwise it shows as not needed."
+kind = "behavior"
+primary = "workflow"
+workflow = "double-elimination-final"
+tests = [
+    "test_app.py::test_wf_double_elimination_final_reset",
+    "test_app.py::test_wf_double_elimination_final_upper_wins",
+    "test_app.py::test_wf_double_elimination_final_keyboard_reset",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Round robin schedule"
+text = "Round robin pairs every entrant with every other exactly once, using the published rotation, round numbering and bye rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "round-robin-standings"
+tests = [
+    "test_app.py::test_round_robin_schedule",
+    "test_app.py::test_wf_round_robin_standings_keyboard_schedule",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Round robin tiebreaks"
+text = "Round robin standings rank by match points, head-to-head among the tied, game difference, games won, then seed, computed once on the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "round-robin-standings"
+tests = [
+    "test_app.py::test_round_robin_standings_worked_example",
+    "test_app.py::test_wf_round_robin_standings_head_to_head",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Standings table"
+text = "table \"Standings\" shows the published columns and values in order, names the deciding tiebreak on every row, matches on every screen and updates live."
+kind = "behavior"
+primary = "workflow"
+workflow = "round-robin-standings"
+tests = [
+    "test_app.py::test_wf_round_robin_standings_live",
+    "test_app.py::test_wf_round_robin_standings_draw",
+    "test_app.py::test_wf_round_robin_standings_phone_share",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Swiss pairing"
+text = "Swiss rounds pair by the published rule with no rematch while a legal pairing exists, and starting a round shows each player their new card live."
+kind = "behavior"
+primary = "workflow"
+workflow = "swiss-round-two"
+tests = [
+    "test_app.py::test_wf_swiss_round_two_pairing",
+    "test_app.py::test_wf_swiss_round_two_unfinished",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Swiss bye"
+text = "With an odd field, the lowest-ranked entrant without a previous bye gets the bye, which counts as a 2-0 win."
+kind = "behavior"
+primary = "pytest"
+workflow = "swiss-round-two"
+tests = [
+    "test_app.py::test_swiss_bye",
+    "test_app.py::test_wf_swiss_round_two_keyboard_bye",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Swiss tiebreaks"
+text = "Swiss standings rank by match points, Buchholz cut 1, Buchholz, Sonneborn-Berger, then seed, computed once on the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "swiss-round-two"
+tests = [
+    "test_app.py::test_swiss_standings_worked_example",
+    "test_app.py::test_wf_swiss_round_two_keyboard_standings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Check-in window"
+text = "The organizer opens check-in with a close time, linked players check in during it, and the checked-in count and an announcement update on every screen live."
+kind = "behavior"
+primary = "workflow"
+workflow = "check-in-clock"
+tests = [
+    "test_app.py::test_wf_check_in_clock_open",
+    "test_app.py::test_wf_check_in_clock_organizer_ticks",
+    "test_app.py::test_wf_check_in_clock_zone_and_player",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Check-in closed"
+text = "At the close time on server time, check-in closes for everyone, and later check-ins are refused with 409 and the published copy whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "check-in-clock"
+tests = [
+    "test_app.py::test_checkin_closes_on_server_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "No-shows removed at start"
+text = "Starting after check-in removes unchecked entrants, names them in the published sentence and seeds the remaining field in its kept order."
+kind = "behavior"
+primary = "pytest"
+workflow = "check-in-clock"
+tests = [
+    "test_app.py::test_wf_check_in_clock_no_shows",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Next match after check-in"
+text = "A player who checks in lands on /t/<tournament id>/me, which shows their next match and follows it live."
+kind = "behavior"
+primary = "pytest"
+workflow = "check-in-clock"
+tests = [
+    "test_app.py::test_wf_check_in_clock_player_me",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Published breakpoints"
+text = "Phone (under 768 pixels wide), tablet (768 to 1199) and desk (1200 and wider) each show their published layout and order at 375x812, 768x1024 and 1280x800, with no horizontal page overflow."
+kind = "visual"
+primary = "pytest"
+workflow = "phone-bracket"
+tests = [
+    "test_app.py::test_breakpoints_layout",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "desk",
+]
+
+[[requirements]]
+id = "DP-44"
+title = "Phone rounds and swipe"
+text = "On a phone, the bracket shows one round at a time under tablist \"Rounds\", and a horizontal swipe or a tab moves between rounds and updates the selected tab."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone-bracket"
+tests = [
+    "test_app.py::test_wf_phone_bracket_swipe",
+    "test_app.py::test_wf_phone_bracket_tap_details",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Spectator share link"
+text = "The share link shows the tournament read-only without an account, exposes display names and scores only, and refuses every write."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-bracket"
+tests = [
+    "test_app.py::test_share_link_read_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Replace share link"
+text = "Replacing the share link kills the old link at once, including its open live connection, and the new link works."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-bracket"
+tests = [
+    "test_app.py::test_wf_phone_bracket_replace_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Live channel and catch-up"
+text = "Every state change is sent over the tournament's live channel with a per-tournament sequence number, shows on every open screen within 2 seconds without reload, and a reconnecting screen receives what it missed."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-bracket"
+tests = [
+    "test_app.py::test_live_channel_seq_and_catch_up",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Advance motion"
+text = "When a result is confirmed or resolved, the winner's name travels from its card to its next card at the published timing."
+kind = "visual"
+primary = "pytest"
+workflow = "advance-motion-announce"
+tests = [
+    "test_app.py::test_advance_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Reduced-motion advance"
+text = "With reduced motion, no card, name or slat animates, while the result, the announcements and focus are the same."
+kind = "visual"
+primary = "pytest"
+workflow = "advance-motion-announce"
+tests = [
+    "test_app.py::test_wf_advance_motion_announce_reduced",
+    "test_app.py::test_wf_advance_motion_announce_two_screens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Bracket announcements"
+text = "status \"Bracket announcements\" reads the published sentences identically on every screen, and status \"Your action\" reads the actor's own outcome, without moving focus."
+kind = "behavior"
+primary = "workflow"
+workflow = "advance-motion-announce"
+tests = [
+    "test_app.py::test_wf_advance_motion_announce_sentences",
+    "test_app.py::test_wf_advance_motion_announce_share_and_me",
+    "test_app.py::test_wf_advance_motion_announce_resolve",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Roster format"
+text = "Roster files follow the published Cupfold roster format, and every invalid file is refused with the published line-numbered messages in the published order."
+kind = "behavior"
+primary = "pytest"
+workflow = "roster-upload-outage"
+tests = [
+    "test_app.py::test_roster_format_refusals",
+]
+criteria = []
+parameter_cases = [
+    "line_errors",
+    "file_name",
+    "empty",
+    "not_utf8",
+    "count",
+    "cap",
+]
+
+[[requirements]]
+id = "DP-52"
+title = "Roster stored before entrants"
+text = "A roster upload replaces the field all or nothing, and only after MinIO confirms the file is stored byte for byte under the published key."
+kind = "behavior"
+primary = "workflow"
+workflow = "roster-upload-outage"
+tests = [
+    "test_app.py::test_roster_stored_byte_for_byte",
+    "test_app.py::test_wf_roster_upload_outage_keyboard_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Roster download"
+text = "button \"Download roster file\" returns the latest accepted roster file exactly as it was uploaded, byte for byte."
+kind = "behavior"
+primary = "pytest"
+workflow = "roster-upload-outage"
+tests = [
+    "test_app.py::test_roster_download_byte_for_byte",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Tournament logo"
+text = "A PNG or JPEG logo is stored in MinIO under the published key and appears on the setup page, and on the public page once the tournament has left draft, only after MinIO confirms it."
+kind = "behavior"
+primary = "pytest"
+workflow = "roster-upload-outage"
+tests = [
+    "test_app.py::test_logo_stored_and_shown",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Storage outage and recovery"
+text = "While MinIO is unreachable, health reports it, uploads answer 503 with the published copy and add nothing, bracket play keeps working, and uploads work again when storage returns without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "roster-upload-outage"
+tests = [
+    "test_app.py::test_wf_roster_upload_outage_outage",
+    "test_app.py::test_storage_recovers_without_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Final placements"
+text = "A finished tournament ranks its field by the published placement rules and announces the winner."
+kind = "behavior"
+primary = "pytest"
+workflow = "final-ranking-history"
+tests = [
+    "test_app.py::test_final_placements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Tournament history"
+text = "Each linked player's /u/<username> page gains one row per finished tournament in the published format, written once and unchanged after reload and later edits elsewhere."
+kind = "behavior"
+primary = "workflow"
+workflow = "final-ranking-history"
+tests = [
+    "test_app.py::test_wf_final_ranking_history_row",
+    "test_app.py::test_wf_final_ranking_history_empty",
+    "test_app.py::test_wf_final_ranking_history_players_finish",
+    "test_app.py::test_wf_final_ranking_history_double_elim_places",
+    "test_app.py::test_wf_final_ranking_history_auto_confirm_finish",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Format chooser hero"
+text = "The landing page shows the published hero: a very large wordmark, the four format names stepping down in size, one procedural object per format in a coloured tile, its fact and one tangerine call to action."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Working-screen look"
+text = "Bracket, setup, standings and share screens use the published palette, Geist type, flat match-state fills with text status, square tangerine buttons and the hero-scale crop."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Services wired from configuration"
+text = "Every service address and credential is read from the environment, and every tournament, match, standing and file comes from Postgres and MinIO rather than browser state or fixed data."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\", and the app serves by running them in that order."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and the bundled Geist font, each with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font uses one of MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses only Postgres and MinIO for storage: no SQLite, Redis or other datastore, and no files written outside the system temp directory as storage."
+tests = [
+    "test_app.py::test_if_storage_only_postgres_minio",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The page loads nothing from another origin: no CDNs, remote fonts or remote icons."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "package-lock.json is committed and install uses npm ci."
+tests = [
+    "test_app.py::test_if_lockfile_npm_ci",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The provided dev service definitions and their credentials are left unchanged."
+tests = [
+    "test_app.py::test_if_services_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "The app registers no service worker."
+tests = [
+    "test_app.py::test_if_no_service_worker",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "seeding-keyboard-start"
+requirements = [
+    "DP-07",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_seeding_keyboard_start_keyboard",
+    "test_app.py::test_wf_seeding_keyboard_start_start",
+    "test_app.py::test_seed_typed_dragged_and_stale",
+    "test_app.py::test_wf_seeding_keyboard_start_six_byes",
+    "test_app.py::test_wf_seeding_keyboard_start_typed_seed",
+    "test_app.py::test_lifecycle_refusals",
+    "test_app.py::test_bracket_seed_placement",
+    "test_app.py::test_wf_seeding_keyboard_start_phone_start",
+]
+checkpoints = [
+    "B13",
+]
+
+[[workflows]]
+id = "bracket-keyboard-scoring"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_wf_bracket_keyboard_scoring_arrows",
+    "test_app.py::test_wf_bracket_keyboard_scoring_report",
+    "test_app.py::test_bracket_regions_tab_stops",
+    "test_app.py::test_card_names_every_state",
+    "test_app.py::test_wf_bracket_keyboard_scoring_organizer_keys",
+    "test_app.py::test_wf_bracket_keyboard_scoring_roving_tab",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "report-confirm-dispute"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_report_confirm_dispute_dispute",
+    "test_app.py::test_wf_report_confirm_dispute_confirm",
+    "test_app.py::test_wf_report_confirm_dispute_resolve",
+    "test_app.py::test_wf_report_confirm_dispute_keyboard_confirm",
+    "test_app.py::test_wf_report_confirm_dispute_reporter_details",
+    "test_app.py::test_who_may_report",
+    "test_app.py::test_wf_report_confirm_dispute_phone_touch",
+]
+
+[[workflows]]
+id = "coorganizer-conflict"
+requirements = [
+    "DP-08",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_coorganizer_conflict_stale_save",
+    "test_app.py::test_wf_coorganizer_conflict_double_resolve",
+    "test_app.py::test_one_resolution_per_dispute",
+    "test_app.py::test_wf_coorganizer_conflict_confirm_after_overwrite",
+    "test_app.py::test_wf_coorganizer_conflict_both_players_report",
+    "test_app.py::test_wf_coorganizer_conflict_add_co_organizer",
+    "test_app.py::test_co_organizer_powers",
+    "test_app.py::test_conflicting_reports_one_dispute",
+    "test_app.py::test_wf_coorganizer_conflict_race_focus",
+]
+
+[[workflows]]
+id = "shutter-trace-edit"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_shutter_trace_edit_commit",
+    "test_app.py::test_wf_shutter_trace_edit_cancel",
+    "test_app.py::test_shutter_trace_reduced_motion",
+    "test_app.py::test_resets_reach_every_screen",
+    "test_app.py::test_shutter_trace_motion",
+    "test_app.py::test_edit_preview_dependent_set",
+    "test_app.py::test_stale_preview_refused",
+]
+
+[[workflows]]
+id = "double-elimination-final"
+requirements = [
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_double_elimination_final_reset",
+    "test_app.py::test_wf_double_elimination_final_upper_wins",
+    "test_app.py::test_losers_bracket_mapping",
+    "test_app.py::test_wf_double_elimination_final_drop_live",
+    "test_app.py::test_wf_double_elimination_final_keyboard_reset",
+    "test_app.py::test_wf_double_elimination_final_bye_paths",
+]
+
+[[workflows]]
+id = "round-robin-standings"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_round_robin_standings_live",
+    "test_app.py::test_wf_round_robin_standings_draw",
+    "test_app.py::test_wf_round_robin_standings_phone_share",
+    "test_app.py::test_wf_round_robin_standings_keyboard_schedule",
+    "test_app.py::test_wf_round_robin_standings_head_to_head",
+    "test_app.py::test_round_robin_schedule",
+    "test_app.py::test_round_robin_standings_worked_example",
+]
+checkpoints = [
+    "B14",
+]
+
+[[workflows]]
+id = "swiss-round-two"
+requirements = [
+    "DP-21",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_swiss_round_two_pairing",
+    "test_app.py::test_wf_swiss_round_two_unfinished",
+    "test_app.py::test_overdue_flag",
+    "test_app.py::test_swiss_standings_worked_example",
+    "test_app.py::test_wf_swiss_round_two_keyboard_bye",
+    "test_app.py::test_swiss_bye",
+    "test_app.py::test_wf_swiss_round_two_keyboard_standings",
+]
+
+[[workflows]]
+id = "check-in-clock"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_check_in_clock_open",
+    "test_app.py::test_wf_check_in_clock_player_me",
+    "test_app.py::test_wf_check_in_clock_no_shows",
+    "test_app.py::test_checkin_closes_on_server_time",
+    "test_app.py::test_wf_check_in_clock_organizer_ticks",
+    "test_app.py::test_wf_check_in_clock_zone_and_player",
+]
+
+[[workflows]]
+id = "phone-bracket"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_phone_bracket_swipe",
+    "test_app.py::test_wf_phone_bracket_replace_link",
+    "test_app.py::test_breakpoints_layout",
+    "test_app.py::test_share_link_read_only",
+    "test_app.py::test_live_channel_seq_and_catch_up",
+    "test_app.py::test_wf_phone_bracket_tap_details",
+]
+checkpoints = [
+    "B16",
+]
+
+[[workflows]]
+id = "advance-motion-announce"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_advance_motion_announce_sentences",
+    "test_app.py::test_wf_advance_motion_announce_reduced",
+    "test_app.py::test_advance_motion",
+    "test_app.py::test_wf_advance_motion_announce_two_screens",
+    "test_app.py::test_wf_advance_motion_announce_share_and_me",
+    "test_app.py::test_wf_advance_motion_announce_resolve",
+]
+
+[[workflows]]
+id = "roster-upload-outage"
+requirements = [
+    "DP-02",
+    "DP-06",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_roster_upload_outage_happy",
+    "test_app.py::test_wf_roster_upload_outage_outage",
+    "test_app.py::test_roster_stored_byte_for_byte",
+    "test_app.py::test_roster_download_byte_for_byte",
+    "test_app.py::test_storage_recovers_without_restart",
+    "test_app.py::test_logo_stored_and_shown",
+    "test_app.py::test_wf_roster_upload_outage_keyboard_errors",
+    "test_app.py::test_accounts_signup_signin_signout",
+    "test_app.py::test_roster_format_refusals",
+]
+
+[[workflows]]
+id = "final-ranking-history"
+requirements = [
+    "DP-20",
+    "DP-56",
+    "DP-57",
+]
+critical = [
+    "test_app.py::test_wf_final_ranking_history_row",
+    "test_app.py::test_wf_final_ranking_history_empty",
+    "test_app.py::test_auto_confirm_on_server_time",
+    "test_app.py::test_final_placements",
+    "test_app.py::test_wf_final_ranking_history_players_finish",
+    "test_app.py::test_wf_final_ranking_history_double_elim_places",
+    "test_app.py::test_wf_final_ranking_history_auto_confirm_finish",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_health_and_served_files",
+    "test_app.py::test_error_shape_and_precedence",
+    "test_app.py::test_match_write_rate_limit",
+    "test_app.py::test_sign_in_errors_in_alert_band",
+    "test_app.py::test_grading_routes",
+    "test_app.py::test_grading_routes_absent_without_flag",
+    "test_app.py::test_config_limits_from_environment",
+    "test_app.py::test_timers_and_limits_follow_environment",
+]
+checkpoints = [
+    "B1",
+    "B5",
+    "B8",
+]

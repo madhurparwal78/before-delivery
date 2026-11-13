@@ -1,0 +1,1514 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 75
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "intake-lifecycle",
+    "queue-order",
+    "grouping-urgency",
+    "escalation-walk",
+    "policy-editor",
+    "final-timeline",
+    "overrides-gaps",
+    "oncall-cache",
+    "notifications",
+    "incident-list",
+    "incident-page",
+    "timers-reassign",
+    "merge-split",
+    "maintenance-windows",
+    "map-status",
+    "phone-journey",
+    "analytics-job",
+    "platform-access",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 83
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "rabbitmq", env = {} },
+    { name = "valkey", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Switchlamp <pager@tarecross.example>" } },
+    { name = "wiremock", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 5
+B12 = 3
+B13 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "valkey-down"
+port = 4174
+url_env = "APP_VALKEY_DOWN_URL"
+
+[outages.env]
+VALKEY_URL = "redis://127.0.0.1:9/0"
+DATABASE_URL = "${DATABASE_URL}_valkeyout"
+SWITCHLAMP_INSTANCE = "valkeyout"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+MAILPIT_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_mailout"
+SWITCHLAMP_INSTANCE = "mailout"
+
+[[outages]]
+id = "wiremock-down"
+port = 4176
+url_env = "APP_WIREMOCK_DOWN_URL"
+
+[outages.env]
+WIREMOCK_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_hookout"
+SWITCHLAMP_INSTANCE = "hookout"
+
+[[outages]]
+id = "restart-copy"
+port = 4177
+url_env = "APP_RESTART_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_restart"
+SWITCHLAMP_INSTANCE = "restart"
+
+[[outages]]
+id = "broker-down"
+port = 4178
+url_env = "APP_BROKER_DOWN_URL"
+
+[outages.env]
+AMQP_URL = "amqp://guest:guest@127.0.0.1:9/"
+DATABASE_URL = "${DATABASE_URL}_brokerout"
+SWITCHLAMP_INSTANCE = "brokerout"
+
+[[requirements]]
+id = "DP-01"
+title = "Accepted means confirmed."
+text = "Answer an intake event as accepted only after the broker has confirmed holding it, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake-lifecycle"
+tests = [
+    "test_app.py::test_wf_intake_lifecycle_accepted_only_after_confirm",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Intake refusals."
+text = "Refuse an invalid intake request with the exact status and body in API, and publish nothing for it."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake-lifecycle"
+tests = [
+    "test_app.py::test_intake_refusals",
+]
+criteria = []
+parameter_cases = [
+    "summary_and_severity",
+    "no_routing_key",
+    "bad_action",
+    "ack_without_key",
+    "long_key",
+    "long_summary",
+    "no_source",
+]
+
+[[requirements]]
+id = "DP-03"
+title = "Rate limit in the shared cache."
+text = "Limit each routing key by the Business rules window, counted in Valkey."
+kind = "behavior"
+primary = "pytest"
+workflow = "queue-order"
+tests = [
+    "test_app.py::test_rate_limit_window_in_valkey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "One effect per event in acceptance order."
+text = "Apply events for one dedup key in acceptance order whatever order or number of copies arrives, so a repeated copy never makes a second alert or timeline entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "queue-order"
+tests = [
+    "test_app.py::test_out_of_order_copies_apply_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "New alert after a resolve."
+text = "After a resolve, open a new alert for the same dedup key and never reopen the old one."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake-lifecycle"
+tests = [
+    "test_app.py::test_wf_intake_lifecycle_repeat_then_new_alert",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Alert grouping modes."
+text = "Group a service's new alerts by its grouping mode of none, a time window or until resolved, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "grouping-urgency"
+tests = [
+    "test_app.py::test_wf_grouping_urgency_modes_and_edges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Live integration page."
+text = "Show the counter, the Retry-After countdown and the event log changing in place within a second with no reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "queue-order"
+tests = [
+    "test_app.py::test_wf_queue_order_noisy_integration_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Exact event log reasons."
+text = "Show every dropped or refused event in the integration log with its exact published reason."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake-lifecycle"
+tests = [
+    "test_app.py::test_wf_intake_lifecycle_log_reasons_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Dead letters after retries."
+text = "Move a message that cannot be applied to the dead-letter queue after the published retries and list it with its exact reason."
+kind = "behavior"
+primary = "pytest"
+workflow = "queue-order"
+tests = [
+    "test_app.py::test_dead_letters_after_retries",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Replay applies once."
+text = "Apply a dead letter exactly once through Replay, with or without a correction, and remove it from the dead-letter queue."
+kind = "behavior"
+primary = "workflow"
+workflow = "queue-order"
+tests = [
+    "test_app.py::test_wf_queue_order_replay_with_correction",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Stable incident paging."
+text = "Page the incident list so no row repeats or goes missing under live arrivals while the total stays exact."
+kind = "behavior"
+primary = "pytest"
+workflow = "incident-list"
+tests = [
+    "test_app.py::test_wf_incident_list_paging_under_arrivals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Keyboard triage."
+text = "Triage the incident list with J, K, X, A and R alone, with the published focus after each action and focus returned to the opener of any closed dialog."
+kind = "behavior"
+primary = "pytest"
+workflow = "incident-list"
+tests = [
+    "test_app.py::test_wf_incident_list_keyboard_triage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Announced once in order."
+text = "Announce each decided event once, in order, in the polite status region present from first paint."
+kind = "behavior"
+primary = "pytest"
+workflow = "incident-list"
+tests = [
+    "test_app.py::test_wf_incident_list_announced_once_in_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Socket replay."
+text = "Replay what a page missed after a socket drop, with nothing applied or announced twice."
+kind = "behavior"
+primary = "pytest"
+workflow = "incident-page"
+tests = [
+    "test_app.py::test_wf_incident_page_socket_drop_replays",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Incident state machine."
+text = "Allow only the published incident transitions and reject every other one with its exact response."
+kind = "behavior"
+primary = "pytest"
+workflow = "timers-reassign"
+tests = [
+    "test_app.py::test_state_machine_rejections",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "First decision wins."
+text = "Let exactly one of several simultaneous requests that exclude each other succeed on an incident, and tell the others who made the decision."
+kind = "behavior"
+primary = "pytest"
+workflow = "incident-page"
+tests = [
+    "test_app.py::test_wf_incident_page_first_decision_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Snooze rules."
+text = "Snooze only an acknowledged incident, for a published preset or a custom time within the published limit, and end or cancel the snooze as Business rules state."
+kind = "behavior"
+primary = "pytest"
+workflow = "timers-reassign"
+tests = [
+    "test_app.py::test_wf_timers_reassign_snooze_rules",
+    "test_app.py::test_wf_timers_reassign_seen_live_on_tab_and_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Acknowledge timeout and auto-resolve."
+text = "Run the acknowledge timeout and auto-resolve timers as qualified in Business rules, with auto-resolve applying only to incidents opened after it was set."
+kind = "behavior"
+primary = "pytest"
+workflow = "timers-reassign"
+tests = [
+    "test_app.py::test_ack_timeout_and_auto_resolve",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Exact timer edges."
+text = "Decide every action at a timer's edge by the server clock alone under the single published edge rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "timers-reassign"
+tests = [
+    "test_app.py::test_wf_timers_reassign_edge_second",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Notes and server-kept drafts."
+text = "Keep each person's unfinished note on the server, and create exactly one note and one timeline entry from a double submit."
+kind = "behavior"
+primary = "pytest"
+workflow = "incident-page"
+tests = [
+    "test_app.py::test_wf_incident_page_note_draft_and_double_submit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Operator clock."
+text = "Provide the operator control that moves or holds the one server clock so every timer can be checked exactly."
+kind = "behavior"
+primary = "pytest"
+workflow = "escalation-walk"
+tests = [
+    "test_app.py::test_wf_escalation_walk_operator_clock_control",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Escalation policy limits."
+text = "Enforce the published timeout, target and repeat limits on escalation policies, and refuse a save over a newer version."
+kind = "behavior"
+primary = "pytest"
+workflow = "policy-editor"
+tests = [
+    "test_app.py::test_policy_limits",
+    "test_app.py::test_wf_policy_editor_stale_save_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Escalation run."
+text = "Move an incident through its levels and repeats at each exact timeout, skipping a level that has nobody on call."
+kind = "behavior"
+primary = "pytest"
+workflow = "escalation-walk"
+tests = [
+    "test_app.py::test_escalation_run_published_walk",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Opened-with policy."
+text = "Keep a running incident on the policy as it stood when opened while later incidents take an edit, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "policy-editor"
+tests = [
+    "test_app.py::test_wf_policy_editor_running_keeps_version",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Server-owned countdown."
+text = "Show the server's countdown value in every tab and after a reload, whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "escalation-walk"
+tests = [
+    "test_app.py::test_wf_escalation_walk_two_tabs_and_reload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Delayed notification steps."
+text = "Send each person's notification steps by mail at their exact delays, once each, while the incident still needs that person."
+kind = "behavior"
+primary = "workflow"
+workflow = "notifications"
+tests = [
+    "test_app.py::test_wf_notifications_delayed_mail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Handoff moves a page."
+text = "Move an unacknowledged incident to the new holder at the handoff second so no later step goes to someone who has handed off."
+kind = "behavior"
+primary = "pytest"
+workflow = "notifications"
+tests = [
+    "test_app.py::test_handoff_moves_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Quiet hours hold."
+text = "Hold a low-urgency notice through the holder's quiet hours and send it at their end in that person's own zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "notifications"
+tests = [
+    "test_app.py::test_quiet_hours_hold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Sent only after mail accepts."
+text = "Mark a step as sent only after the mail server accepted it, show unsent steps as queued, and send each once after mail returns with no restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "notifications"
+tests = [
+    "test_app.py::test_wf_notifications_mail_outage_and_return",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Signed acknowledge link."
+text = "Let the signed link in a mail acknowledge an incident once, and show the published page word for word when it is used, out of date or invalid."
+kind = "behavior"
+primary = "pytest"
+workflow = "notifications"
+tests = [
+    "test_app.py::test_wf_notifications_ack_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Merge and split."
+text = "Merge incidents so alerts move with their keys and later events land on the target, and let a moved alert be split off again."
+kind = "behavior"
+primary = "workflow"
+workflow = "merge-split"
+tests = [
+    "test_app.py::test_wf_merge_split_moved_keys",
+    "test_app.py::test_wf_merge_split_idempotent_and_race",
+    "test_app.py::test_wf_merge_split_keyboard_seen_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Reassign."
+text = "Reassign an incident to a person or a service with the published effects on its status, snooze, timers and policy."
+kind = "behavior"
+primary = "pytest"
+workflow = "timers-reassign"
+tests = [
+    "test_app.py::test_wf_timers_reassign_reassign_effects",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Analytics and download."
+text = "Measure time to acknowledge and resolve per service and team inside published business hours, with a download that matches the screen to the published precision."
+kind = "behavior"
+primary = "pytest"
+workflow = "analytics-job"
+tests = [
+    "test_app.py::test_wf_analytics_job_figures_and_download",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Handoff Cut by pointer."
+text = "Let a lead cut an override directly on the final schedule row with 15-minute snapping, a live split and a running result before release."
+kind = "behavior"
+primary = "pytest"
+workflow = "overrides-gaps"
+tests = [
+    "test_app.py::test_wf_overrides_gaps_cut_by_pointer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Handoff Cut by keyboard and form."
+text = "Provide the published keyboard path and override form with the same 15-minute step and the same result as the pointer."
+kind = "behavior"
+primary = "pytest"
+workflow = "overrides-gaps"
+tests = [
+    "test_app.py::test_wf_overrides_gaps_cut_by_keyboard_and_form",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Cut result and refusal."
+text = "Replace the preview with the server's result on every open screen within a second, or settle back and announce the reason when the overlap rule refuses the cut."
+kind = "behavior"
+primary = "workflow"
+workflow = "overrides-gaps"
+tests = [
+    "test_app.py::test_wf_overrides_gaps_refused_cut_on_two_screens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Final schedule."
+text = "Compute a final schedule that has exactly one person or a flagged gap at any moment, with the lowest layer first and overrides above all."
+kind = "behavior"
+primary = "pytest"
+workflow = "final-timeline"
+tests = [
+    "test_app.py::test_final_schedule_layers_overrides_gaps",
+    "test_app.py::test_wf_final_timeline_seed_week_to_scale",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Daylight saving rotation."
+text = "Keep each handoff at its local time across a daylight saving change, follow the published rule for missing and repeated times, and draw 23-hour and 25-hour days to one scale."
+kind = "behavior"
+primary = "pytest"
+workflow = "overrides-gaps"
+tests = [
+    "test_app.py::test_wf_overrides_gaps_clock_change_week",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Layer edits change only the future."
+text = "Apply a layer edit only from the moment it is saved, so past blocks and past assignments never move."
+kind = "behavior"
+primary = "pytest"
+workflow = "final-timeline"
+tests = [
+    "test_app.py::test_layer_edit_changes_only_the_future",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Who is on call."
+text = "Serve who-is-on-call with a cached copy and ETag, changing at the exact handoff second and cleared at once by any edit or override."
+kind = "behavior"
+primary = "pytest"
+workflow = "oncall-cache"
+tests = [
+    "test_app.py::test_wf_oncall_cache_handoff_second",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Personal calendar feed."
+text = "Give each person a shift feed by token that regenerating, revoking or expiry stops at once and that can never change anything."
+kind = "behavior"
+primary = "pytest"
+workflow = "oncall-cache"
+tests = [
+    "test_app.py::test_wf_oncall_cache_calendar_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Older schedule upgrade."
+text = "Upgrade older schedule records once on start without blocking reads."
+kind = "behavior"
+primary = "pytest"
+workflow = "platform-access"
+tests = [
+    "test_app.py::test_older_schedule_upgrade",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Public status page."
+text = "Show the firm's services, status words, maintenance banners and published updates to anyone without signing in, updating in place as Frontend states."
+kind = "behavior"
+primary = "pytest"
+workflow = "map-status"
+tests = [
+    "test_app.py::test_wf_map_status_public_page_updates_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "No responder detail in copies."
+text = "Keep responder notes, unpublished drafts and every other responder detail out of the status page, its cached copies, subscriber mail and webhook bodies."
+kind = "behavior"
+primary = "pytest"
+workflow = "map-status"
+tests = [
+    "test_app.py::test_wf_map_status_private_data_stays_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Publishing a status update."
+text = "Publish a draft once, clear the cached status at once, crossfade the plate and send each subscriber one templated mail."
+kind = "behavior"
+primary = "workflow"
+workflow = "incident-page"
+tests = [
+    "test_app.py::test_wf_incident_page_publish_while_notes_stay_private",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Slower state without Valkey."
+text = "Compute who-is-on-call and the status page from Postgres when Valkey is unreachable, show the published notice, and resume caching without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "oncall-cache"
+tests = [
+    "test_app.py::test_wf_oncall_cache_valkey_outage_and_return",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Service map and rollup."
+text = "Refuse and name a dependency cycle, and roll status up by the published worst-of rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "map-status"
+tests = [
+    "test_app.py::test_service_map_cycle_and_rollup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Maintenance windows."
+text = "Start and end maintenance windows and their banners at the exact server second, dropping trigger events inside them."
+kind = "behavior"
+primary = "pytest"
+workflow = "maintenance-windows"
+tests = [
+    "test_app.py::test_wf_maintenance_windows_banner_edges",
+    "test_app.py::test_wf_maintenance_windows_suppress_events",
+    "test_app.py::test_wf_maintenance_windows_edges_across_socket_drop",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Signed webhook posts."
+text = "Post subscribed incident events to the outside receiver with the published signature, timestamp, attempt number and event id."
+kind = "behavior"
+primary = "pytest"
+workflow = "platform-access"
+tests = [
+    "test_app.py::test_wf_platform_access_signed_webhook",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Backoff and attempt record."
+text = "Retry on the published backoff, stop on success, and show a delivery as delivered only on the receiver's own answer, with each attempt's status and body."
+kind = "behavior"
+primary = "pytest"
+workflow = "platform-access"
+tests = [
+    "test_app.py::test_wf_platform_access_backoff_and_attempts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Webhook Replay."
+text = "Replay a finished delivery under the same event id, proved by the receiver's record."
+kind = "behavior"
+primary = "workflow"
+workflow = "platform-access"
+tests = [
+    "test_app.py::test_wf_platform_access_webhook_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Sign-in and role rights."
+text = "Sign people in with the seeded accounts and enforce the published role rights on every page and endpoint."
+kind = "behavior"
+primary = "pytest"
+workflow = "platform-access"
+tests = [
+    "test_app.py::test_role_rights_matrix",
+    "test_app.py::test_wf_platform_access_sign_in_and_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Immediate role change."
+text = "Apply a role change or forced sign-out at once, so every open screen switches, closes its socket and receives no later data."
+kind = "behavior"
+primary = "pytest"
+workflow = "platform-access"
+tests = [
+    "test_app.py::test_wf_platform_access_role_change_and_sign_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "API keys."
+text = "Create, rotate and revoke API keys so a rotated key ends at its grace time on the server clock and a revoked key fails at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "platform-access"
+tests = [
+    "test_app.py::test_wf_platform_access_api_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Working from a phone."
+text = "Let a responder work the list and an incident at 375 px, covering acknowledge, resolve, snooze, reassign, a note and who is on call, with comfortable targets, no page overflow and a fixed action bar that never hides the focused field, with no overflow at the other published viewports."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone-journey"
+tests = [
+    "test_app.py::test_wf_phone_journey_list",
+    "test_app.py::test_wf_phone_journey_incident",
+    "test_app.py::test_wf_phone_journey_every_viewport",
+]
+criteria = [
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Run manifest and server boundary."
+text = "Serve from the published manifest and health path, keep credentials and source off the wire, and enforce the published origin and size limits."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Durable record and outage boot."
+text = "Keep every record through a restart, and start and recover without a restart when Valkey, mail or the receiver is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "platform-access"
+tests = [
+    "test_app.py::test_wf_platform_access_restart_keeps_records",
+    "test_app.py::test_wf_platform_access_receiver_outage_and_return",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Yard entry screens."
+text = "Open sign-in and the status page on the wordless freight yard plate above the giant name, as Visual design describes."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B13",
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Working screen language."
+text = "Carry the white working pages, the one enormous figure, the near-black incident field and the single tangerine tab through every signed-in screen, as Visual design describes."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Motion and reduced motion."
+text = "Limit motion to the published crossfade and Handoff Cut movements, and show each end state at once under reduced motion with the same function."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_motion_and_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Urgency follows the worst alert."
+text = "Raise an incident's urgency when a more severe alert joins it and notify by the published rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "grouping-urgency"
+tests = [
+    "test_app.py::test_wf_grouping_urgency_raise_notifies",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Policy editor by drag and keyboard."
+text = "Reorder escalation levels by drag and by keyboard with the same saved record, with focus and announcements as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "policy-editor"
+tests = [
+    "test_app.py::test_wf_policy_editor_drag_and_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Viewed zone and range in the address."
+text = "Keep the schedule's range and viewed zone in the address, and redraw every block and day band when the zone changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "final-timeline"
+tests = [
+    "test_app.py::test_wf_final_timeline_view_zone_in_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Refused removal lists what breaks."
+text = "Refuse to remove a person still needed by a future shift or a policy level, listing everything that would break."
+kind = "behavior"
+primary = "pytest"
+workflow = "overrides-gaps"
+tests = [
+    "test_app.py::test_refused_removal_lists_what_breaks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Notification rules per urgency."
+text = "Write an in-app notice at once and send mail at each person's own delays per urgency, with an acknowledge cancelling every pending step."
+kind = "behavior"
+primary = "pytest"
+workflow = "notifications"
+tests = [
+    "test_app.py::test_notification_rules_per_urgency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Saved filters in the address."
+text = "Keep incident filters in the address across reload and Back, and store each person's named filters on the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "incident-list"
+tests = [
+    "test_app.py::test_wf_incident_list_saved_filters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Each row's own bulk result."
+text = "Report each row's own result from a bulk action, naming who decided a row someone else just decided."
+kind = "behavior"
+primary = "pytest"
+workflow = "incident-list"
+tests = [
+    "test_app.py::test_bulk_results_report_each_row",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Home and End bring the row into view."
+text = "Move focus to the first and last row with Home and End, or the phone's published controls, with that row fully in view."
+kind = "behavior"
+primary = "pytest"
+workflow = "incident-list"
+tests = [
+    "test_app.py::test_home_end_bring_row_into_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Extra responders."
+text = "Let a person ask a colleague to join an incident, who can accept or decline once, with each answer on the timeline."
+kind = "behavior"
+primary = "pytest"
+workflow = "incident-page"
+tests = [
+    "test_app.py::test_wf_incident_page_extra_responders",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Service map by keyboard."
+text = "Move through the service map with the published arrow keys, keeping focus through live status changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "map-status"
+tests = [
+    "test_app.py::test_wf_map_status_tree_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Analytics job with live progress."
+text = "Compute measures as a job with live progress that survives a reload and a second tab, cached until an incident in range changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "analytics-job"
+tests = [
+    "test_app.py::test_wf_analytics_job_progress_survives_reload",
+    "test_app.py::test_wf_analytics_job_on_the_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "One socket, open before sending."
+text = "Open exactly one socket per page and send nothing until it is open."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_one_socket_open_before_sending",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "REST contract."
+text = "Answer record reads with ETags and 304, and lists with cursors, under the one published error order and per-route key scopes."
+kind = "behavior"
+primary = "pytest"
+workflow = "platform-access"
+tests = [
+    "test_app.py::test_rest_contract",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Nobody on the whole policy."
+text = "Open no incident when every level of the policy is empty, and log why in the integration's event log."
+kind = "behavior"
+primary = "pytest"
+workflow = "escalation-walk"
+tests = [
+    "test_app.py::test_nobody_on_whole_policy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Drill incidents."
+text = "Let an admin open a real incident on a service directly through the published drill route."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_drill_opens_real_incident",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with string `install`, `build`, `serve` and `\"_schema\":\"run-manifest-v1\"`."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at the repository root names every shipped package and bundled font with its licence; shipped packages means the Go modules the program imports plus the production dependency tree (`npm ls --omit=dev --all --json`) of any frontend."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font uses MIT, Apache-2.0, BSD, ISC, MPL-2.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The only datastores and brokers are the Postgres, RabbitMQ and Valkey named in this brief; no file, in-process or other store holds product records."
+tests = [
+    "test_app.py::test_if_only_named_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "`go.sum` is committed."
+tests = [
+    "test_app.py::test_if_go_sum_committed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "All plates come from one seeded procedural script run during `build`, and all fonts and images are bundled, with nothing fetched at runtime."
+tests = [
+    "test_app.py::test_if_assets_bundled_same_origin",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "No other on-call product's name, branding, layout or artwork appears in the product."
+tests = [
+    "test_app.py::test_if_no_other_product_named",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "intake-lifecycle"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-05",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_wf_intake_lifecycle_accepted_only_after_confirm",
+    "test_app.py::test_wf_intake_lifecycle_repeat_then_new_alert",
+    "test_app.py::test_wf_intake_lifecycle_log_reasons_live",
+]
+
+[[workflows]]
+id = "queue-order"
+requirements = [
+    "DP-03",
+    "DP-04",
+    "DP-07",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_queue_order_noisy_integration_page",
+    "test_app.py::test_wf_queue_order_replay_with_correction",
+    "test_app.py::test_rate_limit_window_in_valkey",
+    "test_app.py::test_out_of_order_copies_apply_once",
+    "test_app.py::test_dead_letters_after_retries",
+]
+
+[[workflows]]
+id = "grouping-urgency"
+requirements = [
+    "DP-06",
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_grouping_urgency_modes_and_edges",
+    "test_app.py::test_wf_grouping_urgency_raise_notifies",
+]
+
+[[workflows]]
+id = "escalation-walk"
+requirements = [
+    "DP-21",
+    "DP-23",
+    "DP-25",
+    "DP-74",
+]
+critical = [
+    "test_app.py::test_wf_escalation_walk_two_tabs_and_reload",
+    "test_app.py::test_wf_escalation_walk_operator_clock_control",
+    "test_app.py::test_escalation_run_published_walk",
+]
+
+[[workflows]]
+id = "policy-editor"
+requirements = [
+    "DP-22",
+    "DP-24",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_policy_editor_running_keeps_version",
+    "test_app.py::test_wf_policy_editor_drag_and_keyboard",
+    "test_app.py::test_wf_policy_editor_stale_save_refused",
+]
+
+[[workflows]]
+id = "final-timeline"
+requirements = [
+    "DP-37",
+    "DP-39",
+    "DP-63",
+]
+critical = [
+    "test_app.py::test_wf_final_timeline_seed_week_to_scale",
+    "test_app.py::test_wf_final_timeline_view_zone_in_address",
+    "test_app.py::test_layer_edit_changes_only_the_future",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "overrides-gaps"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-38",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_overrides_gaps_cut_by_pointer",
+    "test_app.py::test_wf_overrides_gaps_cut_by_keyboard_and_form",
+    "test_app.py::test_wf_overrides_gaps_refused_cut_on_two_screens",
+    "test_app.py::test_wf_overrides_gaps_clock_change_week",
+    "test_app.py::test_refused_removal_lists_what_breaks",
+]
+
+[[workflows]]
+id = "oncall-cache"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_oncall_cache_handoff_second",
+    "test_app.py::test_wf_oncall_cache_calendar_link",
+    "test_app.py::test_wf_oncall_cache_valkey_outage_and_return",
+]
+
+[[workflows]]
+id = "notifications"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_notifications_delayed_mail",
+    "test_app.py::test_wf_notifications_mail_outage_and_return",
+    "test_app.py::test_wf_notifications_ack_link",
+    "test_app.py::test_quiet_hours_hold",
+    "test_app.py::test_handoff_moves_page",
+    "test_app.py::test_notification_rules_per_urgency",
+]
+
+[[workflows]]
+id = "incident-list"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-66",
+    "DP-67",
+    "DP-68",
+]
+critical = [
+    "test_app.py::test_wf_incident_list_paging_under_arrivals",
+    "test_app.py::test_wf_incident_list_keyboard_triage",
+    "test_app.py::test_wf_incident_list_announced_once_in_order",
+    "test_app.py::test_wf_incident_list_saved_filters",
+    "test_app.py::test_bulk_results_report_each_row",
+    "test_app.py::test_home_end_bring_row_into_view",
+]
+checkpoints = [
+    "B5",
+    "B6",
+]
+
+[[workflows]]
+id = "incident-page"
+requirements = [
+    "DP-14",
+    "DP-16",
+    "DP-20",
+    "DP-45",
+    "DP-69",
+]
+critical = [
+    "test_app.py::test_wf_incident_page_first_decision_wins",
+    "test_app.py::test_wf_incident_page_socket_drop_replays",
+    "test_app.py::test_wf_incident_page_publish_while_notes_stay_private",
+    "test_app.py::test_wf_incident_page_note_draft_and_double_submit",
+    "test_app.py::test_wf_incident_page_extra_responders",
+]
+
+[[workflows]]
+id = "timers-reassign"
+requirements = [
+    "DP-15",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_timers_reassign_snooze_rules",
+    "test_app.py::test_wf_timers_reassign_edge_second",
+    "test_app.py::test_wf_timers_reassign_reassign_effects",
+    "test_app.py::test_wf_timers_reassign_seen_live_on_tab_and_phone",
+]
+
+[[workflows]]
+id = "merge-split"
+requirements = [
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_merge_split_moved_keys",
+    "test_app.py::test_wf_merge_split_idempotent_and_race",
+    "test_app.py::test_wf_merge_split_keyboard_seen_live",
+]
+
+[[workflows]]
+id = "maintenance-windows"
+requirements = [
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_maintenance_windows_banner_edges",
+    "test_app.py::test_wf_maintenance_windows_suppress_events",
+    "test_app.py::test_wf_maintenance_windows_edges_across_socket_drop",
+]
+
+[[workflows]]
+id = "map-status"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-47",
+    "DP-70",
+]
+critical = [
+    "test_app.py::test_wf_map_status_public_page_updates_in_place",
+    "test_app.py::test_wf_map_status_private_data_stays_out",
+    "test_app.py::test_wf_map_status_tree_keyboard",
+]
+
+[[workflows]]
+id = "phone-journey"
+requirements = [
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_phone_journey_list",
+    "test_app.py::test_wf_phone_journey_incident",
+    "test_app.py::test_wf_phone_journey_every_viewport",
+]
+checkpoints = [
+    "B11",
+    "B12",
+]
+critical_checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "analytics-job"
+requirements = [
+    "DP-33",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_wf_analytics_job_figures_and_download",
+    "test_app.py::test_wf_analytics_job_progress_survives_reload",
+    "test_app.py::test_wf_analytics_job_on_the_phone",
+]
+
+[[workflows]]
+id = "platform-access"
+requirements = [
+    "DP-42",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-57",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_platform_access_signed_webhook",
+    "test_app.py::test_wf_platform_access_role_change_and_sign_out",
+    "test_app.py::test_wf_platform_access_restart_keeps_records",
+    "test_app.py::test_rest_contract",
+    "test_app.py::test_wf_platform_access_webhook_replay",
+    "test_app.py::test_wf_platform_access_api_keys",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-56",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-72",
+    "DP-75",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_server_boundary",
+    "test_app.py::test_wf_cross_cutting_one_socket_open_before_sending",
+    "test_app.py::test_wf_cross_cutting_motion_and_reduced_motion",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B13",
+]

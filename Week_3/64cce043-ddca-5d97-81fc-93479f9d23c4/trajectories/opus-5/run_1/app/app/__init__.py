@@ -1,0 +1,1 @@
+"""Strongroom Ledger."""

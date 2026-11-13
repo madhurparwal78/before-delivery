@@ -1,0 +1,1 @@
+export { renderTrash } from "./screens";

@@ -1,0 +1,1242 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "signin",
+    "search-browse",
+    "product-page",
+    "compare-offers",
+    "cart",
+    "checkout",
+    "orders-returns",
+    "sharing",
+    "seller-listings",
+    "seller-fulfilment",
+    "support",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 90
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "killbill", env = {} },
+    { name = "meilisearch", env = {} },
+    { name = "wiremock", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 3
+Q4 = 5
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "meilisearch-down"
+port = 4175
+url_env = "APP_MEILISEARCH_DOWN_URL"
+
+[outages.env]
+MEILISEARCH_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "killbill-down"
+port = 4176
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "wiremock-down"
+port = 4177
+url_env = "APP_WIREMOCK_DOWN_URL"
+
+[outages.env]
+WIREMOCK_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-timer"
+port = 4178
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+OTP_TTL_SECONDS = "10"
+CODE_WINDOW_SECONDS = "30"
+CODE_RESEND_SECONDS = "5"
+ACCESS_TTL_SECONDS = "5"
+UPI_EXPIRY_SECONDS = "10"
+SHARE_TTL_SECONDS = "10"
+RATE_WINDOW_SECONDS = "10"
+SEARCH_INDEX = "listings_short"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Sign-up and sign-in by password and SMS code"
+text = "Shoppers and sellers sign up and sign in with a password followed by a 6-digit SMS code sent through the SMS gateway, and the session is full only after the code, as qualified in Business rules and Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "signin"
+tests = [
+    "test_app.py::test_dp01_signup_and_signin_by_sms_code",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Half-signed-in sessions reach nothing"
+text = "After the password step and before the code, every page and API other than the code step answers as signed out, no session cookie exists, and the session id changes when the code passes."
+kind = "behavior"
+primary = "pytest"
+workflow = "signin"
+tests = [
+    "test_app.py::test_dp02_half_signed_in_reaches_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Same reply for every account probe"
+text = "Sign-up, sign-in, code and forgot-password requests return the same status and body whether or not the email or phone belongs to an account."
+kind = "behavior"
+primary = "pytest"
+workflow = "signin"
+tests = [
+    "test_app.py::test_dp03_same_reply_for_every_probe",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Code tries, sends and expiry"
+text = "A code is accepted only before its server-decided expiry and within 5 tries, at most 3 send requests per identifier are accepted per code window whether or not an account exists, and the resend countdown keeps counting through dialogs, tab switches and rerenders."
+kind = "behavior"
+primary = "pytest"
+workflow = "signin"
+tests = [
+    "test_app.py::test_dp04_code_tries_sends_and_expiry",
+    "test_app.py::test_wf_signin_resend_countdown",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Password change ends other sessions"
+text = "Changing or resetting a password ends every other session of that account, shopper or seller, so their next request answers 401."
+kind = "behavior"
+primary = "pytest"
+workflow = "signin"
+tests = [
+    "test_app.py::test_dp05_password_change_ends_other_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Cross-site requests refused"
+text = "State-changing API requests carrying a foreign Origin are refused with 403, no foreign Origin is ever echoed with credentials, and session cookies are HttpOnly with SameSite=Lax."
+kind = "behavior"
+primary = "pytest"
+workflow = "signin"
+tests = [
+    "test_app.py::test_dp06_cross_site_requests_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Sign-in returns to the starting page"
+text = "A shopper who signs in from the cart, a product page or the compare view lands back on that exact address, and a seller or support agent lands on their published home."
+kind = "behavior"
+primary = "workflow"
+workflow = "signin"
+tests = [
+    "test_app.py::test_wf_signin_return_to_compare",
+    "test_app.py::test_wf_signin_staff_home",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Faceted search"
+text = "Search finds live listings with typo tolerance and filters them by category, brand, price, rating, seller and delivery pincode, with facet counts."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-browse"
+tests = [
+    "test_app.py::test_dp08_faceted_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Stable capped pages"
+text = "Search results and order history page by an opaque cursor with at most 24 rows per page, never repeating or skipping rows while listings or orders are added, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-browse"
+tests = [
+    "test_app.py::test_dp09_stable_capped_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Search lives in the URL"
+text = "The search page's query, filters, pincode and sort live in the address bar, so reload, back, forward and a copied link restore the same results."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-browse"
+tests = [
+    "test_app.py::test_dp10_search_lives_in_the_url",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Pincode check and delivery promise"
+text = "The pincode check reports serviceability, cash-on-delivery availability and a per-seller delivery promise computed by the server, and is limited with 429 and Retry-After for bursts."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-browse"
+tests = [
+    "test_app.py::test_dp11_pincode_check_and_promise",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Search survives an index outage"
+text = "When the search index is unreachable, search answers from a plain title match under the published banner, and listings stay saveable."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-browse"
+tests = [
+    "test_app.py::test_dp12_search_survives_index_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Layout at published breakpoints"
+text = "At 375, 768 and 1280 wide viewports the facets rail, cart strip and shipment cards take their published layouts, with no horizontal scrolling."
+kind = "visual"
+primary = "pytest"
+workflow = "search-browse"
+tests = [
+    "test_app.py::test_dp13_layout_at_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "desktop",
+]
+
+[[requirements]]
+id = "DP-14"
+title = "Search and filter journey"
+text = "A shopper searches with a typo, narrows by facets and pincode, loads more results and opens a product from a card."
+kind = "behavior"
+primary = "workflow"
+workflow = "search-browse"
+tests = [
+    "test_app.py::test_wf_search_browse_typo_facets_open",
+    "test_app.py::test_wf_search_browse_messages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Product page journey"
+text = "A shopper opens a product, changes the pincode and sees the promise update in place, adds it to the wishlist and the cart, and signs in from the product page when needed."
+kind = "behavior"
+primary = "workflow"
+workflow = "product-page"
+tests = [
+    "test_app.py::test_wf_product_page_pincode_wishlist_cart",
+    "test_app.py::test_wf_product_page_signin_return",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Product image ripple and 3D viewer"
+text = "Product images ripple under the pointer, falling back to a still scale, and the product page shows a turning 3D model that orbits on drag, with a still render when WebGL is missing."
+kind = "visual"
+primary = "pytest"
+workflow = "product-page"
+tests = [
+    "test_app.py::test_dp16_ripple_and_3d_viewer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Touch and reduced motion"
+text = "On touch devices targets are at least 44 px with no custom cursor and no hover-only action, and with reduced motion every effect shows its published still state."
+kind = "visual"
+primary = "pytest"
+workflow = "product-page"
+tests = [
+    "test_app.py::test_dp17_touch_and_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Compare up to four products"
+text = "Shoppers compare 2 to 4 products of one category in a table with a highlight-differences toggle, and the compare endpoint rejects more."
+kind = "behavior"
+primary = "pytest"
+workflow = "compare-offers"
+tests = [
+    "test_app.py::test_dp18_compare_up_to_four",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Seller offers ranked by landed price"
+text = "Every seller offer for a product is ranked by landed price, then delivery promise, then seller rating, with at most 10 offers per request and the published featured-offer rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "compare-offers"
+tests = [
+    "test_app.py::test_dp19_offers_ranked_by_landed_price",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "EMI tenures compared"
+text = "EMI plans for 3, 6, 9 and 12 months show monthly instalment, total interest and total payable in whole paise, and no-cost tenures give the interest back as an upfront discount."
+kind = "behavior"
+primary = "pytest"
+workflow = "compare-offers"
+tests = [
+    "test_app.py::test_dp20_emi_tenures",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Compare journey"
+text = "A shopper picks products to compare, toggles highlighting, copies the link, opens the offers table, picks an offer and compares EMI tenures."
+kind = "behavior"
+primary = "workflow"
+workflow = "compare-offers"
+tests = [
+    "test_app.py::test_wf_compare_offers_journey",
+    "test_app.py::test_wf_compare_offers_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Cart limits and line options"
+text = "The cart holds up to 10 lines of up to 10 units, supports select, save for later, wishlist moves, gift wrap with message and per-seller delivery speed, and rejects client-sent prices, discounts or fees."
+kind = "behavior"
+primary = "pytest"
+workflow = "cart"
+tests = [
+    "test_app.py::test_dp22_cart_limits_and_line_options",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Line tax split and coupon allocation"
+text = "Every cart line shows its GST-inclusive total split into taxable value and CGST plus SGST or IGST, and a coupon is spread across selected lines in whole paise that add up exactly."
+kind = "behavior"
+primary = "pytest"
+workflow = "cart"
+tests = [
+    "test_app.py::test_dp23_tax_split_and_coupon_allocation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Guest cart merge line by line"
+text = "After full sign-in the guest cart merges into the account cart by summing quantities within the limits, and the shopper sees each line's merge outcome."
+kind = "behavior"
+primary = "pytest"
+workflow = "cart"
+tests = [
+    "test_app.py::test_dp24_guest_cart_merge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Live totals and announcements"
+text = "Changing quantity, coupon, pincode, speed or payment method updates the payable total, per-seller promises and cash-on-delivery eligibility in place from the server's quote and announces them in the cart live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "cart"
+tests = [
+    "test_app.py::test_dp25_live_totals_and_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Deal price decided by the server"
+text = "A deal price applies only while the server's clock is before the deal end, and the cart's deal countdown follows server time and keeps counting through rerenders."
+kind = "behavior"
+primary = "pytest"
+workflow = "cart"
+tests = [
+    "test_app.py::test_dp26_deal_price_by_server_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Cart journey"
+text = "A shopper fills a three-seller cart, applies a coupon, adds gift wrap, picks one-day delivery, saves a line for later and sees the totals settle."
+kind = "behavior"
+primary = "workflow"
+workflow = "cart"
+tests = [
+    "test_app.py::test_wf_cart_three_seller_journey",
+    "test_app.py::test_wf_cart_guest_merge_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "One order per Idempotency-Key"
+text = "Repeating or racing a checkout with the same Idempotency-Key returns the original order and makes one charge, and a different body under the same key answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_dp28_one_order_per_idempotency_key",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Last unit goes to one shopper"
+text = "When concurrent checkouts compete for a listing's last units, exactly as many succeed as there are units, stock never goes below zero, and the others get the published sold-out response without a charge."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_dp29_last_unit_goes_to_one_shopper",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Prepaid checkout is all or nothing"
+text = "A prepaid checkout either creates the order with its Kill Bill payment records or moves no money, and it refuses with 503 when Kill Bill is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_dp30_prepaid_checkout_all_or_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "UPI, card, net banking and EMI payments"
+text = "UPI and net banking stay pending until the provider confirms and expire after the published time, cards store only the last four digits and the network, and card EMI follows the published tenures."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_dp31_payment_methods",
+]
+criteria = []
+parameter_cases = [
+    "upi",
+    "upi_expiry",
+    "netbanking",
+    "card",
+    "emi",
+]
+
+[[requirements]]
+id = "DP-32"
+title = "Balance split and refund order"
+text = "Chauraha balance is applied first with the rest on one other method, and refunds go back to the other method first and the balance last, in whole paise."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_dp32_balance_split_and_refund_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Cash on delivery rules"
+text = "Cash on delivery is offered only within the published cap, fee, seller, pincode and open-order rules, a refusal shows the published reason, and COD refunds credit the Chauraha balance."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_dp33_cash_on_delivery_rules",
+]
+criteria = []
+parameter_cases = [
+    "cod_seller",
+    "cod_pincode",
+    "cod_open_orders",
+    "cod_over_cap",
+    "cod_refund_to_balance",
+]
+
+[[requirements]]
+id = "DP-34"
+title = "Expired session resumes checkout"
+text = "When a shopper's access expires on the payment step, the browser refreshes once and replays the request, and when sign-in is needed the shopper comes back to the same step with cart, address and payment method intact."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_dp34_expired_session_resumes_checkout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Checkout by keyboard alone"
+text = "Search, filters, cart, address, payment choice and return request work by keyboard alone, with focus moved to each new step's heading and kept inside open dialogs."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_dp35_checkout_by_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Published copy verbatim"
+text = "Sold-out, non-serviceable, cash-on-delivery refusal, storage outage, empty-cart and every other published message renders character for character in its published place."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_dp36_published_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Checkout journey"
+text = "A shopper checks out a multi-seller cart, chooses an address and a payment method, pays and lands on the published confirmation route."
+kind = "behavior"
+primary = "workflow"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_wf_checkout_multi_seller_card",
+    "test_app.py::test_wf_checkout_upi_waiting",
+    "test_app.py::test_wf_checkout_payments_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Own orders only"
+text = "Shoppers reach only their own orders, shipments, invoices and returns, and sellers reach only shipments of their own listings, with 404 for anyone else's."
+kind = "behavior"
+primary = "pytest"
+workflow = "orders-returns"
+tests = [
+    "test_app.py::test_dp38_own_orders_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Returns with prorated refunds"
+text = "Returns follow the server's eligibility window, and refunding a line returns its prorated share of coupon and tax, never more than was paid in total."
+kind = "behavior"
+primary = "pytest"
+workflow = "orders-returns"
+tests = [
+    "test_app.py::test_dp39_returns_prorated_refunds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Invoice and label documents"
+text = "Each shipment's customer invoice and packing label PDFs are stored once in object storage with only their published fields, and show a pending state while storage is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "orders-returns"
+tests = [
+    "test_app.py::test_dp40_invoice_and_label_documents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Orders and returns journey"
+text = "A shopper opens order history, follows a shipment, downloads its invoice, requests a return of one unit and sees the exact refund."
+kind = "behavior"
+primary = "workflow"
+workflow = "orders-returns"
+tests = [
+    "test_app.py::test_wf_orders_returns_journey",
+    "test_app.py::test_wf_orders_returns_foreign_order",
+    "test_app.py::test_wf_orders_returns_history_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Share links"
+text = "Wishlist and cart share links show only the published fields, work without sign-in, are read-only, expire, die at once when regenerated or turned off, and answer bursts with 429."
+kind = "behavior"
+primary = "pytest"
+workflow = "sharing"
+tests = [
+    "test_app.py::test_dp42_share_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Guest viewer journey"
+text = "A guest viewer opens a shared wishlist link, sees the items under the owner's chosen name and adds one to their own cart."
+kind = "behavior"
+primary = "workflow"
+workflow = "sharing"
+tests = [
+    "test_app.py::test_wf_sharing_guest_viewer",
+    "test_app.py::test_wf_sharing_regenerated_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Listing quota and text limits"
+text = "Sellers keep at most 200 live listings, and titles, descriptions and notes stay within published character limits shown by counters and enforced with exact messages."
+kind = "behavior"
+primary = "pytest"
+workflow = "seller-listings"
+tests = [
+    "test_app.py::test_dp44_listing_quota_and_text_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Photo and certificate uploads"
+text = "Listing photos and the GST certificate are accepted only within published type, byte and count limits, judged by file content."
+kind = "behavior"
+primary = "pytest"
+workflow = "seller-listings"
+tests = [
+    "test_app.py::test_dp45_photo_and_certificate_uploads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Listing fields sellers cannot set"
+text = "Listing saves reject the commission rate, the featured-offer flag, the seller and other sellers' stock."
+kind = "behavior"
+primary = "pytest"
+workflow = "seller-listings"
+tests = [
+    "test_app.py::test_dp46_listing_fields_sellers_cannot_set",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Seller views count only own listings"
+text = "A seller's listing search, category facets, low-stock board and statement totals count only that seller's listings and never show rivals' stock or cost."
+kind = "behavior"
+primary = "pytest"
+workflow = "seller-listings"
+tests = [
+    "test_app.py::test_dp47_seller_views_count_only_own",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Listing and stock journey"
+text = "A seller creates a listing, uploads photos, sets stock from the low-stock board and hears each save announced."
+kind = "behavior"
+primary = "workflow"
+workflow = "seller-listings"
+tests = [
+    "test_app.py::test_wf_seller_listings_journey",
+    "test_app.py::test_wf_seller_listings_bad_photo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Shipment lifecycle"
+text = "Shipments move from placed to packed, shipped and delivered, with cancel before shipping and returns after delivery, and every illegal move answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "seller-fulfilment"
+tests = [
+    "test_app.py::test_dp49_shipment_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Statuses only after provider confirms"
+text = "A seller sees a shipment as paid, refunded or invoice-ready only after Kill Bill or object storage confirms it, and as pending until then."
+kind = "behavior"
+primary = "pytest"
+workflow = "seller-fulfilment"
+tests = [
+    "test_app.py::test_dp50_statuses_after_provider_confirms",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Settlement statement arithmetic"
+text = "Each settlement line deducts commission, 18% GST on commission, 0.5% TCS and 0.1% TDS in whole paise, and the statement totals are the sum of the lines."
+kind = "behavior"
+primary = "pytest"
+workflow = "seller-fulfilment"
+tests = [
+    "test_app.py::test_dp51_settlement_arithmetic",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Fulfilment and statement journey"
+text = "A seller packs, prints the label, ships and delivers a shipment, answers a return and watches the statement roll from gross to net."
+kind = "behavior"
+primary = "workflow"
+workflow = "seller-fulfilment"
+tests = [
+    "test_app.py::test_wf_seller_fulfilment_journey",
+    "test_app.py::test_wf_seller_fulfilment_payment_pending",
+    "test_app.py::test_wf_seller_fulfilment_isolation",
+    "test_app.py::test_wf_seller_fulfilment_documents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Actions refused by role"
+text = "Lower roles calling refund, payout, support or seller endpoints get 403 from the server, whatever the interface shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "support"
+tests = [
+    "test_app.py::test_dp53_actions_refused_by_role",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Support order lookup"
+text = "A support agent looks up one order across its shipments, sees the shopper and seller views side by side, refunds a line and reopens a declined return, without seeing card numbers, cost prices or payout details."
+kind = "behavior"
+primary = "pytest"
+workflow = "support"
+tests = [
+    "test_app.py::test_dp54_support_order_lookup",
+    "test_app.py::test_wf_support_lookup_desktop",
+    "test_app.py::test_wf_support_lookup_tablet_tabs",
+    "test_app.py::test_wf_support_unknown_ids",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from /app/run.json on port 4173 and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp55_manifest_and_health",
+    "test_app.py::test_wf_cross_cutting_outage_boot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Credentials from environment and real providers"
+text = "Every service credential comes from the environment, and every payment, document and search effect goes through the real provider."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Rupee Reel"
+text = "The payable total and the settlement statement roll digit by digit to the server's value, with sliding parcel strips and the cash-on-delivery bar, and swap instantly under reduced motion."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp57_rupee_reel",
+    "test_app.py::test_wf_cross_cutting_statement_reel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Home and deals effects"
+text = "The home page shows the particle wordmark, the scroll-scrubbed tiffin, layered parallax, the pinned horizontal deals rail and kinetic deal type, each with published timings and fallbacks."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp58_home_and_deals_effects",
+    "test_app.py::test_dp58_wordmark_and_tiffin_scrub",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Pointer feedback, morphs and page transitions"
+text = "The magnetic cursor, cart and heart morphs, falling cart chips, order-placed burst, noise backdrop and card-to-page transitions behave as published and never block input."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dp59_pointer_morphs_and_transitions",
+    "test_app.py::test_dp59_noise_backdrop_and_cart_morph",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Loud flat poster look"
+text = "Every screen is a stack of flat ultramarine, black, yellow and pink panels in lowercase heavy type, with the bill's tax and deduction lines at poster volume and readable at 375 px."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\", and nothing else is needed to install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package with its licence, plus the Darker Grotesque and Lexend fonts and the Lucide icons; shipped packages means the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the production dependency tree from npm ls --omit=dev --all --json) uses MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, CC0-1.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in Postgres, MinIO, Kill Bill and Meilisearch, with no SQLite, no file-backed database and no other datastore."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and seeded provider settings are left untouched."
+tests = [
+    "test_app.py::test_if_provider_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "All application source is TypeScript, and the only JavaScript files are build output and tool configuration."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Fonts, icons, models and animation files are bundled with the app, and no page loads anything from a third-party origin."
+tests = [
+    "test_app.py::test_if_no_third_party_origins",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "signin"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+]
+critical = [
+    "test_app.py::test_wf_signin_return_to_compare",
+    "test_app.py::test_wf_signin_resend_countdown",
+    "test_app.py::test_dp02_half_signed_in_reaches_nothing",
+    "test_app.py::test_dp03_same_reply_for_every_probe",
+    "test_app.py::test_dp04_code_tries_sends_and_expiry",
+    "test_app.py::test_dp05_password_change_ends_other_sessions",
+    "test_app.py::test_dp06_cross_site_requests_refused",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "search-browse"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_search_browse_typo_facets_open",
+    "test_app.py::test_wf_search_browse_messages",
+    "test_app.py::test_dp09_stable_capped_pages",
+    "test_app.py::test_dp10_search_lives_in_the_url",
+    "test_app.py::test_dp11_pincode_check_and_promise",
+    "test_app.py::test_dp13_layout_at_breakpoints",
+]
+checkpoints = [
+    "B6",
+    "B7",
+]
+
+[[workflows]]
+id = "product-page"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_product_page_pincode_wishlist_cart",
+    "test_app.py::test_wf_product_page_signin_return",
+    "test_app.py::test_dp17_touch_and_reduced_motion",
+]
+checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "compare-offers"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_compare_offers_journey",
+    "test_app.py::test_dp18_compare_up_to_four",
+]
+
+[[workflows]]
+id = "cart"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_cart_three_seller_journey",
+    "test_app.py::test_dp22_cart_limits_and_line_options",
+    "test_app.py::test_dp23_tax_split_and_coupon_allocation",
+    "test_app.py::test_dp25_live_totals_and_announcements",
+    "test_app.py::test_dp26_deal_price_by_server_clock",
+]
+
+[[workflows]]
+id = "checkout"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_checkout_multi_seller_card",
+    "test_app.py::test_dp28_one_order_per_idempotency_key",
+    "test_app.py::test_dp29_last_unit_goes_to_one_shopper",
+    "test_app.py::test_dp30_prepaid_checkout_all_or_nothing",
+    "test_app.py::test_dp32_balance_split_and_refund_order",
+    "test_app.py::test_dp34_expired_session_resumes_checkout",
+    "test_app.py::test_dp35_checkout_by_keyboard",
+    "test_app.py::test_dp36_published_copy",
+]
+
+[[workflows]]
+id = "orders-returns"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_orders_returns_journey",
+    "test_app.py::test_wf_orders_returns_history_paging",
+    "test_app.py::test_dp38_own_orders_only",
+    "test_app.py::test_dp39_returns_prorated_refunds",
+    "test_app.py::test_dp40_invoice_and_label_documents",
+]
+
+[[workflows]]
+id = "sharing"
+requirements = [
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_sharing_guest_viewer",
+    "test_app.py::test_dp42_share_links",
+]
+
+[[workflows]]
+id = "seller-listings"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_seller_listings_journey",
+    "test_app.py::test_dp44_listing_quota_and_text_limits",
+    "test_app.py::test_dp45_photo_and_certificate_uploads",
+    "test_app.py::test_dp46_listing_fields_sellers_cannot_set",
+    "test_app.py::test_dp47_seller_views_count_only_own",
+]
+
+[[workflows]]
+id = "seller-fulfilment"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_seller_fulfilment_journey",
+    "test_app.py::test_wf_seller_fulfilment_isolation",
+    "test_app.py::test_wf_seller_fulfilment_documents",
+    "test_app.py::test_dp50_statuses_after_provider_confirms",
+    "test_app.py::test_dp51_settlement_arithmetic",
+]
+
+[[workflows]]
+id = "support"
+requirements = [
+    "DP-53",
+    "DP-54",
+]
+critical = [
+    "test_app.py::test_wf_support_lookup_desktop",
+    "test_app.py::test_wf_support_unknown_ids",
+    "test_app.py::test_dp53_actions_refused_by_role",
+    "test_app.py::test_dp54_support_order_lookup",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_dp55_manifest_and_health",
+    "test_app.py::test_wf_cross_cutting_outage_boot",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B4",
+]

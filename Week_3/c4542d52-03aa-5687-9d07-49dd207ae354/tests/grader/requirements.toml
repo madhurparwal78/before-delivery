@@ -1,0 +1,1641 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 84
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "portal-vesting",
+    "grant-board",
+    "grant-offer",
+    "exercise",
+    "leaver-window",
+    "tender",
+    "cap-table",
+    "round-scenario",
+    "valuations",
+    "access",
+    "live-sync",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 82
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "wiremock", env = {} },
+]
+
+[criterion_weights]
+B1 = 3
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 5
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "provider-down"
+port = 4174
+url_env = "APP_PROVIDER_DOWN_URL"
+
+[outages.env]
+WIREMOCK_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_provider_down"
+S3_BUCKET = "${S3_BUCKET}-provider-down"
+
+[[outages]]
+id = "vault-down"
+port = 4175
+url_env = "APP_VAULT_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_vault_down"
+
+[[outages]]
+id = "short-windows"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+OFFER_WINDOW_SECONDS = "20"
+LEAVER_WINDOW_SECONDS = "90"
+OFFER_WARNING_SECONDS = "10"
+LEAVER_WARNINGS_SECONDS = "60,30"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Sign-in and holder portal"
+text = "A seeded option holder signs in with email and password and lands on the two-by-two portal board, which shows their first name, their vested-today count out of total options and their next tranche date, all from the server."
+kind = "behavior"
+primary = "workflow"
+workflow = "portal-vesting"
+tests = [
+    "test_app.py::test_wf_portal_vesting_board",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Vesting schedule on the server date"
+text = "Accepted grants vest in whole options by the published floor rule (a one-year cliff then monthly, or monthly with no cliff), counted on Tidecraft's server date in Pacific time."
+kind = "behavior"
+primary = "pytest"
+workflow = "portal-vesting"
+tests = [
+    "test_app.py::test_vesting_floor_rule",
+]
+criteria = []
+parameter_cases = [
+    "standard_before_cliff",
+    "standard_after_cliff",
+    "monthly_no_cliff",
+]
+
+[[requirements]]
+id = "DP-03"
+title = "Month-end tranche dates"
+text = "A vesting start on the 29th, 30th or 31st vests on the last day of each shorter month, and every tranche date in the API and on the ribbon follows this rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "portal-vesting"
+tests = [
+    "test_app.py::test_month_end_tranche_dates",
+]
+criteria = []
+parameter_cases = [
+    "start_31st_seed",
+    "start_30th",
+    "start_29th",
+]
+
+[[requirements]]
+id = "DP-04"
+title = "Tranche ribbon"
+text = "The grant page draws the whole ribbon on first load: one cliff cell spanning 12 months, then one cell per monthly tranche, each labelled with its true date, with server-vested cells filled red. A tranche that vests while the page is open fills without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "portal-vesting"
+tests = [
+    "test_app.py::test_wf_portal_vesting_ribbon",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Projection marker"
+text = "A slider moves month by month with the arrow keys, Page Up and Page Down, Home and End. It announces the marker date and shows the server's vested count, cost at strike and vested ownership for that month, while the server's today stays marked."
+kind = "behavior"
+primary = "pytest"
+workflow = "portal-vesting"
+tests = [
+    "test_app.py::test_wf_portal_vesting_marker",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Device clock never decides"
+text = "With the browser clock or time zone set days away from the server's, every vested count, tranche state, offer status and countdown on screen equals what the API returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "portal-vesting"
+tests = [
+    "test_app.py::test_wf_portal_vesting_device_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Grant issue journey"
+text = "The founder admin drafts a grant from the keyboard (holder, options, strike, vesting type radio group, typed start date) and submits it to the board. Two board members approve it, and the founder admin sends the offer."
+kind = "behavior"
+primary = "workflow"
+workflow = "grant-board"
+tests = [
+    "test_app.py::test_wf_grant_board_issue_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Grant validation"
+text = "Submitting a grant requires a whole positive number of options within the available pool, a strike at or above the current fair market value and a valid typed vesting start, with field errors as published in the API."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-board"
+tests = [
+    "test_app.py::test_grant_validation",
+]
+criteria = []
+parameter_cases = [
+    "options_zero",
+    "options_string",
+    "pool_exhausted",
+    "strike_below_fmv",
+    "strike_equal_fmv",
+    "start_impossible",
+    "start_before_2015",
+    "start_after_limit",
+    "start_at_limit_ok",
+    "holder_other_role",
+    "holder_unknown",
+    "vesting_type_bad",
+]
+
+[[requirements]]
+id = "DP-09"
+title = "Board quorum voting"
+text = "Each board member votes once each time a grant is in the queue. A majority of approvals moves the grant to Approved and a majority of declines returns it to Draft, exactly once even under simultaneous votes."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-board"
+tests = [
+    "test_app.py::test_board_quorum_voting",
+    "test_app.py::test_board_simultaneous_votes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Offer acceptance journey"
+text = "An option holder opens an offered grant, reads the agreement and accepts it. They then see the grant Accepted, the sealed agreement under Documents and the grant's schedule on the ribbon."
+kind = "behavior"
+primary = "workflow"
+workflow = "grant-offer"
+tests = [
+    "test_app.py::test_wf_grant_offer_accept_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Signed only when sealed in the vault"
+text = "A grant counts as accepted only after its agreement's bytes are stored in the vault and read back matching, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-offer"
+tests = [
+    "test_app.py::test_signed_only_when_sealed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Decline returns to the board queue"
+text = "Declining an offered grant returns it to the board queue with its votes cleared and its pool reservation kept."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-offer"
+tests = [
+    "test_app.py::test_decline_returns_to_queue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Offer expiry on the server"
+text = "An offer expires exactly when its offer window ends on the server clock, acceptance at or after that instant is refused, and an open portal shows Expired within one second without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-offer"
+tests = [
+    "test_app.py::test_wf_grant_offer_expiry",
+    "test_app.py::test_wf_grant_offer_expiry_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Pending signature recovery"
+text = "While the vault is unreachable, grant acceptance and NDA signing stay Pending with the outage copy, and they complete on a later retry once the vault answers, with no restart of the app."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-offer"
+tests = [
+    "test_app.py::test_wf_grant_offer_pending_recovery",
+    "test_app.py::test_wf_tender_nda_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Exercise journey"
+text = "An option holder runs the whole exercise flow from the keyboard: they open the exercise dialog, type an amount, confirm, and see the provider's payment record, then the issued shares and the exercise notice."
+kind = "behavior"
+primary = "workflow"
+workflow = "exercise"
+tests = [
+    "test_app.py::test_wf_exercise_journey",
+    "test_app.py::test_wf_exercise_pending_page_live",
+    "test_app.py::test_wf_exercise_dialog_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Exact exercise cost"
+text = "The exercise cost is options times strike, rounded half-up to the cent once on the server, and the same amount appears on the order, the provider's payment record and the exercise notice."
+kind = "behavior"
+primary = "pytest"
+workflow = "exercise"
+tests = [
+    "test_app.py::test_exact_exercise_cost",
+]
+criteria = []
+parameter_cases = [
+    "half_cent_two",
+    "seven",
+    "large",
+]
+
+[[requirements]]
+id = "DP-17"
+title = "Vested-only exercise"
+text = "An exercise is refused when it asks for more than the grant's exercisable options (vested minus those already exercised, cancelled or in open orders)."
+kind = "behavior"
+primary = "pytest"
+workflow = "exercise"
+tests = [
+    "test_app.py::test_vested_only_exercise",
+]
+criteria = []
+parameter_cases = [
+    "over_vested",
+    "exactly_exercisable",
+    "before_cliff",
+    "zero",
+    "not_integer",
+    "after_held_order",
+    "offered_grant",
+]
+
+[[requirements]]
+id = "DP-18"
+title = "Idempotent exercise orders"
+text = "Every exercise carries an idempotency key. Five simultaneous requests with one key create exactly one order and one provider payment, the other four receive the stored response, and a reused key with a different body is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "exercise"
+tests = [
+    "test_app.py::test_idempotent_exercise_orders",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Provider-confirmed issuance"
+text = "Shares are issued only after the server has fetched the provider's payment record and it reads confirmed with the order's amount and reference."
+kind = "behavior"
+primary = "pytest"
+workflow = "exercise"
+tests = [
+    "test_app.py::test_provider_confirmed_issuance",
+]
+criteria = []
+parameter_cases = [
+    "amount_mismatch",
+    "reference_mismatch",
+    "status_failed",
+    "confirmed_matching",
+]
+
+[[requirements]]
+id = "DP-20"
+title = "Slow and unreachable provider"
+text = "A provider that accepts the payment but has not confirmed after five seconds leaves the order Pending until it confirms. A provider that is unreachable, or does not answer the payment request within five seconds, leaves the order Held for retry under the same key, and shares are never issued twice."
+kind = "behavior"
+primary = "pytest"
+workflow = "exercise"
+tests = [
+    "test_app.py::test_wf_exercise_provider_recovery",
+]
+criteria = []
+parameter_cases = [
+    "connection_reset",
+    "server_error",
+    "no_answer",
+    "pending_then_confirmed",
+]
+
+[[requirements]]
+id = "DP-21"
+title = "Cancel wins over in-flight confirmation"
+text = "Cancelling a Pending or Held order always wins. A confirmation that arrives afterwards issues nothing, and the server cancels that payment at the provider."
+kind = "behavior"
+primary = "pytest"
+workflow = "exercise"
+tests = [
+    "test_app.py::test_cancel_wins",
+]
+criteria = []
+parameter_cases = [
+    "pending",
+    "held",
+    "issued",
+]
+
+[[requirements]]
+id = "DP-22"
+title = "Exercise notice in the vault"
+text = "Each issued order gets an exercise notice sealed in the vault under its order id, and the notice text carries the order's options, strike and cost."
+kind = "behavior"
+primary = "pytest"
+workflow = "exercise"
+tests = [
+    "test_app.py::test_exercise_notice_in_vault",
+    "test_app.py::test_exercise_notice_pending_when_vault_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Record a departure"
+text = "Recording a departure makes the person a leaver, cancels their unvested options at once and opens an exercise window that ends exactly one leaver window after the recorded moment."
+kind = "behavior"
+primary = "pytest"
+workflow = "leaver-window"
+tests = [
+    "test_app.py::test_record_departure",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Leaver countdown journey"
+text = "A leaver signs in, sees the server-clock countdown on a black band in their ribbon and exercises vested options before the window ends."
+kind = "behavior"
+primary = "workflow"
+workflow = "leaver-window"
+tests = [
+    "test_app.py::test_wf_leaver_window_journey",
+    "test_app.py::test_wf_leaver_window_phone_ribbon",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Exercise window edge"
+text = "An exercise the server receives one second before the window ends is honoured and completes. One received at or after the end is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "leaver-window"
+tests = [
+    "test_app.py::test_wf_leaver_window_edge",
+    "test_app.py::test_wf_leaver_window_last_second_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Cancellation at window end"
+text = "When the window ends, the server cancels every unexercised option not held in an open order. The leaver's open ribbon mutes the cancelled cells and drops the Exercisable now figure to 0 within one second."
+kind = "behavior"
+primary = "pytest"
+workflow = "leaver-window"
+tests = [
+    "test_app.py::test_wf_leaver_window_end",
+    "test_app.py::test_wf_leaver_window_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Open a tender offer"
+text = "The founder admin opens one tender at a time, with a title, price per share, share cap and close time, bought by Harbourline Secondary Partners."
+kind = "behavior"
+primary = "pytest"
+workflow = "tender"
+tests = [
+    "test_app.py::test_open_tender_offer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Tender submission journey"
+text = "An investor signs the tender NDA, types the shares to tender and submits, then watches their projected allocation and then their final allocation on the tender page."
+kind = "behavior"
+primary = "workflow"
+workflow = "tender"
+tests = [
+    "test_app.py::test_wf_tender_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Tender NDA and submission rules"
+text = "Only investors whose NDA is sealed in the vault may submit, once per tender, up to their issued shares, before the close. They may withdraw while the tender is open."
+kind = "behavior"
+primary = "pytest"
+workflow = "tender"
+tests = [
+    "test_app.py::test_tender_submission_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Close and pro rata allocation"
+text = "At the close time on the server, an oversubscribed tender is allocated pro rata in whole shares, with the leftover shares given one each in submission order. The cap is never exceeded, even under simultaneous submissions, and the shares move on the ledger."
+kind = "behavior"
+primary = "pytest"
+workflow = "tender"
+tests = [
+    "test_app.py::test_tender_pro_rata_allocation",
+]
+criteria = []
+parameter_cases = [
+    "brief_example",
+    "three_way_leftover",
+    "within_cap",
+    "simultaneous",
+]
+
+[[requirements]]
+id = "DP-31"
+title = "Live tender panel"
+text = "An investor's open tender page updates the projected allocation, remaining cap and countdown in place over the page's one socket, within one second of any submission, withdrawal or close."
+kind = "behavior"
+primary = "pytest"
+workflow = "tender"
+tests = [
+    "test_app.py::test_wf_tender_live_panel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Cap table to 100.00"
+text = "The cap table shows each row's fully diluted shares and ownership to two decimals by largest remainder, and the total is exactly 100.00 after every ledger change. The grid is drawn complete on first load, with every row and the Total row."
+kind = "behavior"
+primary = "pytest"
+workflow = "cap-table"
+tests = [
+    "test_app.py::test_wf_cap_table_allocation",
+    "test_app.py::test_wf_cap_table_first_load",
+]
+criteria = []
+parameter_cases = [
+    "founder_admin_after_issuance",
+    "option_holder_view",
+    "investor_view",
+    "board_member_view",
+]
+
+[[requirements]]
+id = "DP-33"
+title = "Cap table keyboard grid"
+text = "The cap table is a grid with a single tab stop, navigated with the arrow keys, Home and End."
+kind = "behavior"
+primary = "pytest"
+workflow = "cap-table"
+tests = [
+    "test_app.py::test_wf_cap_table_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Focus holds through live redraw"
+text = "When a live update redraws the cap table, keyboard focus stays on the same row and column."
+kind = "behavior"
+primary = "pytest"
+workflow = "cap-table"
+tests = [
+    "test_app.py::test_wf_cap_table_focus_live",
+    "test_app.py::test_wf_cap_table_pending_exercise",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Securities ledger"
+text = "Every change to a holder's issued shares or outstanding options, and every pool resize, writes one ledger entry per holder affected."
+kind = "behavior"
+primary = "pytest"
+workflow = "cap-table"
+tests = [
+    "test_app.py::test_securities_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Option pool"
+text = "The option pool shows authorized, outstanding, exercised, reserved and available counts, and a resize below what is already allocated is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "cap-table"
+tests = [
+    "test_app.py::test_wf_cap_table_pool",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Round scenario arithmetic"
+text = "A round scenario at a pre-money valuation computes the pool top-up, price per share, new shares, post-money fully diluted shares and percentages exactly, by the published rounding."
+kind = "behavior"
+primary = "pytest"
+workflow = "round-scenario"
+tests = [
+    "test_app.py::test_round_scenario_arithmetic",
+]
+criteria = []
+parameter_cases = [
+    "brief_example",
+    "no_top_up",
+    "max_pool",
+    "small_money",
+]
+
+[[requirements]]
+id = "DP-38"
+title = "Round scenario journey"
+text = "The founder admin types a pre-money valuation, an investment and a target pool, and sees the result update in place with no submit button."
+kind = "behavior"
+primary = "workflow"
+workflow = "round-scenario"
+tests = [
+    "test_app.py::test_wf_round_scenario_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Valuation records"
+text = "The founder admin records fair market valuations. The current valuation is the latest one in effect on the server date, and each valuation shows Current, Superseded or Lapsed."
+kind = "behavior"
+primary = "pytest"
+workflow = "valuations"
+tests = [
+    "test_app.py::test_valuation_records",
+    "test_app.py::test_wf_valuations_record",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Lapsed valuation blocks grants"
+text = "When the current valuation has lapsed on the server date, creating, submitting or offering a grant is refused at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "valuations"
+tests = [
+    "test_app.py::test_wf_valuations_lapse",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Own-slice visibility"
+text = "An option holder or leaver sees only their own grants, orders and documents. An investor sees only their own holdings. A board member sees only the class summary and the queue."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_own_slice_visibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Other holders' records are not found"
+text = "Another person's grant, order or document answers 404 on the API and shows the not-found page in the browser, with none of that person's figures."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_other_holders_records_not_found",
+    "test_app.py::test_wf_access_not_found_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Role change switches the open screen"
+text = "A role change applies on the person's next request and switches their open screen to their new role's portal within one second."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_wf_access_role_change",
+    "test_app.py::test_wf_access_role_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Access removal closes documents"
+text = "Removing a person's access ends their sessions, closes their open document viewer within one second and makes all of their vault documents unreachable to them."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_wf_access_removal",
+    "test_app.py::test_wf_access_removal_exercise_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Document viewer serves vault bytes"
+text = "Every document is served back byte for byte from its stored vault object, with its seal hash shown."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_wf_access_document_viewer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "One live socket per page"
+text = "Each page opens exactly one WebSocket to the server and sends nothing over it, and every open screen of the same data agrees within one second."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_wf_live_sync_one_socket",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Replay after a drop"
+text = "After the socket drops, the page reconnects, replays every event it missed and applies each one once."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_wf_live_sync_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Polite announcements"
+text = "A polite status region named Register updates exists from first paint and announces each timed or decided event exactly once, using the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_wf_live_sync_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Drafts survive reload, Back and a second tab"
+text = "Grant drafts and tender drafts are saved on the server within one second of typing, and they reappear after a reload, after Back navigation and in a second tab."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_wf_live_sync_grant_draft",
+    "test_app.py::test_tender_draft_survives",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from the run manifest on port 4173 (or APP_PUBLIC_PORT) and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Configuration from the environment"
+text = "Every service URL and credential, both window lengths and both warning settings, are read from the environment at start and are never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Server boundary"
+text = "The server is same-origin only, rejects oversized and non-JSON bodies, and never serves source files or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = [
+    "cross_origin_post",
+    "oversized",
+    "non_json",
+    "bad_json",
+    "unknown_api",
+    "source_files",
+    "ws_origin",
+    "cookie_flags",
+]
+
+[[requirements]]
+id = "DP-53"
+title = "Boots without the provider or vault"
+text = "The app starts and serves every screen while the payment provider or the vault is unreachable, showing the outage copy only on the actions that need them."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_boot_outages",
+]
+criteria = []
+parameter_cases = [
+    "provider_down",
+    "vault_down",
+]
+
+[[requirements]]
+id = "DP-54"
+title = "Responsive layouts"
+text = "At widths of 375, 768 and 1280 pixels, no page scrolls sideways and every control is at least 44 by 44 pixels."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layouts",
+]
+criteria = []
+parameter_cases = [
+    "375",
+    "768",
+    "1280",
+]
+
+[[requirements]]
+id = "DP-55"
+title = "Keyboard dialogs"
+text = "Every dialog keeps Tab and Shift+Tab inside it, closes on Escape and returns focus to the control that opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_dialogs",
+]
+criteria = []
+parameter_cases = [
+    "exercise",
+    "document_viewer",
+]
+
+[[requirements]]
+id = "DP-56"
+title = "Ribbon and headline motion"
+text = "The ribbon's cell fills, the counting numerals and the sign-in title reveal each finish within their published durations, and none of them loops."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_durations",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Reduced motion"
+text = "Under reduced motion, every fill, count and reveal shows its end state at once, with the same values, controls and announcements."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Editorial axis composition"
+text = "Every working screen hangs its headings, figures and table starts from one vertical axis at 42% of the width, with side notes to its left and black bands opening the Exercise and Tender chapters."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B3",
+    "B4",
+    "B5",
+    "B8",
+    "B9",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Masthead sign-in page"
+text = "The sign-in page shows the photographic mosaic masthead. Its black tile carries the fully diluted count, and the two-line title starts on the axis."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Full-colour states and forms"
+text = "Empty, loading and error states are whole black or red bands with one sentence at display size. Forms hang from the axis as one narrow column. The cap table uses grey row bands and a red 100.00 total."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B6",
+    "B7",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Locked documents and linked corrections"
+text = "A sealed grant agreement or exercise notice is locked: its vault object never changes. The founder admin corrects it through the API by recording a new linked version, and the original stays readable byte for byte."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_document_corrections",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Nothing sent before the socket is open"
+text = "While a signed-in page's socket is not open (before it first opens, and from a drop until it is open again), the buttons and selects named under Live socket in Interactions are disabled, so the page sends no change to the server."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_wf_live_sync_socket_gate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Round scenario in the address"
+text = "The round scenario keeps its three typed inputs in the page address, so a reload, Back and a second tab opened at that address show the same inputs and result. At 375 pixels the result is one stacked column with no sideways scroll."
+kind = "behavior"
+primary = "workflow"
+workflow = "round-scenario"
+tests = [
+    "test_app.py::test_wf_round_scenario_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Lapse reaches an open grant form"
+text = "When the current valuation becomes lapsed while a grant form is open, that form disables \"Submit to board\", shows the lapsed band and announces the lapse once, within one second and without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "valuations"
+tests = [
+    "test_app.py::test_wf_valuations_live_lapse",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Board grant summary in the address"
+text = "A board member opens a queued grant's summary at its own address. A reload shows the same summary, and Back or Escape returns to the queue with focus on that grant's link. A vote cast by another board member updates the open summary within one second."
+kind = "behavior"
+primary = "workflow"
+workflow = "grant-board"
+tests = [
+    "test_app.py::test_wf_grant_board_summary_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Ribbon follows the marker on a phone"
+text = "At 375 pixels, each keyboard move of the projection marker scrolls the ribbon track so the marker's cell lies wholly inside the track's visible frame, and the page never scrolls sideways. Under reduced motion the track moves there at once."
+kind = "behavior"
+primary = "workflow"
+workflow = "portal-vesting"
+tests = [
+    "test_app.py::test_wf_portal_vesting_phone_marker",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Cap table sort in the address"
+text = "Each cap-table column header sorts the rows by that column from the keyboard, shows the order with aria-sort and keeps the sort in the page address, so a reload shows the same order with the Total row last."
+kind = "behavior"
+primary = "workflow"
+workflow = "cap-table"
+tests = [
+    "test_app.py::test_wf_cap_table_sort_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Offer warning before expiry"
+text = "When an offer reaches its warning time on the server clock, the holder's open pages show the offer warning and announce it once, without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "grant-offer"
+tests = [
+    "test_app.py::test_wf_grant_offer_warning",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Leaver window warnings"
+text = "At each leaver warning time before the window end on the server clock, the leaver's open pages show the window warning and announce it once. At 375 pixels the warning fits the page with no sideways scroll."
+kind = "behavior"
+primary = "workflow"
+workflow = "leaver-window"
+tests = [
+    "test_app.py::test_wf_leaver_window_warnings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Tender result under reduced motion"
+text = "At the close, the seller's open tender page shows their allocation. With motion it counts up to the final figure, and under reduced motion it shows only the final figure."
+kind = "behavior"
+primary = "workflow"
+workflow = "tender"
+tests = [
+    "test_app.py::test_wf_tender_reduced_motion_result",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Focus after a role switch"
+text = "After a live role switch, keyboard focus moves to the new portal's name heading."
+kind = "behavior"
+primary = "workflow"
+workflow = "access"
+tests = [
+    "test_app.py::test_wf_access_role_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Draft edited in two tabs"
+text = "A change saved from one tab's grant form shows in the same draft's form in another tab within one second, and a save based on an outdated draft version is refused with `draft_outdated`."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_wf_live_sync_two_tabs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Racing exercises stay within exercisable"
+text = "Exercise orders with different keys that arrive at the same moment for one grant are checked one after another, so the options they hold together never exceed exercisable, and each order that does not fit is refused with the published field error."
+kind = "behavior"
+primary = "workflow"
+workflow = "exercise"
+tests = [
+    "test_app.py::test_racing_exercises_within_exercisable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Selected holder in the address"
+text = "On the founder admin's cap table, Enter on a holder row opens that holder's detail and keeps the selection in the page address with the sort, so a reload, Back and a second tab show the same detail with focus on that row."
+kind = "behavior"
+primary = "workflow"
+workflow = "cap-table"
+tests = [
+    "test_app.py::test_wf_cap_table_holder_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Saved scenarios"
+text = "The founder admin saves a named round scenario on the server. It appears in every open scenario page's saved list within one second, and opening it from the list by keyboard and coming Back returns focus to its link."
+kind = "behavior"
+primary = "workflow"
+workflow = "round-scenario"
+tests = [
+    "test_app.py::test_wf_round_scenario_saved",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Round price against fair market value"
+text = "The scenario result compares its price per share with the current fair market value, and an open scenario follows a valuation that is recorded or lapses within one second, announcing the new comparison once."
+kind = "behavior"
+primary = "workflow"
+workflow = "round-scenario"
+tests = [
+    "test_app.py::test_wf_round_scenario_fmv_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Valuation filter in the address"
+text = "The valuations table is filtered by a status radio group worked with the arrow keys, and the chosen status stays in the page address through a reload, Back and a second tab."
+kind = "behavior"
+primary = "workflow"
+workflow = "valuations"
+tests = [
+    "test_app.py::test_wf_valuations_filter_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Focus after recording a valuation"
+text = "After a valuation is recorded, keyboard focus moves to the new row of the valuations table, and after a refusal it moves to the first field in error."
+kind = "behavior"
+primary = "workflow"
+workflow = "valuations"
+tests = [
+    "test_app.py::test_wf_valuations_record_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "One accept wins"
+text = "Two accepts of one offered grant that arrive at the same moment seal one agreement and write one ledger entry, the other answers `grant_not_offered`, and every open page of that grant shows Accepted within one second."
+kind = "behavior"
+primary = "workflow"
+workflow = "grant-offer"
+tests = [
+    "test_app.py::test_wf_grant_offer_accept_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Cap table grid follows focus on a phone"
+text = "At 375 pixels, every keyboard move in the cap table grid scrolls its region so the focused cell lies wholly inside the region's visible frame."
+kind = "behavior"
+primary = "workflow"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_phone_grid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Dialog focus survives a live redraw"
+text = "The focus return of DP-55 also holds after a live update redrew the page while the dialog was open."
+kind = "behavior"
+primary = "workflow"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_dialog_redraw",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Outdated draft notice"
+text = "A refused outdated draft save shows the notice with keyboard focus on it, and Escape or \"Keep editing\" closes it and returns focus to the field whose save was refused, which now holds the latest version."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_wf_live_sync_outdated_notice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Document viewer at its own address"
+text = "A document viewer opened at its own address stays open through a reload, and closing it returns focus to that document's link in the list."
+kind = "behavior"
+primary = "workflow"
+workflow = "access"
+tests = [
+    "test_app.py::test_wf_access_document_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Focus after acceptance"
+text = "When an acceptance completes, directly or after Retry signing, keyboard focus moves to the grant page's Exercise button."
+kind = "behavior"
+primary = "workflow"
+workflow = "grant-offer"
+tests = [
+    "test_app.py::test_wf_grant_offer_accept_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\", and the app is started only through it."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package, the two Funnel typefaces, the four photographs and the icon set, each with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Shipped packages are the production dependency tree as reported by npm ls --omit=dev --all --json. Shipped packages and bundled assets use only the MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, OFL-1.1 or CC0-1.0 licences."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastore or service other than the provided PostgreSQL database, the MinIO bucket and the payment provider at WIREMOCK_URL. There is no SQLite, no file-based store and no other cache server."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration (the dev compose service definitions and their credentials) is left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "All server and browser code is TypeScript. The type checker runs in strict mode during the build."
+tests = [
+    "test_app.py::test_if_typescript_strict",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The Funnel Display and Funnel Sans font files and the photographs are committed inside /app and served by the app itself."
+tests = [
+    "test_app.py::test_if_bundled_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "portal-vesting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_portal_vesting_board",
+    "test_app.py::test_vesting_floor_rule",
+    "test_app.py::test_wf_portal_vesting_device_clock",
+    "test_app.py::test_wf_portal_vesting_ribbon",
+    "test_app.py::test_wf_portal_vesting_phone_marker",
+]
+checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "grant-board"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_grant_board_issue_journey",
+    "test_app.py::test_grant_validation",
+    "test_app.py::test_board_quorum_voting",
+    "test_app.py::test_wf_grant_board_summary_address",
+]
+
+[[workflows]]
+id = "grant-offer"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-68",
+    "DP-79",
+    "DP-84",
+]
+critical = [
+    "test_app.py::test_wf_grant_offer_accept_journey",
+    "test_app.py::test_signed_only_when_sealed",
+    "test_app.py::test_wf_grant_offer_expiry",
+    "test_app.py::test_wf_grant_offer_pending_recovery",
+    "test_app.py::test_wf_grant_offer_warning",
+    "test_app.py::test_wf_grant_offer_accept_race",
+    "test_app.py::test_wf_grant_offer_expiry_replay",
+    "test_app.py::test_wf_grant_offer_accept_focus",
+]
+
+[[workflows]]
+id = "exercise"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_exercise_journey",
+    "test_app.py::test_exact_exercise_cost",
+    "test_app.py::test_provider_confirmed_issuance",
+    "test_app.py::test_wf_exercise_provider_recovery",
+    "test_app.py::test_idempotent_exercise_orders",
+    "test_app.py::test_cancel_wins",
+    "test_app.py::test_racing_exercises_within_exercisable",
+    "test_app.py::test_wf_exercise_pending_page_live",
+    "test_app.py::test_wf_exercise_dialog_phone",
+]
+checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "leaver-window"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-69",
+]
+critical = [
+    "test_app.py::test_record_departure",
+    "test_app.py::test_wf_leaver_window_journey",
+    "test_app.py::test_wf_leaver_window_edge",
+    "test_app.py::test_wf_leaver_window_end",
+    "test_app.py::test_wf_leaver_window_warnings",
+    "test_app.py::test_wf_leaver_window_last_second_race",
+    "test_app.py::test_wf_leaver_window_replay",
+    "test_app.py::test_wf_leaver_window_phone_ribbon",
+]
+
+[[workflows]]
+id = "tender"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-70",
+]
+critical = [
+    "test_app.py::test_wf_tender_journey",
+    "test_app.py::test_tender_pro_rata_allocation",
+    "test_app.py::test_wf_tender_live_panel",
+    "test_app.py::test_wf_tender_reduced_motion_result",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "cap-table"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-67",
+    "DP-74",
+]
+critical = [
+    "test_app.py::test_wf_cap_table_allocation",
+    "test_app.py::test_wf_cap_table_keyboard",
+    "test_app.py::test_wf_cap_table_focus_live",
+    "test_app.py::test_wf_cap_table_sort_address",
+    "test_app.py::test_wf_cap_table_first_load",
+    "test_app.py::test_wf_cap_table_holder_address",
+    "test_app.py::test_wf_cap_table_pending_exercise",
+]
+
+[[workflows]]
+id = "round-scenario"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-63",
+    "DP-75",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_round_scenario_arithmetic",
+    "test_app.py::test_wf_round_scenario_journey",
+    "test_app.py::test_wf_round_scenario_address",
+    "test_app.py::test_wf_round_scenario_saved",
+    "test_app.py::test_wf_round_scenario_fmv_live",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "valuations"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-64",
+    "DP-77",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_valuations_record",
+    "test_app.py::test_wf_valuations_lapse",
+    "test_app.py::test_valuation_records",
+    "test_app.py::test_wf_valuations_live_lapse",
+    "test_app.py::test_wf_valuations_filter_address",
+    "test_app.py::test_wf_valuations_record_focus",
+]
+
+[[workflows]]
+id = "access"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-61",
+    "DP-71",
+    "DP-83",
+]
+critical = [
+    "test_app.py::test_other_holders_records_not_found",
+    "test_app.py::test_wf_access_not_found_pages",
+    "test_app.py::test_wf_access_role_change",
+    "test_app.py::test_wf_access_removal",
+    "test_app.py::test_wf_access_document_viewer",
+    "test_app.py::test_wf_access_role_focus",
+    "test_app.py::test_wf_access_role_replay",
+    "test_app.py::test_wf_access_removal_exercise_dialog",
+    "test_app.py::test_wf_access_document_address",
+]
+
+[[workflows]]
+id = "live-sync"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-62",
+    "DP-72",
+    "DP-82",
+]
+critical = [
+    "test_app.py::test_wf_live_sync_one_socket",
+    "test_app.py::test_wf_live_sync_replay",
+    "test_app.py::test_wf_live_sync_announcements",
+    "test_app.py::test_wf_live_sync_grant_draft",
+    "test_app.py::test_wf_live_sync_socket_gate",
+    "test_app.py::test_wf_live_sync_two_tabs",
+    "test_app.py::test_wf_live_sync_outdated_notice",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-80",
+    "DP-81",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_health",
+    "test_app.py::test_wf_cross_cutting_boot_outages",
+    "test_app.py::test_responsive_layouts",
+    "test_app.py::test_keyboard_dialogs",
+    "test_app.py::test_wf_cross_cutting_phone_grid",
+    "test_app.py::test_wf_cross_cutting_dialog_redraw",
+]
+checkpoints = [
+    "B1",
+    "B3",
+]
+critical_checkpoints = [
+    "B3",
+]

@@ -1,0 +1,1361 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 72
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "intake",
+    "grading",
+    "rack",
+    "kerf-fit",
+    "hold",
+    "release",
+    "purchase",
+    "saw",
+    "account",
+    "outages",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 76
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "killbill", env = {} },
+]
+
+[criterion_weights]
+B1 = 3
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 1
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-timer"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+HOLD_SECONDS = "5"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from `/app/run.json` on port 4173 (or `APP_PUBLIC_PORT`) and answers `GET /api/health` with 200 `{\"status\":\"ok\"}` whether or not billing and photo storage are reachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Schema and seed on every start"
+text = "Every start applies the schema and the Seed data idempotently, so a fresh empty database serves the seeded yard and a restarted or second instance on the same database changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_seed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Credentials from the environment"
+text = "Database, storage and billing credentials and URLs are read from the environment variables in Configuration and secrets, never hard-coded and never sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Server boundary"
+text = "The server enforces the request size, content type and same-origin rules, never serves source files, manifests or credentials, and answers errors in the single precedence order stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = [
+    "cross-origin",
+    "bad-json",
+    "content-type",
+    "json-limit",
+    "photo-limit",
+    "unauthenticated",
+    "not-found-before-forbidden",
+    "never-served",
+    "no-cors",
+]
+
+[[requirements]]
+id = "DP-05"
+title = "Sign-in and roles"
+text = "Seeded people sign in with email and password into a server-side session, and each API route admits only the roles listed for it in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_sign_in_and_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Maker records stay private"
+text = "A maker's holds and invoices load only for that maker and the owner, and their cut tickets and ticket PDFs only for that maker and the yard staff, while any other maker gets the same 404, and on a ticket page the same not-found page, as for an id that does not exist."
+kind = "behavior"
+primary = "pytest"
+workflow = "account"
+tests = [
+    "test_app.py::test_maker_records_private",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Maker account page"
+text = "A signed-in maker's account page lists their holds with status and expiry, each linking to its board, their cut tickets with status, each linking to its ticket page, and their invoices with price, deposit, balance paid and per-piece lines."
+kind = "behavior"
+primary = "workflow"
+workflow = "account"
+tests = [
+    "test_app.py::test_wf_account_lists",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Board intake"
+text = "Yard staff tag a board with lot, species, true dimensions in whole millimetres and labelled defect zones, which is stored as Tagged with a new tag and an intake ledger movement, and invalid input answers 422 with per-field errors."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake"
+tests = [
+    "test_app.py::test_board_intake",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Board photos"
+text = "Photos that pass the DP-57 signature check are stored in object storage as an original, an upright display copy and a thumbnail under the published key patterns, the display copy is shown on the board page, and the original is served back byte for byte to yard staff only."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake"
+tests = [
+    "test_app.py::test_board_photos",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Touch defect marking"
+text = "On a 375 px wide phone the yard hand marks a defect zone by touch-dragging along the intake strip and choosing its kind, and the zone appears hatched on the strip and listed with its millimetre range."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake"
+tests = [
+    "test_app.py::test_wf_intake_touch_defects",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Tag a board on a phone"
+text = "A yard hand at 375 px signs in, tags a new board with dimensions, two defect zones and a photo, and sees it waiting in the grading queue."
+kind = "behavior"
+primary = "workflow"
+workflow = "intake"
+tests = [
+    "test_app.py::test_wf_intake_phone_tag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Grading and listing"
+text = "The owner grades a tagged board and lists a graded board on the rack, and every other board status change is refused with `board_state` as qualified in Business rules, or with `offcut_not_cut` for an offcut whose ticket is not done."
+kind = "behavior"
+primary = "pytest"
+workflow = "grading"
+tests = [
+    "test_app.py::test_grading_and_listing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Board-foot price by grade"
+text = "Each price comes from the species-and-grade rate version in force at the server's request time through the one integer-cent formula and rounding rule in Business rules, and a hold keeps the price it froze when it was made."
+kind = "behavior"
+primary = "pytest"
+workflow = "grading"
+tests = [
+    "test_app.py::test_price_by_grade",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Stock ledger and totals"
+text = "Every change in board volume is an attributed ledger movement whose entries sum to zero, and each species' on-hand volume equals the sum of its open boards' balances."
+kind = "behavior"
+primary = "pytest"
+workflow = "grading"
+tests = [
+    "test_app.py::test_stock_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Grade and list a board"
+text = "The owner grades and lists a board waiting in the grading queue, then finds it on the rack with its whole-board price and sees it counted in its species' stock total."
+kind = "behavior"
+primary = "workflow"
+workflow = "grading"
+tests = [
+    "test_app.py::test_wf_grading_grade_and_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Rack drawn to scale"
+text = "The rack catalogue draws every listed board as a strip at one shared millimetre scale, with its hatched defects, grade tally marks and mono dimensions."
+kind = "behavior"
+primary = "pytest"
+workflow = "rack"
+tests = [
+    "test_app.py::test_rack_to_scale",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Live rack filters"
+text = "Changing a rack filter updates the list and the announced board count in place within one second of the latest change, without a reload or a submit button."
+kind = "behavior"
+primary = "pytest"
+workflow = "rack"
+tests = [
+    "test_app.py::test_live_rack_filters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Find a board on the rack"
+text = "A maker filters the rack to one species with a minimum clear run, hears the count announced, and opens a matching board's detail page."
+kind = "behavior"
+primary = "workflow"
+workflow = "rack"
+tests = [
+    "test_app.py::test_wf_rack_find_board",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Board elevation geometry"
+text = "The board detail draws the board as an SVG elevation in which each piece, defect zone, kerf line and the offcut sits at its millimetre position times the published scale."
+kind = "behavior"
+primary = "pytest"
+workflow = "kerf-fit"
+tests = [
+    "test_app.py::test_elevation_geometry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Chips by pointer and touch"
+text = "Cut-list chips are added from the piece form and dragged along the board by mouse or touch in snap steps, and a chip over a defect shows a dashed outline and the text `over defect`."
+kind = "behavior"
+primary = "pytest"
+workflow = "kerf-fit"
+tests = [
+    "test_app.py::test_chips_pointer_and_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Chips by keyboard"
+text = "Chips are selected, moved in snap steps, rotated and removed entirely by keyboard, and the Fit check shortcut works from any control in the layout region."
+kind = "behavior"
+primary = "pytest"
+workflow = "kerf-fit"
+tests = [
+    "test_app.py::test_wf_kerf_fit_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Live layout totals"
+text = "The take, board feet, price and clear offcut figures update in place within one second of each layout change and always match the fit endpoint's figures for the latest layout, never a reply for an older one."
+kind = "behavior"
+primary = "pytest"
+workflow = "kerf-fit"
+tests = [
+    "test_app.py::test_wf_kerf_fit_live_totals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Fit check"
+text = "Fit check returns from the server each piece's status, the cut positions, the take, the offcut and the price, and announces the verdict sentence in the `Fit result` live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "kerf-fit"
+tests = [
+    "test_app.py::test_fit_check_endpoint",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Imperial display"
+text = "The unit toggle shows the board detail, rack and cut ticket lengths listed in Interactions in inches to the nearest sixteenth, while the yard and owner screens, rack filter fields, storage, requests, layout files and the verdict stay in whole millimetres."
+kind = "behavior"
+primary = "pytest"
+workflow = "kerf-fit"
+tests = [
+    "test_app.py::test_imperial_display",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Lay out a cut list"
+text = "A maker adds three pieces to a seeded board, places them clear of defects, runs Fit check, and sees every cut clear, the kerf lines, the offcut and the price."
+kind = "behavior"
+primary = "workflow"
+workflow = "kerf-fit"
+tests = [
+    "test_app.py::test_wf_kerf_fit_lay_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Deposit hold confirmed by billing"
+text = "A hold charges the fixed deposit as a Kill Bill purchase on the maker's account, and the board shows Held with its expiry only after Kill Bill confirms the payment."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold"
+tests = [
+    "test_app.py::test_deposit_hold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Declined card"
+text = "A hold with the declined test card answers `card_declined`, makes no successful charge and leaves the board Available."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold"
+tests = [
+    "test_app.py::test_declined_card",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "One hold per board"
+text = "Of any number of simultaneous holds on one board exactly one wins and is charged, and every other one gets `already_held`, no charge and the published conflict heading."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold"
+tests = [
+    "test_app.py::test_one_hold_per_board",
+    "test_app.py::test_wf_hold_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Hold and purchase replay"
+text = "Repeating a hold or purchase with the same idempotency key returns the stored response without a second charge, and reusing the key for a different request answers `idempotency_conflict`."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold"
+tests = [
+    "test_app.py::test_hold_purchase_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Dialogs and sheets by keyboard"
+text = "Every dialog and sheet keeps Tab and Shift+Tab inside it, closes on Escape and returns focus to its opener, and the hold dialog can be completed without a pointer."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dialogs_by_keyboard",
+]
+criteria = []
+parameter_cases = [
+    "hold",
+    "filters",
+    "defect-kind",
+    "re-measure",
+]
+
+[[requirements]]
+id = "DP-31"
+title = "Hold a board"
+text = "A signed-in maker fits a layout, holds the board through the hold dialog with a card, and sees the Held badge, the expiry and the hold on their account page."
+kind = "behavior"
+primary = "workflow"
+workflow = "hold"
+tests = [
+    "test_app.py::test_wf_hold_board",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Cancel with refund"
+text = "Cancelling an active hold refunds the deposit in Kill Bill and only then releases the board to Available."
+kind = "behavior"
+primary = "pytest"
+workflow = "release"
+tests = [
+    "test_app.py::test_cancel_with_refund",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Hold expiry"
+text = "A hold stops being active at its `expires_at`, keeps its deposit and returns the board to Available, with expiry decided inside every claim, cancel and purchase and shown on untouched records as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "release"
+tests = [
+    "test_app.py::test_hold_expiry_untouched",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Release a hold"
+text = "A maker holds a board, cancels it from the account page, sees the refund confirmation, and finds the board Available on the rack."
+kind = "behavior"
+primary = "workflow"
+workflow = "release"
+tests = [
+    "test_app.py::test_wf_release_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "All-or-nothing purchase"
+text = "A purchase completes only when the cut ticket PDF is stored, the Kill Bill payment succeeds and the board split is saved, and if any step fails none of them remain."
+kind = "behavior"
+primary = "pytest"
+workflow = "purchase"
+tests = [
+    "test_app.py::test_wf_purchase_rollback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Purchase amount"
+text = "A purchase charges the held layout's frozen price less the deposit, in integer cents, as one Kill Bill purchase, and records a paid invoice showing price, deposit, balance and per-piece lines."
+kind = "behavior"
+primary = "pytest"
+workflow = "purchase"
+tests = [
+    "test_app.py::test_purchase_amount",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Split ledger at sale"
+text = "A sale retires the parent board as cut or sold-whole and records its volume moving to the sold piece, the new offcut and the kerf loss in one movement that sums to zero."
+kind = "behavior"
+primary = "pytest"
+workflow = "purchase"
+tests = [
+    "test_app.py::test_split_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Buy the cuts"
+text = "A maker with a held layout presses Pay and cut, sees the paid confirmation, and finds the new cut ticket and invoice on their account page."
+kind = "behavior"
+primary = "workflow"
+workflow = "purchase"
+tests = [
+    "test_app.py::test_wf_purchase_buy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Stored cut ticket"
+text = "The cut ticket PDF frozen at the sale is served back byte for byte from object storage to its maker and to the yard staff."
+kind = "behavior"
+primary = "pytest"
+workflow = "purchase"
+tests = [
+    "test_app.py::test_stored_ticket_pdf",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Saw progression and re-measure"
+text = "Cut tickets move from issued to at-saw to done only in that order, and marking a ticket done records the re-measured offcut, booking any shortfall to kerf loss in a balanced movement."
+kind = "behavior"
+primary = "pytest"
+workflow = "saw"
+tests = [
+    "test_app.py::test_saw_progression",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Work a ticket at the saw"
+text = "A yard hand starts a ticket and marks it done with the measured offcut, and the owner then lists that offcut on the rack."
+kind = "behavior"
+primary = "workflow"
+workflow = "saw"
+tests = [
+    "test_app.py::test_wf_saw_work_ticket",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Billing outage"
+text = "While Kill Bill is unreachable, browsing and Fit check keep working, holds, cancellations and purchases answer `billing_unavailable`, and the board page shows the billing banner and the paused hold buttons."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_wf_outages_billing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Storage outage"
+text = "While photo storage is unreachable, tagging still works, photo uploads, photo reads, purchases and ticket PDFs answer `storage_unavailable`, and the yard page shows the storage banner."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_wf_outages_storage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Responsive layouts"
+text = "The rack, board detail, yard page and cut ticket page show their published layouts at 375x812, 768x1024 and 1280x800 with no horizontal scrolling."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layouts",
+]
+criteria = []
+parameter_cases = [
+    "375",
+    "768",
+    "1280",
+]
+
+[[requirements]]
+id = "DP-45"
+title = "Kerf motion and reduced motion"
+text = "After Fit check the kerf lines draw on from left to right, the offcut fades in and the figures settle at the published timings, and with reduced motion they all appear at once."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_kerf_motion",
+]
+criteria = []
+parameter_cases = [
+    "motion",
+    "reduced",
+]
+
+[[requirements]]
+id = "DP-46"
+title = "Workshop visual design"
+text = "The screens use the paper ground, ink, crayon accent, measure blue and bark-brown defect colours, condensed display type, mono measurements and hairline rules described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Recovery without restart"
+text = "When Kill Bill or photo storage answers again, including after being down when the app started, `/api/services`, the banners and the paused features return without a restart, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_wf_outages_recovery",
+]
+criteria = []
+parameter_cases = [
+    "billing",
+    "storage",
+]
+
+[[requirements]]
+id = "DP-48"
+title = "Scheduled rate versions"
+text = "The owner saves a rate with an optional future start time as a new dated version, and the rack and fit prices use the old rate until that instant and the new one from it, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "grading"
+tests = [
+    "test_app.py::test_wf_grading_scheduled_rate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Expiry decided at the action"
+text = "A cancel or purchase at or after a hold's `expires_at` answers `hold_not_active` with no refund or charge, another maker's claim on that board succeeds at once, and two simultaneous cancels refund once."
+kind = "behavior"
+primary = "pytest"
+workflow = "release"
+tests = [
+    "test_app.py::test_wf_release_expiry_at_action",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Hold labels from the server"
+text = "The account and board pages show a hold as Held or Expired only from the server's status, refreshing without a reload as qualified in Feedback states, whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "account"
+tests = [
+    "test_app.py::test_wf_account_skewed_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Invoice lines by length"
+text = "Every invoice splits its price into one line per piece in proportion to length, with floored cents and the remainder placed by largest remainder with ties to the earlier piece, summing exactly to the price."
+kind = "behavior"
+primary = "pytest"
+workflow = "purchase"
+tests = [
+    "test_app.py::test_invoice_lines",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "One winner at the saw"
+text = "Of any number of simultaneous start or done requests on one cut ticket exactly one succeeds, at most one trim movement is booked, and every other request gets `ticket_state` and the published saw copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "saw"
+tests = [
+    "test_app.py::test_one_winner_at_saw",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Open work survives notices"
+text = "Service notices, banner changes and hold refreshes never close an open dialog, clear a typed value, move focus, reset the layout or clear a status message, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_wf_outages_open_work",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Rack filters in the address"
+text = "The rack's filters live in the address bar under the API's parameter names, so opening, sharing or reloading a rack link shows the same filled controls, boards and count."
+kind = "behavior"
+primary = "pytest"
+workflow = "rack"
+tests = [
+    "test_app.py::test_wf_rack_url_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Latest filter wins"
+text = "The rack list and `Rack count` always show the result for the latest filter input, and a slower reply for an earlier input never replaces it."
+kind = "behavior"
+primary = "pytest"
+workflow = "rack"
+tests = [
+    "test_app.py::test_wf_rack_latest_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Closed filter sheet is unavailable"
+text = "At 375 px, while `dialog \"Filters\"` is closed, none of its controls is visible, reachable with Tab or present in the accessibility tree."
+kind = "behavior"
+primary = "pytest"
+workflow = "rack"
+tests = [
+    "test_app.py::test_wf_rack_closed_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Photo signature check"
+text = "A photo whose bytes do not begin with the signature of its declared JPEG or PNG type answers 415 `unsupported_media_type` and writes nothing to photo storage."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake"
+tests = [
+    "test_app.py::test_wf_intake_bad_photo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Layout survives sign-in"
+text = "A maker sent to sign in from a board, by Sign in to hold or by an ended session, returns to that board with the layout restored, the fit checked again and the hold dialog open, and only same-origin return paths are honoured."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold"
+tests = [
+    "test_app.py::test_wf_hold_sign_in_return",
+]
+criteria = []
+parameter_cases = [
+    "sign-in-to-hold",
+    "ended-session",
+    "foreign-next",
+]
+
+[[requirements]]
+id = "DP-59"
+title = "Overlays and banners stay reachable"
+text = "At every published viewport an open dialog or sheet lies wholly inside the viewport and no banner covers it or the other protected controls listed in Feedback states, so the topmost element at each such control's centre is that control."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake"
+tests = [
+    "test_app.py::test_wf_intake_overlays",
+]
+criteria = []
+parameter_cases = [
+    "375",
+    "768",
+    "1280",
+]
+
+[[requirements]]
+id = "DP-60"
+title = "Stock on hand reconciles"
+text = "The stock endpoint and the `Stock on hand` table give per-species and All species open, on-rack and held counts, ledger volumes and a once-rounded total that agree with the board list and the ledger, refresh in place as qualified in Feedback states, and simultaneous intakes get distinct increasing tags."
+kind = "behavior"
+primary = "pytest"
+workflow = "grading"
+tests = [
+    "test_app.py::test_wf_grading_stock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "One billing account and one hold per press"
+text = "A maker's simultaneous first billing requests end with exactly one Kill Bill account, and a double click or repeated Enter in the hold dialog sends exactly one hold request under the dialog's one idempotency key."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold"
+tests = [
+    "test_app.py::test_billing_account_once",
+    "test_app.py::test_wf_hold_double_press",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Cancel updates in place"
+text = "Cancelling a hold turns its card to Released or its badge to Available in place within one second with focus moved as qualified in Feedback states, and another viewer of that board sees Available within 10 seconds without losing their layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "release"
+tests = [
+    "test_app.py::test_cancel_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Attributed saw history"
+text = "Each cut ticket keeps an append-only history naming who issued, started and finished it, every ledger movement names who caused it, and a losing saw request's status names the winner."
+kind = "behavior"
+primary = "pytest"
+workflow = "saw"
+tests = [
+    "test_app.py::test_wf_saw_conflict_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Holder details stay private"
+text = "A board's `my_hold` is the caller's own pending or held hold or null, and no response to anyone else names a holder, hold id, expiry, Kill Bill id or maker email, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "account"
+tests = [
+    "test_app.py::test_holder_privacy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Honest billing failure"
+text = "While a hold, purchase or cancel is pending or after it answers `billing_unavailable`, the page never shows Held, Released or Paid ahead of the server, keeps the dialog, typed card and focus as qualified in Feedback states, shows the published outage copy and shows the billing banner within 2 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_honest_billing_failure",
+]
+criteria = []
+parameter_cases = [
+    "hold",
+    "pay",
+    "cancel",
+]
+
+[[requirements]]
+id = "DP-66"
+title = "Private fields stay off the ticket PDF"
+text = "The stored cut ticket PDF's text holds only the published ticket fields and never a maker email, card digits, Kill Bill ids, the yard id or a payment external key."
+kind = "behavior"
+primary = "pytest"
+workflow = "purchase"
+tests = [
+    "test_app.py::test_ticket_pdf_private",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Board lineage"
+text = "Every board created by a cut ticket records its `parent_tag`, and the lineage endpoint returns the board's ancestors to the root and all its descendants as a tree ordered by creation."
+kind = "behavior"
+primary = "pytest"
+workflow = "saw"
+tests = [
+    "test_app.py::test_board_lineage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Lineage corrections"
+text = "Re-measuring or regrading a board changes it and its open descendants parent before child in one transaction with paired adjustment movements, never changes retired boards or sales, rolls back entirely on any refusal, serialises concurrent corrections in one lineage, and refuses a re-parenting cycle with `lineage_cycle`."
+kind = "behavior"
+primary = "pytest"
+workflow = "grading"
+tests = [
+    "test_app.py::test_lineage_remeasure",
+    "test_app.py::test_lineage_refusals",
+    "test_app.py::test_lineage_regrade_and_reparent",
+    "test_app.py::test_lineage_concurrent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Layout file round trip"
+text = "A signed-in maker exports their board layout as a version 2 layout file with the published key order and imports one to replace the chips, and export, import, export gives identical bytes."
+kind = "behavior"
+primary = "pytest"
+workflow = "kerf-fit"
+tests = [
+    "test_app.py::test_wf_kerf_fit_layout_file",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Older and newer layout files"
+text = "Importing a version 1 layout file migrates its inches and field names to version 2, unknown keys survive to the next export, a version above 2 answers `unsupported_version` and a file for another board answers `wrong_board`."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold"
+tests = [
+    "test_app.py::test_layout_file_versions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Undo and redo"
+text = "The layout editor undoes and redoes layout changes by shortcut and by button, with one drag or one held arrow run per step and up to 50 steps, and the live totals follow the restored layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "kerf-fit"
+tests = [
+    "test_app.py::test_undo_redo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Upright photos without camera data"
+text = "A JPEG's orientation tag is applied to its display copy and its thumbnail of 320 pixels on the long edge, which carry no EXIF data, while the original stays private to yard staff."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake"
+tests = [
+    "test_app.py::test_upright_photos",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with string `install`, `build` and `serve` commands and `\"_schema\":\"run-manifest-v1\"`, and nothing outside those commands is needed to run the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` lists every shipped package with its version and licence. Shipped packages are the production dependency tree from `npm ls --omit=dev --all --json`. Self-hosted fonts are listed too."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0 or OFL-1.1, including any native library a package bundles."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastore other than the provided PostgreSQL, MinIO and Kill Bill: no SQLite, no Redis, and no state kept in local files."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The browser loads nothing from any other origin: no CDN scripts, styles or fonts."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "`package-lock.json` is committed, and `install` uses it."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The provided service configuration files and dev credentials are left unmodified."
+tests = [
+    "test_app.py::test_if_provided_config_intact",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "intake"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-57",
+    "DP-59",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_intake_phone_tag",
+    "test_app.py::test_wf_intake_touch_defects",
+    "test_app.py::test_wf_intake_bad_photo",
+    "test_app.py::test_wf_intake_overlays",
+]
+
+[[workflows]]
+id = "grading"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-48",
+    "DP-60",
+    "DP-68",
+]
+critical = [
+    "test_app.py::test_wf_grading_grade_and_list",
+    "test_app.py::test_wf_grading_scheduled_rate",
+    "test_app.py::test_wf_grading_stock",
+    "test_app.py::test_price_by_grade",
+    "test_app.py::test_stock_ledger",
+]
+
+[[workflows]]
+id = "rack"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_rack_find_board",
+    "test_app.py::test_wf_rack_url_state",
+    "test_app.py::test_wf_rack_latest_wins",
+    "test_app.py::test_wf_rack_closed_sheet",
+]
+
+[[workflows]]
+id = "kerf-fit"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-69",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_wf_kerf_fit_lay_out",
+    "test_app.py::test_wf_kerf_fit_keyboard",
+    "test_app.py::test_wf_kerf_fit_live_totals",
+    "test_app.py::test_wf_kerf_fit_layout_file",
+    "test_app.py::test_chips_pointer_and_touch",
+]
+
+[[workflows]]
+id = "hold"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-31",
+    "DP-58",
+    "DP-61",
+    "DP-70",
+]
+critical = [
+    "test_app.py::test_wf_hold_board",
+    "test_app.py::test_wf_hold_race",
+    "test_app.py::test_wf_hold_double_press",
+    "test_app.py::test_wf_hold_sign_in_return",
+]
+
+[[workflows]]
+id = "release"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-49",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_release_cancel",
+    "test_app.py::test_wf_release_expiry_at_action",
+    "test_app.py::test_cancel_in_place",
+]
+
+[[workflows]]
+id = "purchase"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-51",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_purchase_buy",
+    "test_app.py::test_wf_purchase_rollback",
+    "test_app.py::test_invoice_lines",
+    "test_app.py::test_ticket_pdf_private",
+    "test_app.py::test_purchase_amount",
+    "test_app.py::test_split_ledger",
+]
+
+[[workflows]]
+id = "saw"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-52",
+    "DP-63",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_saw_work_ticket",
+    "test_app.py::test_wf_saw_conflict_copy",
+    "test_app.py::test_one_winner_at_saw",
+    "test_app.py::test_saw_progression",
+]
+
+[[workflows]]
+id = "account"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-50",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_account_lists",
+    "test_app.py::test_wf_account_skewed_clock",
+    "test_app.py::test_maker_records_private",
+    "test_app.py::test_holder_privacy",
+]
+
+[[workflows]]
+id = "outages"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-47",
+    "DP-53",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_outages_billing",
+    "test_app.py::test_wf_outages_storage",
+    "test_app.py::test_wf_outages_recovery",
+    "test_app.py::test_wf_outages_open_work",
+    "test_app.py::test_honest_billing_failure",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-30",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_health",
+    "test_app.py::test_wf_cross_cutting_seed",
+]
+checkpoints = [
+    "B3",
+    "B5",
+    "B10",
+]
+critical_checkpoints = [
+    "B3",
+]

@@ -1,0 +1,977 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 46
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "browse-and-price",
+    "hold-a-kit",
+    "certificates",
+    "confirm-and-pay",
+    "hold-expiry",
+    "rate-cards",
+    "prep-kit",
+    "counter-checkout",
+    "check-in-and-close",
+    "repair-and-ledger",
+    "booking-lifecycle",
+    "provider-outages",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B13",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B14",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q9",
+    "Q10",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q11",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 101
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "killbill", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Northbar Camera Hire <desk@northbar.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B13 = 3
+B3 = 3
+B4 = 3
+B5 = 5
+B6 = 5
+B14 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 5
+B11 = 3
+B12 = 3
+S1 = 3
+S2 = 5
+S3 = 5
+S4 = 3
+Q1 = 3
+Q9 = 3
+Q10 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q11 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-timer"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+HOLD_SECONDS = "5"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Catalogue availability"
+text = "The renter catalogue lists every kit on its rental sheet under its category and, once dates are set, shows on each sheet how many complete kits are free for those dates and their server-quoted hire price, as qualified in Business rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "browse-and-price"
+tests = [
+    "test_app.py::test_wf_browse_and_price_catalogue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "House pricing rules"
+text = "The price endpoint returns the hire days, each day's kind, the billable days and the hire price computed from the 3-day week and Friday-weekend rules on the active rate card."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-and-price"
+tests = [
+    "test_app.py::test_price_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Week fold day strip"
+text = "Moving the return handle one day at a time folds free days into one hatched band, collapses a Friday weekend into one cell, and shows the server-quoted total and billable-day count with a live announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-and-price"
+tests = [
+    "test_app.py::test_wf_browse_and_price_week_fold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Date prompts and empty results"
+text = "The catalogue shows the published no-dates prompt before dates are set, and the published nothing-free state when no kit is free for the chosen dates."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-and-price"
+tests = [
+    "test_app.py::test_wf_browse_and_price_empty",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Renter layouts at phone and tablet widths"
+text = "The catalogue and kit sheet show their published element order and columns at 375x812, 768x1024 and 1280x800, with no horizontal scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-and-price"
+tests = [
+    "test_app.py::test_renter_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Hold a kit from the sheet"
+text = "A renter sets dates, optionally picks serials, enters a name and email and holds the kit, then lands on their private booking page in the published held state."
+kind = "behavior"
+primary = "workflow"
+workflow = "hold-a-kit"
+tests = [
+    "test_app.py::test_wf_hold_a_kit_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "No double-booked serials"
+text = "The server never assigns one serial unit to two active bookings whose hire ranges overlap, whether at hold or at swap."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-a-kit"
+tests = [
+    "test_app.py::test_no_double_booked_serials",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Last-unit race"
+text = "When several holds claim the last free unit for overlapping dates at once, exactly one succeeds and every other gets the unit-taken conflict naming the next free serial or none."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-a-kit"
+tests = [
+    "test_app.py::test_wf_hold_a_kit_last_unit_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Unit taken notice"
+text = "A renter whose hold loses a unit sees the published unit-taken notice, with a button to book the next free serial when there is one, or to choose new dates."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-a-kit"
+tests = [
+    "test_app.py::test_wf_hold_a_kit_unit_taken",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Idempotent holds"
+text = "Repeating a hold with the same idempotency key returns the original response without creating a second booking, and reusing the key for a different request is rejected."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-a-kit"
+tests = [
+    "test_app.py::test_hold_idempotency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Certificate upload stored as sent"
+text = "A renter's certificate PDF is stored byte for byte in object storage and recorded as under review only after storage confirms the write."
+kind = "behavior"
+primary = "pytest"
+workflow = "certificates"
+tests = [
+    "test_app.py::test_wf_certificates_upload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Owner certificate review"
+text = "The owner approves a certificate with its cover dates, limit and loss-payee check, or rejects it with a reason that is mailed to the renter once."
+kind = "behavior"
+primary = "pytest"
+workflow = "certificates"
+tests = [
+    "test_app.py::test_wf_certificates_review",
+    "test_app.py::test_certificate_reject_mail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Confirm and pay"
+text = "A renter with an approved certificate confirms a running hold on the booking page and sees the deposit go from Pending to Paid, followed by the published confirmation heading."
+kind = "behavior"
+primary = "workflow"
+workflow = "confirm-and-pay"
+tests = [
+    "test_app.py::test_wf_confirm_and_pay_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Payment status from Kill Bill"
+text = "A booking shows its deposit as Paid only after Kill Bill records a successful purchase of the stored total, Pending while it waits, and Failed when Kill Bill declines."
+kind = "behavior"
+primary = "pytest"
+workflow = "confirm-and-pay"
+tests = [
+    "test_app.py::test_payment_status_from_killbill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "All-or-nothing confirmation"
+text = "A booking becomes confirmed only when its certificate is present in storage, the Kill Bill purchase has succeeded and the confirmation mail has been accepted; if any step fails, the booking stays a quote and no charge stands."
+kind = "behavior"
+primary = "pytest"
+workflow = "confirm-and-pay"
+tests = [
+    "test_app.py::test_all_or_nothing_confirmation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Confirmation mail"
+text = "Each confirmed booking sends exactly one confirmation mail to the renter, listing every serial, the dates, the billable days, the prices and the rate-card version."
+kind = "behavior"
+primary = "pytest"
+workflow = "confirm-and-pay"
+tests = [
+    "test_app.py::test_confirmation_mail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Idempotent confirmation"
+text = "A confirm replayed with the same key returns the stored response, and two different confirms racing on one quote produce one confirmation and one Kill Bill payment."
+kind = "behavior"
+primary = "pytest"
+workflow = "confirm-and-pay"
+tests = [
+    "test_app.py::test_wf_confirm_and_pay_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Server-timed hold countdown"
+text = "The renter's hold countdown and the Confirm and pay button follow the server's remaining hold time and confirmability, even when the device clock is wrong."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-expiry"
+tests = [
+    "test_app.py::test_wf_hold_expiry_countdown",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Quote expiry releases units"
+text = "A quote not confirmed within the hold period becomes expired, its units become free for other renters, and confirming it is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-expiry"
+tests = [
+    "test_app.py::test_wf_hold_expiry_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Publish a rate card"
+text = "The owner publishes a new numbered rate card that gives a day rate and a deposit for every kit and has an effective date of today or later."
+kind = "behavior"
+primary = "pytest"
+workflow = "rate-cards"
+tests = [
+    "test_app.py::test_wf_rate_cards_publish",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Effective-dated prices"
+text = "Confirmed bookings keep the price and rate-card version they were confirmed under, quotes confirmed after a newer card takes effect are repriced first, and every booking surface shows its version."
+kind = "behavior"
+primary = "pytest"
+workflow = "rate-cards"
+tests = [
+    "test_app.py::test_wf_rate_cards_reprice",
+    "test_app.py::test_active_rate_card_prices_new_quotes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Prep a kit"
+text = "A prep tech can mark a confirmed booking prepped only when every assigned serial is on the shelf, and otherwise sees which serials are missing."
+kind = "behavior"
+primary = "pytest"
+workflow = "prep-kit"
+tests = [
+    "test_app.py::test_wf_prep_kit_counter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Swap a serial"
+text = "Staff can swap a booking's unit for another free serial of the same class before the kit is prepped, under the same no-overlap rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "prep-kit"
+tests = [
+    "test_app.py::test_wf_prep_kit_swap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Server-decided checkout gate"
+text = "The Start checkout button is enabled only when the server's checkout status for that booking allows it, which requires a prepped booking and an approved certificate covering every hire day and the full replacement value."
+kind = "behavior"
+primary = "pytest"
+workflow = "counter-checkout"
+tests = [
+    "test_app.py::test_checkout_gate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Keyboard counter checkout"
+text = "A prep tech completes a whole checkout by keyboard alone; focus returns to the scan field after each unit and stays inside the confirm dialog while it is open."
+kind = "behavior"
+primary = "pytest"
+workflow = "counter-checkout"
+tests = [
+    "test_app.py::test_wf_counter_checkout_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Counter two-pane layout"
+text = "At 1280x800 the counter shows the bookings list and the booking detail side by side; at 768x1024 and 375x812 it shows one pane at a time."
+kind = "behavior"
+primary = "pytest"
+workflow = "counter-checkout"
+tests = [
+    "test_app.py::test_wf_counter_checkout_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Counter checkout"
+text = "A prep tech scans, checks, notes and photographs each unit of a prepped booking and checks the kit out; the booking is then out and every unit is located on it."
+kind = "behavior"
+primary = "workflow"
+workflow = "counter-checkout"
+tests = [
+    "test_app.py::test_wf_counter_checkout_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Unit check-in"
+text = "Checking in a unit records its condition and any damage charge and moves it to the shelf or to repair; the booking becomes returned after its last unit."
+kind = "behavior"
+primary = "pytest"
+workflow = "check-in-and-close"
+tests = [
+    "test_app.py::test_unit_checkin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Photos stored before they count"
+text = "Each condition photo shows Pending, Stored or Failed according to object storage's answer, and only Stored photos satisfy checkout and check-in close."
+kind = "behavior"
+primary = "pytest"
+workflow = "check-in-and-close"
+tests = [
+    "test_app.py::test_photos_stored_before_they_count",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Close and settle"
+text = "Closing a returned booking records any damage invoice and the deposit refund in Kill Bill, then sends at most one return receipt, as qualified in Business rules; closing is refused until every unit's check-in photos are stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "check-in-and-close"
+tests = [
+    "test_app.py::test_wf_check_in_and_close_settle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Check-in and close"
+text = "A prep tech checks in each unit with condition photos, flags damage and closes the check-in; the booking is then closed and each unit is on the shelf or in repair."
+kind = "behavior"
+primary = "workflow"
+workflow = "check-in-and-close"
+tests = [
+    "test_app.py::test_wf_check_in_and_close_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Paired movement ledger"
+text = "Every unit move is one movement with two balancing entries, and each unit's history balances to exactly one current location."
+kind = "behavior"
+primary = "pytest"
+workflow = "repair-and-ledger"
+tests = [
+    "test_app.py::test_paired_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Repair moves"
+text = "Staff can send a shelf unit to repair and bring a repaired unit back; every other manual move between locations is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "repair-and-ledger"
+tests = [
+    "test_app.py::test_wf_repair_and_ledger_repair",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Counts agree with the ledger"
+text = "Free-for-dates counts, each kit's ready-to-go count and the owner's utilisation totals are derived from the ledger, and all of them agree after every checkout, check-in and repair move."
+kind = "behavior"
+primary = "pytest"
+workflow = "repair-and-ledger"
+tests = [
+    "test_app.py::test_wf_repair_and_ledger_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Cancel a confirmed booking"
+text = "The renter or the owner can cancel a confirmed booking, which refunds the full charge in Kill Bill and releases its units."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking-lifecycle"
+tests = [
+    "test_app.py::test_wf_booking_lifecycle_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Booking states and rights"
+text = "Each booking transition is allowed only from its published states and for its published roles, and every other attempt gets the published rejection."
+kind = "behavior"
+primary = "pytest"
+workflow = "booking-lifecycle"
+tests = [
+    "test_app.py::test_wf_booking_lifecycle_rights",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Payments outage"
+text = "When Kill Bill is unreachable, confirm, cancel and close answer the published outage error without changing anything, and screens show the payments-offline banner."
+kind = "behavior"
+primary = "pytest"
+workflow = "provider-outages"
+tests = [
+    "test_app.py::test_wf_provider_outages_payments",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Photo storage outage"
+text = "When object storage is unreachable, certificate uploads, photo uploads and confirmation answer the published outage error, nothing is recorded as stored, and screens show the storage-offline banner."
+kind = "behavior"
+primary = "pytest"
+workflow = "provider-outages"
+tests = [
+    "test_app.py::test_wf_provider_outages_storage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from its run manifest on the published port, and its health endpoint answers as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_status",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Staff sign-in"
+text = "The owner and the prep tech sign in with their passcodes to get a role session, and staff screens and endpoints refuse requests without one."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "One error shape and order"
+text = "Every API error uses the published body shape and follows the published precedence."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Server boundary"
+text = "The server accepts same-origin requests only, enforces the published size and type limits, never serves source files or credentials, and serves pages even when Kill Bill or storage is unreachable at boot."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Reduced motion"
+text = "With reduced motion requested, the strip folds and the totals change without animation, while every label and announcement stays the same."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Touch targets and contrast"
+text = "Every interactive control is at least 44 by 44 pixels, and all text and controls meet WCAG 2.2 AA contrast on the warm paper ground."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_touch_targets_and_contrast",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Rental sheet look"
+text = "Each kit reads as a printed rental sheet, with a tall condensed name, huge price numerals, thin oxblood rules, a ruled day strip and a unit table on warm off-white paper."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B13",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B14",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Provider wiring in source"
+text = "The source reads every credential from the environment and derives payment, storage and mail state only from the real providers' answers, never from faked or self-reported results."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string fields install, build, serve and \"_schema\":\"run-manifest-v1\", and nothing else is needed to install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) with its version and licence, plus the two fonts and the icon set."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0. Fonts are under OFL-1.1 and icons are Lucide (ISC)."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastore other than the provided Postgres and MinIO: no SQLite, no file-based database, no in-memory store as a system of record, no extra containers."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Fonts, icons and scripts are served from the app itself, and no page loads anything from a third-party origin at run time."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service configuration (compose files, development environment values and seed credentials of the services) is left unmodified."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "browse-and-price"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+]
+critical = [
+    "test_app.py::test_wf_browse_and_price_catalogue",
+    "test_app.py::test_wf_browse_and_price_week_fold",
+    "test_app.py::test_wf_browse_and_price_empty",
+    "test_app.py::test_renter_layouts",
+]
+checkpoints = [
+    "B1",
+    "B6",
+    "B10",
+]
+critical_checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "hold-a-kit"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_hold_a_kit_happy",
+    "test_app.py::test_wf_hold_a_kit_last_unit_race",
+    "test_app.py::test_wf_hold_a_kit_unit_taken",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "certificates"
+requirements = [
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_certificates_upload",
+    "test_app.py::test_wf_certificates_review",
+]
+
+[[workflows]]
+id = "confirm-and-pay"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_confirm_and_pay_happy",
+    "test_app.py::test_wf_confirm_and_pay_race",
+]
+
+[[workflows]]
+id = "hold-expiry"
+requirements = [
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_hold_expiry_countdown",
+    "test_app.py::test_wf_hold_expiry_release",
+]
+
+[[workflows]]
+id = "rate-cards"
+requirements = [
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_rate_cards_publish",
+    "test_app.py::test_wf_rate_cards_reprice",
+]
+
+[[workflows]]
+id = "prep-kit"
+requirements = [
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_wf_prep_kit_counter",
+    "test_app.py::test_wf_prep_kit_swap",
+]
+
+[[workflows]]
+id = "counter-checkout"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_counter_checkout_keyboard",
+    "test_app.py::test_wf_counter_checkout_happy",
+    "test_app.py::test_wf_counter_checkout_layout",
+    "test_app.py::test_checkout_gate",
+]
+
+[[workflows]]
+id = "check-in-and-close"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_check_in_and_close_happy",
+    "test_app.py::test_wf_check_in_and_close_settle",
+]
+
+[[workflows]]
+id = "repair-and-ledger"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_repair_and_ledger_repair",
+    "test_app.py::test_wf_repair_and_ledger_counts",
+    "test_app.py::test_paired_ledger",
+]
+
+[[workflows]]
+id = "booking-lifecycle"
+requirements = [
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_booking_lifecycle_cancel",
+    "test_app.py::test_wf_booking_lifecycle_rights",
+]
+
+[[workflows]]
+id = "provider-outages"
+requirements = [
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_provider_outages_payments",
+    "test_app.py::test_wf_provider_outages_storage",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_sign_in",
+    "test_app.py::test_wf_cross_cutting_boundary",
+]
+checkpoints = [
+    "B2",
+    "B4",
+    "B5",
+]

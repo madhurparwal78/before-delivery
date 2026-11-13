@@ -1,0 +1,1045 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "wf-first-run",
+    "wf-legacy-import",
+    "wf-source-upload",
+    "wf-branching",
+    "wf-merging",
+    "wf-restore",
+    "wf-erasure",
+    "wf-drafting",
+    "wf-review",
+    "wf-publish",
+    "wf-ci-delivery",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B20",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+    "B17",
+    "B18",
+    "B19",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q8",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 112
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "svix", env = {} },
+    { name = "wiremock", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B20 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 3
+B13 = 3
+B14 = 3
+B15 = 3
+B16 = 5
+B17 = 5
+B18 = 3
+B19 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q8 = 3
+Q5 = 5
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "git-host-down"
+port = 4174
+url_env = "APP_GIT_DOWN_URL"
+
+[outages.env]
+GIT_HOST_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "ai-engine-down"
+port = 4175
+url_env = "APP_AI_DOWN_URL"
+
+[outages.env]
+AI_ENGINE_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "svix-down"
+port = 4176
+url_env = "APP_SVIX_DOWN_URL"
+
+[outages.env]
+SVIX_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-timer"
+port = 4177
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+ASSIGNMENT_TTL_SECONDS = "5"
+CONFLICT_HOLD_SECONDS = "5"
+AUDIT_RETENTION_SECONDS = "5"
+WEBHOOK_RETRY_SECONDS = "2"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Demo workspace at first boot"
+text = "On first boot against an empty database the app holds exactly the published seed (one owner, one project with three target languages, 40 main keys, one TM with six entries, one open branch and one audit entry) and nothing else, however many instances boot at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-first-run"
+tests = [
+    "test_app.py::test_seed_exact_first_boot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Sign-in and roles"
+text = "The owner and invited reviewers sign in with email and password into an HttpOnly session, and every endpoint enforces the owner, reviewer and CI token scopes with the published error precedence."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-first-run"
+tests = [
+    "test_app.py::test_session_and_scopes",
+    "test_app.py::test_wf_first_run_wrong_password",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Workspace dashboard"
+text = "The signed-in owner lands on a dashboard whose workspace analytics band, client project wordmark strip and project cards show the server's current figures on every load."
+kind = "behavior"
+primary = "workflow"
+workflow = "wf-first-run"
+tests = [
+    "test_app.py::test_wf_first_run_happy",
+]
+criteria = [
+    "B7",
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Published empty and not-found copy"
+text = "Empty queues, empty translation memories, unknown or out-of-scope projects and unknown pages show the exact published headings and text, with straight apostrophes."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-first-run"
+tests = [
+    "test_app.py::test_not_found_and_empty_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Translation memory imports"
+text = "The owner imports a TMX or CSV file up to 5,000,000 bytes into a project's TM, and exact matches fill untranslated main segments, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-legacy-import"
+tests = [
+    "test_app.py::test_tm_import_tmx_fills_main",
+    "test_app.py::test_tm_import_csv_and_limits",
+    "test_app.py::test_wf_legacy_import_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "One exact-match rule"
+text = "Every exact 100% match (import, branch key creation, AI routing and the editor lookup) uses the one published normalisation of case, whitespace and placeholders, and maps placeholders back by position."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-legacy-import"
+tests = [
+    "test_app.py::test_exact_match_everywhere",
+]
+criteria = []
+parameter_cases = [
+    "brief_total",
+    "brief_positional",
+    "unicode_nfc",
+    "nbsp_and_tabs",
+    "printf_styles",
+    "different_text",
+]
+
+[[requirements]]
+id = "DP-07"
+title = "Duplicates, re-imports and the row report"
+text = "Duplicate rows merge into one TM entry, re-importing the same file adds nothing, and every row needing attention is reported with its line number and one reason."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-legacy-import"
+tests = [
+    "test_app.py::test_tm_import_rows_and_reimport",
+    "test_app.py::test_wf_legacy_import_reimport",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Imports kept as submitted"
+text = "Every imported TM file is stored in MinIO byte for byte as submitted and downloads identically."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-legacy-import"
+tests = [
+    "test_app.py::test_tm_import_original_bytes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Source locale uploads"
+text = "The owner uploads a JSON source locale file to an open branch, and the parsed, normalised keys add or update the branch's working copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-source-upload"
+tests = [
+    "test_app.py::test_source_upload_parses_and_rejects",
+    "test_app.py::test_wf_source_upload_happy",
+    "test_app.py::test_wf_source_upload_invalid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Source files downloaded as submitted"
+text = "An uploaded source locale file is stored in MinIO and downloads byte for byte as submitted, with its original name and content type, whatever normalisation the working copy received."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-source-upload"
+tests = [
+    "test_app.py::test_source_original_download",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Source edits carry their history"
+text = "A source edit or rename keeps the key's history across branches and merges, sends translated segments of that key to `Needs review`, and a removed key leaves a placeholder in review queues."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-source-upload"
+tests = [
+    "test_app.py::test_source_edits_history_and_removed_placeholder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Branch lifecycle and limits"
+text = "Branches move only along the published open, in review, merged and abandoned edges, with at most five open or in-review feature branches per project and exact rejections for every illegal edge."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-branching"
+tests = [
+    "test_app.py::test_branch_lifecycle_and_limits",
+    "test_app.py::test_wf_branching_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Key edits on a branch"
+text = "On an open branch the owner creates, renames, edits and deletes keys and edits translations, while closed and in-review branches reject those edits."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-branching"
+tests = [
+    "test_app.py::test_key_edits_on_branch",
+    "test_app.py::test_wf_branching_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Branch rail"
+text = "The project page shows the branch rail as a tablist of main and every open or in-review branch whose panels show the server's merge-preview counts, with `?branch=` in the URL and arrow-key navigation."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-branching"
+tests = [
+    "test_app.py::test_branch_rail_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Branch rail motion"
+text = "Choosing a branch slides and resizes the underline indicator and crossfades the panels at the published timings, and reduced motion swaps them instantly with the same state."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-branching"
+tests = [
+    "test_app.py::test_branch_rail_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Merge preview figures"
+text = "The merge preview classifies every key against the branch's base and current main into new, edited, deleted and field-level conflicts, and counts below-threshold segments."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-merging"
+tests = [
+    "test_app.py::test_merge_preview_classification",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Conflict holds and resolution"
+text = "Resolving a conflict needs a hold by the caller's session that expires on the server clock, and exactly one of several simultaneous hold requests wins."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-merging"
+tests = [
+    "test_app.py::test_conflict_holds_and_resolution",
+    "test_app.py::test_conflict_hold_expires_on_server_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Merge into main"
+text = "A merge from in review applies every change and resolution to main and never drops or overwrites a translation silently, and unresolved conflicts block it."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-merging"
+tests = [
+    "test_app.py::test_merge_into_main",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Merge journey"
+text = "The owner takes a branch from conflict to merged entirely in the browser, through the branch rail, the merge screen and the resolve dialog."
+kind = "behavior"
+primary = "workflow"
+workflow = "wf-merging"
+tests = [
+    "test_app.py::test_wf_merging_happy",
+    "test_app.py::test_wf_merging_hold_refused",
+]
+criteria = [
+    "B17",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Exact restore"
+text = "Restoring an import or a merge returns main and the TM to exactly the earlier keys, values, statuses, scores, issues and comments."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-restore"
+tests = [
+    "test_app.py::test_restore_import_exact",
+    "test_app.py::test_restore_merge_exact",
+    "test_app.py::test_wf_restore_import",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Restore refused after later changes"
+text = "A restore is refused once any later change has touched main or the TM, and a second restore of one operation is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-restore"
+tests = [
+    "test_app.py::test_restore_refused_after_later_changes",
+    "test_app.py::test_wf_restore_superseded",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Project erasure"
+text = "Erasing a project removes its rows, its MinIO objects, its Svix application, its tokens, its reviewer scopes and its audit entries, leaving one anonymous erasure entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-erasure"
+tests = [
+    "test_app.py::test_project_erasure",
+    "test_app.py::test_wf_erasure_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Audit log retention and export"
+text = "Every state change writes one audit entry, entries older than the retention period by the server clock are never shown, and the CSV export neutralises formula cells."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-erasure"
+tests = [
+    "test_app.py::test_audit_entries_and_csv",
+    "test_app.py::test_audit_retention",
+    "test_app.py::test_wf_erasure_audit_log",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "AI draft routing"
+text = "Drafting a language on a branch fills each untranslated segment from an exact TM match first and otherwise from the AI engine routed for that language, scoring AI drafts on arrival."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-drafting"
+tests = [
+    "test_app.py::test_ai_draft_routing",
+    "test_app.py::test_wf_drafting_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "MQM scoring and segment states"
+text = "Segments follow the published untranslated, drafted, scored, needs-review and approved states, with MQM scores computed once by the published formula and threshold."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-drafting"
+tests = [
+    "test_app.py::test_mqm_scoring_and_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "AI engine outage"
+text = "When the AI engine fails, drafting stops with the published 503 and banner while TM matches already applied stay."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-drafting"
+tests = [
+    "test_app.py::test_ai_outage",
+    "test_app.py::test_wf_drafting_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Reviewer invitations and scope"
+text = "The owner invites reviewers per project with a one-time access key, and reviewers see only their projects and act only on segments assigned to them."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-review"
+tests = [
+    "test_app.py::test_reviewer_invitations_and_scope",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Review assignments expire"
+text = "Assignments hold needs-review segments for one reviewer until they expire on the server clock, complete when every live segment is approved, and send `review.completed` on completion."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-review"
+tests = [
+    "test_app.py::test_assignment_completion_and_event",
+    "test_app.py::test_assignment_expiry",
+    "test_app.py::test_wf_review_expired",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Keyboard-complete review and dialogs"
+text = "The review queue and every dialog work by keyboard alone: the published shortcuts work from any control in the queue, Tab wraps inside dialogs, Escape closes them, and focus returns to the opener."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-review"
+tests = [
+    "test_app.py::test_review_queue_keyboard",
+    "test_app.py::test_dialogs_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Segment editor breakpoints"
+text = "The segment editor shows one column below 768 px, two columns from 768 px up to 1023 px, and three columns from 1024 px up, in the published order, without horizontal overflow."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-review"
+tests = [
+    "test_app.py::test_editor_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1023x800",
+    "1024x800",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-31"
+title = "Review journey"
+text = "A reviewer signs in, works an assignment on a phone-sized screen, approves one segment and corrects another, and the owner sees both approved."
+kind = "behavior"
+primary = "workflow"
+workflow = "wf-review"
+tests = [
+    "test_app.py::test_wf_review_phone",
+]
+criteria = [
+    "B18",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Publish confirmed by the repository host"
+text = "A publish stores its bundles and opens a pull request, and it reads `published` only after the repository host confirms the pull request, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-publish"
+tests = [
+    "test_app.py::test_publish_confirmed_by_host",
+    "test_app.py::test_publish_rejected_and_not_confirmed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Publish idempotency and one at a time"
+text = "Publishing needs an Idempotency-Key whose replay returns the stored response, and a project runs at most one publish at a time."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-publish"
+tests = [
+    "test_app.py::test_publish_idempotency_and_one_at_a_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Repository host outage"
+text = "When the repository host is unreachable, every signed-in screen shows the published outage banner and publishes end `failed` with the published reason."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-publish"
+tests = [
+    "test_app.py::test_git_host_outage",
+    "test_app.py::test_wf_publish_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Publish journey"
+text = "The owner publishes main from the project page and watches its status go from queued to published in the browser."
+kind = "behavior"
+primary = "workflow"
+workflow = "wf-publish"
+tests = [
+    "test_app.py::test_wf_publish_happy",
+]
+criteria = [
+    "B19",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "CI tokens and locale pull"
+text = "Project API tokens let CI download each target language's approved strings in the published bundle format, and nothing else."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-ci-delivery"
+tests = [
+    "test_app.py::test_ci_tokens_and_locale_pull",
+    "test_app.py::test_wf_ci_delivery_token",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Signed webhook events"
+text = "Confirmed publishes and completed reviews become one Svix message each, with a stable event id that Svix signs and retries until the CI endpoint acknowledges it."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-ci-delivery"
+tests = [
+    "test_app.py::test_signed_webhook_events",
+    "test_app.py::test_wf_ci_delivery_webhook",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Webhook outage"
+text = "When Svix is unreachable, events wait in the app with the same event id and are retried on the published interval, endpoint saves return the published 503, and the webhook banner shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-ci-delivery"
+tests = [
+    "test_app.py::test_webhook_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from `/app/run.json` on port 4173 (or `APP_PUBLIC_PORT`) and answers `GET /api/health` with `{\"status\":\"ok\"}`."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_port",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read from the published environment variables at start, never hard-coded and never sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Server boundary"
+text = "The server is same-origin only, enforces the published body limits and content types, serves no source or credential files, and starts even when the Git host, AI engine, Svix or MinIO is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_boot_with_dependencies_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Landing page"
+text = "The public landing page shows the hero split with app-collage illustration and floating stat chips, the persona cards with integration-hub diagrams, the security and hosting posture grid and the cookie and data notice, in the published visual language."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B20",
+    "B4",
+    "B5",
+    "B6",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Working-screen visual language"
+text = "Dashboards, tables, forms, empty states, banners and loading states use the same white, monochrome, hairline-card language, with colour only in illustration panels and status always spelled out in words."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+    "B17",
+    "B18",
+    "B19",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Header, menus and responsive shell"
+text = "The sticky header with mega-dropdowns, the mobile hamburger menu and the workflow trigger cards carousel follow the published roles, keyboard behaviour and breakpoints at 375x812, 768x1024 and 1280x800."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_desktop_shell",
+    "test_app.py::test_wf_cross_cutting_tablet_shell",
+    "test_app.py::test_wf_cross_cutting_mobile_shell",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Motion and reduced motion"
+text = "Hover, press, dropdown, carousel and marquee motion follow the published timings, there are no other loops, and reduced motion makes every transition instant."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_and_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with string `install`, `build` and `serve` fields and `\"_schema\":\"run-manifest-v1\"`, and the app runs only through it."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` lists every shipped package and every bundled font with its licence. Shipped packages are the Go modules the program imports plus the npm production dependency tree (`npm ls --omit=dev --all --json`)."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and bundled font is under MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC, 0BSD, MPL-2.0, Unicode-3.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Postgres and MinIO are the only datastores. No SQLite, embedded key-value store, Redis or local files hold application state."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and its credentials are left exactly as given."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "`go.sum` and the npm lockfile are committed, and the build installs only from them."
+tests = [
+    "test_app.py::test_if_lockfiles_committed",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "wf-first-run"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_first_run_happy",
+    "test_app.py::test_seed_exact_first_boot",
+    "test_app.py::test_not_found_and_empty_copy",
+]
+checkpoints = [
+    "B7",
+    "B8",
+    "B16",
+]
+critical_checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "wf-legacy-import"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_wf_legacy_import_happy",
+    "test_app.py::test_tm_import_rows_and_reimport",
+    "test_app.py::test_tm_import_original_bytes",
+]
+
+[[workflows]]
+id = "wf-source-upload"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_wf_source_upload_happy",
+    "test_app.py::test_source_original_download",
+    "test_app.py::test_source_edits_history_and_removed_placeholder",
+]
+
+[[workflows]]
+id = "wf-branching"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_branching_happy",
+    "test_app.py::test_key_edits_on_branch",
+    "test_app.py::test_branch_rail_keyboard",
+]
+checkpoints = [
+    "B9",
+    "B10",
+]
+critical_checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "wf-merging"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_merging_happy",
+    "test_app.py::test_merge_into_main",
+]
+checkpoints = [
+    "B17",
+]
+critical_checkpoints = [
+    "B17",
+]
+
+[[workflows]]
+id = "wf-restore"
+requirements = [
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_restore_import",
+    "test_app.py::test_restore_merge_exact",
+    "test_app.py::test_restore_import_exact",
+]
+
+[[workflows]]
+id = "wf-erasure"
+requirements = [
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_wf_erasure_happy",
+    "test_app.py::test_project_erasure",
+]
+
+[[workflows]]
+id = "wf-drafting"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_drafting_happy",
+    "test_app.py::test_ai_draft_routing",
+    "test_app.py::test_wf_drafting_outage",
+]
+
+[[workflows]]
+id = "wf-review"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_review_phone",
+    "test_app.py::test_review_queue_keyboard",
+    "test_app.py::test_editor_breakpoints",
+    "test_app.py::test_wf_review_expired",
+]
+checkpoints = [
+    "B18",
+]
+critical_checkpoints = [
+    "B18",
+]
+
+[[workflows]]
+id = "wf-publish"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_publish_happy",
+    "test_app.py::test_publish_confirmed_by_host",
+    "test_app.py::test_wf_publish_outage",
+]
+checkpoints = [
+    "B19",
+]
+critical_checkpoints = [
+    "B19",
+]
+
+[[workflows]]
+id = "wf-ci-delivery"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_ci_delivery_token",
+    "test_app.py::test_signed_webhook_events",
+    "test_app.py::test_webhook_outage",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_health_and_port",
+    "test_app.py::test_wf_cross_cutting_desktop_shell",
+    "test_app.py::test_wf_cross_cutting_mobile_shell",
+]

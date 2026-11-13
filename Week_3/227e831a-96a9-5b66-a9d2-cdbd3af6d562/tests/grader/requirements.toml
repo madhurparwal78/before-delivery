@@ -1,0 +1,1327 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 67
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "closet-keeping",
+    "trip-packing",
+    "keyboard-packing",
+    "pack-strata",
+    "retire-gear",
+    "list-lifecycle",
+    "offline-sync",
+    "pack-sheet",
+    "share-link",
+    "gear-import",
+    "responsive-workspace",
+    "edit-conflicts",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 76
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "gotenberg", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "gotenberg-down"
+port = 4174
+url_env = "APP_GOTENBERG_DOWN_URL"
+
+[outages.env]
+GOTENBERG_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_gotenberg_down"
+S3_BUCKET = "${S3_BUCKET}-gotenberg-down"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_minio_down"
+
+[[requirements]]
+id = "DP-01"
+title = "Closet ledger"
+text = "The Closet page lists every active closet item with its name, category, weight in the hiker's display unit, units owned, ready photo and packed-in count, grouped in the published category order, with retired gear in its own section."
+kind = "behavior"
+primary = "pytest"
+workflow = "closet-keeping"
+tests = [
+    "test_app.py::test_wf_closet_keeping_add_gear",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Empty closet"
+text = "When the hiker owns no active gear, the Closet page shows the empty-closet copy from Feedback states with the Add gear and Import gear list actions."
+kind = "behavior"
+primary = "pytest"
+workflow = "closet-keeping"
+tests = [
+    "test_app.py::test_wf_closet_keeping_empty",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Gear entry and validation"
+text = "Adding or editing gear validates every field, rejects a second item with the same normalised name and category, and only ever raises units owned, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "closet-keeping"
+tests = [
+    "test_app.py::test_gear_validation",
+]
+criteria = []
+parameter_cases = [
+    "name_blank",
+    "name_too_long",
+    "category_case",
+    "weight_over",
+    "weight_fraction_grams",
+    "weight_three_decimals_oz",
+    "weight_negative",
+    "units_zero",
+    "units_over",
+    "price_negative",
+    "notes_too_long",
+    "edges_allowed",
+    "duplicate_normalised",
+    "duplicate_retired",
+    "edit_validates",
+    "units_only_raise",
+]
+
+[[requirements]]
+id = "DP-04"
+title = "Weights in whole grams"
+text = "Every weight is stored as whole grams, with ounce, pound and kilogram input converted once at entry, exactly from the decimal as written, by the published half-up rounding rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "closet-keeping"
+tests = [
+    "test_app.py::test_weight_conversion",
+]
+criteria = []
+parameter_cases = [
+    "oz_one_and_half",
+    "oz_sixteen",
+    "oz_hundredth",
+    "oz_upper_edge",
+    "oz_over_limit",
+    "g_whole",
+]
+
+[[requirements]]
+id = "DP-05"
+title = "Gear photos confirmed by storage"
+text = "A gear photo, with the image type decided from the file's content, shows as ready only after object storage has confirmed the stored file, and an unreachable store leaves the item without a new photo."
+kind = "behavior"
+primary = "pytest"
+workflow = "closet-keeping"
+tests = [
+    "test_app.py::test_wf_closet_keeping_photo",
+    "test_app.py::test_photo_storage_outage",
+    "test_app.py::test_upload_type_by_content",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Packed-in counts"
+text = "Each closet item's packed-in count equals the number of planning or packed lists holding an in-closet line for it, after every edit, retirement, import, sync and resumed change, and the Closet page shows the server's count without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "closet-keeping"
+tests = [
+    "test_app.py::test_packed_in_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Build a trip list"
+text = "The hiker creates a trip list, packs closet items into it, sets quantities and carry modes, and sees the totals and Pack Strata update, with rapid edits ending at the hiker's last input."
+kind = "behavior"
+primary = "workflow"
+workflow = "trip-packing"
+tests = [
+    "test_app.py::test_wf_trip_packing_build",
+    "test_app.py::test_rapid_decrease_last_input_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Quantity within owned stock"
+text = "A list holds at most one line per item and no line's quantity may exceed the units the hiker owns, with exactly one winner when the same item is packed twice at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "trip-packing"
+tests = [
+    "test_app.py::test_quantity_within_stock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Derived pack totals"
+text = "Base, worn, consumable and skin-out totals, per-line splits and category subtotals, with only one unit of a worn line counted as worn, are derived from the in-closet lines on every read and never stored on their own."
+kind = "behavior"
+primary = "pytest"
+workflow = "trip-packing"
+tests = [
+    "test_app.py::test_derived_totals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "One figure on every surface"
+text = "Every weight appears in the hiker's display unit with the published formatting, including the pound split after rounding and a goal delta converted once from grams, and the workspace, closet, Pack Strata, share view and pack sheet show the same figure for the same value."
+kind = "behavior"
+primary = "pytest"
+workflow = "pack-strata"
+tests = [
+    "test_app.py::test_display_formatting_everywhere",
+]
+criteria = []
+parameter_cases = [
+    "grams",
+    "ounces",
+    "pounds",
+]
+
+[[requirements]]
+id = "DP-11"
+title = "Hiker settings and goal"
+text = "The hiker sets a display name, display unit, base-weight goal, time zone and paper size, and the goal delta shows how far base weight is under or over that goal."
+kind = "behavior"
+primary = "pytest"
+workflow = "trip-packing"
+tests = [
+    "test_app.py::test_settings_and_goal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Pack announcements"
+text = "Every pack, unpack, quantity or carry-mode change announces the new base weight and goal delta in the Pack updates live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "trip-packing"
+tests = [
+    "test_app.py::test_pack_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Keyboard-only packing"
+text = "Packing, quantity, carry mode, unpacking and the published row shortcuts all work from the keyboard alone, whichever control in the row has focus other than the quantity field, and focus stays on the control that made a quantity or carry-mode change, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-packing"
+tests = [
+    "test_app.py::test_wf_keyboard_packing_shortcuts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Focus follows the row"
+text = "When an item moves between the closet ledger and the pack list, keyboard focus moves with it to the published control and is never left on the page body, not even for one frame."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-packing"
+tests = [
+    "test_app.py::test_wf_keyboard_packing_focus_moves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Dialog focus"
+text = "Every dialog keeps Tab and Shift+Tab inside itself, closes on Escape and returns focus to the control that opened it, except where Interactions names another target."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-packing"
+tests = [
+    "test_app.py::test_wf_keyboard_packing_dialog_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Strata geometry"
+text = "Pack Strata draws one band per category with base weight, stacked in category order, with heights scaled to the goal, a capped over-goal stack with a chevron, and worn and consumable side columns on the same scale."
+kind = "behavior"
+primary = "pytest"
+workflow = "pack-strata"
+tests = [
+    "test_app.py::test_wf_pack_strata_geometry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Strata pack sequence"
+text = "Packing an item onto a new line flies its chip into its band, then grows the band, then counts the base-weight numerals to the new value, and unpacking runs the same steps in reverse, all within the published timings, as qualified in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "pack-strata"
+tests = [
+    "test_app.py::test_wf_pack_strata_sequence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Strata under reduced motion"
+text = "With reduced motion on, bands and numerals jump to their final values with no chip flight, while totals and announcements stay the same."
+kind = "behavior"
+primary = "pytest"
+workflow = "pack-strata"
+tests = [
+    "test_app.py::test_wf_pack_strata_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Labelled strata bands"
+text = "Every strata band takes keyboard focus and carries an accessible label with its category, weight and share of base weight."
+kind = "behavior"
+primary = "pytest"
+workflow = "pack-strata"
+tests = [
+    "test_app.py::test_wf_pack_strata_band_labels",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Retire, sell or remove gear"
+text = "The hiker retires, sells or loses units of an item, simultaneous retirements never remove more units than are owned, and only gear that no list has ever used can be deleted."
+kind = "behavior"
+primary = "pytest"
+workflow = "retire-gear"
+tests = [
+    "test_app.py::test_concurrent_retirements_and_delete_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Not in closet lines"
+text = "After units leave the closet, planning and packed lines whose quantity exceeds the remaining stock show Not in closet and drop out of every total without being deleted."
+kind = "behavior"
+primary = "pytest"
+workflow = "retire-gear"
+tests = [
+    "test_app.py::test_wf_retire_gear_not_in_closet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Trip list states"
+text = "A trip list moves only planning to packed, packed to planning and packed to walked, every other move is rejected, and of simultaneous moves exactly one wins each contested edge."
+kind = "behavior"
+primary = "pytest"
+workflow = "list-lifecycle"
+tests = [
+    "test_app.py::test_list_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Frozen line names and weights"
+text = "Marking a list packed freezes each line's name and weight, renaming or re-weighing gear changes only planning lists, and returning to planning takes the closet names and weights again."
+kind = "behavior"
+primary = "pytest"
+workflow = "list-lifecycle"
+tests = [
+    "test_app.py::test_wf_list_lifecycle_freeze_rename",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Read-only packed and walked lists"
+text = "A packed or walked list shows its published banner and offers no line-editing controls in the workspace."
+kind = "behavior"
+primary = "pytest"
+workflow = "list-lifecycle"
+tests = [
+    "test_app.py::test_read_only_banners",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Edit offline at the trailhead"
+text = "With no connection, a previously opened workspace still loads, shows the offline banner, and keeps packing changes on the device across reloads until the hiker reconnects."
+kind = "behavior"
+primary = "workflow"
+workflow = "offline-sync"
+tests = [
+    "test_app.py::test_wf_offline_sync_trailhead",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Sync replays each change once"
+text = "Queued offline changes replay in order on reconnect and each is applied exactly once or refused with a published reason that leaves totals unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-sync"
+tests = [
+    "test_app.py::test_sync_replays_each_change_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Reconnect announcements"
+text = "After a sync the Sync results live region announces how many changes applied and one sentence for each refused change."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-sync"
+tests = [
+    "test_app.py::test_wf_offline_sync_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Print a pack sheet"
+text = "The hiker prints a trip list to a pack sheet PDF and downloads it from the workspace."
+kind = "behavior"
+primary = "workflow"
+workflow = "pack-sheet"
+tests = [
+    "test_app.py::test_wf_pack_sheet_print",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Pack sheet contents"
+text = "The pack sheet shows the list's in-closet lines by category with a checkbox and carry note each, category subtotals and totals on the hiker's paper size, and nothing private."
+kind = "behavior"
+primary = "pytest"
+workflow = "pack-sheet"
+tests = [
+    "test_app.py::test_pack_sheet_contents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Sheet ready only when stored"
+text = "A pack sheet is reported ready only after its rendered PDF is stored in object storage."
+kind = "behavior"
+primary = "pytest"
+workflow = "pack-sheet"
+tests = [
+    "test_app.py::test_sheet_ready_only_when_stored",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Printing outage"
+text = "When rendering or storage is unreachable, printing fails with the published status and notice while the rest of the workspace keeps working."
+kind = "behavior"
+primary = "pytest"
+workflow = "pack-sheet"
+tests = [
+    "test_app.py::test_wf_pack_sheet_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Share a list with a partner"
+text = "The hiker creates a read-only link to one trip list and a trail partner opens it without signing in."
+kind = "behavior"
+primary = "workflow"
+workflow = "share-link"
+tests = [
+    "test_app.py::test_wf_share_link_partner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Revoke and regenerate links"
+text = "Revoking a share link or creating a new one stops the old link at once, simultaneous creates leave exactly one working link, and a share link never accepts a change."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-link"
+tests = [
+    "test_app.py::test_wf_share_link_revoke",
+    "test_app.py::test_share_concurrent_and_read_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Share link expiry"
+text = "A share link with an expiry date works through the end of that date in the hiker's current time zone, decided on every read, with today accepted and earlier dates refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-link"
+tests = [
+    "test_app.py::test_share_link_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Published share fields only"
+text = "The share view and share API carry only the published share fields and never price, private notes, Not in closet lines, other lists or closet-only gear."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-link"
+tests = [
+    "test_app.py::test_share_fields_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Import a legacy gear list"
+text = "The hiker uploads a legacy gear-list CSV, reviews a per-row preview of matched, new and rejected rows, and confirms it into the closet."
+kind = "behavior"
+primary = "workflow"
+workflow = "gear-import"
+tests = [
+    "test_app.py::test_wf_gear_import_preview_confirm",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Import matching rules"
+text = "Each imported row matches an existing item by normalised name and category or creates one, duplicates in the file merge, and re-importing the same file creates nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "gear-import"
+tests = [
+    "test_app.py::test_import_matching_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "All-or-nothing commit"
+text = "Confirming an import writes all of its accepted rows in one step or none, and an import can be confirmed only once."
+kind = "behavior"
+primary = "pytest"
+workflow = "gear-import"
+tests = [
+    "test_app.py::test_import_commit_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Original file kept as uploaded"
+text = "Each import's original file is stored in object storage before any row is read into the closet and downloads byte for byte from the import history."
+kind = "behavior"
+primary = "pytest"
+workflow = "gear-import"
+tests = [
+    "test_app.py::test_import_original_bytes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Import storage outage"
+text = "When object storage is unreachable, an import is refused with the published status and notice and nothing is recorded."
+kind = "behavior"
+primary = "pytest"
+workflow = "gear-import"
+tests = [
+    "test_app.py::test_wf_gear_import_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Workspace breakpoints"
+text = "The trip workspace changes between one column, two panes and three columns at the published breakpoints, in the published order, with no horizontal scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "responsive-workspace"
+tests = [
+    "test_app.py::test_wf_responsive_workspace_breakpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Phone packing"
+text = "At phone width every packing control meets the published touch size and Pack Strata sits in a collapsible strip."
+kind = "behavior"
+primary = "pytest"
+workflow = "responsive-workspace"
+tests = [
+    "test_app.py::test_wf_responsive_workspace_phone_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Hiker sign-in"
+text = "The hiker's pages and API require a session from the seeded passphrase, while health, share links and the sign-in screen stay public."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Health and run manifest"
+text = "The app installs, builds and serves from its run manifest on the published port and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Server boundary"
+text = "The browser talks only to the app's own origin, and the server enforces the published body limits, content types, upload type checks and single error shape, answers unexpected failures with the published internal error, and never serves source files or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_routes",
+    "test_app.py::test_body_limits",
+    "test_app.py::test_never_serves_source_or_credentials",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Field-sheet look"
+text = "Every screen reads as a ruled field sheet on a paper-toned contour ground, with the published type roles, right-aligned monospaced weights and trail-blaze orange reserved for the goal."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Credentials from environment"
+text = "Every service URL and credential is read from the published environment variables and never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Pack sheet currency"
+text = "The workspace says when the newest pack sheet no longer matches the list, decided from the list's current content on every read."
+kind = "behavior"
+primary = "pytest"
+workflow = "pack-sheet"
+tests = [
+    "test_app.py::test_wf_pack_sheet_out_of_date",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Deleted gear is gone"
+text = "Deleting closet gear removes its photo from object storage before answering, frees its name and category, keeps its import history rows without a link to it, and keeps the item when storage is unreachable, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "retire-gear"
+tests = [
+    "test_app.py::test_wf_retire_gear_delete",
+    "test_app.py::test_delete_without_photo_during_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Hiker sees link status"
+text = "The Share dialog tells the hiker when their link has expired, decided by the server on every read from the hiker's current time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-link"
+tests = [
+    "test_app.py::test_wf_share_link_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Collapsed strip is unavailable"
+text = "Below 768 px the collapsed Pack Strata strip exposes only its toggle and summary line, with no band or side column visible, focusable or in the accessibility tree, and the toggle does not exist from 768 px."
+kind = "behavior"
+primary = "pytest"
+workflow = "responsive-workspace"
+tests = [
+    "test_app.py::test_wf_responsive_workspace_collapsed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Only published fields are written"
+text = "Every write route refuses any request field outside its published fields with a field message and writes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "closet-keeping"
+tests = [
+    "test_app.py::test_unknown_fields_refused",
+]
+criteria = []
+parameter_cases = [
+    "closet_patch_weight_grams",
+    "closet_post_status",
+    "profile_goal_grams",
+    "list_post_state",
+    "line_patch_unit_weight",
+    "share_post_token",
+    "retire_version",
+    "state_post_name",
+    "sync_top_level",
+    "retired_status_conflict",
+]
+
+[[requirements]]
+id = "DP-53"
+title = "Live workspace figures"
+text = "After every pack, unpack, quantity or carry-mode change, each available-gear row's left count, the pack list's category headings, the strata band labels and the collapsed summary update in place without a reload and without moving focus, and the Trips base weight matches the server the next time Trips is shown, also after a resumed or chained change."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-packing"
+tests = [
+    "test_app.py::test_wf_keyboard_packing_live_figures",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Retry-safe retirement"
+text = "A retirement repeated with the same Idempotency-Key replays its stored answer and changes nothing, a reused key with a different body or a key still in progress is refused, and the Retire dialog resends its one key after a lost answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "retire-gear"
+tests = [
+    "test_app.py::test_wf_retire_gear_lost_answer",
+    "test_app.py::test_retire_idempotency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Cross-site writes refused"
+text = "Every API write carrying a foreign or null Origin or a cross-site Sec-Fetch-Site header is refused with 403 before any check other than the body limit and content type, and writes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "retire-gear"
+tests = [
+    "test_app.py::test_cross_site_writes_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "The losing device shows the server's state"
+text = "A device whose list state change or line write is refused because another device changed the list announces the refusal and switches to the list's real state from the server, never showing a state the server has not confirmed."
+kind = "behavior"
+primary = "pytest"
+workflow = "list-lifecycle"
+tests = [
+    "test_app.py::test_wf_list_lifecycle_two_devices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Unreadable files are refused plainly"
+text = "A CSV that is not valid UTF-8 or has an unclosed quote is refused with the published plain field message, leaves no stored file and no import run, and no error ever exposes internal details."
+kind = "behavior"
+primary = "pytest"
+workflow = "gear-import"
+tests = [
+    "test_app.py::test_unreadable_csv_refused_plainly",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Edits over a newer version are refused"
+text = "Every closet item carries a version that rises on each write to it, an edit sent without the current version is refused with 428 or 412 and changes nothing, and the Edit dialog says so."
+kind = "behavior"
+primary = "pytest"
+workflow = "edit-conflicts"
+tests = [
+    "test_app.py::test_item_versions",
+    "test_app.py::test_wf_edit_conflicts_two_devices",
+    "test_app.py::test_wf_edit_conflicts_reopen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Offline quantity conflicts are refused"
+text = "An offline quantity change replayed over a quantity that another device changed meanwhile is refused as changed elsewhere instead of overwriting it."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-sync"
+tests = [
+    "test_app.py::test_sync_line_changed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Messages stay until replaced"
+text = "Live-region messages, the out-of-date notice, the Download pack sheet link, the offline banner and open dialogs are never cleared by a timer and change only when the next message or state replaces them."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-sync"
+tests = [
+    "test_app.py::test_messages_stay_until_replaced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Landing after create"
+text = "Creating a trip list lands on its workspace at /lists/<id> with focus on the list's heading, and Back returns to Trips with the new list first."
+kind = "behavior"
+primary = "pytest"
+workflow = "trip-packing"
+tests = [
+    "test_app.py::test_wf_trip_packing_create_lands",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Refused pack rolls back"
+text = "When a Pack is refused because another device retired the item, the workspace removes the provisional line, restores the server's totals, drops the row from the available gear and announces the refusal with focus on the Closet zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "trip-packing"
+tests = [
+    "test_app.py::test_wf_trip_packing_retired_elsewhere",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Session ended mid-change"
+text = "When a workspace change answers 401 because the session ended, the workspace holds it, opens the Sign in again dialog, and after sign-in sends it exactly once with focus back on the control that made it, never reloading or losing the change, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "trip-packing"
+tests = [
+    "test_app.py::test_wf_trip_packing_session_ended",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Adjust a line before its pack is confirmed"
+text = "Quantity, carry-mode and unpack inputs made on a just-packed line before the server confirms it are held in input order and sent against the new line, and all of them are dropped with one announcement when the pack is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "trip-packing"
+tests = [
+    "test_app.py::test_provisional_line_held_inputs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "List state stays as answered"
+text = "While a state change is pending further presses send nothing, and the List state message and banner keep that answer through refusal re-reads, repaints and any passage of time until the next state-change answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "list-lifecycle"
+tests = [
+    "test_app.py::test_wf_list_lifecycle_double_tap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Import results announced and tied to the file field"
+text = "A refused import file marks the CSV file field invalid with its message as the field's accessible description and in the Import region, with focus on the field, a new file choice clears the error and the old preview, and the announced preview and confirm counts equal the preview's outcome cells."
+kind = "behavior"
+primary = "pytest"
+workflow = "gear-import"
+tests = [
+    "test_app.py::test_wf_gear_import_unreadable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "CSV records read exactly"
+text = "An import reads quoted multi-line records, empty lines, duplicate and missing columns, row values and Unicode name spellings exactly by the published rules, with decimal-exact weight conversion, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "gear-import"
+tests = [
+    "test_app.py::test_csv_records_exact",
+]
+criteria = []
+parameter_cases = [
+    "multiline_quoted",
+    "empty_lines",
+    "duplicate_column",
+    "missing_columns",
+    "rows_2000",
+    "rows_2001",
+    "weights_and_values",
+    "unicode_names",
+    "bom_crlf",
+]
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with exactly the string keys _schema (run-manifest-v1), install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package with its version and licence, plus every bundled font; shipped packages means the production dependency tree reported by npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font uses one of these licences: MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, or SIL OFL 1.1 for fonts."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastore besides the provided Postgres and MinIO: no SQLite, no embedded key-value store, and no JSON files used as a database on the server."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided development service configuration (compose files and their seed jobs) stays unmodified."
+tests = [
+    "test_app.py::test_if_compose_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Application source code, both server and browser, is written in TypeScript; plain JavaScript appears only in tool configuration files."
+tests = [
+    "test_app.py::test_if_typescript_sources",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Fonts and every other browser asset are bundled into the app; no page loads anything from a CDN or another origin."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "closet-keeping"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_closet_keeping_add_gear",
+    "test_app.py::test_wf_closet_keeping_photo",
+    "test_app.py::test_wf_closet_keeping_empty",
+    "test_app.py::test_packed_in_counts",
+    "test_app.py::test_upload_type_by_content",
+    "test_app.py::test_unknown_fields_refused",
+]
+
+[[workflows]]
+id = "trip-packing"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-11",
+    "DP-12",
+    "DP-61",
+    "DP-62",
+    "DP-63",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_trip_packing_create_lands",
+    "test_app.py::test_wf_trip_packing_build",
+    "test_app.py::test_wf_trip_packing_retired_elsewhere",
+    "test_app.py::test_wf_trip_packing_session_ended",
+    "test_app.py::test_rapid_decrease_last_input_wins",
+]
+
+[[workflows]]
+id = "keyboard-packing"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_keyboard_packing_shortcuts",
+    "test_app.py::test_wf_keyboard_packing_focus_moves",
+    "test_app.py::test_wf_keyboard_packing_live_figures",
+]
+
+[[workflows]]
+id = "pack-strata"
+requirements = [
+    "DP-10",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_pack_strata_geometry",
+    "test_app.py::test_wf_pack_strata_reduced_motion",
+    "test_app.py::test_wf_pack_strata_band_labels",
+    "test_app.py::test_display_formatting_everywhere",
+]
+
+[[workflows]]
+id = "retire-gear"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-49",
+    "DP-54",
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_retire_gear_lost_answer",
+    "test_app.py::test_wf_retire_gear_not_in_closet",
+    "test_app.py::test_wf_retire_gear_delete",
+    "test_app.py::test_concurrent_retirements_and_delete_rules",
+    "test_app.py::test_cross_site_writes_refused",
+]
+
+[[workflows]]
+id = "list-lifecycle"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-56",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_list_lifecycle_two_devices",
+    "test_app.py::test_wf_list_lifecycle_double_tap",
+    "test_app.py::test_wf_list_lifecycle_freeze_rename",
+    "test_app.py::test_list_state_machine",
+    "test_app.py::test_read_only_banners",
+]
+
+[[workflows]]
+id = "offline-sync"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_offline_sync_trailhead",
+    "test_app.py::test_wf_offline_sync_conflict",
+    "test_app.py::test_messages_stay_until_replaced",
+]
+
+[[workflows]]
+id = "pack-sheet"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_pack_sheet_print",
+    "test_app.py::test_wf_pack_sheet_outage",
+    "test_app.py::test_wf_pack_sheet_out_of_date",
+    "test_app.py::test_pack_sheet_contents",
+]
+
+[[workflows]]
+id = "share-link"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_share_link_partner",
+    "test_app.py::test_wf_share_link_revoke",
+    "test_app.py::test_wf_share_link_expiry",
+    "test_app.py::test_share_fields_only",
+    "test_app.py::test_share_link_expiry",
+]
+
+[[workflows]]
+id = "gear-import"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-57",
+    "DP-66",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_gear_import_preview_confirm",
+    "test_app.py::test_wf_gear_import_unreadable",
+    "test_app.py::test_wf_gear_import_outage",
+    "test_app.py::test_import_matching_rules",
+    "test_app.py::test_import_original_bytes",
+    "test_app.py::test_unreadable_csv_refused_plainly",
+]
+
+[[workflows]]
+id = "responsive-workspace"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_responsive_workspace_breakpoints",
+    "test_app.py::test_wf_responsive_workspace_phone_touch",
+    "test_app.py::test_wf_responsive_workspace_collapsed",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "edit-conflicts"
+requirements = [
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_wf_edit_conflicts_two_devices",
+    "test_app.py::test_wf_edit_conflicts_reopen",
+    "test_app.py::test_item_versions",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+checkpoints = [
+    "B1",
+    "B3",
+    "B8",
+]
+critical_checkpoints = [
+    "B1",
+]

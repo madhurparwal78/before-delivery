@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign Up · Pacely</title>
+<link rel="stylesheet" href="/assets/styles.css">
+<link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+</head>
+<body>
+<div id="headerMount"></div>
+<main class="section">
+  <div class="container narrow">
+    <div class="card signup-card">
+      <h1 style="font-size:32px">Join Pacely for free</h1>
+      <p class="lede">Community-Powered Motivation is one upload away.</p>
+      <form id="signupForm" novalidate>
+        <div class="field">
+          <label for="signupName">Name</label>
+          <input id="signupName" type="text" name="name" autocomplete="name" required
+                 aria-describedby="signupNameError">
+          <p class="field-error" id="signupNameError"></p>
+        </div>
+        <div class="field">
+          <label for="signupEmail">Email</label>
+          <input id="signupEmail" type="email" name="email" autocomplete="email" required
+                 aria-describedby="signupEmailError">
+          <p class="field-error" id="signupEmailError"></p>
+        </div>
+        <div class="field">
+          <label for="signupPassword">Password</label>
+          <input id="signupPassword" type="password" name="password" autocomplete="new-password" required
+                 aria-describedby="signupPasswordError signupPasswordHint">
+          <p class="hint" id="signupPasswordHint">At least 8 characters.</p>
+          <p class="field-error" id="signupPasswordError"></p>
+        </div>
+        <button class="btn btn-primary" type="submit">Sign Up</button>
+        <p id="signupFormError" class="field-error" role="alert"></p>
+      </form>
+      <p class="small" style="margin-top:14px">Already a member? <a class="inline-link" href="/login">Log in</a></p>
+    </div>
+  </div>
+</main>
+<div id="footerMount"></div>
+<div id="consentMount"></div>
+<script src="/assets/app.js"></script>
+<script>
+document.getElementById("headerMount").innerHTML = marketingHeader();
+document.getElementById("footerMount").innerHTML = marketingFooter();
+document.getElementById("consentMount").innerHTML = consentBar();
+injectSharedCss(); mountHeaderBehaviour();
+
+const fieldErrors = {
+  name: document.getElementById("signupNameError"),
+  email: document.getElementById("signupEmailError"),
+  password: document.getElementById("signupPasswordError"),
+};
+
+document.getElementById("signupForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  Object.values(fieldErrors).forEach(el => el.textContent = "");
+  ["signupName", "signupEmail", "signupPassword"].forEach(id =>
+    document.getElementById(id).setAttribute("aria-invalid", "false"));
+  const name = document.getElementById("signupName").value.trim();
+  const email = document.getElementById("signupEmail").value.trim();
+  const password = document.getElementById("signupPassword").value;
+  const formError = document.getElementById("signupFormError");
+  formError.textContent = "";
+
+  // inline validation before the server
+  const problems = {};
+  if (name.length < 1 || name.length > 80) problems.name = "Enter a name between 1 and 80 characters.";
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) problems.email = "Enter a valid email address.";
+  if (password.length < 8) problems.password = "Enter a password of at least 8 characters.";
+
+  const res = await Pacely.api("POST", "/api/auth/signup", { name, email, password });
+  if (res.ok) {
+    Pacely.saveSession(res.data.token, res.data.athlete);
+    window.location.href = "/dashboard";
+    return;
+  }
+  if (res.status === 409 && res.data.error === "email_taken") {
+    formError.textContent = "That email is already registered. Try logging in instead.";
+    return;
+  }
+  const fields = (res.data && res.data.fields) || {};
+  const merged = Object.assign({}, problems,
+    Object.fromEntries(Object.entries(fields).map(([k, v]) => {
+      if (k === "name" && !name) return [k, "Enter a name."];
+      if (k === "email") return [k, "Enter a valid email address."];
+      if (k === "password") return [k, "Enter a password of at least 8 characters."];
+      return [k, v];
+    })));
+  Object.entries(merged).forEach(([k, msg]) => {
+    if (!msg) return;
+    fieldErrors[k].textContent = msg;
+    document.getElementById("signup" + k[0].toUpperCase() + k.slice(1)).setAttribute("aria-invalid", "true");
+  });
+  if (!Object.keys(merged).length) formError.textContent = "Sign up could not be completed. Please try again.";
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Challenges · Pacely</title>
+<link rel="stylesheet" href="/assets/styles.css">
+<link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+</head>
+<body>
+<div id="headerMount"></div>
+<main class="section">
+  <div class="container">
+    <section class="card" id="promotedChallenge" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center">
+      <div>
+        <span class="avatar" aria-hidden="true">5K</span>
+        <h2>Monthly 5K Challenge</h2>
+        <p class="lede">Run 5 kilometres in a single activity this month.</p>
+        <p class="small">Earn a digital finisher's badge for your Trophy Case.</p>
+        <p class="small muted" id="promotedRange"></p>
+        <button class="btn btn-primary" id="promotedJoin">Join Challenge</button>
+      </div>
+      <div style="background:linear-gradient(140deg,#fc5203,#d43d00 60%,#5c1220);border-radius:var(--radius-l);min-height:220px;display:flex;align-items:center;justify-content:center">
+        <svg width="140" height="140" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3 6.6 7 .9-5.2 5 1.4 7-6.2-3.5L5.8 21.5l1.4-7-5.2-5 7-.9L12 2z" fill="#fff" opacity="0.92"/></svg>
+      </div>
+    </section>
+
+    <h2 style="margin-top:36px">Challenges</h2>
+    <div class="row" role="group" aria-label="Filter challenges" id="chipRow">
+      <button class="chip" data-filter="run" aria-pressed="false">Run</button>
+      <button class="chip" data-filter="ride" aria-pressed="false">Ride</button>
+      <button class="chip" data-filter="swim" aria-pressed="false">Swim</button>
+      <button class="chip" data-filter="walk" aria-pressed="false">Walk</button>
+      <button class="chip" data-filter="hike" aria-pressed="false">Hike</button>
+      <button class="chip" data-filter="workout" aria-pressed="false">Workout</button>
+      <button class="chip" data-filter="distance" aria-pressed="false">Distance</button>
+      <button class="chip" data-filter="elevation-gain" aria-pressed="false">Elevation Gain</button>
+      <button class="chip" data-filter="moving-time" aria-pressed="false">Moving Time</button>
+    </div>
+
+    <section aria-labelledby="runHeading">
+      <h3 id="runHeading">Run Challenges</h3>
+      <div class="grid grid-4" id="runGallery"></div>
+      <p class="status-note" id="runEmpty" hidden>No run challenges match this filter.</p>
+    </section>
+    <section aria-labelledby="rideHeading">
+      <h3 id="rideHeading">Ride Challenges</h3>
+      <div class="grid grid-4" id="rideGallery"></div>
+      <p class="status-note" id="rideEmpty" hidden>No ride challenges match this filter.</p>
+    </section>
+  </div>
+</main>
+<div id="footerMount"></div>
+<div id="consentMount"></div>
+<script src="/assets/app.js"></script>
+<script>
+document.getElementById("headerMount").innerHTML = marketingHeader();
+document.getElementById("footerMount").innerHTML = marketingFooter();
+document.getElementById("consentMount").innerHTML = consentBar();
+injectSharedCss(); mountHeaderBehaviour();
+
+const chips = Array.from(document.querySelectorAll(".chip"));
+let challenges = [];
+let currentFilter = null;
+
+function chipNameToFilter(name) { return name.toLowerCase().replace(/\s+/g, "-"); }
+
+function setFilterFromAddress() {
+  const params = new URLSearchParams(window.location.search);
+  const f = params.get("filter");
+  if (f) {
+    const chip = chips.find(c => c.dataset.filter === f);
+    if (chip) currentFilter = f;
+  }
+}
+
+function applyFilter() {
+  const f = currentFilter;
+  chips.forEach(c => c.setAttribute("aria-pressed", String(c.dataset.filter === f)));
+  const url = new URL(window.location);
+  if (f) url.searchParams.set("filter", f); else url.searchParams.delete("filter");
+  history.replaceState(null, "", url);
+  renderGalleries();
+}
+
+function matchesFilter(ch, f) {
+  if (!f) return true;
+  if (["run", "ride", "swim", "walk", "hike", "workout"].includes(f)) {
+    return (ch.sport_types || []).includes(f);
+  }
+  if (f === "distance") return ch.dimension === "distance" || ch.dimension === "single_distance";
+  if (f === "elevation-gain") return ch.dimension === "elevation";
+  if (f === "moving-time") return ch.dimension === "moving_time";
+  return true;
+}
+
+function goalLine(ch) {
+  const dims = { distance: v => `${(v/1000).toFixed(1)} km this month`,
+                  single_distance: v => `one effort of ${v >= 10000 ? (v/1000).toFixed(1)+" km" : (v/1000).toFixed(1)+" km"}`,
+                  elevation: v => `${fmtThousands(v)} m of climbing`,
+                  moving_time: v => `${Math.round(v/3600)} hours of moving time` };
+  return dims[ch.dimension](ch.goal);
+}
+
+function ringMarkup(ch) {
+  if (!ch.joined) return "";
+  const pct = Math.min(100, Math.floor((ch.progress / ch.goal) * 100));
+  const r = 26, c = 2 * Math.PI * r;
+  const filled = c * pct / 100;
+  return `
+  <div class="row" style="gap:12px">
+    <svg class="ring" width="64" height="64" role="progressbar" aria-label="${ch.name} progress"
+         aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-valuetext="${pct} percent">
+      <circle class="track" cx="32" cy="32" r="${r}" fill="none" stroke-width="7"/>
+      <circle class="fill" cx="32" cy="32" r="${r}" fill="none" stroke-width="7"
+              stroke-dasharray="${filled} ${c - filled}" transform="rotate(-90 32 32)"/>
+      <text x="32" y="37" text-anchor="middle" font-size="14" font-weight="900" fill="var(--ink)" transform="rotate(90 32 32)">${pct}%</text>
+    </svg>
+    <div>${ch.completed ? `<span class="success-note">Completed</span>` : `<span class="tnum">${fmtThousands(ch.progress)} / ${fmtThousands(ch.goal)}</span>`}
+      <div class="small muted">${goalLine(ch)}</div></div>
+  </div>`;
+}
+
+function cardHtml(ch) {
+  return `
+  <article class="card">
+    <div class="spread"><span class="avatar" aria-hidden="true">${ch.sport_types[0].slice(0, 2).toUpperCase()}</span>
+      <span class="caps-label">${ch.sport_types.join(", ")}</span></div>
+    <h4 style="margin-top:10px">${ch.name}</h4>
+    <p class="small muted">${goalLine(ch)}</p>
+    ${ringMarkup(ch)}
+    <button class="btn btn-primary btn-sm" data-join="${ch.id}">Join ${ch.name}</button>
+  </article>`;
+}
+
+function renderGalleries() {
+  const run = challenges.filter(c => (c.sport_types || []).includes("run"));
+  const ride = challenges.filter(c => (c.sport_types || []).includes("ride"));
+  const runShown = run.filter(c => matchesFilter(c, currentFilter));
+  const rideShown = ride.filter(c => matchesFilter(c, currentFilter));
+  document.getElementById("runGallery").innerHTML = runShown.map(cardHtml).join("");
+  document.getElementById("rideGallery").innerHTML = rideShown.map(cardHtml).join("");
+  document.getElementById("runEmpty").hidden = runShown.length > 0;
+  document.getElementById("rideEmpty").hidden = rideShown.length > 0;
+  document.querySelectorAll("[data-join]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!Pacely.signedIn()) { window.location.href = "/login"; return; }
+      const res = await Pacely.api("POST", `/api/challenges/${btn.dataset.join}/join`);
+      if (res.ok) { announce(`${btn.dataset.join.replace(/-/g, " ")} joined.`); await load(); }
+    });
+  });
+}
+
+async function load() {
+  if (Pacely.signedIn()) {
+    const res = await Pacely.api("GET", "/api/challenges");
+    if (res.ok) challenges = res.data.challenges;
+  } else {
+    // signed-out visitors see the seeded gallery with no personal progress
+    challenges = [
+      { id: "ch_5k", name: "Monthly 5K Challenge", sport_types: ["run"], dimension: "single_distance", goal: 5000, joined: false, progress: 0, completed: false },
+      { id: "ch_10k", name: "Monthly 10K Challenge", sport_types: ["run"], dimension: "single_distance", goal: 10000, joined: false, progress: 0, completed: false },
+      { id: "ch_half", name: "Monthly Half Marathon Challenge", sport_types: ["run"], dimension: "single_distance", goal: 21097, joined: false, progress: 0, completed: false },
+      { id: "ch_run100", name: "Monthly Run 100K Challenge", sport_types: ["run"], dimension: "distance", goal: 100000, joined: false, progress: 0, completed: false },
+      { id: "ch_climb", name: "Monthly Climbing Challenge", sport_types: ["run", "ride", "walk", "hike"], dimension: "elevation", goal: 2000, joined: false, progress: 0, completed: false },
+      { id: "ch_gran", name: "Monthly Gran Fondo Challenge", sport_types: ["ride"], dimension: "single_distance", goal: 100000, joined: false, progress: 0, completed: false },
+      { id: "ch_ride200", name: "Monthly Ride 200K Challenge", sport_types: ["ride"], dimension: "distance", goal: 200000, joined: false, progress: 0, completed: false },
+      { id: "ch_move", name: "Monthly Moving Time Challenge", sport_types: ["run", "ride", "walk", "hike"], dimension: "moving_time", goal: 36000, joined: false, progress: 0, completed: false },
+    ];
+  }
+  const promoted = challenges.find(c => c.name === "Monthly 5K Challenge");
+  if (promoted) {
+    document.getElementById("promotedRange").textContent =
+      `${fmtDate(promoted.starts_at || new Date())} – ${fmtDate(promoted.ends_at || new Date())}`;
+    document.getElementById("promotedJoin").addEventListener("click", async () => {
+      if (!Pacely.signedIn()) { window.location.href = "/login"; return; }
+      await Pacely.api("POST", `/api/challenges/${promoted.id}/join`);
+      announce("Monthly 5K Challenge joined.");
+      await load();
+    });
+  }
+  renderGalleries();
+}
+
+chips.forEach(chip => chip.addEventListener("click", () => {
+  currentFilter = currentFilter === chip.dataset.filter ? null : chip.dataset.filter;
+  applyFilter();
+}));
+window.addEventListener("popstate", () => {
+  currentFilter = null;
+  const params = new URLSearchParams(window.location.search);
+  const f = params.get("filter");
+  if (f && chips.some(c => c.dataset.filter === f)) currentFilter = f;
+  applyFilter();
+});
+setFilterFromAddress();
+load();
+</script>
+</body>
+</html>

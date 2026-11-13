@@ -1,0 +1,1003 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "command-mode",
+    "running-cells",
+    "errors-run-all",
+    "runaway-code",
+    "markdown-contents",
+    "cell-surgery",
+    "presence-locks",
+    "stale-save",
+    "checkpoints",
+    "import-export",
+    "phone",
+    "sharing",
+    "big-output-outage",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 94
+solo_criteria = []
+services = [
+    { name = "postgres", env = { BRACKENPAD_GRADING = "1" } },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Brackenpad <hello@brackenpad.test>" } },
+    { name = "meilisearch", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 5
+B13 = 3
+B14 = 3
+B15 = 3
+B16 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+BRACKENPAD_GRADING = "1"
+
+[[outages]]
+id = "tight-limits"
+port = 4175
+url_env = "APP_TIGHT_LIMITS_URL"
+
+[outages.env]
+BRACKENPAD_OUTPUT_LINE_CAP = "5"
+BRACKENPAD_OUTPUT_BYTE_CAP = "2000"
+BRACKENPAD_TABLE_PAGE_ROWS = "3"
+BRACKENPAD_IMPORT_MAX_BYTES = "4000"
+BRACKENPAD_CHECKPOINTS_KEPT = "3"
+BRACKENPAD_PRESENCE_TIMEOUT_MS = "3000"
+BRACKENPAD_EXEC_LIMIT_MS = "1500"
+DATABASE_URL = "${DATABASE_URL}_tight"
+S3_BUCKET = "${S3_BUCKET}-tight"
+BRACKENPAD_GRADING = "1"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "/app/run.json installs, builds and serves the app on port 4173 (or APP_PUBLIC_PORT), and GET /api/health answers 200 with the storage state described under API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_reports_storage_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Published limits"
+text = "Every limit in the Business rules table is read from its environment variable at start and published by GET /api/config, and the browser applies the client-side limits from that response."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_config_publishes_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "One error order"
+text = "Every endpoint applies the single error precedence and the single error body shape stated under API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_precedence_and_shape",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Grading setup route"
+text = "When BRACKENPAD_GRADING=1, POST /api/grading/seed creates verified users, notebooks, cells, outputs, checkpoints and active shares in one call and returns their ids and session cookies; otherwise it answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_seed_creates_records",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Server boundary"
+text = "The server is same-origin only, enforces the request size limits, never serves source, configuration or credentials, and keeps serving when a service is unreachable at boot, as stated under Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read from the environment variables named under Configuration and secrets and never appears in source, built assets or any response."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Landing page in the house language"
+text = "The landing page shows the workspace header with menus, the Brackenpad mark with glyph cloud, the landing tagline, the recent notebook cards, the checkpoint cascade row, the feature grid, the disc arc, the wordmark wall, the format and plan cards and the two-tone footer with the sign-up form, as described under Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B16",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Working screens in the house language"
+text = "The file browser, notebook, dialogs, empty states, error outputs and outage banner use the same alternating bands, typefaces, single orange accent, bordered cards and embossed buttons described under Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Quiet motion with a reduced-motion path"
+text = "The hero fades in once, buttons and cards answer hover almost instantly, cell insert, move and delete animate briefly, nothing loops, and reduced motion shows every end state at once, with the timings given under Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_hero_mark_fades_in_once",
+    "test_app.py::test_hover_and_press_answer_quickly",
+    "test_app.py::test_cell_motion_and_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Three viewports without overflow"
+text = "At 375x812, 768x1024 and 1280x800 every screen fits the viewport width with no horizontal scrolling, and every control people tap is at least 44 px in both directions."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_three_viewports_fit",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-11"
+title = "Building a notebook from the keyboard"
+text = "The owner builds, retypes, deletes and restores cells using only the published command-mode keys, and every mode change is announced."
+kind = "behavior"
+primary = "workflow"
+workflow = "command-mode"
+tests = [
+    "test_app.py::test_wf_command_mode_build_cells",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Published keyboard shortcuts"
+text = "Every key and double press listed under Interactions does exactly what is published there whichever notebook control has focus, including the command palette."
+kind = "behavior"
+primary = "pytest"
+workflow = "command-mode"
+tests = [
+    "test_app.py::test_wf_command_mode_focus_and_double_press",
+    "test_app.py::test_header_menus_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Announced mode, kernel and run results"
+text = "The polite live region \"Notebook status\" announces each mode change in the tab where it happens, and each kernel status change and run result on every open screen, with the exact words in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "command-mode"
+tests = [
+    "test_app.py::test_wf_command_mode_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Running cells seen live"
+text = "The owner runs cells in the three published ways and a collaborator with the notebook open sees the execution counts, outputs and kernel status arrive without reloading."
+kind = "behavior"
+primary = "workflow"
+workflow = "running-cells"
+tests = [
+    "test_app.py::test_wf_running_cells_three_ways_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "JavaScript kernel evaluation"
+text = "Each open notebook tab runs code cells in its own browser kernel following the declaration, result, console and display() rules under Business rules, and no code runs on the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "running-cells"
+tests = [
+    "test_app.py::test_wf_running_cells_unnamed_function",
+    "test_app.py::test_wf_running_cells_kernel_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "One shared execution counter"
+text = "Each started run that ends takes the next number from the notebook's single server counter, simultaneous results get distinct consecutive numbers, and a replayed result returns its stored number."
+kind = "behavior"
+primary = "pytest"
+workflow = "running-cells"
+tests = [
+    "test_app.py::test_wf_running_cells_counter_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Errors and Run all"
+text = "The owner runs a cell that throws and then Run all, and sees the error's name, message and line, and every later code cell marked as not run."
+kind = "behavior"
+primary = "workflow"
+workflow = "errors-run-all"
+tests = [
+    "test_app.py::test_wf_errors_run_all_error_then_run_all",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Error outputs and skipped cells"
+text = "An uncaught error becomes an error output with its name, message and line number within the cell, and Run all leaves the later code cells not run with the published label."
+kind = "behavior"
+primary = "pytest"
+workflow = "errors-run-all"
+tests = [
+    "test_app.py::test_wf_errors_run_all_queued_run_after_failure",
+    "test_app.py::test_wf_errors_run_all_error_outputs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Runaway code"
+text = "The owner stops an endless loop by the time limit and by I,I with variables kept, restarts with 0,0 and finds them gone, while a collaborator sees each kernel status."
+kind = "behavior"
+primary = "workflow"
+workflow = "runaway-code"
+tests = [
+    "test_app.py::test_wf_runaway_code_interrupt_inside_function",
+    "test_app.py::test_wf_runaway_code_limit_interrupt_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Time limit, interrupt and restart"
+text = "A run stops at the published execution time limit or on interrupt with the kernel's variables kept, restart clears every variable but keeps stored outputs, and kernel status follows the published state machine."
+kind = "behavior"
+primary = "pytest"
+workflow = "runaway-code"
+tests = [
+    "test_app.py::test_wf_runaway_code_kernel_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Markdown and contents"
+text = "The owner writes headings, math, a table, raw HTML and links, sees only allowed markup rendered for every role, and navigates by the live table of contents."
+kind = "behavior"
+primary = "workflow"
+workflow = "markdown-contents"
+tests = [
+    "test_app.py::test_wf_markdown_contents_owner_writes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Allowlisted markdown"
+text = "Markdown cells render headings, tables and math, keep only the published tags, attributes and link schemes, and strip everything else the same way for every role."
+kind = "behavior"
+primary = "pytest"
+workflow = "markdown-contents"
+tests = [
+    "test_app.py::test_wf_markdown_contents_allowlist_every_role",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Live table of contents"
+text = "The \"Table of contents\" navigation lists every heading with its hierarchical number, updates as markdown cells change, and moves focus to a heading's cell when an entry is activated."
+kind = "behavior"
+primary = "pytest"
+workflow = "markdown-contents"
+tests = [
+    "test_app.py::test_wf_markdown_contents_live_toc",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Cell surgery"
+text = "The owner splits, merges, extends a selection, cuts, pastes and drags cells, and a collaborator sees the same order live."
+kind = "behavior"
+primary = "workflow"
+workflow = "cell-surgery"
+tests = [
+    "test_app.py::test_wf_cell_surgery_split_releases_lock",
+    "test_app.py::test_wf_cell_surgery_keyboard_and_drag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Split, merge and one cell order"
+text = "Splitting a cell and merging the halves restores the original source exactly, and every insert, move, paste, delete and restore keeps one server-ordered sequence that every open screen shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "cell-surgery"
+tests = [
+    "test_app.py::test_wf_cell_surgery_server_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Presence and locks"
+text = "Two collaborators see each other's presence markers and new cells live, and a cell one of them is editing is locked for the other with the published copy."
+kind = "behavior"
+primary = "workflow"
+workflow = "presence-locks"
+tests = [
+    "test_app.py::test_wf_presence_locks_two_collaborators",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Presence expiry and cell locks"
+text = "The server drops a presence marker after the published presence timeout, and exactly one open tab at a time may edit a cell while others see it locked."
+kind = "behavior"
+primary = "pytest"
+workflow = "presence-locks"
+tests = [
+    "test_app.py::test_wf_presence_locks_expiry_and_claims",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Stale save"
+text = "The owner saves from a stale tab, gets the conflict dialog with focus kept inside it, and \"Reload latest\" shows the other tab's work."
+kind = "behavior"
+primary = "workflow"
+workflow = "stale-save"
+tests = [
+    "test_app.py::test_wf_stale_save_conflict_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Revision conflicts"
+text = "Every cell save carries its base revision, and a stale one answers 409 without changing anything and opens the conflict dialog, as qualified under Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "stale-save"
+tests = [
+    "test_app.py::test_wf_stale_save_revision_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Checkpoint compare and revert"
+text = "The owner saves a checkpoint, changes cells, compares and reverts, and a collaborator sees the checkpoint's cells restored live."
+kind = "behavior"
+primary = "workflow"
+workflow = "checkpoints"
+tests = [
+    "test_app.py::test_wf_checkpoints_compare_and_revert",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Checkpoints confirmed by storage"
+text = "A checkpoint is listed as Saved only after its MinIO put succeeds, at most the published number are kept, and a storage failure lists nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkpoints"
+tests = [
+    "test_app.py::test_wf_checkpoints_storage_confirmed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Compare and revert rules"
+text = "Compare pairs cells by id with the published tags and counts, and revert writes a \"Before revert\" checkpoint first, then restores the checkpoint's cells for the whole notebook or one cell."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkpoints"
+tests = [
+    "test_app.py::test_wf_checkpoints_compare_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Checkpoint diptych"
+text = "The checkpoint panel stacks up to three checkpoint windows in a cascade, and Compare moves the chosen one into a side-by-side split with the timings and reduced-motion path under Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkpoints"
+tests = [
+    "test_app.py::test_wf_checkpoints_diptych",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Import and export"
+text = "The owner is refused an oversized file, sees each format error at its JSON path, imports a good file with outputs intact, downloads the original and reads back the export."
+kind = "behavior"
+primary = "workflow"
+workflow = "import-export"
+tests = [
+    "test_app.py::test_wf_import_export_unicode_title",
+    "test_app.py::test_wf_import_export_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Import limits and error paths"
+text = "An import above the published size answers 413 before any format check, and a malformed file answers 422 listing every error at its JSON path with the published messages."
+kind = "behavior"
+primary = "pytest"
+workflow = "import-export"
+tests = [
+    "test_app.py::test_wf_import_export_limits_and_paths",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Stored as imported"
+text = "An imported file's bytes come back unchanged from Download original, its outputs are kept exactly as imported, and export writes the published format with ids, types, sources, outputs and counts."
+kind = "behavior"
+primary = "pytest"
+workflow = "import-export"
+tests = [
+    "test_app.py::test_wf_import_export_stored_as_imported",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Phone notebook"
+text = "At 375 px a viewer reads a notebook and its contents drawer, and an editor runs and moves a cell from the touch cell action sheet, with reduced motion removing cell transitions."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone"
+tests = [
+    "test_app.py::test_wf_phone_viewer_and_editor",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Phone layout and cell action sheet"
+text = "Below 768 px the notebook is one column, the contents move into a drawer, each cell's \"Cell actions\" button opens a bottom sheet, and a closed drawer or sheet cannot be reached."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone"
+tests = [
+    "test_app.py::test_wf_phone_contents_targets",
+    "test_app.py::test_wf_phone_layout_and_inert",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Sharing by invitation"
+text = "The owner invites an editor and a viewer, each opens the notebook from the invitation in their inbox, the viewer cannot edit or run, and the editor runs a command from the palette."
+kind = "behavior"
+primary = "workflow"
+workflow = "sharing"
+tests = [
+    "test_app.py::test_wf_sharing_invite_from_inbox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Accounts and invitation mail"
+text = "Sign-up sends a verification message and sharing sends an invitation through Mailpit, and an invitation grants access only when the invited account opens its link."
+kind = "behavior"
+primary = "pytest"
+workflow = "sharing"
+tests = [
+    "test_app.py::test_wf_sharing_accounts_and_mail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Viewer and editor permissions"
+text = "A viewer reads rendered cells, contents and outputs and appears in presence but cannot edit or run, every write by a viewer except the presence heartbeat answers 403, and a notebook a person may not open answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "sharing"
+tests = [
+    "test_app.py::test_wf_sharing_viewer_permissions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Big output and outage"
+text = "The owner expands a truncated stream, pages a table output, keeps editing through a storage outage until the edits save, and finds the notebook by a cell's text."
+kind = "behavior"
+primary = "workflow"
+workflow = "big-output-outage"
+tests = [
+    "test_app.py::test_wf_big_output_outage_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Output caps and table paging"
+text = "Stream outputs over the line cap show only the first lines and a show-more button, outputs over the byte cap are replaced by the published notice, and table outputs page at the published rows without repeating or skipping a row."
+kind = "behavior"
+primary = "pytest"
+workflow = "big-output-outage"
+tests = [
+    "test_app.py::test_wf_big_output_outage_caps_and_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Autosave through a storage outage"
+text = "Autosave fires after the published delay, pauses with the outage copy when storage is unreachable, keeps every edit in the page, and saves them once storage answers again."
+kind = "behavior"
+primary = "pytest"
+workflow = "big-output-outage"
+tests = [
+    "test_app.py::test_wf_big_output_outage_autosave_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Search by title, cells and headings"
+text = "File-browser search runs through Meilisearch, returns only notebooks the searcher may open, and shows the published notice when search is unavailable while the list still works."
+kind = "behavior"
+primary = "pytest"
+workflow = "big-output-outage"
+tests = [
+    "test_app.py::test_wf_big_output_outage_search",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\", and nothing else is needed to start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and every bundled font, each with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font uses one of these licences: MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, CC0-1.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "No datastore other than the provided PostgreSQL, MinIO and Meilisearch holds application state. There is no SQLite, Redis, local files or in-memory store that outlives a request, except presence, locks and live connections."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The pages load no asset, font or script from any other origin at runtime."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "No user cell code is evaluated on the server in any form."
+tests = [
+    "test_app.py::test_if_no_server_evaluation",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The provided service configuration and dev compose files are left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "No real notebook product's name or logo appears in the UI, copy or source."
+tests = [
+    "test_app.py::test_if_no_real_product_names",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "command-mode"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_command_mode_build_cells",
+    "test_app.py::test_wf_command_mode_focus_and_double_press",
+    "test_app.py::test_wf_command_mode_announcements",
+]
+
+[[workflows]]
+id = "running-cells"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_wf_running_cells_unnamed_function",
+    "test_app.py::test_wf_running_cells_three_ways_live",
+    "test_app.py::test_wf_running_cells_counter_replay",
+]
+
+[[workflows]]
+id = "errors-run-all"
+requirements = [
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_errors_run_all_queued_run_after_failure",
+    "test_app.py::test_wf_errors_run_all_error_then_run_all",
+    "test_app.py::test_wf_errors_run_all_error_outputs",
+]
+checkpoints = [
+    "B14",
+]
+
+[[workflows]]
+id = "runaway-code"
+requirements = [
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_runaway_code_interrupt_inside_function",
+    "test_app.py::test_wf_runaway_code_limit_interrupt_restart",
+]
+
+[[workflows]]
+id = "markdown-contents"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_wf_markdown_contents_allowlist_every_role",
+    "test_app.py::test_wf_markdown_contents_live_toc",
+]
+
+[[workflows]]
+id = "cell-surgery"
+requirements = [
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_cell_surgery_split_releases_lock",
+    "test_app.py::test_wf_cell_surgery_keyboard_and_drag",
+    "test_app.py::test_wf_cell_surgery_server_order",
+]
+
+[[workflows]]
+id = "presence-locks"
+requirements = [
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_presence_locks_two_collaborators",
+    "test_app.py::test_wf_presence_locks_expiry_and_claims",
+]
+
+[[workflows]]
+id = "stale-save"
+requirements = [
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_stale_save_conflict_dialog",
+    "test_app.py::test_wf_stale_save_revision_rules",
+]
+
+[[workflows]]
+id = "checkpoints"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_checkpoints_compare_and_revert",
+    "test_app.py::test_wf_checkpoints_storage_confirmed",
+    "test_app.py::test_wf_checkpoints_compare_rules",
+]
+checkpoints = [
+    "B15",
+]
+critical_checkpoints = [
+    "B15",
+]
+
+[[workflows]]
+id = "import-export"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_import_export_unicode_title",
+    "test_app.py::test_wf_import_export_dialog",
+    "test_app.py::test_wf_import_export_limits_and_paths",
+    "test_app.py::test_wf_import_export_stored_as_imported",
+]
+
+[[workflows]]
+id = "phone"
+requirements = [
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_phone_contents_targets",
+    "test_app.py::test_wf_phone_viewer_and_editor",
+    "test_app.py::test_wf_phone_layout_and_inert",
+]
+
+[[workflows]]
+id = "sharing"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_sharing_invite_from_inbox",
+    "test_app.py::test_wf_sharing_accounts_and_mail",
+    "test_app.py::test_wf_sharing_viewer_permissions",
+]
+
+[[workflows]]
+id = "big-output-outage"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_big_output_outage_caps_and_paging",
+    "test_app.py::test_wf_big_output_outage_autosave_recovery",
+    "test_app.py::test_wf_big_output_outage_search",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_health_reports_storage_state",
+    "test_app.py::test_config_publishes_limits",
+    "test_app.py::test_error_precedence_and_shape",
+    "test_app.py::test_server_boundary",
+]
+checkpoints = [
+    "B1",
+    "B3",
+    "B12",
+]

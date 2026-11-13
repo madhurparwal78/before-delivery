@@ -1,0 +1,1240 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 56
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "cross-cutting",
+    "walk-in",
+    "live-layout",
+    "trigger-graph",
+    "prop-upload",
+    "outages",
+    "playtest-run",
+    "invites",
+    "phone-playtest",
+    "debrief",
+    "freeze-version",
+    "build-pack",
+    "offline-replay",
+    "lock-takeover-undo",
+    "hierarchy-camera-physics",
+    "outage-restore-palette",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+    "Q9",
+    "B13",
+    "B14",
+    "B15",
+]
+rubric_total_weight = 97
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "valkey", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Keyway Bench <playtests@keyway.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 5
+B5 = 5
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 5
+B10 = 3
+B11 = 5
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+Q9 = 3
+B13 = 3
+B14 = 3
+B15 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "valkey-down"
+port = 4174
+url_env = "APP_VALKEY_DOWN_URL"
+
+[outages.env]
+VALKEY_URL = "redis://127.0.0.1:9/0"
+INSTANCE_NAME = "valkey-down"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+INSTANCE_NAME = "minio-down"
+
+[[outages]]
+id = "mailpit-down"
+port = 4176
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+INSTANCE_NAME = "mail-down"
+
+[[outages]]
+id = "peer"
+port = 4177
+url_env = "APP_PEER_URL"
+
+[outages.env]
+INSTANCE_NAME = "b"
+
+[[outages]]
+id = "short-timer"
+port = 4178
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+PLAYTEST_DURATION_SECONDS = "20"
+HINT_COOLDOWN_SECONDS = "5"
+LOCK_TTL_SECONDS = "5"
+INSTANCE_NAME = "short"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from the run manifest on port 4173, and its health endpoint answers 200 with status ok and each service's state, as specified in Deployment."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_reports_services",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Accounts and sign-in"
+text = "A visitor can create a venue workspace (an owner account plus the five starter rooms) or sign in with email and password, and every workspace endpoint refuses signed-out requests with 401."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_signup_signin_and_signed_out_refusals",
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Workspace isolation and roles"
+text = "Members see only their own workspace (another workspace's records answer 404), and owner-only actions answer 403 to a co-designer."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_workspace_isolation_and_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Error shape and precedence"
+text = "Every API error uses the one published error body and follows the one published precedence order."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Request limits and served files"
+text = "The server enforces the published body-size limits with 413, refuses cross-origin writes, and never serves source files or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_body_limits_origin_and_served_files",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Configuration from the environment"
+text = "Every service URL and credential is read from the published environment variables at start, and none is hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Boot without dependencies"
+text = "The app starts and answers health while Valkey, MinIO or the mail server is unreachable, and picks each one up within 10 seconds of its return without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_boot_without_dependencies",
+    "test_app.py::test_wf_outages_valkey_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Public walkthrough page"
+text = "Signed-out visitors at / scroll a camera through the Vault starter room while its chain lights cue by cue, reversing on scroll back, and the page ends at the sign-up form."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_public_tour",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Workshop-dark stage and thumbnails"
+text = "The editor looks like a darkened set (a near-black grid stage, quiet floating clusters and one orange Play button), and its room cards carry thumbnails rendered from each room's own primitives."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Reduced motion"
+text = "When the user asks for reduced motion, the picker, the walk-in and the public tour replace every scale, dolly and scrubbed camera move with the published instant substitutes and keep the same states and announcements."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion_walk_in",
+    "test_app.py::test_reduced_motion_public_tour",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Floor plan without WebGL"
+text = "Without WebGL the stage shows a flat floor plan of the open room with the published notice, and every panel still works."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_floor_plan_without_webgl",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Room picker dialog"
+text = "The editor opens on the Open a room dialog, which lists the workspace's rooms alphabetically as cards carrying each room's chain figures, with a centred New room link and the footer row."
+kind = "behavior"
+primary = "pytest"
+workflow = "walk-in"
+tests = [
+    "test_app.py::test_room_picker_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Keyboard room picking"
+text = "In the room picker the arrow keys move the highlighted card, Enter opens it, Tab and Shift+Tab wrap inside the dialog, and Escape closes it and returns focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "walk-in"
+tests = [
+    "test_app.py::test_room_picker_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Published viewport layouts"
+text = "At 375x812 the editor uses the phone tab bar with a raised Play button and a full-width picker sheet, at 768x1024 and 1280x800 it uses the corner-cluster layout, and no size overflows horizontally."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_published_viewport_layouts",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-15"
+title = "Doorway walk-in"
+text = "Picking a room walks the user in through its entry door to player height in a new server-timed playtest that shows the full clock and 0 of N solved, and Stop ends that playtest, restores the saved editing view and, once the Debrief dialog it opens is closed, puts focus on the Play button, in the desktop and the phone layouts."
+kind = "behavior"
+primary = "workflow"
+workflow = "walk-in"
+tests = [
+    "test_app.py::test_wf_walk_in_keyboard_walk_in",
+    "test_app.py::test_wf_walk_in_wrong_device_clock",
+    "test_app.py::test_wf_walk_in_busy_room",
+    "test_app.py::test_wf_walk_in_phone_tab_bar",
+]
+criteria = [
+    "B9",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Editor keyboard control"
+text = "The published keys switch between Move, Rotate and Scale, select and nudge placements, step through trigger nodes, start and stop a playtest and close every dialog, from whichever editor control has focus, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "trigger-graph"
+tests = [
+    "test_app.py::test_wf_trigger_graph_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Placements in millimetres"
+text = "Rooms, placements and props are stored in whole millimetres within the room bounds, and a save that carries an outdated version answers 412 with the current record."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-layout"
+tests = [
+    "test_app.py::test_placements_in_millimetres",
+    "test_app.py::test_wf_live_layout_stale_save",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "One lock holder"
+text = "When several members grab the same placement or trigger node at once, exactly one holds the lock, the others get 409 naming the holder, and an idle lock lapses after the lock TTL."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-layout"
+tests = [
+    "test_app.py::test_lock_single_winner",
+    "test_app.py::test_wf_live_layout_lock_refusal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Live presence across instances"
+text = "Presence, locks and every saved room change reach members connected to either app instance within one second."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-layout"
+tests = [
+    "test_app.py::test_live_events_across_instances",
+    "test_app.py::test_wf_live_layout_counters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Solo editing during a live outage"
+text = "While Valkey is unreachable the editor shows the live outage banner, locks and playtest actions answer 503, and placement and node edits still save."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_live_outage_api",
+    "test_app.py::test_wf_outages_live_banner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Trigger graph rules"
+text = "Every trigger node has one of four kinds, prerequisites never form a loop, a room has at most one exit, and no room edit is accepted while one of the room's playtests is running."
+kind = "behavior"
+primary = "pytest"
+workflow = "trigger-graph"
+tests = [
+    "test_app.py::test_trigger_graph_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Derived chain figures"
+text = "Each room's solved-of-total, longest linear run and prop count follow the published rules and match exactly in the API, on the stage, on the room card and in the debrief after every edit and every solve."
+kind = "behavior"
+primary = "pytest"
+workflow = "trigger-graph"
+tests = [
+    "test_app.py::test_chain_figures_follow_rules",
+    "test_app.py::test_wf_trigger_graph_bottleneck",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Trigger graph sheet"
+text = "The Trigger graph sheet shows the room's nodes as cards in chain order with their wires, edits the selected node, and shows the holder's name when someone else holds that node."
+kind = "behavior"
+primary = "workflow"
+workflow = "trigger-graph"
+tests = [
+    "test_app.py::test_wf_trigger_graph_sheet_edit",
+    "test_app.py::test_wf_trigger_graph_held_node",
+]
+criteria = [
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Prop upload checks"
+text = "Prop uploads accept only glTF 2.0 files of up to 5,000,000 bytes that come with a name and dimensions, and anything else is rejected with 413 or 422."
+kind = "behavior"
+primary = "pytest"
+workflow = "prop-upload"
+tests = [
+    "test_app.py::test_prop_upload_checks",
+]
+criteria = []
+parameter_cases = [
+    "glb",
+    "gltf_json",
+    "exact_limit",
+    "over_limit",
+    "glb_version_1",
+    "json_version_1",
+    "png",
+    "missing_name",
+    "missing_dims",
+    "size_too_small",
+    "size_too_large",
+]
+
+[[requirements]]
+id = "DP-25"
+title = "Placeable only once stored"
+text = "An uploaded prop appears in the library and can be placed only after object storage confirms its file, and a failed upload leaves no prop behind."
+kind = "behavior"
+primary = "pytest"
+workflow = "prop-upload"
+tests = [
+    "test_app.py::test_prop_placeable_only_once_stored",
+    "test_app.py::test_wf_prop_upload_storage_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Prop library sheet"
+text = "The Prop library sheet lists stored props as thumbnail cards, places a prop into the open room, shows the published empty copy when the library is empty, and on a phone is a full-width sheet that never sits under the tab bar."
+kind = "behavior"
+primary = "workflow"
+workflow = "prop-upload"
+tests = [
+    "test_app.py::test_wf_prop_upload_library",
+    "test_app.py::test_wf_prop_upload_invalid_file",
+    "test_app.py::test_wf_prop_upload_phone_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Storage outage"
+text = "While MinIO is unreachable, uploads, thumbnail saves and freezing answer 503 and the storage banner shows, while room editing continues."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_wf_outages_storage_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Playtest lifecycle"
+text = "A playtest moves only from scheduled to lobby to running to ended, or from scheduled or lobby to cancelled, with at most one lobby or running session per room, and any other move answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "playtest-run"
+tests = [
+    "test_app.py::test_playtest_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Server-owned clock"
+text = "Only the server decides a playtest's remaining time, hint cooldown and end, and every viewer shows the server's figures, including late joiners, reloaded pages and devices with a wrong clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "playtest-run"
+tests = [
+    "test_app.py::test_server_owned_clock",
+    "test_app.py::test_wf_playtest_run_wrong_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Email invitations"
+text = "Each tester invite emails the start time and a personal join link, and the roster shows whether that email is sent, queued or failed, with a way to resend it."
+kind = "behavior"
+primary = "pytest"
+workflow = "invites"
+tests = [
+    "test_app.py::test_email_invitations",
+    "test_app.py::test_wf_invites_roster_resend",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Scheduling a playtest"
+text = "From the Playtests sheet the owner schedules a playtest, invites testers by email, opens the lobby, starts the session and watches the clock and the roster."
+kind = "behavior"
+primary = "workflow"
+workflow = "playtest-run"
+tests = [
+    "test_app.py::test_wf_playtest_run_schedule",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Invite links"
+text = "A tester's join link reaches only its own session, stops working at once when it is revoked or its session ends or is cancelled, shows the published copy when it no longer works, and never reveals puzzle answers or other workspace data."
+kind = "behavior"
+primary = "pytest"
+workflow = "invites"
+tests = [
+    "test_app.py::test_invite_links",
+    "test_app.py::test_wf_invites_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Solving the chain"
+text = "Testers solve available puzzles (giving the answer when one is set), locks and cues fire on their own once their prerequisites are solved, and solving the exit ends the session as escaped."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-playtest"
+tests = [
+    "test_app.py::test_solving_chain",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Hints with cooldown"
+text = "The game master sends text hints that reach every tester at once, and a second hint inside the cooldown answers 429 with the seconds left."
+kind = "behavior"
+primary = "pytest"
+workflow = "playtest-run"
+tests = [
+    "test_app.py::test_hint_cooldown",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Remote playtest on a phone"
+text = "A tester opens an invite on a phone, joins from the lobby, walks the room at player height, solves the chain, receives hints and sees the session end."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone-playtest"
+tests = [
+    "test_app.py::test_wf_phone_playtest_tester_journey",
+    "test_app.py::test_wf_phone_playtest_late_join",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Debrief figures"
+text = "An ended playtest has a debrief with each puzzle's solve time, the hints used, the choke point and the room's chain figures, computed by the published rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "debrief"
+tests = [
+    "test_app.py::test_debrief_figures",
+    "test_app.py::test_wf_debrief_figures_match",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Debrief email"
+text = "Within 10 seconds of a playtest ending, every invited tester, the host and the owner receive the debrief by email, and the Debrief dialog shows whether it was sent, is queued or failed."
+kind = "behavior"
+primary = "pytest"
+workflow = "debrief"
+tests = [
+    "test_app.py::test_debrief_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Playtest ended screen"
+text = "When a playtest ends, including when it runs out of time, the host sees the Debrief dialog and testers see the ended screen, both headed with the published copy, and a reopened invite shows the expired copy without the Join controls."
+kind = "behavior"
+primary = "pytest"
+workflow = "debrief"
+tests = [
+    "test_app.py::test_wf_debrief_ended_screens",
+    "test_app.py::test_wf_debrief_timed_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Freeze all or nothing"
+text = "Freezing a version writes its records, its stored snapshot, a copy of each placed prop file and its build-pack link together, or writes none of them and answers 503 with the published retry copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "freeze-version"
+tests = [
+    "test_app.py::test_freeze_all_or_nothing",
+    "test_app.py::test_wf_freeze_version_owner_ui",
+    "test_app.py::test_wf_freeze_version_storage_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Freeze retries"
+text = "A freeze repeated with the same idempotency key returns the first result and creates no second version, and the same key with a different body answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "freeze-version"
+tests = [
+    "test_app.py::test_freeze_idempotency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Version numbering and states"
+text = "Freezes of one room, including simultaneous ones on either instance and freezes made while Valkey is unreachable, get gap-free numbers from 1, exactly one version (the highest) stays frozen, each superseded version names the next number as its successor, and frozen contents never change."
+kind = "behavior"
+primary = "pytest"
+workflow = "freeze-version"
+tests = [
+    "test_app.py::test_version_numbering",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Build pack links"
+text = "A build-pack link reads only its own version and refuses every write with 405, and the owner can regenerate it (which kills the old link) or revoke it, with immediate effect."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-pack"
+tests = [
+    "test_app.py::test_build_pack_links",
+    "test_app.py::test_wf_build_pack_superseded_and_revoked",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Prop files byte for byte"
+text = "Every prop file is stored and served byte for byte as uploaded with the published validator, 304 and file-name headers, and a build pack serves its own copies even after the live room or the library changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-pack"
+tests = [
+    "test_app.py::test_prop_files_byte_for_byte",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Metres and sixteenths without drift"
+text = "Every length shows in metres or in feet, inches and reduced sixteenths, converted straight from the stored millimetres by the published integer rule, and the editor Inspector and the build pack show identical strings."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-pack"
+tests = [
+    "test_app.py::test_length_conversion",
+    "test_app.py::test_inspector_matches_pack",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Build pack page"
+text = "The fabricator opens a build-pack link and reads the room size, placements, trigger wiring and file downloads of that one version under a pinned top bar, with each table scrolling sideways inside its own region on a phone, as qualified in Screens and layout."
+kind = "behavior"
+primary = "workflow"
+workflow = "build-pack"
+tests = [
+    "test_app.py::test_wf_build_pack_fabricator_phone",
+]
+criteria = [
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Live Versions sheet"
+text = "An open Versions sheet on either instance shows every freeze, supersede, link regenerate and link revoke within one second, in place, without a reload and without moving focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "freeze-version"
+tests = [
+    "test_app.py::test_version_events_reach_both_instances",
+    "test_app.py::test_wf_freeze_version_live_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Units in the build-pack address"
+text = "The build-pack page takes its units from the address, normalises a missing or unknown value to metres, and rewrites the address in place when Units is pressed, so a reload or a forwarded link keeps the same units."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-pack"
+tests = [
+    "test_app.py::test_wf_build_pack_units_in_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Offline save queue"
+text = "Editor changes that cannot reach the server wait in a save queue kept in the browser, stay drawn after a reload, show the published Connection copy, and replay in order with their original change ids once the server answers again."
+kind = "behavior"
+primary = "workflow"
+workflow = "offline-replay"
+tests = [
+    "test_app.py::test_wf_offline_replay_reload_and_replay",
+    "test_app.py::test_wf_offline_replay_two_nudges",
+]
+criteria = [
+    "B15",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Room revisions and change log"
+text = "Every accepted change to a room adds exactly one to the room's revision and one entry to its change log, a change id that was already applied returns the stored result, and a change to a deleted placement is refused with the published 410 naming who deleted it."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-replay"
+tests = [
+    "test_app.py::test_room_revisions_and_change_log",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Lock takeover"
+text = "A member who commits a change to a placement another member holds gets the Prop locked dialog, can cancel back to the saved value or take the lock over, and both members are told who now holds the placement, as qualified in Interactions."
+kind = "behavior"
+primary = "workflow"
+workflow = "lock-takeover-undo"
+tests = [
+    "test_app.py::test_wf_lock_takeover_undo_takeover",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Per-author undo"
+text = "Ctrl+Z undoes only the signed-in member's own latest placement edit in the room, and the server refuses an undo with nothing to undo or whose placement someone deleted, with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "lock-takeover-undo"
+tests = [
+    "test_app.py::test_wf_lock_takeover_undo_per_author",
+    "test_app.py::test_undo_and_takeover_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Scene tree and camera"
+text = "The Scene panel lists the open room's placements as a tree whose items carry their drawn position and move with Alt+Arrow keys, and the Room stage turns the camera by the published steps from keys and one-finger drags."
+kind = "behavior"
+primary = "workflow"
+workflow = "hierarchy-camera-physics"
+tests = [
+    "test_app.py::test_wf_hierarchy_camera_physics_camera",
+    "test_app.py::test_wf_hierarchy_camera_physics_scene_reorder",
+    "test_app.py::test_scene_order_api",
+]
+criteria = [
+    "B14",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Drop to the floor"
+text = "D drops the selected raised placement to the floor with the published fixed-step fall, shown live on its Scene item and saved once when it lands."
+kind = "behavior"
+primary = "pytest"
+workflow = "hierarchy-camera-physics"
+tests = [
+    "test_app.py::test_wf_hierarchy_camera_physics_drop",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Command palette restore"
+text = "Ctrl+K opens the Command palette, which filters the published commands as you type, keeps live-only commands unavailable while the live service is down, and restores a frozen version as one new change that open editors on both instances show at once."
+kind = "behavior"
+primary = "workflow"
+workflow = "outage-restore-palette"
+tests = [
+    "test_app.py::test_wf_outage_restore_palette_restore_live",
+    "test_app.py::test_wf_outage_restore_palette_valkey_down",
+]
+criteria = [
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Version restore rules"
+text = "A restore puts back the room's frozen placements, nodes and size as one change, is owner only, clears undo history and follows the published refusals."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-restore-palette"
+tests = [
+    "test_app.py::test_version_restore_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Freezing from a phone"
+text = "On a phone the Versions sheet is a full-width sheet that ends above the tab bar, and a freeze from it puts focus on the new card's Copy build pack link button."
+kind = "behavior"
+primary = "workflow"
+workflow = "freeze-version"
+tests = [
+    "test_app.py::test_wf_freeze_version_phone_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\"."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package (the production dependency tree, npm ls --omit=dev --all --json) and every bundled font and icon set, with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Shipped packages, fonts and icons use only MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0, CC0-1.0 or OFL-1.1 licences."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "App data lives only in Postgres, MinIO and Valkey; no SQLite, no other database, and no app data on the local filesystem."
+tests = [
+    "test_app.py::test_if_datastores_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Fonts (Inter, JetBrains Mono) and icons (Lucide) are self-hosted, and no CDN or third-party request is made at runtime."
+tests = [
+    "test_app.py::test_if_self_hosted_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service configuration and its seeded credentials are left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "package-lock.json is committed and install uses it."
+tests = [
+    "test_app.py::test_if_lockfile_used",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_sign_in",
+    "test_app.py::test_wf_cross_cutting_public_tour",
+]
+
+[[workflows]]
+id = "walk-in"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_walk_in_keyboard_walk_in",
+    "test_app.py::test_wf_walk_in_wrong_device_clock",
+    "test_app.py::test_wf_walk_in_busy_room",
+    "test_app.py::test_wf_walk_in_phone_tab_bar",
+]
+checkpoints = [
+    "B1",
+    "B9",
+]
+critical_checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "live-layout"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_live_layout_lock_refusal",
+    "test_app.py::test_wf_live_layout_counters",
+    "test_app.py::test_wf_live_layout_stale_save",
+]
+
+[[workflows]]
+id = "trigger-graph"
+requirements = [
+    "DP-16",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_wf_trigger_graph_keyboard",
+    "test_app.py::test_wf_trigger_graph_bottleneck",
+    "test_app.py::test_wf_trigger_graph_sheet_edit",
+    "test_app.py::test_wf_trigger_graph_held_node",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "prop-upload"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_prop_upload_library",
+    "test_app.py::test_wf_prop_upload_storage_down",
+    "test_app.py::test_wf_prop_upload_invalid_file",
+    "test_app.py::test_wf_prop_upload_phone_sheet",
+]
+
+[[workflows]]
+id = "outages"
+requirements = [
+    "DP-07",
+    "DP-20",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_outages_valkey_recovery",
+    "test_app.py::test_wf_outages_live_banner",
+    "test_app.py::test_wf_outages_storage_down",
+]
+
+[[workflows]]
+id = "playtest-run"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-31",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_playtest_run_schedule",
+    "test_app.py::test_wf_playtest_run_wrong_clock",
+]
+
+[[workflows]]
+id = "invites"
+requirements = [
+    "DP-30",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_invites_links",
+    "test_app.py::test_wf_invites_roster_resend",
+]
+
+[[workflows]]
+id = "phone-playtest"
+requirements = [
+    "DP-33",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_phone_playtest_tester_journey",
+    "test_app.py::test_wf_phone_playtest_late_join",
+]
+
+[[workflows]]
+id = "debrief"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_debrief_figures_match",
+    "test_app.py::test_wf_debrief_ended_screens",
+    "test_app.py::test_wf_debrief_timed_out",
+]
+
+[[workflows]]
+id = "freeze-version"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-46",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_freeze_version_storage_down",
+    "test_app.py::test_wf_freeze_version_live_sheet",
+    "test_app.py::test_wf_freeze_version_owner_ui",
+    "test_app.py::test_wf_freeze_version_phone_sheet",
+]
+
+[[workflows]]
+id = "build-pack"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_build_pack_fabricator_phone",
+    "test_app.py::test_wf_build_pack_units_in_address",
+    "test_app.py::test_wf_build_pack_superseded_and_revoked",
+    "test_app.py::test_prop_files_byte_for_byte",
+]
+checkpoints = [
+    "B11",
+    "B12",
+]
+critical_checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "offline-replay"
+requirements = [
+    "DP-48",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_wf_offline_replay_reload_and_replay",
+    "test_app.py::test_wf_offline_replay_two_nudges",
+]
+
+[[workflows]]
+id = "lock-takeover-undo"
+requirements = [
+    "DP-50",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_lock_takeover_undo_takeover",
+    "test_app.py::test_wf_lock_takeover_undo_per_author",
+]
+
+[[workflows]]
+id = "hierarchy-camera-physics"
+requirements = [
+    "DP-52",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_hierarchy_camera_physics_camera",
+    "test_app.py::test_wf_hierarchy_camera_physics_scene_reorder",
+    "test_app.py::test_wf_hierarchy_camera_physics_drop",
+]
+checkpoints = [
+    "B14",
+]
+
+[[workflows]]
+id = "outage-restore-palette"
+requirements = [
+    "DP-54",
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_outage_restore_palette_restore_live",
+    "test_app.py::test_wf_outage_restore_palette_valkey_down",
+]
+checkpoints = [
+    "B13",
+]

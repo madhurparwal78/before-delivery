@@ -1,0 +1,1233 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "accounts-and-notices",
+    "squad-build",
+    "pick-team",
+    "transfers",
+    "money-and-prices",
+    "chips",
+    "deadline-lock",
+    "snapshots",
+    "live-scoring",
+    "points-relay",
+    "gameweek-close",
+    "mini-leagues",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 83
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "pocketbase", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 5
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 5
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_minio_down"
+
+[[outages]]
+id = "pocketbase-down"
+port = 4175
+url_env = "APP_POCKETBASE_DOWN_URL"
+
+[outages.env]
+POCKETBASE_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "fresh-season"
+port = 4176
+url_env = "APP_FRESH_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_fresh"
+S3_BUCKET = "${S3_BUCKET}-fresh"
+
+[[requirements]]
+id = "DP-01"
+title = "Manager accounts"
+text = "Visitors create an account with email, password and team name, then sign in and out. PocketBase holds the accounts, the server keeps the sessions, and the seeded operator account has the only operator role, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts-and-notices"
+tests = [
+    "test_app.py::test_accounts",
+    "test_app.py::test_wf_accounts_and_notices_signup_signin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "PocketBase outage"
+text = "While PocketBase is unreachable, sign-up and sign-in answer 503 with the outage copy, existing sessions keep working, and the Notices dialog shows the delayed-notices copy, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts-and-notices"
+tests = [
+    "test_app.py::test_pocketbase_outage",
+    "test_app.py::test_wf_accounts_and_notices_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Notice inbox"
+text = "Every deadline lock, deadline refusal, auto-sub, captain fallback and price change on an owned player writes one notice record to PocketBase for each affected manager, with the kind and message given in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts-and-notices"
+tests = [
+    "test_app.py::test_notice_inbox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Notices in every open tab"
+text = "A new notice and the new unread count appear in every open tab of that manager, without a reload, within 2 seconds of PocketBase storing the notice."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts-and-notices"
+tests = [
+    "test_app.py::test_wf_accounts_and_notices_live_inbox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Player catalogue"
+text = "The players endpoint lists every seeded player with club, position and current price. It filters by position, club and maximum price and sorts by the four published sort orders."
+kind = "behavior"
+primary = "pytest"
+workflow = "squad-build"
+tests = [
+    "test_app.py::test_player_catalogue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Squad rules checked together"
+text = "Creating a squad or confirming transfers checks every squad rule at once. A refusal answers 422 and lists each broken rule with its published message."
+kind = "behavior"
+primary = "pytest"
+workflow = "squad-build"
+tests = [
+    "test_app.py::test_squad_rules_together",
+    "test_app.py::test_wf_squad_build_refused_squad",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Default lineup for a new squad"
+text = "A newly confirmed squad gets the published default eleven, bench order, captain and vice-captain, a bank of the 100.0m budget minus the squad's cost, and one free transfer."
+kind = "behavior"
+primary = "pytest"
+workflow = "squad-build"
+tests = [
+    "test_app.py::test_default_lineup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Filters in the address"
+text = "The page address holds the Transfers position, club, maximum price and sort order and the Pitch or List view, and Back, Forward and reload restore them."
+kind = "behavior"
+primary = "pytest"
+workflow = "squad-build"
+tests = [
+    "test_app.py::test_wf_squad_build_filters_in_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Keyboard player list"
+text = "On Transfers a manager can mark squad players to sell and bring in players from the Players list using only the arrow keys, Enter and Escape, as described in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "squad-build"
+tests = [
+    "test_app.py::test_wf_squad_build_transfers_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Build-a-squad journey"
+text = "A new manager signs up, filters the player list, fills all 15 slots within budget, confirms the squad and lands on Pick Team, which shows the default eleven."
+kind = "behavior"
+primary = "workflow"
+workflow = "squad-build"
+tests = [
+    "test_app.py::test_wf_squad_build_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Starting eleven shape"
+text = "A saved lineup always has a valid shape and a bench of four, and a swap that breaks the shape answers 422 naming each rule it breaks, as published in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "pick-team"
+tests = [
+    "test_app.py::test_lineup_shape",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Captain and vice-captain"
+text = "The captain and vice-captain are two different starters. Each change saves at once, and a refused change answers 422 with the captain rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "pick-team"
+tests = [
+    "test_app.py::test_captain_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Keyboard Pick Team"
+text = "A manager moves between shirts with the arrow keys, picks a shirt with Enter, swaps with Enter on a second shirt and cancels with Escape. C and V set the captain and vice-captain from any shirt or action-bar button in the pitch region."
+kind = "behavior"
+primary = "pytest"
+workflow = "pick-team"
+tests = [
+    "test_app.py::test_wf_pick_team_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Pick Team announcements"
+text = "Each saved swap, captain change, vice-captain change or refusal on Pick Team is announced exactly once in the Team updates live region with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "pick-team"
+tests = [
+    "test_app.py::test_wf_pick_team_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Pick Team journey"
+text = "A manager swaps a bench player into the eleven, sets a new captain and vice-captain, has a shape-breaking swap refused, and reloads to find the saved lineup."
+kind = "behavior"
+primary = "workflow"
+workflow = "pick-team"
+tests = [
+    "test_app.py::test_wf_pick_team_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Transfer preview"
+text = "Before anything is confirmed, the preview answers with the number of transfers, the free transfers used, the hit, the bank afterwards and every broken rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "transfers"
+tests = [
+    "test_app.py::test_transfer_preview",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Free transfers and hits"
+text = "Free transfers are added at each deadline up to the published store limit. Each transfer beyond the free ones costs the published hit, except under Wildcard or Free Hit."
+kind = "behavior"
+primary = "pytest"
+workflow = "transfers"
+tests = [
+    "test_app.py::test_hits_and_wildcard",
+    "test_app.py::test_free_transfer_accrual",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Confirm against the shown hit"
+text = "A transfer confirmation carries the hit the manager saw. If the current hit differs, it answers 409 with the current hit, so a manager is never charged a hit they were not shown."
+kind = "behavior"
+primary = "pytest"
+workflow = "transfers"
+tests = [
+    "test_app.py::test_confirm_hit_changed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "One confirmation per key"
+text = "A repeated transfer confirmation with the same idempotency key returns the first response and makes no second transfer. The same key with a different body answers 422."
+kind = "behavior"
+primary = "pytest"
+workflow = "transfers"
+tests = [
+    "test_app.py::test_transfer_idempotency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Draft that survives"
+text = "The server keeps the unconfirmed transfer draft, so Back, reload and a second tab show the same draft until it is confirmed, cleared or discarded at the deadline."
+kind = "behavior"
+primary = "pytest"
+workflow = "transfers"
+tests = [
+    "test_app.py::test_transfer_draft_api",
+    "test_app.py::test_wf_transfers_draft_survives",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Confirm dialog focus"
+text = "The Confirm transfers dialog keeps Tab and Shift+Tab inside it, closes on Escape and returns focus to the Review transfers button."
+kind = "behavior"
+primary = "pytest"
+workflow = "transfers"
+tests = [
+    "test_app.py::test_wf_transfers_confirm_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Transfers journey"
+text = "A manager marks two players out, picks replacements, sees the hit before confirming, confirms, and sees the bank, free transfers and transfer history change."
+kind = "behavior"
+primary = "workflow"
+workflow = "transfers"
+tests = [
+    "test_app.py::test_wf_transfers_hit_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Selling price"
+text = "A player's selling price is the purchase price plus half of any rise rounded down to 0.1m, or the current price if the price has fallen, worked in whole tenths."
+kind = "behavior"
+primary = "pytest"
+workflow = "money-and-prices"
+tests = [
+    "test_app.py::test_selling_price",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Paired bank ledger"
+text = "Every confirmed transfer writes one sale credit and one purchase debit that share a transfer id. Entries are never edited, and the bank always equals the sum of the ledger entries."
+kind = "behavior"
+primary = "pytest"
+workflow = "money-and-prices"
+tests = [
+    "test_app.py::test_paired_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Daily price run"
+text = "The operator's price run for a league date moves each listed player by one tenth, at most once per league date and at most three times per gameweek, and is refused while a gameweek is locked or live, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "money-and-prices"
+tests = [
+    "test_app.py::test_price_runs",
+    "test_app.py::test_wf_money_and_prices_operator_console",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Money journey"
+text = "After an owned player rises 0.2m over two daily price runs, the manager sees the selling price gain 0.1m and sells the player. The history page's ledger then reconciles the bank and squad selling value to the transfer history."
+kind = "behavior"
+primary = "workflow"
+workflow = "money-and-prices"
+tests = [
+    "test_app.py::test_wf_money_and_prices_sell_after_rise",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Chip rules"
+text = "A manager plays at most one chip per gameweek and each chip once in each half of the season, never plays Free Hit in back-to-back gameweeks, and can cancel only Bench Boost or Triple Captain before the deadline."
+kind = "behavior"
+primary = "pytest"
+workflow = "chips"
+tests = [
+    "test_app.py::test_chip_rules",
+    "test_app.py::test_wf_chips_cancel",
+    "test_app.py::test_free_hit_back_to_back",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Free Hit revert"
+text = "When a Free Hit gameweek closes, the squad, lineup, captaincy and bank return to their state before the Free Hit, through reversal entries in the ledger."
+kind = "behavior"
+primary = "pytest"
+workflow = "chips"
+tests = [
+    "test_app.py::test_free_hit_revert",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Chips journey"
+text = "A manager plays Wildcard, makes transfers under it without a hit, sees the chips bar mark Wildcard as active, and has a second chip in the same gameweek refused with the published copy."
+kind = "behavior"
+primary = "workflow"
+workflow = "chips"
+tests = [
+    "test_app.py::test_wf_chips_wildcard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Fixtures and deadline"
+text = "The operator publishes the open gameweek's five fixtures. The server sets the deadline from the first kickoff and shows it in league time, as published in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "deadline-lock"
+tests = [
+    "test_app.py::test_fixtures_deadline",
+    "test_app.py::test_wf_deadline_lock_fixtures_console",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Atomic deadline lock"
+text = "Within 1 second after the deadline the server locks every team in one step. A change made at the same moment is either wholly in a locked team or wholly refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "deadline-lock"
+tests = [
+    "test_app.py::test_deadline_lock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Late changes refused"
+text = "Any squad, transfer, pick or chip change that arrives at or after the deadline answers 409, writes a refusal notice, shows the deadline copy and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "deadline-lock"
+tests = [
+    "test_app.py::test_late_changes_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Server-decided read-only pages"
+text = "In every open tab, Pick Team and Transfers turn read only within 2 seconds of the server's lock, without a reload. Every screen shows the server's gameweek status whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "deadline-lock"
+tests = [
+    "test_app.py::test_wf_deadline_lock_device_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Deadline journey"
+text = "With Transfers open, a manager watches the deadline pass, sees the page turn read only with the locked banner, and finds the deadline notice in the inbox."
+kind = "behavior"
+primary = "workflow"
+workflow = "deadline-lock"
+tests = [
+    "test_app.py::test_wf_deadline_lock_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Locked-team snapshot"
+text = "At each lock the server stores one snapshot object for each manager with a squad, at the published key and with the published contents. Each snapshot is written once and never overwritten."
+kind = "behavior"
+primary = "pytest"
+workflow = "snapshots"
+tests = [
+    "test_app.py::test_snapshot_store",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Receipt only after storage confirms"
+text = "A history row shows the stored-receipt copy only after MinIO confirms the snapshot. While MinIO is unreachable the row shows the pending copy and the server keeps retrying until the snapshot is stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "snapshots"
+tests = [
+    "test_app.py::test_wf_snapshots_pending_receipt",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Snapshot download as stored"
+text = "Downloading a past gameweek's snapshot returns exactly the bytes stored in MinIO at the lock. Later transfers, picks and price changes do not alter it."
+kind = "behavior"
+primary = "pytest"
+workflow = "snapshots"
+tests = [
+    "test_app.py::test_snapshot_download",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Receipt journey"
+text = "After a deadline a manager opens History, sees the stored receipt for that gameweek, downloads the snapshot and finds the captain they had at the deadline."
+kind = "behavior"
+primary = "workflow"
+workflow = "snapshots"
+tests = [
+    "test_app.py::test_wf_snapshots_receipt",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Match events and scoring"
+text = "The operator records minutes, goals, assists, clean sheets, cards, own goals and bonus for a live gameweek, and each event scores by the published table."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-scoring"
+tests = [
+    "test_app.py::test_match_events",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Each event counted once"
+text = "An event re-sent with the same event id is applied once and returns the first response. The same event id with a different body answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-scoring"
+tests = [
+    "test_app.py::test_event_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Voiding an event"
+text = "While the gameweek is live, voiding a recorded event removes its points everywhere, and voiding it again changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-scoring"
+tests = [
+    "test_app.py::test_event_void",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Live totals in place"
+text = "Within 2 seconds of a recorded or voided event, each affected manager's open pitch, gameweek total and mini-league table hold the new server values, without a reload, as qualified in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-scoring"
+tests = [
+    "test_app.py::test_wf_live_scoring_resend",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Live match journey"
+text = "The operator records a goal from the console while a manager watches Pick Team. The console's event log shows the event's points, and the scorer's shirt shows that player's team points with the captain multiplier applied."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-scoring"
+tests = [
+    "test_app.py::test_wf_live_scoring_console_goal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Points relay"
+text = "When an event changes an owned player's points, the shirt pulses, a signed chip flies to the gameweek total, the digits roll and the league row moves, in that order, and everything ends on the server's values, as qualified in Motion and effects."
+kind = "visual"
+primary = "pytest"
+workflow = "points-relay"
+tests = [
+    "test_app.py::test_wf_points_relay_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Reduced-motion relay"
+text = "When reduced motion is requested, the relay shows a static delta badge and changes the total and rank at once. Nothing moves, scales or fades, and the final values and the announcement are the same as with motion."
+kind = "visual"
+primary = "pytest"
+workflow = "points-relay"
+tests = [
+    "test_app.py::test_wf_points_relay_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Live points announcements"
+text = "Each event that changes an owned player's points, or lands on a non-scoring bench player, is announced exactly once in the Live points live region with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "points-relay"
+tests = [
+    "test_app.py::test_wf_points_relay_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Gameweek states"
+text = "Each gameweek moves through upcoming, open, locked, live and closed in that order only, and each illegal step answers 409 with its published error."
+kind = "behavior"
+primary = "pytest"
+workflow = "gameweek-close"
+tests = [
+    "test_app.py::test_gameweek_states",
+    "test_app.py::test_wf_gameweek_close_illegal_step",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Auto-subs and captain fallback"
+text = "At close, each starter with no minutes is replaced by the first bench player in order who played and keeps the shape valid. The vice-captain takes the armband only if the captain played no minutes."
+kind = "behavior"
+primary = "pytest"
+workflow = "gameweek-close"
+tests = [
+    "test_app.py::test_close_autosubs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Gameweek scores and season totals"
+text = "At close each manager's gameweek points minus that gameweek's hit becomes fixed. Every season total is the sum of the closed gameweek net scores and matches the history rows row for row."
+kind = "behavior"
+primary = "pytest"
+workflow = "gameweek-close"
+tests = [
+    "test_app.py::test_season_totals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Close journey"
+text = "The operator closes a live gameweek. The manager's history shows the final score with auto-subs and the hit applied, and the next gameweek opens for picks and transfers."
+kind = "behavior"
+primary = "workflow"
+workflow = "gameweek-close"
+tests = [
+    "test_app.py::test_wf_gameweek_close_console",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Mini-league create and join"
+text = "A manager creates a private league and becomes its admin with a six-character join code. Other managers join with that code, and the admin can replace the code so the old one stops working."
+kind = "behavior"
+primary = "pytest"
+workflow = "mini-leagues"
+tests = [
+    "test_app.py::test_leagues",
+    "test_app.py::test_wf_mini_leagues_new_code",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "League standings"
+text = "Standings rank members by season total, including the live gameweek while one is live. Ties follow the published order, and each row shows the member's rank at the last close."
+kind = "behavior"
+primary = "pytest"
+workflow = "mini-leagues"
+tests = [
+    "test_app.py::test_league_standings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Member history and snapshots"
+text = "Any member of a league can open another member's gameweek history and download that member's stored snapshots. Non-members get 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "mini-leagues"
+tests = [
+    "test_app.py::test_member_history_snapshots",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Mini-league journey"
+text = "An admin creates a league and a second manager joins with the code. After a gameweek closes, both see the same standings and the same history rows."
+kind = "behavior"
+primary = "workflow"
+workflow = "mini-leagues"
+tests = [
+    "test_app.py::test_wf_mini_leagues_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from the run manifest on the published port and answers the health check. It starts from an empty database, an empty bucket and a PocketBase with no app collections."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_fresh_start",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Configuration from the environment"
+text = "Every service URL and credential is read from the published environment variables at start. None is hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Server boundary"
+text = "The server refuses writes that send a different origin, enforces the request size and content type limits, and uses one error shape. It never serves source files or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Phone layout and touch"
+text = "At 375 by 812 no screen scrolls sideways, every pitch row fits, the ledger rail becomes a sticky bottom strip, and every shirt and control is at least 44 by 44 pixels."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_phone_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Floodlit chalk board"
+text = "The screens follow the floodlit chalk-pitch look described in Visual design: a near-black ground, thin off-white chalk lines, deep turf green, one amber accent, a coral alert colour, condensed display type and monospaced numerals."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Money in whole tenths"
+text = "Throughout the source, prices, selling prices, the bank and ledger amounts are stored and computed as whole tenths of a million, never as floating-point money."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve fields and _schema run-manifest-v1, and the serve command starts the app without further manual steps."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package and every bundled font with its licence. Shipped packages are the production dependency tree, as reported by npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or SIL OFL 1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores state only in the provided Postgres, MinIO and PocketBase. Add no other database, cache, queue or on-disk state store."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "At runtime the app contacts no host except the three services. Fonts, icons and scripts are bundled."
+tests = [
+    "test_app.py::test_if_no_external_hosts",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "A package-lock.json is committed, and the install command uses it (npm ci)."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Leave the provided service configuration files in the workspace unedited."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "The app ships no email-sending code or package."
+tests = [
+    "test_app.py::test_if_no_email",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-09"
+text = "All first-party server and client source is TypeScript. Plain JavaScript files are allowed only for tool configuration."
+tests = [
+    "test_app.py::test_if_typescript_only",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "accounts-and-notices"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_accounts_and_notices_signup_signin",
+    "test_app.py::test_wf_accounts_and_notices_outage",
+    "test_app.py::test_wf_accounts_and_notices_live_inbox",
+    "test_app.py::test_notice_inbox",
+]
+checkpoints = [
+    "B5",
+]
+critical_checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "squad-build"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_squad_build_happy",
+    "test_app.py::test_wf_squad_build_transfers_keyboard",
+    "test_app.py::test_wf_squad_build_filters_in_address",
+    "test_app.py::test_wf_squad_build_refused_squad",
+]
+checkpoints = [
+    "B1",
+    "B9",
+]
+critical_checkpoints = [
+    "B1",
+]
+
+[[workflows]]
+id = "pick-team"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_pick_team_keyboard",
+    "test_app.py::test_wf_pick_team_announcements",
+    "test_app.py::test_wf_pick_team_journey",
+]
+checkpoints = [
+    "B3",
+]
+critical_checkpoints = [
+    "B3",
+]
+
+[[workflows]]
+id = "transfers"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_transfers_hit_journey",
+    "test_app.py::test_wf_transfers_confirm_dialog",
+    "test_app.py::test_wf_transfers_draft_survives",
+    "test_app.py::test_transfer_idempotency",
+]
+checkpoints = [
+    "B4",
+]
+critical_checkpoints = [
+    "B4",
+]
+
+[[workflows]]
+id = "money-and-prices"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_money_and_prices_sell_after_rise",
+    "test_app.py::test_wf_money_and_prices_operator_console",
+    "test_app.py::test_selling_price",
+    "test_app.py::test_paired_ledger",
+]
+
+[[workflows]]
+id = "chips"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_chips_wildcard",
+    "test_app.py::test_wf_chips_cancel",
+    "test_app.py::test_free_hit_revert",
+    "test_app.py::test_chip_rules",
+]
+checkpoints = [
+    "B12",
+]
+critical_checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "deadline-lock"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_deadline_lock_journey",
+    "test_app.py::test_wf_deadline_lock_device_clock",
+    "test_app.py::test_wf_deadline_lock_fixtures_console",
+    "test_app.py::test_deadline_lock",
+    "test_app.py::test_late_changes_refused",
+]
+
+[[workflows]]
+id = "snapshots"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_snapshots_receipt",
+    "test_app.py::test_wf_snapshots_pending_receipt",
+    "test_app.py::test_snapshot_store",
+    "test_app.py::test_snapshot_download",
+]
+
+[[workflows]]
+id = "live-scoring"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_live_scoring_resend",
+    "test_app.py::test_wf_live_scoring_console_goal",
+    "test_app.py::test_match_events",
+    "test_app.py::test_event_replay",
+    "test_app.py::test_event_void",
+]
+
+[[workflows]]
+id = "points-relay"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_points_relay_motion",
+    "test_app.py::test_wf_points_relay_reduced_motion",
+    "test_app.py::test_wf_points_relay_announcements",
+]
+
+[[workflows]]
+id = "gameweek-close"
+requirements = [
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_gameweek_close_console",
+    "test_app.py::test_wf_gameweek_close_illegal_step",
+    "test_app.py::test_close_autosubs",
+    "test_app.py::test_season_totals",
+    "test_app.py::test_gameweek_states",
+]
+
+[[workflows]]
+id = "mini-leagues"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+]
+critical = [
+    "test_app.py::test_wf_mini_leagues_journey",
+    "test_app.py::test_wf_mini_leagues_new_code",
+    "test_app.py::test_league_standings",
+    "test_app.py::test_member_history_snapshots",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_fresh_start",
+    "test_app.py::test_wf_cross_cutting_boundary",
+    "test_app.py::test_wf_cross_cutting_phone_touch",
+]
+checkpoints = [
+    "B6",
+    "B7",
+    "B10",
+]
+critical_checkpoints = [
+    "B6",
+]

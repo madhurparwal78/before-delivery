@@ -1,0 +1,90 @@
+// Published copy shared by server validation errors and client rendering (brief: Feedback states).
+
+export const COPY = {
+  nameRequired: 'Enter your name (1 to 80 characters).',
+  emailInvalid: 'Enter a valid email address.',
+  emailTaken: 'An account with this email already exists.',
+  passwordShort: 'Use at least 10 characters.',
+  timeZoneInvalid: 'Choose a studio time zone from the list.',
+  folderNameInvalid: 'Folder names can\'t contain / \\ : * ? " < > | (1 to 80 characters).',
+  fileNameInvalid: 'File names can\'t contain / \\ : * ? " < > | (1 to 80 characters).',
+  layerNameInvalid: 'Layer names can use letters, digits, spaces, - _ and $ (1 to 64 characters).',
+  traceNameInvalid: 'Enter a trace name (1 to 80 characters).',
+  footerNoteInvalid: 'Enter a footer note of 1 to 120 characters.',
+  effectiveDateInvalid: 'Choose a date after the latest revision and not before today.',
+  expiryFormat: 'Enter a date as YYYY-MM-DD.',
+  expiryPast: 'Choose today or a later date.',
+  linetypeScaleRange: 'Enter a value from 0.01 to 1000.',
+  notANumber: 'Enter a number.',
+  positiveNumber: 'Requires a positive number.',
+  invalidPoint: 'Invalid point.',
+  noObjectFound: 'No object found.',
+  cancelled: '*Cancel*',
+  noCuttingEdge: 'No cutting edge found.',
+  nothingToUndo: 'Nothing to undo.',
+  nothingToRedo: 'Nothing to redo.',
+  viewOnly: 'This drawing is view-only.',
+  markupOnly: 'This drawing is mark-up only. Start a trace to add markups.',
+  baseObjectInTrace: 'Base drawing objects can\'t be changed in a trace.',
+  trialEnded: 'Your trial has ended. Drawings are read-only.',
+  mailUnavailableConfirmation: 'Confirmation email not sent. Mail is unavailable; try again shortly.',
+  mailUnavailableQuote: 'Quote not sent. Mail is unavailable; try again shortly.',
+  mailUnavailableInvite: 'Invite not sent. Mail is unavailable; try again shortly.',
+  storageUnavailableUpload: 'Upload failed: file storage is unavailable.',
+  storageUnavailableExport: 'Export failed: file storage is unavailable.',
+  bannerValkey: 'Live sync is paused. Your edits still save; reload to see changes from other tabs.',
+  bannerMinio: 'File storage is unavailable. Uploads and exports are paused until it returns.',
+  signinWrong: 'Email or password is incorrect.',
+  varies: '*VARIES*',
+  layerZeroDelete: 'Layer 0 can\'t be deleted.',
+  layerZeroRename: 'Layer 0 can\'t be renamed.',
+  checkInboxHeading: 'Check your inbox',
+  verifyConfirmed: 'Your email is confirmed.',
+  verifyExpired: 'This confirmation link has expired.',
+  verifyReplaced: 'This confirmation link was replaced by a newer one.',
+  verifyUnknown: 'This confirmation link is not valid.',
+  proBody: '$12.00 per month. We\'ll email you a quote; there is nothing to pay here.',
+  filesEmpty: 'No drawings yet. Start one with New Drawing or Upload.',
+  deleteBody: 'This can\'t be undone.',
+  uploadStored: 'Stored',
+  versionsEmpty: 'No stored versions yet.',
+} as const;
+
+function plural(n: number, one: string, many: string = `${one}s`): string {
+  return n === 1 ? `1 ${one}` : `${n} ${many}`;
+}
+
+export const objectsCount = (n: number): string => plural(n, 'object');
+export const itemsCount = (n: number): string => plural(n, 'item');
+
+export const copy = {
+  folderTaken: (name: string) => `A folder named "${name}" already exists.`,
+  fileTaken: (name: string) => `A drawing named "${name}" already exists.`,
+  folderNotEmpty: (name: string) => `Folder "${name}" is not empty.`,
+  layerTaken: (name: string) => `A layer named "${name}" already exists.`,
+  layerCurrentDelete: (name: string) => `Layer ${name} is current and can't be deleted.`,
+  layerCurrentFreeze: (name: string) => `Layer ${name} is current and can't be frozen.`,
+  layerLockedDelete: (name: string) => `Layer ${name} is locked and can't be deleted.`,
+  layerInUse: (name: string, n: number) => `Layer ${name} has ${objectsCount(n)} and can't be deleted.`,
+  notDxf: (name: string) => `${name} is not a DXF drawing.`,
+  tooLarge: (name: string, limit: number) => `${name} is larger than ${limit.toLocaleString('en-US')} bytes.`,
+  lockedObjects: (n: number) => (n === 1 ? '1 object is on a locked layer.' : `${n} objects are on a locked layer.`),
+  conflict: (n: number) => `Another tab changed ${objectsCount(n)} before your edit was saved. Your edit was not applied.`,
+  updatedToVersion: (name: string, n: number) => `${name} updated to version ${n}.`,
+  importSummary: (imported: number, skipped: number) =>
+    `Imported ${objectsCount(imported)}; skipped ${plural(skipped, 'unsupported object')}.`,
+  restored: (n: number, m: number) => `Version ${n} restored as version ${m}.`,
+  trialLabel: (daysLeft: number) =>
+    daysLeft <= 0 ? 'Your trial has ended' : daysLeft === 1 ? '1 day left in your trial' : `${daysLeft} days left in your trial`,
+  lockedOut: (minutes: number) =>
+    minutes <= 1 ? 'Too many attempts. Try again in 1 minute.' : `Too many attempts. Try again in ${minutes} minutes.`,
+  unconfirmed: (email: string) => `Confirm your email address first. We sent a link to ${email}.`,
+  confirmationSent: (email: string) => `We sent a confirmation link to ${email}.`,
+  resendAccepted: (email: string) => `A new link is on its way to ${email}.`,
+  quoteSent: (email: string) => `Quote sent to ${email}`,
+  noMatch: (query: string) => `No files match "${query}".`,
+  deleted: (name: string) => `${name} deleted.`,
+  uploading: (name: string) => `Uploading ${name}…`,
+  versionItem: (n: number, dateTime: string, actor: string, size: string) => `Version ${n} · ${dateTime} · ${actor} · ${size}`,
+  inviteCooldown: (email: string, seconds: number) => `You invited ${email} moments ago. Try again in ${seconds} seconds.`,
+} as const;

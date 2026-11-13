@@ -1,0 +1,1053 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "review-keyboard",
+    "applicants-csv",
+    "moderation-live",
+    "claim-conflict",
+    "band-resolve",
+    "contribute-unlock",
+    "employer-verify-reply",
+    "job-search-keyboard",
+    "job-search-phone",
+    "job-alert",
+    "apply-outage",
+    "pipeline-keyboard",
+    "channels-live",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 87
+solo_criteria = []
+services = [
+    { name = "postgres", env = { GRADING_TOKEN = "candour-grading-5c1f8e27" } },
+    { name = "meilisearch", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Candour Bench <no-reply@candour-bench.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 5
+B10 = 5
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 5
+Q5 = 3
+Q6 = 3
+Q7 = 5
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "search-down"
+port = 4174
+url_env = "APP_SEARCH_DOWN_URL"
+
+[outages.env]
+MEILISEARCH_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "storage-down"
+port = 4175
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mail-down"
+port = 4176
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+MAILPIT_URL = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from `/app/run.json` on port 4173 and answers the health routes as stated in Deployment."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Grading routes"
+text = "`POST /api/grading/setup` and `POST /api/grading/clock` create test records and move the server clock only with the right token, and answer 404 otherwise."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "One error shape and order"
+text = "Every API error uses one JSON shape with a published code and message, chosen by the single precedence order in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_precedence",
+]
+criteria = []
+parameter_cases = [
+    "unauthenticated",
+    "body-id-404-before-422",
+    "role-403-before-422",
+    "payload-413-first",
+    "payload-at-limit",
+    "malformed-json",
+    "field-errors",
+    "cross-origin",
+]
+
+[[requirements]]
+id = "DP-04"
+title = "Configuration from the environment"
+text = "Every service URL, credential, token, timer and limit is read from the environment at start and never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Split-stage look"
+text = "Pages use Literata on the cool paper ground with one deep teal ink, the 50/50 split with a sticky specimen tile, procedural glassware art and the corner rule from Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Published motion and reduced motion"
+text = "Every named motion publishes its name, duration and state, reaches its end state after its published duration on the page clock, and jumps to its end at once under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_toast",
+]
+criteria = []
+parameter_cases = [
+    "full",
+    "reduced",
+]
+
+[[requirements]]
+id = "DP-07"
+title = "Mail through an outbox"
+text = "Every email goes through an outbox, is sent exactly once, waits out a mail outage without failing the action, and never carries post text or an author's identity."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_mail_outbox_waits_out_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Founder console"
+text = "The founder adds companies and employer users, appoints moderators, revokes employer verification, and sees service health and every pay threshold without any pay figure."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_founder_console_api",
+    "test_app.py::test_founder_console_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Sign-in and recovery reveal nobody"
+text = "Sign-in, joining and forgot password give the same reply and timing for addresses with and without an account."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-alert"
+tests = [
+    "test_app.py::test_auth_reveals_nobody",
+]
+criteria = []
+parameter_cases = [
+    "sign-in",
+    "join",
+    "forgot",
+]
+
+[[requirements]]
+id = "DP-10"
+title = "Review form by keyboard"
+text = "A member writes a review through the four published steps by keyboard alone, with focus moving to each step heading or to the first invalid field."
+kind = "behavior"
+primary = "workflow"
+workflow = "review-keyboard"
+tests = [
+    "test_app.py::test_wf_review_keyboard_happy",
+    "test_app.py::test_wf_review_keyboard_invalid_step",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Star ratings"
+text = "Each rating is a radiogroup of five star radios worked by arrow keys, Home and End, announcing the chosen value."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-keyboard"
+tests = [
+    "test_app.py::test_star_ratings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Company picker"
+text = "The Company combobox filters companies as you type, moves an announced active option with arrow keys, selects with Enter and restores the typed text on Escape."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-keyboard"
+tests = [
+    "test_app.py::test_company_picker",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "One review per company per year"
+text = "A member's second review of the same company within the review limit window answers 409 `duplicate_review`."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-keyboard"
+tests = [
+    "test_app.py::test_one_review_per_company_per_year",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Pay reports and interview notes"
+text = "Members post pay reports and interview notes that enter moderation as pending with the published fields and limits."
+kind = "behavior"
+primary = "pytest"
+workflow = "contribute-unlock"
+tests = [
+    "test_app.py::test_pay_reports_and_interview_notes",
+]
+criteria = []
+parameter_cases = [
+    "pay-lowest",
+    "pay-below",
+    "pay-highest",
+    "pay-above",
+    "years-forty",
+    "years-over",
+    "bad-role",
+    "bad-city",
+    "note-ok",
+    "note-short",
+    "note-longest",
+    "note-too-long",
+    "bad-outcome",
+    "bad-difficulty",
+]
+
+[[requirements]]
+id = "DP-15"
+title = "Anonymous posts"
+text = "Every post shows as `Anonymous bench member` with month-and-year dates, no author field reaches any browser, and bodies with an email address or phone number are refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "channels-live"
+tests = [
+    "test_app.py::test_anonymous_posts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Live moderation queue by keyboard"
+text = "Moderators claim, approve or reject with a reason, and move to the next post using only the keyboard, with every change shown live in every open queue."
+kind = "behavior"
+primary = "workflow"
+workflow = "moderation-live"
+tests = [
+    "test_app.py::test_wf_moderation_live_keyboard_approve",
+    "test_app.py::test_wf_moderation_live_keyboard_reject",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Outcomes reach the author"
+text = "Each claim and decision reaches the author's open My contributions page live, with the published announcement, and each decision sends one outcome email."
+kind = "behavior"
+primary = "pytest"
+workflow = "moderation-live"
+tests = [
+    "test_app.py::test_outcomes_reach_author",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "First claim wins"
+text = "Of simultaneous claims on one post exactly one succeeds and every other answers 409 `already_claimed` naming the winner."
+kind = "behavior"
+primary = "pytest"
+workflow = "claim-conflict"
+tests = [
+    "test_app.py::test_first_claim_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Claim leases"
+text = "A claim is a lease that the claimant's activity renews; a lease that ends returns the post to pending after `CLAIM_LAPSE_SECONDS` of server time, and every claim, renewal, lapse and decision is added to the post's history, live in every open queue."
+kind = "behavior"
+primary = "pytest"
+workflow = "claim-conflict"
+tests = [
+    "test_app.py::test_wf_claim_conflict_lease_history",
+    "test_app.py::test_claims_lapse",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Decide once on a stale screen"
+text = "A moderator acting on a post another moderator has claimed or decided, or on their own lapsed claim, sees the published conflict alert and causes no second effect."
+kind = "behavior"
+primary = "workflow"
+workflow = "claim-conflict"
+tests = [
+    "test_app.py::test_wf_claim_conflict_stale_claim",
+    "test_app.py::test_wf_claim_conflict_stale_decision",
+    "test_app.py::test_wf_claim_conflict_phone_queue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Rating averages from approved reviews"
+text = "Rating averages and review counts come from approved reviews only, rounded half up to one decimal, and agree on the company page, in company search and after reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "band-resolve"
+tests = [
+    "test_app.py::test_rating_averages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Pay ranges behind the threshold"
+text = "A role's low, median and high pay are computed from approved reports and are never sent to any client below `MIN_PAY_REPORTS` reports or to a locked viewer."
+kind = "behavior"
+primary = "pytest"
+workflow = "band-resolve"
+tests = [
+    "test_app.py::test_pay_ranges_behind_threshold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Band resolve"
+text = "When an approval brings a role to the threshold, an open company page shows the range resolving live with the published motion, values and announcement."
+kind = "behavior"
+primary = "workflow"
+workflow = "band-resolve"
+tests = [
+    "test_app.py::test_wf_band_resolve_live",
+    "test_app.py::test_wf_band_resolve_reduced_motion",
+    "test_app.py::test_wf_band_resolve_scroll_both_ways",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Company page reading column"
+text = "The company page reading column sets the rating, reviews, pay table, interview notes and employer replies in the distinct published forms."
+kind = "visual"
+primary = "rubric"
+workflow = "band-resolve"
+tests = []
+criteria = [
+    "B7",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Contribute once to unlock"
+text = "A member with no approved post sees the locked view, and the first approval unlocks full detail live, after reload and on every device, for good."
+kind = "behavior"
+primary = "workflow"
+workflow = "contribute-unlock"
+tests = [
+    "test_app.py::test_wf_contribute_unlock_happy",
+    "test_app.py::test_wf_contribute_unlock_invalid_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Editing and deleting your posts"
+text = "Authors edit posts within the edit window, and a deleted post leaves every page, count, search document and channel quote and its link answers not found."
+kind = "behavior"
+primary = "pytest"
+workflow = "contribute-unlock"
+tests = [
+    "test_app.py::test_edit_and_delete_posts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Employer verification by email code"
+text = "An employer admin verifies their team with a six-digit emailed code that expires and is rate limited as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "employer-verify-reply"
+tests = [
+    "test_app.py::test_employer_verification_code",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Public employer replies"
+text = "A verified team replies once to a review of its own company, and the reply appears live under that review on every open company page."
+kind = "behavior"
+primary = "workflow"
+workflow = "employer-verify-reply"
+tests = [
+    "test_app.py::test_wf_employer_verify_reply_happy",
+    "test_app.py::test_wf_employer_verify_reply_other_company",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Job and company search"
+text = "Job and company search forgive typos, filter by the published facets, and show facet counts built from listed jobs and approved posts only."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-search-keyboard"
+tests = [
+    "test_app.py::test_job_and_company_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Filter chips by keyboard"
+text = "Filter chips toggle with Space, are removed with Delete or Backspace, keep the filters in the URL, and announce the published filter and count text after the debounce."
+kind = "behavior"
+primary = "workflow"
+workflow = "job-search-keyboard"
+tests = [
+    "test_app.py::test_wf_job_search_keyboard_save_job",
+    "test_app.py::test_wf_job_search_keyboard_chips",
+    "test_app.py::test_wf_job_search_keyboard_phone_sheet",
+    "test_app.py::test_wf_job_search_keyboard_typo_suggestion",
+    "test_app.py::test_wf_job_search_keyboard_empty",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Search outage fallback"
+text = "While search is down, job and company search show the outage banner and a plain list by city with every listed record."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-search-keyboard"
+tests = [
+    "test_app.py::test_search_outage_fallback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Published breakpoints"
+text = "At 375, 768 and 1280 pixels wide the company page shows the stacked sticky tile, the narrowed split and the full split, with no sideways scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-search-phone"
+tests = [
+    "test_app.py::test_company_page_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "desktop",
+]
+
+[[requirements]]
+id = "DP-33"
+title = "Phone filters and apply bar"
+text = "On a phone the filters open in a bottom sheet that closes by button, Escape or swipe, and a job page keeps a sticky apply bar."
+kind = "behavior"
+primary = "workflow"
+workflow = "job-search-phone"
+tests = [
+    "test_app.py::test_wf_job_search_phone_filter_sheet",
+    "test_app.py::test_wf_job_search_phone_apply_bar",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Saved jobs"
+text = "Members save and unsave jobs with the published announcements and motion, and saved jobs persist after reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-search-phone"
+tests = [
+    "test_app.py::test_saved_jobs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Company section tabs"
+text = "On a phone the company page sections are tabs that switch by tap, arrow keys or swipe and are kept in the URL."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-search-phone"
+tests = [
+    "test_app.py::test_company_section_tabs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Jobs listed once indexed"
+text = "A new job counts as listed only after its search document is indexed, and stays a draft with 503 when search is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-alert"
+tests = [
+    "test_app.py::test_jobs_listed_once_indexed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Job alerts"
+text = "Members save alerts from the current search, see new matches live, and get one batched email per alert after `ALERT_BATCH_SECONDS`."
+kind = "behavior"
+primary = "workflow"
+workflow = "job-alert"
+tests = [
+    "test_app.py::test_wf_job_alert_save_and_match",
+    "test_app.py::test_wf_job_alert_closed_batch_silent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Resume checks"
+text = "Only a real PDF of at most `RESUME_MAX_BYTES` bytes, judged by its bytes, is accepted, with the published refusal under the field."
+kind = "behavior"
+primary = "pytest"
+workflow = "apply-outage"
+tests = [
+    "test_app.py::test_resume_checks",
+]
+criteria = []
+parameter_cases = [
+    "pdf-odd-name",
+    "png-named-pdf",
+    "exact-max",
+    "one-over-max",
+    "big-not-pdf",
+    "missing-file",
+    "one-over-rate",
+]
+
+[[requirements]]
+id = "DP-39"
+title = "Apply with a stored resume"
+text = "An application exists only after storage confirms the resume, a storage outage keeps the typed answers, and every submit of one form carries one idempotency key, so repeated submits make one application."
+kind = "behavior"
+primary = "workflow"
+workflow = "apply-outage"
+tests = [
+    "test_app.py::test_wf_apply_outage_idempotency",
+    "test_app.py::test_wf_apply_outage_storage_down",
+    "test_app.py::test_wf_apply_outage_happy_once",
+    "test_app.py::test_wf_apply_outage_invalid_file",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Pipeline stage rules"
+text = "Applications move one stage at a time or to Declined, only by the owning company's team, and every other move answers 409 `invalid_transition`."
+kind = "behavior"
+primary = "pytest"
+workflow = "pipeline-keyboard"
+tests = [
+    "test_app.py::test_pipeline_stage_rules",
+]
+criteria = []
+parameter_cases = [
+    "submitted-to-screening",
+    "screening-to-interview",
+    "interview-to-offer",
+    "offer-to-interview",
+    "screening-to-submitted",
+    "interview-to-declined",
+    "submitted-to-interview",
+    "submitted-to-offer",
+    "same-stage",
+    "declined-to-submitted",
+    "declined-to-screening",
+    "other-team",
+    "member",
+    "unverified-team",
+    "concurrent-same-move",
+]
+
+[[requirements]]
+id = "DP-41"
+title = "Keyboard pipeline board"
+text = "Recruiters pick up, move and drop applicant cards by keyboard with the published announcements, and the candidate sees each move live and by one email."
+kind = "behavior"
+primary = "workflow"
+workflow = "pipeline-keyboard"
+tests = [
+    "test_app.py::test_wf_pipeline_keyboard_phone",
+    "test_app.py::test_wf_pipeline_keyboard_move",
+    "test_app.py::test_wf_pipeline_keyboard_cancel_and_refuse",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Application privacy"
+text = "Applicant rows show only the published applicant fields, and an application or resume opens only for its candidate and the owning company's team."
+kind = "behavior"
+primary = "pytest"
+workflow = "pipeline-keyboard"
+tests = [
+    "test_app.py::test_application_privacy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Applicants CSV export"
+text = "The team exports a job's applicants as a CSV with the published header, order, quoting and date format."
+kind = "behavior"
+primary = "pytest"
+workflow = "applicants-csv"
+tests = [
+    "test_app.py::test_applicants_csv_export",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Applicant list with stage chips"
+text = "The pipeline page filters stage columns with chips by keyboard, and column counts update live in every open team window."
+kind = "behavior"
+primary = "workflow"
+workflow = "applicants-csv"
+tests = [
+    "test_app.py::test_wf_applicants_csv_stage_chips",
+    "test_app.py::test_wf_applicants_csv_live_counts_export",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Live anonymous channels"
+text = "Members post in topic channels by keyboard and every open window shows the new post live as `Anonymous bench member`; a window that lost its live connection gets each missed post once, in order, when it reconnects."
+kind = "behavior"
+primary = "workflow"
+workflow = "channels-live"
+tests = [
+    "test_app.py::test_wf_channels_live_catch_up",
+    "test_app.py::test_wf_channels_live_post",
+    "test_app.py::test_wf_channels_live_quote_removed",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists, is valid JSON, and holds exactly the string keys install, build, serve and \"_schema\":\"run-manifest-v1\"."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package and the Literata font, each with its licence; shipped packages means the production tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (production tree from npm ls --omit=dev --all --json) is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0, and the font is under OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastore beyond PostgreSQL, Meilisearch and MinIO: no SQLite, Redis, file-based database or in-memory store used as a source of truth."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "No source or built file references an external origin for scripts, styles, fonts or images."
+tests = [
+    "test_app.py::test_if_no_external_origins",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service configuration and its environment values are not changed."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Application source is TypeScript compiled with strict type checking turned on."
+tests = [
+    "test_app.py::test_if_strict_typescript",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "review-keyboard"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_review_keyboard_happy",
+    "test_app.py::test_wf_review_keyboard_invalid_step",
+]
+
+[[workflows]]
+id = "applicants-csv"
+requirements = [
+    "DP-43",
+    "DP-44",
+]
+critical = [
+    "test_app.py::test_wf_applicants_csv_stage_chips",
+    "test_app.py::test_wf_applicants_csv_live_counts_export",
+    "test_app.py::test_applicants_csv_export",
+]
+
+[[workflows]]
+id = "moderation-live"
+requirements = [
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_moderation_live_keyboard_approve",
+    "test_app.py::test_wf_moderation_live_keyboard_reject",
+]
+
+[[workflows]]
+id = "claim-conflict"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_claim_conflict_lease_history",
+    "test_app.py::test_wf_claim_conflict_stale_claim",
+    "test_app.py::test_wf_claim_conflict_stale_decision",
+    "test_app.py::test_wf_claim_conflict_phone_queue",
+]
+
+[[workflows]]
+id = "band-resolve"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_band_resolve_live",
+    "test_app.py::test_pay_ranges_behind_threshold",
+]
+checkpoints = [
+    "B7",
+    "B9",
+    "B10",
+]
+
+[[workflows]]
+id = "contribute-unlock"
+requirements = [
+    "DP-14",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_contribute_unlock_happy",
+    "test_app.py::test_edit_and_delete_posts",
+]
+
+[[workflows]]
+id = "employer-verify-reply"
+requirements = [
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_employer_verify_reply_happy",
+    "test_app.py::test_wf_employer_verify_reply_other_company",
+]
+
+[[workflows]]
+id = "job-search-keyboard"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_job_search_keyboard_save_job",
+    "test_app.py::test_wf_job_search_keyboard_chips",
+    "test_app.py::test_wf_job_search_keyboard_phone_sheet",
+    "test_app.py::test_job_and_company_search",
+]
+
+[[workflows]]
+id = "job-search-phone"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_job_search_phone_filter_sheet",
+    "test_app.py::test_wf_job_search_phone_apply_bar",
+    "test_app.py::test_company_page_breakpoints",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "job-alert"
+requirements = [
+    "DP-09",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_job_alert_save_and_match",
+    "test_app.py::test_jobs_listed_once_indexed",
+    "test_app.py::test_auth_reveals_nobody",
+]
+
+[[workflows]]
+id = "apply-outage"
+requirements = [
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_apply_outage_idempotency",
+    "test_app.py::test_wf_apply_outage_storage_down",
+    "test_app.py::test_wf_apply_outage_happy_once",
+    "test_app.py::test_resume_checks",
+]
+
+[[workflows]]
+id = "pipeline-keyboard"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_pipeline_keyboard_phone",
+    "test_app.py::test_wf_pipeline_keyboard_move",
+    "test_app.py::test_application_privacy",
+]
+
+[[workflows]]
+id = "channels-live"
+requirements = [
+    "DP-15",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_channels_live_catch_up",
+    "test_app.py::test_wf_channels_live_post",
+    "test_app.py::test_wf_channels_live_quote_removed",
+    "test_app.py::test_anonymous_posts",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_health_routes",
+    "test_app.py::test_grading_routes",
+]
+checkpoints = [
+    "B1",
+    "B3",
+    "B6",
+]
+critical_checkpoints = [
+    "B1",
+]

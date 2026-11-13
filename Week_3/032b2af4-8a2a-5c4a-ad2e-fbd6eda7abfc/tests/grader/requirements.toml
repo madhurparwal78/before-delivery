@@ -1,0 +1,1918 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 85
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "athlete-signup-and-session",
+    "athlete-uploads-gpx-run",
+    "run-splits-and-best-efforts",
+    "invalid-or-duplicate-upload-refused",
+    "segment-efforts-rank-on-leaderboard",
+    "leaderboard-limit-for-free-athletes",
+    "followers-feed-pages-newest-first",
+    "private-follower-denied-until-approved",
+    "hidden-activity-and-zone-points-forbidden",
+    "duplicate-kudos-counted-once",
+    "comment-delete-forbidden-to-strangers",
+    "challenge-progress-and-completion",
+    "weekly-stats-and-year-recap",
+    "owner-edits-exports-and-deletes-activity",
+    "visitor-home-media-and-motion",
+    "visitor-pages-accessible-and-deployed",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B21",
+    "B22",
+    "B23",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+    "B17",
+    "B18",
+    "B19",
+    "B20",
+    "S1",
+    "Q1",
+    "Q2",
+    "Q3",
+]
+rubric_total_weight = 75
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+]
+outages = []
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 1
+B6 = 1
+B7 = 3
+B8 = 3
+B9 = 5
+B10 = 5
+B11 = 3
+B12 = 3
+B21 = 3
+B22 = 3
+B23 = 3
+B13 = 5
+B14 = 3
+B15 = 1
+B16 = 1
+B17 = 1
+B18 = 1
+B19 = 1
+B20 = 1
+S1 = 5
+Q1 = 3
+Q2 = 3
+Q3 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[requirements]]
+id = "DP-01"
+title = "Sign up with email."
+text = "`POST /api/auth/signup` with a valid email, a name of one to eighty characters and a password of at least eight characters returns `201` with a working token, refuses invalid fields with `400` naming each one and a registered email with `409` `email_taken`, and the signup page marks invalid fields inline."
+kind = "behavior"
+primary = "pytest"
+workflow = "athlete-signup-and-session"
+tests = [
+    "test_app.py::test_signup_returns_token_and_athlete",
+    "test_app.py::test_signup_invalid_fields_refused",
+    "test_app.py::test_signup_duplicate_email_conflict",
+    "test_app.py::test_signup_page_shows_inline_errors",
+    "test_app.py::test_signup_page_meets_wcag_aa",
+    "test_app.py::test_signup_page_renders_own_web_font",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Log in and log out."
+text = "`POST /api/auth/login` returns `200` with a token or `401` for a wrong password, `POST /api/auth/logout` ends that token, and the login page shows the mismatch message for a wrong password."
+kind = "behavior"
+primary = "pytest"
+workflow = "athlete-signup-and-session"
+tests = [
+    "test_app.py::test_login_wrong_password_unauthenticated",
+    "test_app.py::test_logout_invalidates_token",
+    "test_app.py::test_login_page_reports_mismatch",
+    "test_app.py::test_login_controls_meet_touch_target_size",
+    "test_app.py::test_login_page_renders_own_web_font",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Seeded athletes."
+text = "The four seeded athletes sign in with the seeded password and are stored in the `athletes` collection, with Ava Brooks a subscriber on the `individual` plan."
+kind = "behavior"
+primary = "pytest"
+workflow = "athlete-signup-and-session"
+tests = [
+    "test_app.py::test_seeded_logins_sign_in",
+    "test_app.py::test_seeded_athletes_stored_rows",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Time zone setting."
+text = "A new athlete's `time_zone` is `UTC`, and `PATCH /api/me` stores an IANA zone name and refuses any other name with `400` naming `time_zone`."
+kind = "behavior"
+primary = "pytest"
+workflow = "athlete-signup-and-session"
+tests = [
+    "test_app.py::test_time_zone_patch_refuses_non_iana_name",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Account deletion."
+text = "`DELETE /api/me` with the right password erases the account at once so its email no longer logs in and may sign up again as a new athlete, while a wrong or missing password answers `403` `wrong_password` and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "athlete-signup-and-session"
+tests = [
+    "test_app.py::test_account_delete_wrong_password_changes_nothing",
+    "test_app.py::test_deleting_account_email_no_longer_logs_in_but_signs_up_again",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "GPX parsing."
+text = "An uploaded GPX activity returns and stores the distance, elapsed time, moving time, elevation gain, pace or speed and UTC start time that the parsing rules produce, including in a request body of 4500000 bytes."
+kind = "behavior"
+primary = "pytest"
+workflow = "athlete-uploads-gpx-run"
+tests = [
+    "test_app.py::test_upload_run_returns_parsed_distance_and_times",
+    "test_app.py::test_upload_moving_time_excludes_stopped_intervals",
+    "test_app.py::test_upload_elevation_gain_sums_rises_only",
+    "test_app.py::test_upload_pace_and_speed_follow_sport",
+    "test_app.py::test_upload_start_time_is_utc_with_z",
+    "test_app.py::test_gpx_upload_under_size_limit_accepted",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Stored activity."
+text = "A valid upload is stored as one row in `activities`, takes the athlete's default visibility when none is sent and tops the athlete's own feed, and athlete activity lists need a session."
+kind = "behavior"
+primary = "pytest"
+workflow = "athlete-uploads-gpx-run"
+tests = [
+    "test_app.py::test_uploaded_activity_row_persisted",
+    "test_app.py::test_upload_visibility_defaults_to_athlete_setting",
+    "test_app.py::test_uploaded_activity_tops_own_feed",
+    "test_app.py::test_anonymous_athlete_activity_list_unauthenticated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Upload page."
+text = "The upload page previews the parsed distance, saves the activity and opens its page, and the upload page, the new activity page and the dashboard meet the accessibility, touch target, font and reflow rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "athlete-uploads-gpx-run"
+tests = [
+    "test_app.py::test_upload_page_previews_and_saves_activity",
+    "test_app.py::test_upload_controls_meet_touch_target_size",
+    "test_app.py::test_upload_page_meets_wcag_aa",
+    "test_app.py::test_upload_page_renders_own_web_font",
+    "test_app.py::test_uploaded_activity_controls_meet_touch_target_size",
+    "test_app.py::test_uploaded_activity_page_never_scrolls_sideways_at_narrow_viewport",
+    "test_app.py::test_uploaded_activity_page_meets_wcag_aa_on_phone",
+    "test_app.py::test_new_activity_dashboard_meets_wcag_aa",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Kilometre splits."
+text = "Splits interpolate each whole kilometre crossing and end with a final split for a remainder of at least one metre, and the splits table marks the fastest whole kilometre with Fastest."
+kind = "behavior"
+primary = "pytest"
+workflow = "run-splits-and-best-efforts"
+tests = [
+    "test_app.py::test_splits_interpolate_kilometre_crossings",
+    "test_app.py::test_final_partial_split_covers_remainder",
+    "test_app.py::test_splits_table_marks_fastest_kilometre",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Best efforts."
+text = "A run lists its `400m`, `1k` and `5k` best efforts as the fastest point-to-point windows, and rides, walks and hikes have empty `best_efforts`."
+kind = "behavior"
+primary = "pytest"
+workflow = "run-splits-and-best-efforts"
+tests = [
+    "test_app.py::test_best_efforts_take_fastest_window",
+    "test_app.py::test_ride_has_no_best_efforts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Streams."
+text = "`GET /api/activities/{id}/streams` returns four arrays with one entry per point and needs a session."
+kind = "behavior"
+primary = "pytest"
+workflow = "run-splits-and-best-efforts"
+tests = [
+    "test_app.py::test_streams_align_with_points",
+    "test_app.py::test_anonymous_streams_read_unauthenticated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Audio splits."
+text = "Play audio splits speaks one utterance per split, in order, through the browser's speech synthesis."
+kind = "behavior"
+primary = "pytest"
+workflow = "run-splits-and-best-efforts"
+tests = [
+    "test_app.py::test_audio_splits_speak_each_kilometre",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Activity page."
+text = "The activity page shows its figures, route, controls and medals with their text alternatives, and meets the accessibility, touch target and font rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "run-splits-and-best-efforts"
+tests = [
+    "test_app.py::test_activity_page_medals_state_rank",
+    "test_app.py::test_activity_controls_meet_touch_target_size",
+    "test_app.py::test_activity_page_meets_wcag_aa",
+    "test_app.py::test_activity_page_renders_own_web_font",
+    "test_app.py::test_existing_activity_page_meets_wcag_aa",
+    "test_app.py::test_existing_activity_controls_meet_touch_target_size",
+]
+criteria = [
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Refused uploads."
+text = "A malformed or single-point GPX, an invalid name, sport or visibility, or an upload without a session is refused with nothing stored, and the upload page shows the reason without leaving the page."
+kind = "behavior"
+primary = "pytest"
+workflow = "invalid-or-duplicate-upload-refused"
+tests = [
+    "test_app.py::test_malformed_gpx_refused_nothing_stored",
+    "test_app.py::test_single_point_gpx_refused",
+    "test_app.py::test_bad_sport_and_visibility_refused",
+    "test_app.py::test_upload_refusal_names_every_failing_field",
+    "test_app.py::test_unauthenticated_upload_rejected",
+    "test_app.py::test_upload_page_shows_refusal_reason",
+    "test_app.py::test_upload_refusal_meets_wcag_aa",
+    "test_app.py::test_upload_controls_show_focus_indicator",
+    "test_app.py::test_upload_page_never_scrolls_sideways_at_narrow_viewport",
+    "test_app.py::test_anonymous_unknown_activity_unauthenticated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "One activity per recording."
+text = "A second upload with the same first-point time answers `409` `duplicate_activity` naming the existing activity, and three identical simultaneous uploads store exactly one."
+kind = "behavior"
+primary = "pytest"
+workflow = "invalid-or-duplicate-upload-refused"
+tests = [
+    "test_app.py::test_duplicate_start_time_upload_conflict",
+    "test_app.py::test_concurrent_identical_uploads_store_one",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Idempotent upload."
+text = "A replay with the same `Idempotency-Key` and body returns the same activity id without a second activity, and the same key with a new body answers `422` `idempotency_key_reused`."
+kind = "behavior"
+primary = "pytest"
+workflow = "invalid-or-duplicate-upload-refused"
+tests = [
+    "test_app.py::test_idempotent_replay_returns_same_activity",
+    "test_app.py::test_idempotency_key_reuse_with_new_body_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Request body limits."
+text = "A body over 5000000 bytes answers `413` `payload_too_large` and a body that is not valid JSON answers `400` `validation`, each storing nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "invalid-or-duplicate-upload-refused"
+tests = [
+    "test_app.py::test_request_body_larger_than_limit_answers_413",
+    "test_app.py::test_invalid_json_body_answers_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Segment input bounds."
+text = "A segment name outside three to sixty characters or an index outside the activity's points answers `400`, and another athlete's activity answers `403` or `404`."
+kind = "behavior"
+primary = "pytest"
+workflow = "invalid-or-duplicate-upload-refused"
+tests = [
+    "test_app.py::test_segment_name_and_index_bounds_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Segment creation."
+text = "A segment made from two points of the caller's own activity carries their rounded distance and elevation difference and matches existing activities at creation, and its creator may rename it with the new name shown everywhere."
+kind = "behavior"
+primary = "pytest"
+workflow = "segment-efforts-rank-on-leaderboard"
+tests = [
+    "test_app.py::test_segment_created_from_owned_activity",
+    "test_app.py::test_segment_creation_matches_existing_activities",
+    "test_app.py::test_segment_creator_rename_shows_everywhere",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Segment matching."
+text = "An activity gains an effort when it passes within 25 metres of the start and later within 25 metres of the end, timed between those points, with at most one effort per activity on each segment."
+kind = "behavior"
+primary = "pytest"
+workflow = "segment-efforts-rank-on-leaderboard"
+tests = [
+    "test_app.py::test_later_upload_through_segment_gains_effort",
+    "test_app.py::test_segment_matching_needs_start_then_end",
+    "test_app.py::test_segment_counts_one_effort_per_activity",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Leaderboard ranking."
+text = "A leaderboard holds each athlete's fastest effort sorted by time with ties to the earlier start, ranks again when an athlete deletes their account, and needs a session."
+kind = "behavior"
+primary = "pytest"
+workflow = "segment-efforts-rank-on-leaderboard"
+tests = [
+    "test_app.py::test_leaderboard_ranks_best_effort_per_athlete",
+    "test_app.py::test_leaderboard_tie_goes_to_earlier_effort",
+    "test_app.py::test_deleting_account_ranks_leaderboard_again",
+    "test_app.py::test_anonymous_leaderboard_read_unauthenticated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Personal records and crowns."
+text = "Each effort keeps the `pr_rank` and `is_crown` it earned when recorded, and an `only_me` effort earns a personal record but never a crown."
+kind = "behavior"
+primary = "pytest"
+workflow = "segment-efforts-rank-on-leaderboard"
+tests = [
+    "test_app.py::test_pr_rank_and_crown_recorded_at_effort_time",
+    "test_app.py::test_only_me_effort_ranks_personal_record_without_crown",
+    "test_app.py::test_crowned_activity_page_meets_wcag_aa",
+]
+criteria = [
+    "B18",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Seeded Harbor Climb."
+text = "The seeded Harbor Climb segment has its seeded distance, elevation difference and leaderboard, and its page crowns Leo Park in first place."
+kind = "behavior"
+primary = "pytest"
+workflow = "segment-efforts-rank-on-leaderboard"
+tests = [
+    "test_app.py::test_seeded_harbor_climb_leaderboard",
+    "test_app.py::test_segment_page_crowns_seeded_leader",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Segment page."
+text = "The segment page meets the accessibility, touch target, font and reflow rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "segment-efforts-rank-on-leaderboard"
+tests = [
+    "test_app.py::test_segment_controls_meet_touch_target_size",
+    "test_app.py::test_segment_page_meets_wcag_aa",
+    "test_app.py::test_segment_page_renders_own_web_font",
+    "test_app.py::test_new_segment_page_never_scrolls_sideways_at_narrow_viewport",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Leaderboard depth by plan."
+text = "A non-subscriber receives the first ten entries plus their own `viewer_entry`, and a subscriber receives every entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "leaderboard-limit-for-free-athletes"
+tests = [
+    "test_app.py::test_free_viewer_sees_top_ten_plus_own_entry",
+    "test_app.py::test_subscriber_sees_every_leaderboard_entry",
+    "test_app.py::test_free_viewer_leaderboard_controls_meet_touch_target_size",
+    "test_app.py::test_segment_page_never_scrolls_sideways_at_narrow_viewport",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Leaderboard visibility."
+text = "Efforts from `only_me` activities never appear on a leaderboard, while efforts from `followers` activities appear to every viewer."
+kind = "behavior"
+primary = "pytest"
+workflow = "leaderboard-limit-for-free-athletes"
+tests = [
+    "test_app.py::test_only_me_efforts_never_on_leaderboard",
+    "test_app.py::test_followers_effort_appears_on_leaderboard_for_non_follower",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Following leaderboard filter."
+text = "`filter=following` keeps the viewer and the athletes they follow, ranked again from 1, and the segment page's Following tab lives in the address."
+kind = "behavior"
+primary = "pytest"
+workflow = "leaderboard-limit-for-free-athletes"
+tests = [
+    "test_app.py::test_leaderboard_following_filter_ranks_again",
+    "test_app.py::test_segment_following_tab_lives_in_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Plans and trial."
+text = "`GET /api/plans` lists the four plans, choosing a plan starts a `trialing` subscription that ends thirty days later and makes the athlete a subscriber, monthly billing exists only for `individual`, and cancelling ends the subscription."
+kind = "behavior"
+primary = "pytest"
+workflow = "leaderboard-limit-for-free-athletes"
+tests = [
+    "test_app.py::test_choosing_plan_starts_trial_and_subscribes",
+    "test_app.py::test_monthly_billing_only_for_individual",
+    "test_app.py::test_subscription_cancel_ends_subscriber",
+    "test_app.py::test_anonymous_subscription_change_unauthenticated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Subscription page."
+text = "The subscription page switches the Individual price between annual and monthly, shows the Family and Student prices and loops its pulse ring every three seconds, and meets the accessibility, touch target, font and reduced-motion rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "leaderboard-limit-for-free-athletes"
+tests = [
+    "test_app.py::test_plans_toggle_switches_annual_and_monthly",
+    "test_app.py::test_subscribe_pulse_ring_loops_every_three_seconds",
+    "test_app.py::test_subscribe_controls_meet_touch_target_size",
+    "test_app.py::test_subscribe_page_animates_nothing_under_reduced_motion",
+    "test_app.py::test_subscribe_page_renders_own_web_font",
+    "test_app.py::test_family_page_meets_wcag_aa",
+]
+criteria = [
+    "B4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Follows."
+text = "Following a public athlete is accepted at once with counts including accepted follows only, following yourself answers `400`, an unknown athlete answers `404`, and unfollowing answers `204`."
+kind = "behavior"
+primary = "pytest"
+workflow = "followers-feed-pages-newest-first"
+tests = [
+    "test_app.py::test_follow_public_athlete_accepted_at_once",
+    "test_app.py::test_follow_counts_include_accepted_only",
+    "test_app.py::test_self_follow_refused",
+    "test_app.py::test_unknown_athlete_follow_and_unfollow",
+    "test_app.py::test_anonymous_follow_unauthenticated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Feed and paging."
+text = "The feed lists the caller's own and followed activities newest first with ties by id descending, pages each activity exactly once through an opaque cursor even as new activities arrive, and refuses a `limit` outside 1 to 50."
+kind = "behavior"
+primary = "pytest"
+workflow = "followers-feed-pages-newest-first"
+tests = [
+    "test_app.py::test_feed_includes_followed_athletes_newest_first",
+    "test_app.py::test_feed_cursor_pages_cover_each_once",
+    "test_app.py::test_feed_limit_outside_range_refused",
+    "test_app.py::test_feed_ties_by_id_and_stays_stable_across_inserts",
+    "test_app.py::test_athlete_activity_list_pages_newest_first",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "No email or password leaks."
+text = "No response carries another athlete's email address, a password or a password hash."
+kind = "behavior"
+primary = "pytest"
+workflow = "followers-feed-pages-newest-first"
+tests = [
+    "test_app.py::test_another_athletes_email_never_appears_in_responses",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Dashboard feed."
+text = "The dashboard shows a followed athlete's new activity in a feed whose cards rise in, and meets the accessibility, touch target and font rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "followers-feed-pages-newest-first"
+tests = [
+    "test_app.py::test_dashboard_shows_feed_card_for_followed_upload",
+    "test_app.py::test_dashboard_feed_cards_rise_in",
+    "test_app.py::test_dashboard_controls_meet_touch_target_size",
+    "test_app.py::test_dashboard_meets_wcag_aa",
+    "test_app.py::test_dashboard_renders_own_web_font",
+    "test_app.py::test_followed_athlete_profile_meets_wcag_aa",
+    "test_app.py::test_feed_dashboard_meets_wcag_aa_on_phone",
+]
+criteria = [
+    "B9",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Private follow requests."
+text = "Following a private athlete waits `pending` with that athlete's activities answered as not found, only the followed athlete may approve or reject, approval grants access, and rejection removes the request."
+kind = "behavior"
+primary = "pytest"
+workflow = "private-follower-denied-until-approved"
+tests = [
+    "test_app.py::test_private_athlete_follow_waits_pending",
+    "test_app.py::test_pending_follower_denied_private_activity",
+    "test_app.py::test_approved_follower_sees_private_activity",
+    "test_app.py::test_only_followee_can_approve_request",
+    "test_app.py::test_rejected_request_removed",
+    "test_app.py::test_anonymous_follow_request_approval_unauthenticated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Seeded follows."
+text = "Ava follows Leo, Leo and Sam follow Ava, and Mia's account is private."
+kind = "behavior"
+primary = "pytest"
+workflow = "private-follower-denied-until-approved"
+tests = [
+    "test_app.py::test_seeded_follows_and_private_account",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Athlete profile."
+text = "The profile's Follow button reads Requested or Following after a press, and profile and dashboard pages meet the accessibility, touch target, font and reflow rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "private-follower-denied-until-approved"
+tests = [
+    "test_app.py::test_profile_follow_button_reads_state",
+    "test_app.py::test_profile_controls_meet_touch_target_size",
+    "test_app.py::test_profile_page_meets_wcag_aa",
+    "test_app.py::test_profile_page_renders_own_web_font",
+    "test_app.py::test_own_profile_controls_meet_touch_target_size",
+    "test_app.py::test_approved_follower_dashboard_controls_meet_touch_target_size",
+    "test_app.py::test_private_profile_page_never_scrolls_sideways_at_narrow_viewport",
+    "test_app.py::test_private_profile_page_meets_wcag_aa",
+    "test_app.py::test_approved_follower_dashboard_meets_wcag_aa",
+]
+criteria = [
+    "B12",
+    "B21",
+    "B22",
+    "B23",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Deletion removes follows."
+text = "Deleting an account removes its follows in both directions and its pending requests, and its profile then answers `404`."
+kind = "behavior"
+primary = "pytest"
+workflow = "private-follower-denied-until-approved"
+tests = [
+    "test_app.py::test_deleting_account_removes_follows_and_requests",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Activity visibility."
+text = "A hidden activity answers `404` on every activity route and never appears in another athlete's feed or list, and the follower view of an activity page meets the accessibility rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "hidden-activity-and-zone-points-forbidden"
+tests = [
+    "test_app.py::test_only_me_activity_hidden_from_other_athletes",
+    "test_app.py::test_followers_activity_hidden_from_non_follower",
+    "test_app.py::test_hidden_activity_absent_from_athlete_list",
+    "test_app.py::test_only_me_activity_stays_in_owner_feed_only",
+    "test_app.py::test_anonymous_feed_read_unauthenticated",
+    "test_app.py::test_follower_activity_page_meets_wcag_aa",
+    "test_app.py::test_follower_activity_page_meets_wcag_aa_on_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Owner-only changes."
+text = "Another athlete's patch, delete or export of a visible activity answers `403` and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "hidden-activity-and-zone-points-forbidden"
+tests = [
+    "test_app.py::test_other_athlete_cannot_edit_or_delete_activity",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Privacy zones."
+text = "Streams returned to other athletes omit every point within the privacy zone radius while the owner keeps every point and the figures never change, and a radius other than 200, 400, 800 or 1600 answers `400`."
+kind = "behavior"
+primary = "pytest"
+workflow = "hidden-activity-and-zone-points-forbidden"
+tests = [
+    "test_app.py::test_privacy_zone_trims_streams_for_others",
+    "test_app.py::test_owner_streams_keep_every_point",
+    "test_app.py::test_privacy_zone_keeps_activity_figures",
+    "test_app.py::test_privacy_zone_radius_outside_set_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Privacy settings page."
+text = "The privacy settings form saves a privacy zone and confirms with Privacy settings saved, and the page meets the accessibility, touch target and font rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "hidden-activity-and-zone-points-forbidden"
+tests = [
+    "test_app.py::test_privacy_settings_form_saves_zone",
+    "test_app.py::test_privacy_settings_controls_meet_touch_target_size",
+    "test_app.py::test_privacy_settings_meets_wcag_aa",
+    "test_app.py::test_privacy_settings_renders_own_web_font",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Unknown ids."
+text = "An id in a route that names no record answers `404` whatever its form."
+kind = "behavior"
+primary = "pytest"
+workflow = "hidden-activity-and-zone-points-forbidden"
+tests = [
+    "test_app.py::test_unknown_record_ids_answer_404_whatever_form",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Kudos once per athlete."
+text = "Kudos count once per athlete under repeats and simultaneous requests, ten simultaneous kudos from different athletes count ten, the stored data holds one kudos row per athlete and activity, and kudos need a session."
+kind = "behavior"
+primary = "pytest"
+workflow = "duplicate-kudos-counted-once"
+tests = [
+    "test_app.py::test_kudos_once_per_athlete_replay_keeps_count",
+    "test_app.py::test_concurrent_kudos_from_ten_athletes_count_ten",
+    "test_app.py::test_concurrent_kudos_same_athlete_one_created",
+    "test_app.py::test_kudos_rows_unique_per_athlete",
+    "test_app.py::test_anonymous_kudos_unauthenticated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Kudos rules and list."
+text = "Kudos on your own activity answers `422` `cannot_kudo_own_activity`, and the kudos list keeps the order the kudos were given."
+kind = "behavior"
+primary = "pytest"
+workflow = "duplicate-kudos-counted-once"
+tests = [
+    "test_app.py::test_cannot_kudo_own_activity",
+    "test_app.py::test_kudos_list_in_given_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Kudos toggle."
+text = "The kudos toggle raises the count at once with the kudos pop and returns to its previous state with the Kudos could not be saved alert when refused, and the activity page meets the focus, accessibility and font rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "duplicate-kudos-counted-once"
+tests = [
+    "test_app.py::test_kudos_toggle_pops_and_counts",
+    "test_app.py::test_kudos_refused_toggle_returns_previous_state",
+    "test_app.py::test_activity_controls_show_focus_indicator",
+    "test_app.py::test_kudos_activity_view_meets_wcag_aa",
+    "test_app.py::test_kudos_activity_view_renders_own_web_font",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Stored collections."
+text = "The stored data uses the collection names listed in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "duplicate-kudos-counted-once"
+tests = [
+    "test_app.py::test_stored_collections_use_named_tables",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Comments."
+text = "Comments of one to five hundred characters after trimming are stored and listed oldest first, other text answers `400` naming `text`, `comment_count` always matches the list, and comments need a session."
+kind = "behavior"
+primary = "pytest"
+workflow = "comment-delete-forbidden-to-strangers"
+tests = [
+    "test_app.py::test_comment_posted_and_listed_oldest_first",
+    "test_app.py::test_blank_or_long_comment_refused",
+    "test_app.py::test_comment_count_matches_list",
+    "test_app.py::test_anonymous_comment_unauthenticated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Comment deletion rule."
+text = "Only the comment's author or the activity owner may delete a comment, and anyone else receives `403`."
+kind = "behavior"
+primary = "pytest"
+workflow = "comment-delete-forbidden-to-strangers"
+tests = [
+    "test_app.py::test_stranger_cannot_delete_comment",
+    "test_app.py::test_activity_owner_can_delete_any_comment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Comment thread."
+text = "The comment form posts a comment, a refused comment never stays in the thread and keeps its text in the field with the Comment could not be posted alert, and the page meets the accessibility, touch target and font rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "comment-delete-forbidden-to-strangers"
+tests = [
+    "test_app.py::test_activity_comment_form_posts",
+    "test_app.py::test_refused_comment_never_stays_in_thread",
+    "test_app.py::test_activity_comments_meet_wcag_aa",
+    "test_app.py::test_activity_comments_render_own_web_font",
+    "test_app.py::test_commented_activity_controls_meet_touch_target_size",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Dashboard paging."
+text = "Reaching the end of the dashboard feed loads the next page, and the dashboard stays still under reduced motion and never scrolls sideways."
+kind = "behavior"
+primary = "pytest"
+workflow = "comment-delete-forbidden-to-strangers"
+tests = [
+    "test_app.py::test_dashboard_feed_loads_next_page",
+    "test_app.py::test_dashboard_page_animates_nothing_under_reduced_motion",
+    "test_app.py::test_dashboard_page_never_scrolls_sideways_at_narrow_viewport",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Deletion removes kudos and comments."
+text = "Deleting an account removes the kudos it gave and the comments it wrote from every count and list."
+kind = "behavior"
+primary = "pytest"
+workflow = "comment-delete-forbidden-to-strangers"
+tests = [
+    "test_app.py::test_deleting_account_removes_kudos_given_and_comments_written",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Monthly challenges."
+text = "The eight seeded challenges have their dimensions and goals and run over the current calendar month in UTC or in the caller's time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "challenge-progress-and-completion"
+tests = [
+    "test_app.py::test_challenges_span_current_utc_month",
+    "test_app.py::test_challenge_window_runs_in_caller_time_zone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Challenge progress."
+text = "Progress is zero until joined and then sums the caller's qualifying activities of any visibility this month, joining again answers `200`, and leaving answers `204`."
+kind = "behavior"
+primary = "pytest"
+workflow = "challenge-progress-and-completion"
+tests = [
+    "test_app.py::test_unjoined_challenge_reports_zero_progress",
+    "test_app.py::test_joined_distance_challenge_sums_qualifying",
+    "test_app.py::test_challenge_counts_any_visibility_before_join",
+    "test_app.py::test_leaving_challenge_answers_204",
+    "test_app.py::test_anonymous_challenge_join_unauthenticated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Challenge completion."
+text = "A joined challenge completes at the qualifying activity in start-time order that reaches the goal, deleting an activity recomputes it, and completed challenges appear in the trophies."
+kind = "behavior"
+primary = "pytest"
+workflow = "challenge-progress-and-completion"
+tests = [
+    "test_app.py::test_single_distance_challenge_completes_at_crossing_activity",
+    "test_app.py::test_deleting_activity_recomputes_progress",
+    "test_app.py::test_completed_challenge_in_trophies",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Challenges page."
+text = "Each joined challenge shows a progress ring with its whole percentage capped at 100 and Completed when done, and the page meets the accessibility, touch target, font and reflow rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "challenge-progress-and-completion"
+tests = [
+    "test_app.py::test_challenge_ring_reports_progress_percent",
+    "test_app.py::test_challenges_controls_meet_touch_target_size",
+    "test_app.py::test_challenges_page_meets_wcag_aa",
+    "test_app.py::test_challenges_page_renders_own_web_font",
+    "test_app.py::test_trophy_profile_controls_meet_touch_target_size",
+    "test_app.py::test_challenges_page_never_scrolls_sideways_at_narrow_viewport",
+]
+criteria = [
+    "B3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Weekly stats."
+text = "Weekly stats hold zero-filled Monday weeks in the athlete's time zone, twelve by default with the year to date, and refuse `weeks` outside 1 to 52."
+kind = "behavior"
+primary = "pytest"
+workflow = "weekly-stats-and-year-recap"
+tests = [
+    "test_app.py::test_weekly_stats_zero_filled_monday_buckets",
+    "test_app.py::test_weeks_parameter_outside_range_refused",
+    "test_app.py::test_weekly_stats_default_twelve_weeks_year_to_date",
+    "test_app.py::test_weekly_stats_weeks_begin_in_athlete_time_zone",
+    "test_app.py::test_weekly_stats_dashboard_controls_meet_touch_target_size",
+    "test_app.py::test_weekly_stats_dashboard_meets_wcag_aa",
+    "test_app.py::test_weekly_stats_profile_meets_wcag_aa_on_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Year recap."
+text = "The recap totals the caller's activities in the year with the longest activity, the top sport by count with ties going to distance, and the kudos received."
+kind = "behavior"
+primary = "pytest"
+workflow = "weekly-stats-and-year-recap"
+tests = [
+    "test_app.py::test_recap_totals_cover_year",
+    "test_app.py::test_recap_top_sport_tie_breaks_by_distance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Recap player."
+text = "Play recap plays the music and advances a card every five seconds, Pause recap stops both, Mute, Next and Previous work, nothing advances under reduced motion, and the page meets the focus, accessibility, font and reflow rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "weekly-stats-and-year-recap"
+tests = [
+    "test_app.py::test_recap_plays_music_and_advances",
+    "test_app.py::test_recap_pause_stops_music_and_slides",
+    "test_app.py::test_recap_mute_toggles_and_next_moves",
+    "test_app.py::test_recap_page_animates_nothing_under_reduced_motion",
+    "test_app.py::test_recap_controls_show_focus_indicator",
+    "test_app.py::test_recap_meets_wcag_aa",
+    "test_app.py::test_recap_renders_own_web_font",
+    "test_app.py::test_recap_page_never_scrolls_sideways_at_narrow_viewport",
+]
+criteria = [
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Owner edits and history."
+text = "The owner's `PATCH` updates the name and visibility, and the history lists each field a patch actually changed, oldest first."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-edits-exports-and-deletes-activity"
+tests = [
+    "test_app.py::test_owner_patch_updates_name_and_visibility",
+    "test_app.py::test_activity_history_holds_each_changed_field",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "GPX export."
+text = "The export is a GPX 1.1 document holding every point, and uploading it reproduces the same figures."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-edits-exports-and-deletes-activity"
+tests = [
+    "test_app.py::test_export_gpx_round_trips_figures",
+    "test_app.py::test_anonymous_export_unauthenticated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Activity deletion."
+text = "Deleting an activity removes it with its efforts, kudos and comments and stops it counting toward leaderboards and stats."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-edits-exports-and-deletes-activity"
+tests = [
+    "test_app.py::test_delete_removes_activity_and_efforts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Elevation profile and flyover."
+text = "The Route position slider steps through the points with its value text, and Play flyover moves a marker along the route reporting its running distance, with speeds of 1x, 2x and 4x."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-edits-exports-and-deletes-activity"
+tests = [
+    "test_app.py::test_activity_page_profile_slider_reads_points",
+    "test_app.py::test_flyover_plays_and_reports_progress",
+    "test_app.py::test_flyover_speed_control_offers_rates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Owner controls."
+text = "The owner sees Edit, Delete, Export GPX and Create segment, Play audio splits is disabled without speech synthesis, and the activity page stays still under reduced motion and meets the accessibility and font rules on a phone."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-edits-exports-and-deletes-activity"
+tests = [
+    "test_app.py::test_owner_sees_activity_controls",
+    "test_app.py::test_audio_splits_disabled_without_speech",
+    "test_app.py::test_activity_page_animates_nothing_under_reduced_motion",
+    "test_app.py::test_activity_page_meets_wcag_aa_on_phone",
+    "test_app.py::test_activity_page_renders_own_web_font_on_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Home page."
+text = "The home page shows the headline, the Sign Up With Email action, the gravel road photograph with alternative text and the muted looping hero clip, and its Google and Apple buttons explain that only email sign up is available."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-home-media-and-motion"
+tests = [
+    "test_app.py::test_home_shows_signup_card_and_hero_clip",
+    "test_app.py::test_home_images_carry_alternative_text",
+    "test_app.py::test_home_social_signup_explains_email_only",
+]
+criteria = [
+    "B1",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Hero captions."
+text = "The hero clip carries an English captions track whose `/media/hero.vtt` file is served as `text/vtt` WebVTT holding the single cue."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-home-media-and-motion"
+tests = [
+    "test_app.py::test_home_clip_carries_english_captions",
+    "test_app.py::test_hero_captions_served_as_webvtt",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Licensed media."
+text = "Each media file the app ships is free to use and served from the app's own origin at `/assets/<file name>` with its media type."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-home-media-and-motion"
+tests = [
+    "test_app.py::test_licensed_media_served_from_assets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Reduced motion on the home page."
+text = "Under a reduced-motion preference the hero clip stays paused at its first frame until Play video is pressed, and nothing animates on the home page."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-home-media-and-motion"
+tests = [
+    "test_app.py::test_home_clip_paused_under_reduced_motion",
+    "test_app.py::test_home_reduced_motion_removes_movement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Home motion."
+text = "The hero route line draws itself on load, product images rise in as they enter view, and the header hides on scroll down and returns on scroll up."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-home-media-and-motion"
+tests = [
+    "test_app.py::test_home_scroll_reveals_animate",
+    "test_app.py::test_home_route_line_draws_on_load",
+    "test_app.py::test_header_hides_on_scroll_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Consent bar."
+text = "The consent bar remembers being dismissed."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-home-media-and-motion"
+tests = [
+    "test_app.py::test_consent_bar_remembers_dismissal",
+]
+criteria = [
+    "B7",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Home accessibility."
+text = "The home, features and What's New pages meet the touch target, focus, accessibility, font and reflow rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-home-media-and-motion"
+tests = [
+    "test_app.py::test_home_controls_meet_touch_target_size",
+    "test_app.py::test_home_controls_show_focus_indicator",
+    "test_app.py::test_home_meets_wcag_aa_on_phone",
+    "test_app.py::test_home_renders_own_web_font",
+    "test_app.py::test_whats_new_controls_meet_touch_target_size",
+    "test_app.py::test_features_page_never_scrolls_sideways_at_narrow_viewport",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Challenge filter chips."
+text = "The chosen challenge filter chip lives in the address as `?filter=`, narrows the galleries and is restored by Back."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-home-media-and-motion"
+tests = [
+    "test_app.py::test_challenges_filter_chip_lives_in_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Public pages accessibility."
+text = "The public pages and the maps page meet WCAG 2.2 AA, reflow at 320 pixels, and meet the touch target and font rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-pages-accessible-and-deployed"
+tests = [
+    "test_app.py::test_home_meets_wcag_aa",
+    "test_app.py::test_subscribe_meets_wcag_aa",
+    "test_app.py::test_home_reflows_at_narrow_viewport",
+    "test_app.py::test_maps_page_meets_wcag_aa",
+    "test_app.py::test_features_page_renders_own_web_font",
+    "test_app.py::test_features_controls_meet_touch_target_size",
+    "test_app.py::test_gift_controls_meet_touch_target_size",
+    "test_app.py::test_signed_in_maps_meets_wcag_aa",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Navigation drawer."
+text = "On a phone the Open menu button opens a drawer that keeps focus inside it and closes on Escape, returning focus to the button."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-pages-accessible-and-deployed"
+tests = [
+    "test_app.py::test_narrow_menu_drawer_opens_and_closes",
+    "test_app.py::test_narrow_menu_drawer_keeps_focus_inside",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Feature tabs."
+text = "The TRAIN, EXPLORE and COMPETE tabs switch panels by click and by arrow keys."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-pages-accessible-and-deployed"
+tests = [
+    "test_app.py::test_features_tabs_switch_panels",
+]
+criteria = [
+    "B2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Team price calculator."
+text = "The team price calculator shows the price per team member and the total price per year for each tier."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-pages-accessible-and-deployed"
+tests = [
+    "test_app.py::test_bulk_calculator_prices_by_tier",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Maps explorer."
+text = "The maps search narrows segments by name and opens a side panel with distance and grade, and Create Route explains that route building is coming soon."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-pages-accessible-and-deployed"
+tests = [
+    "test_app.py::test_maps_search_filters_segments",
+    "test_app.py::test_maps_create_route_explains_coming_soon",
+]
+criteria = [
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Health."
+text = "`GET /api/health` answers `200` at the public URL once the app is ready."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-pages-accessible-and-deployed"
+tests = [
+    "test_app.py::test_public_url_serves_health_route",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Not found."
+text = "An address that does not exist answers `404` with a not-found page carrying a link home."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-pages-accessible-and-deployed"
+tests = [
+    "test_app.py::test_unknown_route_answers_404",
+    "test_app.py::test_unknown_page_shows_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Gift page."
+text = "The gift page shows the login page with a note about gifting."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-pages-accessible-and-deployed"
+tests = [
+    "test_app.py::test_gift_page_shows_login",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "API errors."
+text = "Every `/api` error answers JSON with an `error` string and never a stack trace, SQL text, file path or library name."
+kind = "behavior"
+primary = "pytest"
+workflow = "visitor-pages-accessible-and-deployed"
+tests = [
+    "test_app.py::test_api_errors_answer_json_never_stack_trace",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Colour and heroes."
+text = "One orange marks every primary action and route line on white cards, and the paid-feature heroes glow from black through maroon into ember."
+kind = "visual"
+primary = "rubric"
+workflow = "visitor-pages-accessible-and-deployed"
+tests = []
+criteria = [
+    "B13",
+    "B14",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Shape, type and marks."
+text = "Corners, pills, shadows, the logo, the sport glyphs and the one grotesque sans family follow Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "visitor-pages-accessible-and-deployed"
+tests = []
+criteria = [
+    "B15",
+    "B16",
+    "B17",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Marketing pages."
+text = "The family, student, about and What's New pages carry the plan cards, feature tables, question accordions, team captains and story cards this brief lists."
+kind = "visual"
+primary = "rubric"
+workflow = "visitor-pages-accessible-and-deployed"
+tests = []
+criteria = [
+    "B5",
+    "B6",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Responsive layout."
+text = "Feature grids sit two across at tablet width and challenge cards four across on a wide desktop, and on a phone the signup card leads and wide tables scroll in their own frame."
+kind = "visual"
+primary = "rubric"
+workflow = "visitor-pages-accessible-and-deployed"
+tests = []
+criteria = [
+    "B19",
+    "B20",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Engineering standards."
+text = "Figures come only from the parsed points, and the parsing, visibility and uniqueness rules each live in one place in the source."
+kind = "source"
+primary = "rubric"
+workflow = "visitor-pages-accessible-and-deployed"
+tests = []
+criteria = [
+    "S1",
+    "Q1",
+    "Q2",
+    "Q3",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with the string commands `install`, `build` and `serve` and `\"_schema\":\"run-manifest-v1\"`."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`/app/USER_README.md` ships with the source and lists the seeded logins `ava@example.com`, `leo@example.com`, `mia@example.com` and `sam@example.com` with the password `deku-demo-pw-2026`."
+tests = [
+    "test_app.py::test_if_user_readme_names_seeded_logins",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Reserved `.browser_screenshots/` and `.downloads/` directories exist at the app root, empty."
+tests = [
+    "test_app.py::test_if_reserved_directories_exist_at_app_root",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "`/app/assets.json` is a JSON array listing every media file and font the app ships, each `{ path, sha256, source, licence }`: `path` relative to `/app` (such as `assets/hero.webm`), `sha256` the hex digest of the file, `source` the URL the file was downloaded from or `original` for a file made for the app, and `licence` one of `CC0-1.0`, `public domain`, `original` or the free site's licence name (such as `Pixabay License`) for media, or `OFL-1.1`, `MIT` or `Apache-2.0` for a font."
+tests = [
+    "test_app.py::test_if_assets_manifest_lists_shipped_media",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "athlete-signup-and-session"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+]
+critical = [
+    "test_app.py::test_signup_returns_token_and_athlete",
+    "test_app.py::test_signup_invalid_fields_refused",
+    "test_app.py::test_signup_duplicate_email_conflict",
+    "test_app.py::test_signup_page_shows_inline_errors",
+    "test_app.py::test_signup_page_meets_wcag_aa",
+    "test_app.py::test_signup_page_renders_own_web_font",
+    "test_app.py::test_login_wrong_password_unauthenticated",
+    "test_app.py::test_logout_invalidates_token",
+    "test_app.py::test_login_page_reports_mismatch",
+    "test_app.py::test_login_controls_meet_touch_target_size",
+    "test_app.py::test_login_page_renders_own_web_font",
+    "test_app.py::test_seeded_logins_sign_in",
+    "test_app.py::test_seeded_athletes_stored_rows",
+    "test_app.py::test_time_zone_patch_refuses_non_iana_name",
+    "test_app.py::test_account_delete_wrong_password_changes_nothing",
+    "test_app.py::test_deleting_account_email_no_longer_logs_in_but_signs_up_again",
+]
+
+[[workflows]]
+id = "athlete-uploads-gpx-run"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_upload_run_returns_parsed_distance_and_times",
+    "test_app.py::test_upload_moving_time_excludes_stopped_intervals",
+    "test_app.py::test_upload_elevation_gain_sums_rises_only",
+    "test_app.py::test_upload_pace_and_speed_follow_sport",
+    "test_app.py::test_upload_start_time_is_utc_with_z",
+    "test_app.py::test_gpx_upload_under_size_limit_accepted",
+    "test_app.py::test_uploaded_activity_row_persisted",
+    "test_app.py::test_upload_visibility_defaults_to_athlete_setting",
+    "test_app.py::test_uploaded_activity_tops_own_feed",
+    "test_app.py::test_anonymous_athlete_activity_list_unauthenticated",
+    "test_app.py::test_upload_page_previews_and_saves_activity",
+    "test_app.py::test_upload_controls_meet_touch_target_size",
+    "test_app.py::test_upload_page_meets_wcag_aa",
+    "test_app.py::test_upload_page_renders_own_web_font",
+    "test_app.py::test_uploaded_activity_controls_meet_touch_target_size",
+    "test_app.py::test_uploaded_activity_page_never_scrolls_sideways_at_narrow_viewport",
+    "test_app.py::test_uploaded_activity_page_meets_wcag_aa_on_phone",
+    "test_app.py::test_new_activity_dashboard_meets_wcag_aa",
+]
+
+[[workflows]]
+id = "run-splits-and-best-efforts"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_splits_interpolate_kilometre_crossings",
+    "test_app.py::test_final_partial_split_covers_remainder",
+    "test_app.py::test_splits_table_marks_fastest_kilometre",
+    "test_app.py::test_best_efforts_take_fastest_window",
+    "test_app.py::test_ride_has_no_best_efforts",
+    "test_app.py::test_streams_align_with_points",
+    "test_app.py::test_anonymous_streams_read_unauthenticated",
+    "test_app.py::test_audio_splits_speak_each_kilometre",
+    "test_app.py::test_activity_page_medals_state_rank",
+    "test_app.py::test_activity_controls_meet_touch_target_size",
+    "test_app.py::test_activity_page_meets_wcag_aa",
+    "test_app.py::test_activity_page_renders_own_web_font",
+    "test_app.py::test_existing_activity_page_meets_wcag_aa",
+    "test_app.py::test_existing_activity_controls_meet_touch_target_size",
+]
+
+[[workflows]]
+id = "invalid-or-duplicate-upload-refused"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_malformed_gpx_refused_nothing_stored",
+    "test_app.py::test_single_point_gpx_refused",
+    "test_app.py::test_bad_sport_and_visibility_refused",
+    "test_app.py::test_upload_refusal_names_every_failing_field",
+    "test_app.py::test_unauthenticated_upload_rejected",
+    "test_app.py::test_upload_page_shows_refusal_reason",
+    "test_app.py::test_upload_refusal_meets_wcag_aa",
+    "test_app.py::test_upload_controls_show_focus_indicator",
+    "test_app.py::test_upload_page_never_scrolls_sideways_at_narrow_viewport",
+    "test_app.py::test_anonymous_unknown_activity_unauthenticated",
+    "test_app.py::test_duplicate_start_time_upload_conflict",
+    "test_app.py::test_concurrent_identical_uploads_store_one",
+    "test_app.py::test_idempotent_replay_returns_same_activity",
+    "test_app.py::test_idempotency_key_reuse_with_new_body_refused",
+    "test_app.py::test_request_body_larger_than_limit_answers_413",
+    "test_app.py::test_invalid_json_body_answers_validation",
+    "test_app.py::test_segment_name_and_index_bounds_refused",
+]
+
+[[workflows]]
+id = "segment-efforts-rank-on-leaderboard"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_segment_created_from_owned_activity",
+    "test_app.py::test_segment_creation_matches_existing_activities",
+    "test_app.py::test_segment_creator_rename_shows_everywhere",
+    "test_app.py::test_later_upload_through_segment_gains_effort",
+    "test_app.py::test_segment_matching_needs_start_then_end",
+    "test_app.py::test_segment_counts_one_effort_per_activity",
+    "test_app.py::test_leaderboard_ranks_best_effort_per_athlete",
+    "test_app.py::test_leaderboard_tie_goes_to_earlier_effort",
+    "test_app.py::test_deleting_account_ranks_leaderboard_again",
+    "test_app.py::test_anonymous_leaderboard_read_unauthenticated",
+    "test_app.py::test_pr_rank_and_crown_recorded_at_effort_time",
+    "test_app.py::test_only_me_effort_ranks_personal_record_without_crown",
+    "test_app.py::test_crowned_activity_page_meets_wcag_aa",
+    "test_app.py::test_seeded_harbor_climb_leaderboard",
+    "test_app.py::test_segment_page_crowns_seeded_leader",
+    "test_app.py::test_segment_controls_meet_touch_target_size",
+    "test_app.py::test_segment_page_meets_wcag_aa",
+    "test_app.py::test_segment_page_renders_own_web_font",
+    "test_app.py::test_new_segment_page_never_scrolls_sideways_at_narrow_viewport",
+]
+
+[[workflows]]
+id = "leaderboard-limit-for-free-athletes"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_free_viewer_sees_top_ten_plus_own_entry",
+    "test_app.py::test_subscriber_sees_every_leaderboard_entry",
+    "test_app.py::test_free_viewer_leaderboard_controls_meet_touch_target_size",
+    "test_app.py::test_segment_page_never_scrolls_sideways_at_narrow_viewport",
+    "test_app.py::test_only_me_efforts_never_on_leaderboard",
+    "test_app.py::test_followers_effort_appears_on_leaderboard_for_non_follower",
+    "test_app.py::test_leaderboard_following_filter_ranks_again",
+    "test_app.py::test_segment_following_tab_lives_in_address",
+    "test_app.py::test_choosing_plan_starts_trial_and_subscribes",
+    "test_app.py::test_monthly_billing_only_for_individual",
+    "test_app.py::test_subscription_cancel_ends_subscriber",
+    "test_app.py::test_anonymous_subscription_change_unauthenticated",
+    "test_app.py::test_plans_toggle_switches_annual_and_monthly",
+    "test_app.py::test_subscribe_pulse_ring_loops_every_three_seconds",
+    "test_app.py::test_subscribe_controls_meet_touch_target_size",
+    "test_app.py::test_subscribe_page_animates_nothing_under_reduced_motion",
+    "test_app.py::test_subscribe_page_renders_own_web_font",
+    "test_app.py::test_family_page_meets_wcag_aa",
+]
+
+[[workflows]]
+id = "followers-feed-pages-newest-first"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_follow_public_athlete_accepted_at_once",
+    "test_app.py::test_follow_counts_include_accepted_only",
+    "test_app.py::test_self_follow_refused",
+    "test_app.py::test_unknown_athlete_follow_and_unfollow",
+    "test_app.py::test_anonymous_follow_unauthenticated",
+    "test_app.py::test_feed_includes_followed_athletes_newest_first",
+    "test_app.py::test_feed_cursor_pages_cover_each_once",
+    "test_app.py::test_feed_limit_outside_range_refused",
+    "test_app.py::test_feed_ties_by_id_and_stays_stable_across_inserts",
+    "test_app.py::test_athlete_activity_list_pages_newest_first",
+    "test_app.py::test_another_athletes_email_never_appears_in_responses",
+    "test_app.py::test_dashboard_shows_feed_card_for_followed_upload",
+    "test_app.py::test_dashboard_feed_cards_rise_in",
+    "test_app.py::test_dashboard_controls_meet_touch_target_size",
+    "test_app.py::test_dashboard_meets_wcag_aa",
+    "test_app.py::test_dashboard_renders_own_web_font",
+    "test_app.py::test_followed_athlete_profile_meets_wcag_aa",
+    "test_app.py::test_feed_dashboard_meets_wcag_aa_on_phone",
+]
+
+[[workflows]]
+id = "private-follower-denied-until-approved"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_private_athlete_follow_waits_pending",
+    "test_app.py::test_pending_follower_denied_private_activity",
+    "test_app.py::test_approved_follower_sees_private_activity",
+    "test_app.py::test_only_followee_can_approve_request",
+    "test_app.py::test_rejected_request_removed",
+    "test_app.py::test_anonymous_follow_request_approval_unauthenticated",
+    "test_app.py::test_seeded_follows_and_private_account",
+    "test_app.py::test_profile_follow_button_reads_state",
+    "test_app.py::test_profile_controls_meet_touch_target_size",
+    "test_app.py::test_profile_page_meets_wcag_aa",
+    "test_app.py::test_profile_page_renders_own_web_font",
+    "test_app.py::test_own_profile_controls_meet_touch_target_size",
+    "test_app.py::test_approved_follower_dashboard_controls_meet_touch_target_size",
+    "test_app.py::test_private_profile_page_never_scrolls_sideways_at_narrow_viewport",
+    "test_app.py::test_private_profile_page_meets_wcag_aa",
+    "test_app.py::test_approved_follower_dashboard_meets_wcag_aa",
+    "test_app.py::test_deleting_account_removes_follows_and_requests",
+]
+
+[[workflows]]
+id = "hidden-activity-and-zone-points-forbidden"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_only_me_activity_hidden_from_other_athletes",
+    "test_app.py::test_followers_activity_hidden_from_non_follower",
+    "test_app.py::test_hidden_activity_absent_from_athlete_list",
+    "test_app.py::test_only_me_activity_stays_in_owner_feed_only",
+    "test_app.py::test_anonymous_feed_read_unauthenticated",
+    "test_app.py::test_follower_activity_page_meets_wcag_aa",
+    "test_app.py::test_follower_activity_page_meets_wcag_aa_on_phone",
+    "test_app.py::test_other_athlete_cannot_edit_or_delete_activity",
+    "test_app.py::test_privacy_zone_trims_streams_for_others",
+    "test_app.py::test_owner_streams_keep_every_point",
+    "test_app.py::test_privacy_zone_keeps_activity_figures",
+    "test_app.py::test_privacy_zone_radius_outside_set_refused",
+    "test_app.py::test_privacy_settings_form_saves_zone",
+    "test_app.py::test_privacy_settings_controls_meet_touch_target_size",
+    "test_app.py::test_privacy_settings_meets_wcag_aa",
+    "test_app.py::test_privacy_settings_renders_own_web_font",
+    "test_app.py::test_unknown_record_ids_answer_404_whatever_form",
+]
+
+[[workflows]]
+id = "duplicate-kudos-counted-once"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_kudos_once_per_athlete_replay_keeps_count",
+    "test_app.py::test_concurrent_kudos_from_ten_athletes_count_ten",
+    "test_app.py::test_concurrent_kudos_same_athlete_one_created",
+    "test_app.py::test_kudos_rows_unique_per_athlete",
+    "test_app.py::test_anonymous_kudos_unauthenticated",
+    "test_app.py::test_cannot_kudo_own_activity",
+    "test_app.py::test_kudos_list_in_given_order",
+    "test_app.py::test_kudos_toggle_pops_and_counts",
+    "test_app.py::test_kudos_refused_toggle_returns_previous_state",
+    "test_app.py::test_activity_controls_show_focus_indicator",
+    "test_app.py::test_kudos_activity_view_meets_wcag_aa",
+    "test_app.py::test_kudos_activity_view_renders_own_web_font",
+    "test_app.py::test_stored_collections_use_named_tables",
+]
+
+[[workflows]]
+id = "comment-delete-forbidden-to-strangers"
+requirements = [
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_comment_posted_and_listed_oldest_first",
+    "test_app.py::test_blank_or_long_comment_refused",
+    "test_app.py::test_comment_count_matches_list",
+    "test_app.py::test_anonymous_comment_unauthenticated",
+    "test_app.py::test_stranger_cannot_delete_comment",
+    "test_app.py::test_activity_owner_can_delete_any_comment",
+    "test_app.py::test_activity_comment_form_posts",
+    "test_app.py::test_refused_comment_never_stays_in_thread",
+    "test_app.py::test_activity_comments_meet_wcag_aa",
+    "test_app.py::test_activity_comments_render_own_web_font",
+    "test_app.py::test_commented_activity_controls_meet_touch_target_size",
+    "test_app.py::test_dashboard_feed_loads_next_page",
+    "test_app.py::test_dashboard_page_animates_nothing_under_reduced_motion",
+    "test_app.py::test_dashboard_page_never_scrolls_sideways_at_narrow_viewport",
+    "test_app.py::test_deleting_account_removes_kudos_given_and_comments_written",
+]
+
+[[workflows]]
+id = "challenge-progress-and-completion"
+requirements = [
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_challenges_span_current_utc_month",
+    "test_app.py::test_challenge_window_runs_in_caller_time_zone",
+    "test_app.py::test_unjoined_challenge_reports_zero_progress",
+    "test_app.py::test_joined_distance_challenge_sums_qualifying",
+    "test_app.py::test_challenge_counts_any_visibility_before_join",
+    "test_app.py::test_leaving_challenge_answers_204",
+    "test_app.py::test_anonymous_challenge_join_unauthenticated",
+    "test_app.py::test_single_distance_challenge_completes_at_crossing_activity",
+    "test_app.py::test_deleting_activity_recomputes_progress",
+    "test_app.py::test_completed_challenge_in_trophies",
+    "test_app.py::test_challenge_ring_reports_progress_percent",
+    "test_app.py::test_challenges_controls_meet_touch_target_size",
+    "test_app.py::test_challenges_page_meets_wcag_aa",
+    "test_app.py::test_challenges_page_renders_own_web_font",
+    "test_app.py::test_trophy_profile_controls_meet_touch_target_size",
+    "test_app.py::test_challenges_page_never_scrolls_sideways_at_narrow_viewport",
+]
+
+[[workflows]]
+id = "weekly-stats-and-year-recap"
+requirements = [
+    "DP-56",
+    "DP-57",
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_weekly_stats_zero_filled_monday_buckets",
+    "test_app.py::test_weeks_parameter_outside_range_refused",
+    "test_app.py::test_weekly_stats_default_twelve_weeks_year_to_date",
+    "test_app.py::test_weekly_stats_weeks_begin_in_athlete_time_zone",
+    "test_app.py::test_weekly_stats_dashboard_controls_meet_touch_target_size",
+    "test_app.py::test_weekly_stats_dashboard_meets_wcag_aa",
+    "test_app.py::test_weekly_stats_profile_meets_wcag_aa_on_phone",
+    "test_app.py::test_recap_totals_cover_year",
+    "test_app.py::test_recap_top_sport_tie_breaks_by_distance",
+    "test_app.py::test_recap_plays_music_and_advances",
+    "test_app.py::test_recap_pause_stops_music_and_slides",
+    "test_app.py::test_recap_mute_toggles_and_next_moves",
+    "test_app.py::test_recap_page_animates_nothing_under_reduced_motion",
+    "test_app.py::test_recap_controls_show_focus_indicator",
+    "test_app.py::test_recap_meets_wcag_aa",
+    "test_app.py::test_recap_renders_own_web_font",
+    "test_app.py::test_recap_page_never_scrolls_sideways_at_narrow_viewport",
+]
+
+[[workflows]]
+id = "owner-edits-exports-and-deletes-activity"
+requirements = [
+    "DP-59",
+    "DP-60",
+    "DP-61",
+    "DP-62",
+    "DP-63",
+]
+critical = [
+    "test_app.py::test_owner_patch_updates_name_and_visibility",
+    "test_app.py::test_activity_history_holds_each_changed_field",
+    "test_app.py::test_export_gpx_round_trips_figures",
+    "test_app.py::test_anonymous_export_unauthenticated",
+    "test_app.py::test_delete_removes_activity_and_efforts",
+    "test_app.py::test_activity_page_profile_slider_reads_points",
+    "test_app.py::test_flyover_plays_and_reports_progress",
+    "test_app.py::test_flyover_speed_control_offers_rates",
+    "test_app.py::test_owner_sees_activity_controls",
+    "test_app.py::test_audio_splits_disabled_without_speech",
+    "test_app.py::test_activity_page_animates_nothing_under_reduced_motion",
+    "test_app.py::test_activity_page_meets_wcag_aa_on_phone",
+    "test_app.py::test_activity_page_renders_own_web_font_on_phone",
+]
+
+[[workflows]]
+id = "visitor-home-media-and-motion"
+requirements = [
+    "DP-64",
+    "DP-65",
+    "DP-66",
+    "DP-67",
+    "DP-68",
+    "DP-69",
+    "DP-70",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_home_shows_signup_card_and_hero_clip",
+    "test_app.py::test_home_images_carry_alternative_text",
+    "test_app.py::test_home_social_signup_explains_email_only",
+    "test_app.py::test_home_clip_carries_english_captions",
+    "test_app.py::test_hero_captions_served_as_webvtt",
+    "test_app.py::test_licensed_media_served_from_assets",
+    "test_app.py::test_home_clip_paused_under_reduced_motion",
+    "test_app.py::test_home_reduced_motion_removes_movement",
+    "test_app.py::test_home_scroll_reveals_animate",
+    "test_app.py::test_home_route_line_draws_on_load",
+    "test_app.py::test_header_hides_on_scroll_down",
+    "test_app.py::test_consent_bar_remembers_dismissal",
+    "test_app.py::test_home_controls_meet_touch_target_size",
+    "test_app.py::test_home_controls_show_focus_indicator",
+    "test_app.py::test_home_meets_wcag_aa_on_phone",
+    "test_app.py::test_home_renders_own_web_font",
+    "test_app.py::test_whats_new_controls_meet_touch_target_size",
+    "test_app.py::test_features_page_never_scrolls_sideways_at_narrow_viewport",
+    "test_app.py::test_challenges_filter_chip_lives_in_address",
+]
+
+[[workflows]]
+id = "visitor-pages-accessible-and-deployed"
+requirements = [
+    "DP-72",
+    "DP-73",
+    "DP-74",
+    "DP-75",
+    "DP-76",
+    "DP-77",
+    "DP-78",
+    "DP-79",
+    "DP-80",
+    "DP-81",
+    "DP-82",
+    "DP-83",
+    "DP-84",
+    "DP-85",
+]
+critical = [
+    "test_app.py::test_home_meets_wcag_aa",
+    "test_app.py::test_subscribe_meets_wcag_aa",
+    "test_app.py::test_home_reflows_at_narrow_viewport",
+    "test_app.py::test_maps_page_meets_wcag_aa",
+    "test_app.py::test_features_page_renders_own_web_font",
+    "test_app.py::test_features_controls_meet_touch_target_size",
+    "test_app.py::test_gift_controls_meet_touch_target_size",
+    "test_app.py::test_signed_in_maps_meets_wcag_aa",
+    "test_app.py::test_narrow_menu_drawer_opens_and_closes",
+    "test_app.py::test_narrow_menu_drawer_keeps_focus_inside",
+    "test_app.py::test_features_tabs_switch_panels",
+    "test_app.py::test_bulk_calculator_prices_by_tier",
+    "test_app.py::test_maps_search_filters_segments",
+    "test_app.py::test_maps_create_route_explains_coming_soon",
+    "test_app.py::test_public_url_serves_health_route",
+    "test_app.py::test_unknown_route_answers_404",
+    "test_app.py::test_unknown_page_shows_not_found",
+    "test_app.py::test_gift_page_shows_login",
+    "test_app.py::test_api_errors_answer_json_never_stack_trace",
+]

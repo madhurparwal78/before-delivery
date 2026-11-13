@@ -1,0 +1,1604 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 85
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "sign-in",
+    "ledger-holdings",
+    "search-facets",
+    "grading-rules",
+    "rule-reorder",
+    "breach-logging",
+    "breach-detail",
+    "next-steps",
+    "holding-deletion",
+    "grant-access",
+    "narrow-revoke",
+    "grant-expiry",
+    "account-security",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B13",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 90
+solo_criteria = []
+services = [
+    { name = "keycloak", env = {} },
+    { name = "postgres", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 5
+B13 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 5
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 5
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "keycloak-down"
+port = 4174
+url_env = "APP_KEYCLOAK_DOWN_URL"
+
+[outages.env]
+KEYCLOAK_URL = "http://127.0.0.1:9"
+AUTH_ISSUER_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-grant"
+port = 4175
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+GRANT_HOUR_SECONDS = "1"
+SESSION_IDLE_SECONDS = "20"
+DATABASE_URL = "${DATABASE_URL}_short"
+
+[[requirements]]
+id = "DP-01"
+title = "Sign in through the realm"
+text = "The owner signs in on the realm's sign-in page from link \"Sign in\" and lands on /vault (a trusted contact on /shared), or on the screen they first asked for as DP-61 allows."
+kind = "behavior"
+primary = "workflow"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_wf_sign_in_return_to_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Browser-bound sign-in"
+text = "Each sign-in attempt carries a fresh state and PKCE challenge bound to the browser that started it, and a callback with a missing, reused, expired or foreign state shows the sign-in failure page and creates no session."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_wf_sign_in_state_bound",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Unfinished sign-in reaches nothing"
+text = "A browser holding only a pending sign-in, or a contact who has not finished the realm's password step, gets the signed-out answer from every API route and sees no vault or grant data."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-security"
+tests = [
+    "test_app.py::test_unfinished_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "A new account gets an empty vault"
+text = "A realm account that is neither seeded nor a trusted contact gets its own empty vault with the default grading rules on its first sign-in, once only as DP-75 qualifies."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_new_account_empty_vault",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Record a holding"
+text = "The owner adds a holding through dialog \"Add holding\" and the row appears in ledger order with its server-computed level, without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "ledger-holdings"
+tests = [
+    "test_app.py::test_wf_ledger_holdings_add",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Holding validation"
+text = "Holding writes reject bad fields with 422 field errors and a second holding of the same company and data kind with 409, as listed in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "ledger-holdings"
+tests = [
+    "test_app.py::test_holding_validation",
+]
+criteria = []
+parameter_cases = [
+    "company_missing",
+    "company_blank",
+    "company_too_long",
+    "value_missing",
+    "value_too_long",
+    "notes_too_long",
+    "kind_unknown",
+    "at_limits",
+    "duplicate_spelling",
+]
+
+[[requirements]]
+id = "DP-07"
+title = "No client-set holding fields"
+text = "A holding write carrying any key outside the editable list answers 422 and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "ledger-holdings"
+tests = [
+    "test_app.py::test_holding_no_client_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Vault-scoped ids"
+text = "Every id in a path or request body that is outside the caller's view answers 404 with the same body as an id that never existed."
+kind = "behavior"
+primary = "pytest"
+workflow = "ledger-holdings"
+tests = [
+    "test_app.py::test_vault_scoped_ids",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Find holdings"
+text = "The owner narrows the ledger by search text, company, data kind and level and sees the matching rows, the filter counts and their own score."
+kind = "behavior"
+primary = "workflow"
+workflow = "search-facets"
+tests = [
+    "test_app.py::test_wf_search_facets_filter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Live filtering"
+text = "Typing in the search box or changing a filter updates the ledger rows, the filter counts and status \"Results\" in place within one second, with no submit button or reload, as qualified by DP-63 and DP-72."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-facets"
+tests = [
+    "test_app.py::test_live_filter_timing",
+    "test_app.py::test_wf_search_facets_breakpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Facets and totals per vault"
+text = "The holdings list returns totals, facet counts and the exposure score computed only from the caller's own vault, following the facet rule in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-facets"
+tests = [
+    "test_app.py::test_facets_per_vault",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Scoped contact search"
+text = "For a trusted contact, search text matches only company and data kind label, and items, totals, facets and score count only the holdings their scope shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-facets"
+tests = [
+    "test_app.py::test_contact_scoped_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Edit grading rules"
+text = "The owner adds, edits and deletes grading rules on the Rules screen, and every holding's level and the score follow the change."
+kind = "behavior"
+primary = "workflow"
+workflow = "grading-rules"
+tests = [
+    "test_app.py::test_wf_grading_rules_edit",
+    "test_app.py::test_rules_list_shows_priority",
+    "test_app.py::test_rule_dialog_focus_returns",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Published grading order"
+text = "A holding's level comes from the matching rule with the lowest priority number, the stricter level among tied rules, and Low when no rule matches."
+kind = "behavior"
+primary = "pytest"
+workflow = "grading-rules"
+tests = [
+    "test_app.py::test_grading_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Rule validation and fields"
+text = "Rule writes reject bad values and unknown keys with 422 and a 51st rule with 409, changing nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "grading-rules"
+tests = [
+    "test_app.py::test_rule_validation",
+]
+criteria = []
+parameter_cases = [
+    "priority_zero",
+    "priority_over",
+    "priority_fraction",
+    "level_unknown",
+    "kind_unknown",
+    "contains_too_long",
+    "unknown_key",
+    "limit",
+]
+
+[[requirements]]
+id = "DP-16"
+title = "Owner-only actions"
+text = "Every write route, and the rules, grant and account routes, refuse a trusted contact on the server whatever the screen shows, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "grading-rules"
+tests = [
+    "test_app.py::test_owner_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Reorder rules with a preview"
+text = "While the owner drags a rule, region \"Preview\" shows each holding's previewed level and the projected score in place, and dropping saves the new order."
+kind = "behavior"
+primary = "workflow"
+workflow = "rule-reorder"
+tests = [
+    "test_app.py::test_wf_rule_reorder_drag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Preview equals saved grading"
+text = "The levels and score the rule preview returns for an order equal those the vault reports after that order is saved."
+kind = "behavior"
+primary = "pytest"
+workflow = "rule-reorder"
+tests = [
+    "test_app.py::test_preview_equals_saved",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Keyboard rule reorder"
+text = "A rule's move handle picks the rule up with Space, moves it with the arrow keys, drops it with Space or Enter and cancels with Escape, keeping focus on the handle and announcing each step, as DP-78 qualifies when the order cannot be saved."
+kind = "behavior"
+primary = "pytest"
+workflow = "rule-reorder"
+tests = [
+    "test_app.py::test_wf_rule_reorder_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Log a breach"
+text = "The owner logs a breach from form \"Log breach\" and sees the touched rows, the new score and the new next steps without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "breach-logging"
+tests = [
+    "test_app.py::test_wf_breach_logging_keyboard",
+    "test_app.py::test_breach_form_survives_refresh",
+    "test_app.py::test_breach_form_closed_after_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Blast preview"
+text = "Ticking or unticking a data kind lights or clears the touched ledger rows one by one in ledger order and counts the score numeral to the server's projected score, as timed in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "breach-logging"
+tests = [
+    "test_app.py::test_blast_preview_motion",
+    "test_app.py::test_breach_preview_latest_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Reduced-motion blast preview"
+text = "Under reduced motion the touched rows show a still amber edge and the Touched label, and the numeral changes straight to the projected score, which is announced politely."
+kind = "behavior"
+primary = "pytest"
+workflow = "breach-logging"
+tests = [
+    "test_app.py::test_reduced_motion_blast",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Committed score check"
+text = "After a breach is saved the screen shows the server's committed score, and an alert appears when it differs from the last preview."
+kind = "behavior"
+primary = "pytest"
+workflow = "breach-logging"
+tests = [
+    "test_app.py::test_committed_score_check",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Breach validation"
+text = "Breach writes reject a missing company, a malformed or future date and an empty, repeated or unknown data-kind list with 422 field errors."
+kind = "behavior"
+primary = "pytest"
+workflow = "breach-logging"
+tests = [
+    "test_app.py::test_breach_validation",
+]
+criteria = []
+parameter_cases = [
+    "company_missing",
+    "date_malformed",
+    "date_future",
+    "kinds_empty",
+    "kinds_missing",
+    "kinds_repeated",
+    "kinds_unknown",
+]
+
+[[requirements]]
+id = "DP-25"
+title = "Idempotent breach logging"
+text = "A repeated breach request with the same Idempotency-Key and body returns the stored 201 response and creates nothing, and the same key with a different body answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "breach-logging"
+tests = [
+    "test_app.py::test_wf_breach_logging_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Breach detail"
+text = "The owner opens a breach and sees its data kinds, the holdings it touches in ledger order and those holdings' next steps."
+kind = "behavior"
+primary = "workflow"
+workflow = "breach-detail"
+tests = [
+    "test_app.py::test_wf_breach_detail_edit_kinds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Edit breach kinds"
+text = "Changing a breach's data kinds recomputes the affected holdings, the steps and the score, and clears the done marks of holdings it no longer touches."
+kind = "behavior"
+primary = "pytest"
+workflow = "breach-detail"
+tests = [
+    "test_app.py::test_edit_breach_kinds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Remove a breach"
+text = "Removing a breach answers 204, later requests for it answer 404, and its touched holdings, steps and score contribution go in the same change."
+kind = "behavior"
+primary = "pytest"
+workflow = "breach-detail"
+tests = [
+    "test_app.py::test_remove_breach",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Not-found page"
+text = "Opening a screen URL for a record that does not exist or is outside the caller's view shows the published not-found page with status 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "breach-detail"
+tests = [
+    "test_app.py::test_not_found_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Work the next steps"
+text = "The owner marks steps done and reopens them in list \"Next steps\", and the score falls and rises by each step's points."
+kind = "behavior"
+primary = "workflow"
+workflow = "next-steps"
+tests = [
+    "test_app.py::test_wf_next_steps_click",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Step order and exposure score"
+text = "Next steps are ordered, and the exposure score and band computed, exactly as Business rules defines, including shared person-level steps, by one computation that every surface shares."
+kind = "behavior"
+primary = "pytest"
+workflow = "next-steps"
+tests = [
+    "test_app.py::test_step_order_and_score",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Step transitions"
+text = "Marking an open step done or reopening a done step succeeds once, the illegal repeat answers 409, of two simultaneous identical requests exactly one succeeds, and the ordering rule of DP-71 applies within a holding."
+kind = "behavior"
+primary = "pytest"
+workflow = "next-steps"
+tests = [
+    "test_app.py::test_step_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Keyboard step list"
+text = "In the next-steps list the arrow keys move focus, Space or Enter toggles the focused step, and focus stays on that step after the update."
+kind = "behavior"
+primary = "pytest"
+workflow = "next-steps"
+tests = [
+    "test_app.py::test_wf_next_steps_keyboard",
+    "test_app.py::test_step_list_one_tab_stop_after_refused_click",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Announced exposure changes"
+text = "Saving or deleting a holding, changing rules, logging, editing or removing a breach and marking a step announce the published copy with the new score in status \"Exposure updates\"."
+kind = "behavior"
+primary = "pytest"
+workflow = "next-steps"
+tests = [
+    "test_app.py::test_exposure_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Delete a holding"
+text = "The owner deletes a holding after confirming in alertdialog \"Delete holding?\" and returns to the ledger with the row gone."
+kind = "behavior"
+primary = "workflow"
+workflow = "holding-deletion"
+tests = [
+    "test_app.py::test_wf_holding_deletion_confirm",
+    "test_app.py::test_wf_holding_deletion_escape_after_redraw",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Deleted holdings leave every surface"
+text = "After deletion the holding answers 404 and is gone from lists, search, facets, totals, the score, breach affected lists, next steps and the contact's view."
+kind = "behavior"
+primary = "pytest"
+workflow = "holding-deletion"
+tests = [
+    "test_app.py::test_deleted_leave_every_surface",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Id-only change events"
+text = "Every committed change sends a database notification and a live event that carry only the vault id, a type and a record id, never values, notes or masked fields."
+kind = "behavior"
+primary = "pytest"
+workflow = "holding-deletion"
+tests = [
+    "test_app.py::test_id_only_events",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Grant a trusted contact"
+text = "The owner grants access through dialog \"Grant access\", the realm gains the contact's account with a temporary password, and the dialog shows that password once."
+kind = "behavior"
+primary = "workflow"
+workflow = "grant-access"
+tests = [
+    "test_app.py::test_wf_grant_access_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Grant rules"
+text = "A vault has at most one active grant, the server sets the end instant from the chosen duration and the database clock, and of two simultaneous grant requests exactly one succeeds, as DP-79 qualifies for the realm."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-access"
+tests = [
+    "test_app.py::test_grant_rules",
+    "test_app.py::test_contact_cannot_grant",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Grant dialog by keyboard"
+text = "The grant dialog opens with focus inside, keeps Tab and Shift+Tab within it, closes on Escape and returns focus to the control that opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-access"
+tests = [
+    "test_app.py::test_grant_dialog_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Contact view"
+text = "The trusted contact signs in, sets their own password on the realm page, and sees the shared ledger, score, next steps and remaining access time, read-only."
+kind = "behavior"
+primary = "workflow"
+workflow = "grant-access"
+tests = [
+    "test_app.py::test_wf_grant_access_contact_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Contact field projection"
+text = "Every response a trusted contact receives carries only the published contact fields, never notes, versions, rule details or other grant details."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-access"
+tests = [
+    "test_app.py::test_contact_projection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Server-side masking"
+text = "Values of Critical and High holdings reach a trusted contact only in the published mask format."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-access"
+tests = [
+    "test_app.py::test_server_masking",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Narrow the scope"
+text = "Narrowing applies on the contact's next request, their open view loses the removed levels within two seconds without a refresh, and widening answers 422, with races settled as DP-80 sets."
+kind = "behavior"
+primary = "pytest"
+workflow = "narrow-revoke"
+tests = [
+    "test_app.py::test_narrow_scope",
+    "test_app.py::test_narrow_scope_pending",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Revoke access"
+text = "Revoking ends the contact's app sessions and realm sessions at once, so their next request answers 401 and their open view shows the Access ended screen within two seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "narrow-revoke"
+tests = [
+    "test_app.py::test_revoke_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Contact live updates"
+text = "The contact's live stream carries only the published contact events, and their screen announces each one politely with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "narrow-revoke"
+tests = [
+    "test_app.py::test_contact_live_events",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Narrow and revoke while watched"
+text = "With the contact's view open, the owner narrows and then revokes from the Trusted contact screen, and both screens show each result without reloading."
+kind = "behavior"
+primary = "workflow"
+workflow = "narrow-revoke"
+tests = [
+    "test_app.py::test_wf_narrow_revoke_watched",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Server-decided remaining time"
+text = "Grant status and remaining time on both screens come from the server, refresh at the published interval and never depend on the device clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-expiry"
+tests = [
+    "test_app.py::test_server_remaining_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Exclusive expiry edge"
+text = "A contact request at or after the grant's end instant by the database clock answers the access-ended 403, and one before it succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-expiry"
+tests = [
+    "test_app.py::test_wf_grant_expiry_edge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Access ended screen"
+text = "A contact whose grant has ended sees the published Access ended screen in place of the shared view, within the window DP-69 sets when the view is open."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-expiry"
+tests = [
+    "test_app.py::test_access_ended_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Change password"
+text = "The owner changes their password in form \"Change password\" on the Account screen and stays signed in there."
+kind = "behavior"
+primary = "workflow"
+workflow = "account-security"
+tests = [
+    "test_app.py::test_wf_account_security_change_password",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Sessions end on password change"
+text = "A password change ends every other session of the owner and every session of their trusted contact, so their next request answers 401 and the realm lists no session for either."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-security"
+tests = [
+    "test_app.py::test_password_change_ends_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Identity outage"
+text = "While the realm is unreachable, existing sessions keep working, sign-in, new grants and password changes answer the published 503, revoking still ends access, and the outage banner shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-security"
+tests = [
+    "test_app.py::test_wf_account_security_outage",
+    "test_app.py::test_outage_banner_after_password_503",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from /app/run.json on port 4173 and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "One error shape"
+text = "Every API error uses the one published error body and follows the published precedence order."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Server boundary"
+text = "The server enforces the published body limit, content type and origin checks and never serves source files, the manifest or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Responsive layout"
+text = "At 375, 768 and 1280 pixels wide the screens follow the layouts in Screens and layout with no horizontal scrolling, and the score is pinned above the list on narrow screens."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Touch and reduced motion"
+text = "Every control is at least 44 by 44 pixels, and under reduced motion every change shows its final state at once, with nothing counting or staggering."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_touch_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Ledger look"
+text = "The screens read as a dark, ruled ledger with aligned figures and one amber accent kept for exposure, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B13",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Real identity and database wiring"
+text = "Credentials and URLs come from the environment, accounts and sessions are managed through the realm's admin interface, and live events travel through database notifications."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Safe return after sign-in"
+text = "A signed-out visit to a vault or shared screen returns there after sign-in, while any return value that fails the check in Business rules lands on the signer's default screen instead."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_wf_sign_in_safe_return",
+]
+criteria = []
+parameter_cases = [
+    "vault_query",
+    "record_outside_view",
+    "max_length",
+    "too_long",
+    "protocol_relative",
+    "backslash",
+    "absolute",
+    "whitespace",
+    "control",
+    "other_role",
+    "not_a_screen",
+]
+
+[[requirements]]
+id = "DP-62"
+title = "One holding per company and kind, under load"
+text = "Of simultaneous holding writes that collide on company (in any spelling) and data kind, exactly one succeeds and the rest answer 409 holding_exists, with one change event sent."
+kind = "behavior"
+primary = "pytest"
+workflow = "ledger-holdings"
+tests = [
+    "test_app.py::test_wf_ledger_holdings_duplicate_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Latest input wins"
+text = "The ledger rows, filter counts, Results status, breach preview and rule preview always show the answer to the most recent input, and a late answer to older input never paints."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-facets"
+tests = [
+    "test_app.py::test_latest_input_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Stale edits are refused"
+text = "Holding, rule and breach edits carry the version they were loaded at, and a stale version answers 409 stale_version before any validation error and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "grading-rules"
+tests = [
+    "test_app.py::test_wf_grading_rules_stale",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Rule limit under load"
+text = "With 49 rules, of simultaneous rule adds exactly one succeeds and the rest answer 409 rule_limit, and a reorder built before a concurrent add answers 422 rather than dropping the new rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "grading-rules"
+tests = [
+    "test_app.py::test_rule_limit_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Unsaved edits survive live refresh"
+text = "A live event or poll that redraws the vault or a breach detail page keeps the owner's unsaved ticks, typed company, focus and form key, and re-requests the preview against the new vault state."
+kind = "behavior"
+primary = "pytest"
+workflow = "breach-detail"
+tests = [
+    "test_app.py::test_unsaved_edits_survive_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Live streams release on disconnect"
+text = "Within 20 seconds of a client closing its live stream the server releases every database resource the stream held, so the count of strongroom database sessions returns to its earlier level."
+kind = "behavior"
+primary = "pytest"
+workflow = "holding-deletion"
+tests = [
+    "test_app.py::test_stream_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Honest step toggles"
+text = "A step toggle shows at once, then settles on the server's state and score, rolling back or showing the published alert on failure or conflict while focus stays on the step."
+kind = "behavior"
+primary = "pytest"
+workflow = "next-steps"
+tests = [
+    "test_app.py::test_honest_step_toggles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Expiry is pushed on time"
+text = "A contact's open stream receives access-ended within two seconds after the grant's end instant by the database clock, and the open screen shows Access ended in that window without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-expiry"
+tests = [
+    "test_app.py::test_wf_grant_expiry_pushed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Shared person-level steps"
+text = "Each person-level step appears once per vault while any affected holding contributes it, at the strictest contributor's level and points, keeping its id and done mark until the last contributor leaves."
+kind = "behavior"
+primary = "pytest"
+workflow = "next-steps"
+tests = [
+    "test_app.py::test_shared_person_level_steps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Steps in order within a holding"
+text = "When both steps of a holding are holding-level, step 2 cannot be marked done while step 1 is open (409 step_out_of_order), and reopening step 1 also reopens a done step 2 in the same change."
+kind = "behavior"
+primary = "pytest"
+workflow = "next-steps"
+tests = [
+    "test_app.py::test_steps_in_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Filters live in the URL"
+text = "The ledger's search text and filters are mirrored in the page address, so Back and Forward restore rows and counts in place and a filtered link opens filtered."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-facets"
+tests = [
+    "test_app.py::test_wf_search_facets_url",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Company suggestions"
+text = "The Log breach form's Company combobox offers the vault's companies in a listbox that works by keyboard and whose every option is visible and clickable at every published width."
+kind = "behavior"
+primary = "pytest"
+workflow = "breach-logging"
+tests = [
+    "test_app.py::test_company_suggestions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Unsaved work survives an expired session"
+text = "A save answered 401 after the session idled out keeps the entries as a one-use draft, signs in again to the same screen and restores them without saving."
+kind = "behavior"
+primary = "pytest"
+workflow = "breach-detail"
+tests = [
+    "test_app.py::test_wf_breach_detail_draft",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "One vault per account under load"
+text = "Simultaneous first sign-ins of one new realm account create exactly one vault with exactly twelve default rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_wf_sign_in_one_vault",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Answers belong to their caller"
+text = "Under many interleaved concurrent requests from different people, every response and live event belongs only to the person who made the request."
+kind = "behavior"
+primary = "pytest"
+workflow = "ledger-holdings"
+tests = [
+    "test_app.py::test_request_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Rule edits move the contact's view"
+text = "A rule edit that changes a holding's level moves it into or out of the contact's view and mask at once and pushes view.changed to their open screen within two seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "grading-rules"
+tests = [
+    "test_app.py::test_rule_edit_moves_contact_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Honest rule reorder"
+text = "A drop is announced, and a reorder the server refuses snaps the list and Preview back to the server's state with the published alert while focus stays on the moved handle."
+kind = "behavior"
+primary = "pytest"
+workflow = "rule-reorder"
+tests = [
+    "test_app.py::test_wf_rule_reorder_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Grant and realm stay in step"
+text = "Of simultaneous grant requests only the winner creates or updates the contact's realm account, and a grant whose realm call fails is not stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-access"
+tests = [
+    "test_app.py::test_grant_realm_atomic",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Simultaneous revoke and narrow"
+text = "Of simultaneous revokes exactly one succeeds with one grant.updated and one access-ended, and a narrow racing a revoke either commits first or answers no_active_grant."
+kind = "behavior"
+primary = "pytest"
+workflow = "narrow-revoke"
+tests = [
+    "test_app.py::test_wf_narrow_revoke_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Grant dialog survives refresh"
+text = "Refreshes and live events never close the open Grant access dialog, clear its entries or focus, or hide a shown temporary password before Done."
+kind = "behavior"
+primary = "pytest"
+workflow = "grant-expiry"
+tests = [
+    "test_app.py::test_grant_dialog_survives_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Idle sessions expire"
+text = "A session unused for SESSION_IDLE_SECONDS by the database clock answers 401 on its next request and its live stream closes by the next keep-alive."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-security"
+tests = [
+    "test_app.py::test_idle_session_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Exact breakpoints"
+text = "The two-column layout applies at 1024 pixels wide and above, the pinned-band layout from 600 to 1023, and the phone layout below 600, on the ledger, shared and Rules screens."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_exact_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "w599",
+    "w600",
+    "w1023",
+    "w1024",
+]
+
+[[requirements]]
+id = "DP-84"
+title = "Closed means unreachable"
+text = "The closed phone menu and the closed Log breach form expose no focusable control and nothing in the accessibility tree."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_closed_panels_unreachable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "One delete per confirmation"
+text = "A double click on Delete in alertdialog \"Delete holding?\" sends one DELETE and one holding.deleted, and a replayed DELETE answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "holding-deletion"
+tests = [
+    "test_app.py::test_wf_holding_deletion_double_click",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json is valid JSON with exactly the string keys _schema (value run-manifest-v1), install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "Python dependencies install into /app/.venv, and the manifest calls tools only as .venv/bin/<tool> or python -m <tool>."
+tests = [
+    "test_app.py::test_if_venv_tools",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package with its version and licence; shipped packages are the production dependency tree install puts into .venv (as .venv/bin/python -m pip list reports), plus the bundled fonts."
+tests = [
+    "test_app.py::test_if_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Every shipped package and font is under MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC, PSF-2.0, MPL-2.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The app stores state only in the provided Postgres database (no SQLite, Redis, extra containers or data files written at runtime); the browser's session storage holds only the one-use draft."
+tests = [
+    "test_app.py::test_if_postgres_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The app never changes the provided realm's settings, clients or roles; it only creates and updates users, their credentials and their sessions."
+tests = [
+    "test_app.py::test_if_realm_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "No runtime request goes to a font, script or style CDN; every asset the browser loads comes from the app's own origin, apart from the realm's sign-in pages."
+tests = [
+    "test_app.py::test_if_no_cdn",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "sign-in"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-04",
+    "DP-61",
+    "DP-75",
+]
+critical = [
+    "test_app.py::test_wf_sign_in_return_to_page",
+    "test_app.py::test_wf_sign_in_state_bound",
+    "test_app.py::test_wf_sign_in_safe_return",
+    "test_app.py::test_wf_sign_in_one_vault",
+]
+
+[[workflows]]
+id = "ledger-holdings"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-62",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_wf_ledger_holdings_add",
+    "test_app.py::test_wf_ledger_holdings_duplicate_race",
+    "test_app.py::test_vault_scoped_ids",
+    "test_app.py::test_holding_no_client_fields",
+    "test_app.py::test_request_isolation",
+]
+
+[[workflows]]
+id = "search-facets"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-63",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_search_facets_filter",
+    "test_app.py::test_wf_search_facets_url",
+    "test_app.py::test_facets_per_vault",
+    "test_app.py::test_latest_input_wins",
+    "test_app.py::test_wf_search_facets_breakpoints",
+]
+
+[[workflows]]
+id = "grading-rules"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-64",
+    "DP-65",
+    "DP-77",
+]
+critical = [
+    "test_app.py::test_wf_grading_rules_edit",
+    "test_app.py::test_wf_grading_rules_stale",
+    "test_app.py::test_rule_validation",
+    "test_app.py::test_owner_only",
+    "test_app.py::test_rule_edit_moves_contact_view",
+    "test_app.py::test_rules_list_shows_priority",
+    "test_app.py::test_rule_dialog_focus_returns",
+]
+
+[[workflows]]
+id = "rule-reorder"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_rule_reorder_drag",
+    "test_app.py::test_wf_rule_reorder_keyboard",
+    "test_app.py::test_wf_rule_reorder_refused",
+]
+
+[[workflows]]
+id = "breach-logging"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_breach_logging_keyboard",
+    "test_app.py::test_wf_breach_logging_replay",
+    "test_app.py::test_breach_preview_latest_wins",
+    "test_app.py::test_breach_form_survives_refresh",
+    "test_app.py::test_company_suggestions",
+    "test_app.py::test_reduced_motion_blast",
+    "test_app.py::test_breach_form_closed_after_cancel",
+]
+
+[[workflows]]
+id = "breach-detail"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-66",
+    "DP-74",
+]
+critical = [
+    "test_app.py::test_wf_breach_detail_edit_kinds",
+    "test_app.py::test_wf_breach_detail_draft",
+    "test_app.py::test_unsaved_edits_survive_refresh",
+    "test_app.py::test_not_found_page",
+]
+
+[[workflows]]
+id = "next-steps"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-68",
+    "DP-70",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_wf_next_steps_click",
+    "test_app.py::test_wf_next_steps_keyboard",
+    "test_app.py::test_shared_person_level_steps",
+    "test_app.py::test_honest_step_toggles",
+    "test_app.py::test_exposure_announcements",
+    "test_app.py::test_step_list_one_tab_stop_after_refused_click",
+]
+
+[[workflows]]
+id = "holding-deletion"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-67",
+    "DP-85",
+]
+critical = [
+    "test_app.py::test_wf_holding_deletion_confirm",
+    "test_app.py::test_wf_holding_deletion_double_click",
+    "test_app.py::test_deleted_leave_every_surface",
+    "test_app.py::test_id_only_events",
+    "test_app.py::test_stream_release",
+    "test_app.py::test_wf_holding_deletion_escape_after_redraw",
+]
+
+[[workflows]]
+id = "grant-access"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-79",
+]
+critical = [
+    "test_app.py::test_wf_grant_access_dialog",
+    "test_app.py::test_wf_grant_access_contact_view",
+    "test_app.py::test_contact_projection",
+    "test_app.py::test_grant_realm_atomic",
+    "test_app.py::test_grant_dialog_keyboard",
+    "test_app.py::test_contact_cannot_grant",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "narrow-revoke"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-80",
+]
+critical = [
+    "test_app.py::test_wf_narrow_revoke_watched",
+    "test_app.py::test_wf_narrow_revoke_race",
+    "test_app.py::test_narrow_scope",
+    "test_app.py::test_contact_live_events",
+    "test_app.py::test_narrow_scope_pending",
+]
+
+[[workflows]]
+id = "grant-expiry"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-69",
+    "DP-81",
+]
+critical = [
+    "test_app.py::test_wf_grant_expiry_edge",
+    "test_app.py::test_wf_grant_expiry_pushed",
+    "test_app.py::test_server_remaining_time",
+    "test_app.py::test_grant_dialog_survives_refresh",
+]
+
+[[workflows]]
+id = "account-security"
+requirements = [
+    "DP-03",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-82",
+]
+critical = [
+    "test_app.py::test_wf_account_security_change_password",
+    "test_app.py::test_wf_account_security_outage",
+    "test_app.py::test_password_change_ends_sessions",
+    "test_app.py::test_unfinished_sign_in",
+    "test_app.py::test_outage_banner_after_password_503",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-83",
+    "DP-84",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_health",
+    "test_app.py::test_wf_cross_cutting_layout",
+]
+checkpoints = [
+    "B1",
+    "B3",
+    "B11",
+]
+critical_checkpoints = [
+    "B1",
+]

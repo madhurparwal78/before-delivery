@@ -1,0 +1,86 @@
+services:
+  main:
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    security_opt:
+    - seccomp=unconfined
+    - systempaths=unconfined
+    - apparmor=unconfined
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      gotenberg:
+        condition: service_healthy
+      ntfy:
+        condition: service_healthy
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-5c1e8a37
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  valkey:
+    image: valkey/valkey:9.1.3-alpine@sha256:bf09d58e96d6b4524a15396b65b242bbe18beebbcc15a04d8ee75ddac62fae0b
+    command:
+    - valkey-server
+    - --requirepass
+    - gfkit-valkey-admin
+    - --save
+    - ''
+    - --appendonly
+    - 'no'
+    healthcheck:
+      test:
+      - CMD
+      - valkey-cli
+      - -a
+      - gfkit-valkey-admin
+      - --no-auth-warning
+      - ping
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  gotenberg:
+    image: gotenberg/gotenberg:8.39.0@sha256:13672f317b443c793e972b1bd2155ec62a3e7b6891b411e8196442cc053ee5f5
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - -o
+      - /dev/null
+      - http://127.0.0.1:3000/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  ntfy:
+    image: binwiederhier/ntfy:v2.36.0@sha256:fb48c413eb11d50339962b5d62cddce0f800e7f77c626d638a7c20cb7e9c4465
+    command:
+    - serve
+    environment:
+      NTFY_AUTH_FILE: /tmp/ntfy-auth.db
+      NTFY_AUTH_DEFAULT_ACCESS: deny-all
+      NTFY_VISITOR_REQUEST_LIMIT_EXEMPT_HOSTS: 0.0.0.0/0
+      NTFY_VISITOR_TOPIC_CREATION_LIMIT_BURST: '100000'
+      NTFY_AUTH_USERS: gfkit-admin:$$2a$$10$$X2Y40pdk5bhKVAWqN8CUuezX42K2J7bOmFECanwYwJCuYu7v/h.SG:admin
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - --spider
+      - http://127.0.0.1/v1/health
+      interval: 2s
+      timeout: 5s
+      retries: 30

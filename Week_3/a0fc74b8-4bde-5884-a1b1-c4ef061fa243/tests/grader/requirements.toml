@@ -1,0 +1,1077 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 48
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "upload-pages",
+    "place-fields",
+    "adjust-fields",
+    "signing-order",
+    "guided-signing",
+    "adopt-signature",
+    "phone-signing",
+    "decline",
+    "live-dashboard",
+    "complete-and-seal",
+    "delivery-and-expiry",
+    "team-templates",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 83
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 5
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 5
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 5
+Q6 = 3
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Undersign <sign@wickmoor.example>"
+GRADING_KEY = "undersign-grading-5e2a91"
+
+[[outages]]
+id = "storage-down"
+port = 4174
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mail-down"
+port = 4175
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "short-timer"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+LINK_TTL_SECONDS = "8"
+REMINDER_COOLDOWN_SECONDS = "4"
+MAIL_RETRY_SECONDS = "2"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Upload and page view"
+text = "A sender uploads a PDF with Upload PDF and gets a draft whose original is stored byte for byte, whose `originalSha256` matches the file and whose every page shows as a `Page <n> of <count>` group with its own filmstrip button."
+kind = "behavior"
+primary = "workflow"
+workflow = "upload-pages"
+tests = [
+    "test_app.py::test_wf_upload_pages_happy",
+    "test_app.py::test_wf_upload_pages_draft_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Page navigation"
+text = "The filmstrip moves between pages with ArrowUp, ArrowDown and Enter, and at 768 px wide and narrower a `Page` combobox replaces it, with no sideways scroll at any width."
+kind = "behavior"
+primary = "pytest"
+workflow = "upload-pages"
+tests = [
+    "test_app.py::test_wf_upload_pages_navigation",
+    "test_app.py::test_wf_upload_pages_scroll_current",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Upload refusals and limits"
+text = "Uploads are judged by their bytes and refused with the published status, body and alert for non-PDFs, password-protected, scripted, rotated, over-60-page and over-25,000,000-byte files, storing nothing and returning focus to Upload PDF."
+kind = "behavior"
+primary = "pytest"
+workflow = "upload-pages"
+tests = [
+    "test_app.py::test_wf_upload_pages_refusals",
+]
+criteria = []
+parameter_cases = [
+    "renamed_image",
+    "encrypted",
+    "scripted",
+    "rotated",
+    "pages_61",
+    "bytes_25000001",
+    "storage_down",
+    "pages_60_allowed",
+    "bytes_25000000_allowed",
+]
+
+[[requirements]]
+id = "DP-04"
+title = "Placing fields by pointer and touch"
+text = "Dragging a field button from the Fields toolbar onto a page, or on a touch screen tapping the button then the page, creates a field centred on the drop or tap point, clamped inside the page."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-fields"
+tests = [
+    "test_app.py::test_wf_place_fields_touch",
+    "test_app.py::test_wf_place_fields_drag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Placing fields by keyboard"
+text = "Enter or Space on a Fields toolbar button creates a default-size field centred on the current page, selects and focuses it, and announces its position in the Field position region."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-fields"
+tests = [
+    "test_app.py::test_wf_place_fields_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Field properties"
+text = "Selecting a field opens the Field properties panel, whose Assign to, Required and Label controls work by keyboard and change the field's stored values and accessible name."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-fields"
+tests = [
+    "test_app.py::test_field_properties",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Page-fraction geometry"
+text = "Every field is stored once as page fractions and renders within 0.01 of them in the editor, the signer view and after reload at 375, 768 and 1280 px wide."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-fields"
+tests = [
+    "test_app.py::test_wf_place_fields_geometry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Moving and resizing by pointer"
+text = "Dragging a field moves it by the drag distance as a page fraction and dragging its Resize handle changes its width and height, both clamped inside the page and above the minimum size."
+kind = "behavior"
+primary = "pytest"
+workflow = "adjust-fields"
+tests = [
+    "test_app.py::test_wf_adjust_fields_pointer",
+    "test_app.py::test_wf_adjust_fields_drag_to_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Keyboard move, resize, page change and delete"
+text = "Arrow, Shift+Arrow, Alt+Arrow, PageDown, PageUp, Delete and Escape act on the selected field with the published steps, saving each change and announcing the new position."
+kind = "behavior"
+primary = "pytest"
+workflow = "adjust-fields"
+tests = [
+    "test_app.py::test_wf_adjust_fields_keyboard",
+    "test_app.py::test_wf_adjust_fields_label_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Team-scoped records"
+text = "Every document, template, field, recipient and audit route answers 404 for another team's ids, including ids inside request bodies, and lists only the caller's team."
+kind = "behavior"
+primary = "pytest"
+workflow = "adjust-fields"
+tests = [
+    "test_app.py::test_wf_adjust_fields_cross_team",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Signing order editing"
+text = "Senders add signers by keyboard, reorder them with Move up and Move down buttons that keep focus on the moved row, and hear the new position announced."
+kind = "behavior"
+primary = "pytest"
+workflow = "signing-order"
+tests = [
+    "test_app.py::test_wf_signing_order_editing",
+    "test_app.py::test_wf_signing_order_sent_controls",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Send checks"
+text = "Sending is refused with the published missing-signature copy until every signer has a required signature field, and the Send for signing dialog keeps focus inside and returns it on Escape."
+kind = "behavior"
+primary = "pytest"
+workflow = "signing-order"
+tests = [
+    "test_app.py::test_wf_signing_order_send_checks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Turn hand-off"
+text = "After sending, only signer 1 is invited; when signer 1 signs, signer 2's invitation arrives and the sender's Signing order list shows Signed and Invited without reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "signing-order"
+tests = [
+    "test_app.py::test_wf_signing_order_handoff",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Single-line mail headers"
+text = "Line breaks in a document title or a sender's name never add mail headers or recipients; each run of them becomes one space in the subject and From name."
+kind = "behavior"
+primary = "pytest"
+workflow = "signing-order"
+tests = [
+    "test_app.py::test_wf_signing_order_header_injection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Send replay and races"
+text = "A repeated send with the same Idempotency-Key returns the first response, and of simultaneous sends or signatures exactly one takes effect."
+kind = "behavior"
+primary = "pytest"
+workflow = "signing-order"
+tests = [
+    "test_app.py::test_send_replay_and_races",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Aperture on open"
+text = "When a signer opens their turn, the aperture frames their first required field within 0.01 of its box, everything else dims, focus enters the field and the Signing progress region announces it."
+kind = "behavior"
+primary = "pytest"
+workflow = "guided-signing"
+tests = [
+    "test_app.py::test_aperture_on_open",
+    "test_app.py::test_wf_guided_signing_phone_text_aperture",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Next and Previous walk"
+text = "Next, Enter in a completed field and Tab out of a completed field move the aperture and scroll to the next incomplete required field in about 0.3 to 0.45 seconds, update the count and announcement, and jump without in-between frames under reduced motion, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "guided-signing"
+tests = [
+    "test_app.py::test_wf_guided_signing_walk",
+    "test_app.py::test_wf_guided_signing_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Finish check"
+text = "Finish and sign with incomplete required fields shows the published alert and moves the aperture back to the first incomplete field; with all complete it signs."
+kind = "behavior"
+primary = "pytest"
+workflow = "guided-signing"
+tests = [
+    "test_app.py::test_wf_guided_signing_finish",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Server-decided turns and expiry"
+text = "A signing link's state comes only from the server's signing order and expiry and is enforced on every request, whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "guided-signing"
+tests = [
+    "test_app.py::test_wf_guided_signing_wrong_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Adopt dialog"
+text = "Activating a signature or initials field opens the Adopt dialog with Type and Draw tabs switched by Arrow keys, focus kept inside, and Escape returning focus to the field."
+kind = "behavior"
+primary = "pytest"
+workflow = "adopt-signature"
+tests = [
+    "test_app.py::test_wf_adopt_signature_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Typed and drawn signatures"
+text = "A typed adoption stores `typed:<text>`, a drawn one stores `drawn`, Adopt and sign stays disabled until there is text or a stroke, and later fields of the same kind fill with one activation."
+kind = "behavior"
+primary = "pytest"
+workflow = "adopt-signature"
+tests = [
+    "test_app.py::test_drawn_signature",
+    "test_app.py::test_wf_adopt_signature_active_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Text field limit"
+text = "Signer text fields accept at most 200 characters counted as Unicode code points and show the live character counter."
+kind = "behavior"
+primary = "pytest"
+workflow = "adopt-signature"
+tests = [
+    "test_app.py::test_wf_adopt_signature_text_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Signing on a phone"
+text = "At 375 by 812 with touch, a signer reads the page at full width, taps a signature field, draws and adopts, taps Finish and sign and sees the you-signed state."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone-signing"
+tests = [
+    "test_app.py::test_wf_phone_signing_happy",
+    "test_app.py::test_wf_phone_signing_header",
+    "test_app.py::test_wf_phone_signing_tap_walk",
+    "test_app.py::test_wf_phone_signing_text_field_box",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Touch signature pad"
+text = "Drawing on the signature pad with touch leaves the page scroll position unchanged, and the dialog fits a 375 px wide screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-signing"
+tests = [
+    "test_app.py::test_wf_phone_signing_pad",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Decline dialog"
+text = "The Decline to sign dialog requires a reason of 1 to 500 characters with a live counter and the published empty-reason error, and works fully by keyboard."
+kind = "behavior"
+primary = "pytest"
+workflow = "decline"
+tests = [
+    "test_app.py::test_wf_decline_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Decline closes the document"
+text = "A decline sets the document to Declined, marks earlier signatures not binding, shows the reason to the sender live, and notifies only the sender and earlier signers."
+kind = "behavior"
+primary = "workflow"
+workflow = "decline"
+tests = [
+    "test_app.py::test_wf_decline_closes_document",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Void"
+text = "The document's owner or a team owner can void an in-progress document with a reason, which closes it like a decline, while anyone else is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "decline"
+tests = [
+    "test_app.py::test_wf_decline_void",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Closed links"
+text = "After a decline, void, expiry or replacement, a signing link can no longer read the PDF, fill fields, sign or decline, and shows its published state page instead."
+kind = "behavior"
+primary = "pytest"
+workflow = "decline"
+tests = [
+    "test_app.py::test_wf_decline_closed_links",
+]
+criteria = []
+parameter_cases = [
+    "declined",
+    "voided",
+    "expired",
+    "replaced",
+]
+
+[[requirements]]
+id = "DP-29"
+title = "Documents table"
+text = "The documents list shows each document's published Status and Next step words, filters by keyboard-operated tabs and becomes a card list at 375 px with the same texts."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-dashboard"
+tests = [
+    "test_app.py::test_wf_live_dashboard_table",
+    "test_app.py::test_wf_live_dashboard_tab_roving",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Live row updates"
+text = "Status and Next step change on open lists and document pages within 3 seconds of the server change, with the Document updates announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-dashboard"
+tests = [
+    "test_app.py::test_wf_live_dashboard_updates",
+    "test_app.py::test_wf_live_dashboard_cards_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Reminders"
+text = "A sender can remind the current signer at most once per cooldown; the button then shows the server's next-available time and the API answers 429."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-dashboard"
+tests = [
+    "test_app.py::test_wf_live_dashboard_reminders",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Completion journey"
+text = "Two signers sign in turn from their emailed links, the waiting signer's page turns to the completed state live, and every party can download the same completed PDF."
+kind = "behavior"
+primary = "workflow"
+workflow = "complete-and-seal"
+tests = [
+    "test_app.py::test_wf_complete_and_seal_journey",
+    "test_app.py::test_wf_complete_and_seal_sender_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Completed only after storage confirms"
+text = "A document becomes Completed and completed emails go out only after the sealed PDF is confirmed stored; while storage is down it stays Sealing, and the main instance retries and seals it within the published retry window, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "complete-and-seal"
+tests = [
+    "test_app.py::test_wf_complete_and_seal_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Completed PDF and certificate"
+text = "The completed PDF is the original pages with field values plus one certificate page carrying the published lines, and its SHA-256 equals `completedSha256`."
+kind = "behavior"
+primary = "pytest"
+workflow = "complete-and-seal"
+tests = [
+    "test_app.py::test_wf_complete_and_seal_certificate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Completed emails"
+text = "Each party receives exactly one completed email carrying the SHA-256 line and a download link."
+kind = "behavior"
+primary = "pytest"
+workflow = "complete-and-seal"
+tests = [
+    "test_app.py::test_wf_complete_and_seal_emails",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Hash-chained audit trail"
+text = "Every state change writes one audit event whose hash chains to the previous one, shown on the Audit trail page."
+kind = "behavior"
+primary = "pytest"
+workflow = "complete-and-seal"
+tests = [
+    "test_app.py::test_audit_chain",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Held invitations"
+text = "While email is unavailable, invitations are held and shown as Not delivered yet with the email banner, and the main instance, whose email and storage both work, delivers each held invitation exactly once by its retry no sooner than the retry interval after it was held, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "delivery-and-expiry"
+tests = [
+    "test_app.py::test_wf_delivery_and_expiry_held",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Link expiry and new links"
+text = "A link expires the configured time after its turn begins, the sender sees Link expired live, and Send a new link mails a working link while the old one stays expired."
+kind = "behavior"
+primary = "pytest"
+workflow = "delivery-and-expiry"
+tests = [
+    "test_app.py::test_wf_delivery_and_expiry_new_link",
+    "test_app.py::test_wf_delivery_and_expiry_new_link_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Signer link pages"
+text = "Each signing-link state shows its published heading and body word for word and switches live within 3 seconds when the state changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "delivery-and-expiry"
+tests = [
+    "test_app.py::test_wf_delivery_and_expiry_link_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Roles and permissions"
+text = "Owners, members and viewers each see only the controls their role allows, and the API answers 403 for actions their role lacks."
+kind = "behavior"
+primary = "pytest"
+workflow = "team-templates"
+tests = [
+    "test_app.py::test_wf_team_templates_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Live role change"
+text = "When an owner changes a member's role, the member's open pages show the role banner and drop controls the new role lacks within 3 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "team-templates"
+tests = [
+    "test_app.py::test_wf_team_templates_live_role",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Templates"
+text = "An owner saves a draft as a template and shares it, a member creates a draft from it with the same fields at the same fractions, and a retired template disappears from members' lists live."
+kind = "behavior"
+primary = "workflow"
+workflow = "team-templates"
+tests = [
+    "test_app.py::test_wf_team_templates_share_use",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Return after sign-in"
+text = "A signed-out visit to a team page goes through sign-in and back to that page, and any return path that is not a same-origin path goes to the documents list."
+kind = "behavior"
+primary = "pytest"
+workflow = "team-templates"
+tests = [
+    "test_app.py::test_wf_team_templates_return",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Panel and sheet motion"
+text = "The Field properties panel and the phone Signing order sheet slide in over about 0.3 seconds, reverse from mid-slide without a jump when closed, and change instantly under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_panel_and_sheet_motion",
+    "test_app.py::test_panel_reopen_mid_close",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Accessible at every width"
+text = "The documents list, editor and signer view have no axe-core WCAG 2.2 A and AA violations at any impact level, visible focus, tap targets at least 44 px (placed field boxes and resize handles excepted) and no sideways scroll at 375, 768 and 1280 px."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_accessible_at_every_width",
+]
+criteria = []
+parameter_cases = [
+    "375",
+    "768",
+    "1280",
+]
+
+[[requirements]]
+id = "DP-46"
+title = "Ledger-paper look"
+text = "Screens use the warm paper ground, ink text, hairline rules, a single seal red reserved for signature actions and the active field, and the published type faces."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Self-contained serving"
+text = "The app serves its health route, fonts, page renderer and assets from its own origin, makes no browser request to another origin, and never serves source files or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_self_contained_serving",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Configuration from environment"
+text = "Every service address, credential and timer is read from the published environment variables at start and never written into source or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build, serve keys and \"_schema\": \"run-manifest-v1\"."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at the app root lists every shipped package with its version and licence; shipped packages means the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package is licensed MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause or ISC; font packages may also be SIL OFL 1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "No datastore, queue or cache other than PostgreSQL, MinIO and Mailpit; the app keeps no state in local files or in-process stores that outlive a restart."
+tests = [
+    "test_app.py::test_if_no_extra_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration (the dev compose service definitions and their credentials) is left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "All application source, server and browser, is TypeScript."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "upload-pages"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+]
+critical = [
+    "test_app.py::test_wf_upload_pages_happy",
+    "test_app.py::test_wf_upload_pages_refusals",
+    "test_app.py::test_wf_upload_pages_navigation",
+    "test_app.py::test_wf_upload_pages_scroll_current",
+    "test_app.py::test_wf_upload_pages_draft_page",
+]
+
+[[workflows]]
+id = "place-fields"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+]
+critical = [
+    "test_app.py::test_wf_place_fields_keyboard",
+    "test_app.py::test_wf_place_fields_touch",
+    "test_app.py::test_wf_place_fields_geometry",
+    "test_app.py::test_wf_place_fields_drag",
+    "test_app.py::test_field_properties",
+]
+checkpoints = [
+    "B4",
+]
+
+[[workflows]]
+id = "adjust-fields"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_adjust_fields_keyboard",
+    "test_app.py::test_wf_adjust_fields_cross_team",
+    "test_app.py::test_wf_adjust_fields_pointer",
+    "test_app.py::test_wf_adjust_fields_drag_to_page",
+    "test_app.py::test_wf_adjust_fields_label_keys",
+]
+
+[[workflows]]
+id = "signing-order"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_signing_order_handoff",
+    "test_app.py::test_wf_signing_order_header_injection",
+    "test_app.py::test_wf_signing_order_send_checks",
+    "test_app.py::test_wf_signing_order_editing",
+    "test_app.py::test_wf_signing_order_sent_controls",
+]
+checkpoints = [
+    "B8",
+    "B10",
+    "B11",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "guided-signing"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_guided_signing_walk",
+    "test_app.py::test_wf_guided_signing_wrong_clock",
+    "test_app.py::test_wf_guided_signing_reduced_motion",
+    "test_app.py::test_wf_guided_signing_finish",
+    "test_app.py::test_aperture_on_open",
+    "test_app.py::test_wf_guided_signing_phone_text_aperture",
+]
+
+[[workflows]]
+id = "adopt-signature"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_adopt_signature_keyboard",
+    "test_app.py::test_wf_adopt_signature_text_limit",
+    "test_app.py::test_drawn_signature",
+    "test_app.py::test_wf_adopt_signature_active_tab",
+]
+
+[[workflows]]
+id = "phone-signing"
+requirements = [
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_phone_signing_happy",
+    "test_app.py::test_wf_phone_signing_pad",
+    "test_app.py::test_wf_phone_signing_header",
+    "test_app.py::test_wf_phone_signing_tap_walk",
+    "test_app.py::test_wf_phone_signing_text_field_box",
+]
+
+[[workflows]]
+id = "decline"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_decline_closes_document",
+    "test_app.py::test_wf_decline_closed_links",
+    "test_app.py::test_wf_decline_keyboard",
+    "test_app.py::test_wf_decline_void",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "live-dashboard"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_live_dashboard_table",
+    "test_app.py::test_wf_live_dashboard_updates",
+    "test_app.py::test_wf_live_dashboard_reminders",
+    "test_app.py::test_wf_live_dashboard_cards_live",
+    "test_app.py::test_wf_live_dashboard_tab_roving",
+]
+checkpoints = [
+    "B1",
+    "B3",
+]
+
+[[workflows]]
+id = "complete-and-seal"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_complete_and_seal_journey",
+    "test_app.py::test_wf_complete_and_seal_storage_outage",
+    "test_app.py::test_wf_complete_and_seal_certificate",
+    "test_app.py::test_audit_chain",
+    "test_app.py::test_wf_complete_and_seal_sender_live",
+]
+checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "delivery-and-expiry"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_delivery_and_expiry_held",
+    "test_app.py::test_wf_delivery_and_expiry_new_link",
+    "test_app.py::test_wf_delivery_and_expiry_link_pages",
+    "test_app.py::test_wf_delivery_and_expiry_new_link_phone",
+]
+
+[[workflows]]
+id = "team-templates"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_team_templates_roles",
+    "test_app.py::test_wf_team_templates_return",
+    "test_app.py::test_wf_team_templates_share_use",
+    "test_app.py::test_wf_team_templates_live_role",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_self_contained_serving",
+    "test_app.py::test_panel_and_sheet_motion",
+    "test_app.py::test_accessible_at_every_width",
+    "test_app.py::test_panel_reopen_mid_close",
+]
+checkpoints = [
+    "B5",
+    "B6",
+    "B9",
+]

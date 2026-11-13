@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>{{template "assets" .}}<title>{{.Integration.Name}} — Switchlamp</title></head>
+<body data-page="integration" data-last-seq="{{.LastSeq}}" data-integration="{{.Integration.ID}}"
+      data-can-replay="{{.CanReplay}}">
+{{template "chrome" .}}
+<main>
+  {{if .CacheDown}}
+  <p class="notice-bar" id="counter-figure">Counter unavailable: events are accepted uncounted until it returns.</p>
+  {{else}}
+  <p role="status" aria-label="Events this minute" class="figure" id="counter-figure">{{if .Counter.Count}}{{.Counter.Count}}{{else}}0{{end}} / 120</p>
+  {{end}}
+  <p><span role="timer" aria-label="Retry-After countdown" id="retry-countdown"
+           data-seconds="{{if .Counter.RetryAfter}}{{.Counter.RetryAfter}}{{else}}0{{end}}">{{if .Counter.RetryAfter}}{{.Counter.RetryAfter}} s{{else}}Accepting events{{end}}</span></p>
+
+  <h1>{{.Integration.Name}}</h1>
+  <p class="mono" id="routing-key">{{.Integration.RoutingKey}}</p>
+
+  <h2>Event log</h2>
+  <table aria-label="Event log" id="event-log">
+    <thead><tr><th scope="col">At</th><th scope="col">Action</th><th scope="col">Dedup key</th>
+      <th scope="col">Outcome</th><th scope="col">Reason</th><th scope="col">Incident</th></tr></thead>
+    <tbody>
+      {{range .Events}}
+      <tr>
+        <td class="mono">{{localTime .At $.Zone}}</td>
+        <td>{{if .Action}}{{.Action}}{{end}}</td>
+        <td class="mono">{{if .DedupKey}}{{.DedupKey}}{{end}}</td>
+        <td>{{.Outcome}}</td>
+        <td>{{if .Reason}}{{.Reason}}{{end}}</td>
+        <td>{{if .IncidentNumber}}#{{.IncidentNumber}}{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+
+  <h2>Dead letters</h2>
+  <table aria-label="Dead letters" id="dead-letters">
+    <thead><tr><th scope="col">At</th><th scope="col">Reason</th><th scope="col">Attempts</th><th scope="col">Replay</th></tr></thead>
+    <tbody>
+      {{range .DeadLetters}}
+      <tr data-dead-letter="{{.ID}}">
+        <td class="mono">{{localTime .DeadAt $.Zone}}</td>
+        <td>{{.Reason}}</td>
+        <td>{{.Attempts}}</td>
+        <td>{{if $.CanReplay}}<button type="button" class="replay" data-dead-letter="{{.ID}}" data-raw="{{.Raw}}">Replay</button>{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{if not .DeadLetters}}<p class="empty">No dead letters.</p>{{end}}
+
+  <dialog id="replay-dialog" aria-label="Replay dead letter">
+    <p><label for="corrected-message">Corrected message</label>
+      <textarea id="corrected-message" aria-label="Corrected message" rows="6"></textarea></p>
+    <p class="field-error" id="replay-error"></p>
+    <button type="button" id="replay-confirm">Replay message</button>
+    <button type="button" id="replay-cancel">Cancel</button>
+  </dialog>
+</main>
+{{template "footer" .}}
+</body>
+</html>

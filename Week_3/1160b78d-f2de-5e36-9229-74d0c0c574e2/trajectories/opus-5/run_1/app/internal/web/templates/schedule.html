@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>{{template "assets" .}}<title>{{.Schedule.Name}} — Switchlamp</title></head>
+<body data-page="schedule" data-last-seq="{{.LastSeq}}" data-schedule="{{.Schedule.ID}}"
+      data-zone="{{.Zone}}" data-from="{{instant .RangeStart}}" data-to="{{instant .RangeEnd}}"
+      data-total-minutes="{{.TotalMinutes}}" data-can-lead="{{.CanLead}}">
+{{template "chrome" .}}
+<main>
+  <section role="region" aria-label="On call now">
+    <p class="figure" id="oncall-figure">{{.Figure}}</p>
+    <h1>{{.Schedule.Name}}</h1>
+    <p class="mono">Zone {{.Schedule.Zone}} · record format {{.Schedule.RecordFormat}}</p>
+  </section>
+
+  <div class="range-controls">
+    <button type="button" id="previous-week">Previous week</button>
+    <button type="button" id="next-week">Next week</button>
+    <label for="range-start">Range start</label>
+    <input id="range-start" aria-label="Range start" type="text" value="{{.From}}">
+    <label for="view-zone">View zone</label>
+    <select id="view-zone" aria-label="View zone">
+      {{range .Zones}}<option value="{{.}}"{{if eq . $.Zone}} selected{{end}}>{{.}}</option>{{end}}
+    </select>
+    <label for="cut-for">Cut for</label>
+    <select id="cut-for" aria-label="Cut for">
+      {{range .People}}{{if ne .Role "stakeholder"}}<option value="{{.ID}}"{{if eq .ID $.User.ID}} selected{{end}}>{{.Name}}</option>{{end}}{{end}}
+      <option value="">Nobody</option>
+    </select>
+    <button type="button" id="schedule-override" class="accent-tab">Schedule an override</button>
+  </div>
+
+  <div class="day-bands" id="day-bands">
+    {{range .Final.Days}}
+    <div class="day-band" data-date="{{.Date}}" data-minutes="{{.Minutes}}"
+         style="width:{{percent .Minutes $.TotalMinutes}}%">
+      <span class="mono">{{.Date}}</span>
+    </div>
+    {{end}}
+  </div>
+
+  {{range .Final.Layers}}
+  <div role="group" aria-label="Layer {{.Name}}" class="layer-row">
+    {{range .Blocks}}
+    <div class="block block-layer" data-start="{{instant .Start}}" data-end="{{instant .End}}"
+         data-person="{{if .Person}}{{.Person.Name}}{{else}}Nobody{{end}}" data-source="layer"
+         data-minutes="{{.Minutes}}" style="width:{{percent .Minutes $.TotalMinutes}}%">
+      <span>{{if .Person}}{{.Person.Name}}{{else}}Nobody{{end}}</span>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+
+  <div role="group" aria-label="Final schedule" id="final-schedule" tabindex="0" class="layer-row final-row">
+    {{range .Final.Blocks}}
+    <div class="block block-{{.Source}}" data-start="{{instant .Start}}" data-end="{{instant .End}}"
+         data-person="{{if .Person}}{{.Person.Name}}{{else}}Nobody{{end}}" data-source="{{.Source}}"
+         data-minutes="{{.Minutes}}" style="width:{{percent .Minutes $.TotalMinutes}}%">
+      <span>{{if .Person}}{{.Person.Name}}{{else}}Nobody{{end}}</span>
+    </div>
+    {{end}}
+    <div class="cut-tab accent-tab" id="cut-tab" hidden>Cut here</div>
+  </div>
+
+  <div role="region" aria-label="Cut preview" id="cut-preview" class="cut-preview"></div>
+
+  <dialog id="override-dialog" aria-label="Schedule an override">
+    {{template "problems" .}}
+    <p><label for="override-person">Person</label>
+      <select id="override-person" aria-label="Person">
+        {{range .People}}{{if ne .Role "stakeholder"}}<option value="{{.ID}}"{{if eq .ID $.User.ID}} selected{{end}}>{{.Name}}</option>{{end}}{{end}}
+        <option value="">Nobody</option>
+      </select></p>
+    <p><label for="override-start">Starts</label>
+      <input id="override-start" aria-label="Starts" type="text" step="900" placeholder="YYYY-MM-DD HH:MM"></p>
+    <p><label for="override-end">Ends</label>
+      <input id="override-end" aria-label="Ends" type="text" step="900" placeholder="YYYY-MM-DD HH:MM"></p>
+    <button type="button" id="override-save">Save override</button>
+    <button type="button" id="override-cancel">Cancel</button>
+  </dialog>
+
+  <h2>Layers</h2>
+  <ul class="layer-list">
+    {{range .Schedule.Layers}}
+    <li>{{.Name}} (order {{.Order}}) — every {{.Config.ShiftDays}} day(s) at {{.Config.HandoffTime}} from {{.Config.StartDate}}</li>
+    {{end}}
+  </ul>
+</main>
+{{template "footer" .}}
+</body>
+</html>

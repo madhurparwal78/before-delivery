@@ -1,0 +1,188 @@
+import {
+  CELL_WIDTH,
+  COMMAND_REASONS,
+  CREATURES,
+  DEVICES,
+  FORECAST_PHASES,
+  FORECAST_TRANSITIONS,
+  GENERATION_PERIOD,
+  HARBOUR_GENERATION,
+  HARBOUR_POSITION,
+  INITIAL_ENTITY_ID,
+  INITIAL_HEALTH,
+  INITIAL_MOVEMENT_ID,
+  INITIAL_RESERVE,
+  LIMITS,
+  MAX_UPGRADES,
+  NO_TERMINAL_REASON,
+  RULESET,
+  SALVAGE_REFUND_DIVISOR,
+  SEASON_DAY_FORMAT,
+  SEASON_DAY_START,
+  SEASON_REFRESH_SECONDS,
+  SEASON_SELECTION_EPOCH,
+  SEASON_TIME_ZONE,
+  SEASON_UTC_OFFSET,
+  SPAWN_POSITION,
+  TICK_ORDER,
+  TICK_RATE,
+  UPGRADE_DAMAGE_MULTIPLIER,
+  UPGRADE_GENERATION_MULTIPLIER,
+  USAGE_SCALE,
+} from '../shared/constants.js';
+import { nextRandom } from '../shared/simulation.js';
+import { CHALLENGE_TRANSITIONS, PROOF_TRANSITIONS, RUN_TRANSITIONS } from './transitions.js';
+import { LANES } from '../shared/constants.js';
+
+function randomnessExample(): { seed: number; draws: number[]; lanes: number[] } {
+  const seed = 1;
+  const draws: number[] = [];
+  let state = seed;
+  for (let index = 0; index < 3; index += 1) {
+    state = nextRandom(state);
+    draws.push(state);
+  }
+  return { seed, draws, lanes: draws.map((draw) => 1 + (draw % LANES)) };
+}
+
+export function rulesResponse(): Record<string, unknown> {
+  return {
+    ruleset: RULESET,
+    tickRate: TICK_RATE,
+    arithmetic: {
+      positionUnit: 'thousandth-cell',
+      chargeUnit: 'milli-charge',
+      division: 'half-away-from-zero',
+      salvageDivision: 'floor',
+      contactDivision: 'floor',
+      integerOnly: true,
+      wallClockInputs: false,
+    },
+    randomness: {
+      algorithm: 'xorshift32',
+      wordBits: 32,
+      shifts: [
+        { direction: 'left', bits: 13 },
+        { direction: 'unsigned-right', bits: 17 },
+        { direction: 'left', bits: 5 },
+      ],
+      drawsPerSpawn: 1,
+      drawForExplicitLane: true,
+      randomLaneRule: '1+draw%laneCount',
+      otherGameplayDraws: 0,
+      cosmeticDraws: 0,
+      example: randomnessExample(),
+    },
+    tickOrder: [...TICK_ORDER],
+    devices: DEVICES.map((device) => ({
+      id: device.id,
+      name: device.name,
+      cost: device.cost,
+      upgradeCost: device.upgradeCost,
+      range: device.range,
+      cooldown: device.cooldown,
+      damage: device.damage,
+      maxTargets: device.maxTargets,
+      laneOffsets: [...device.laneOffsets],
+      ignoresArmour: device.ignoresArmour,
+      generation: device.generation,
+      slowdownDivisor: device.slowdownDivisor,
+      upgradedSlowdownDivisor: device.upgradedSlowdownDivisor,
+    })),
+    creatures: CREATURES.map((creature) => ({
+      id: creature.id,
+      name: creature.name,
+      health: creature.health,
+      speed: creature.speed,
+      armour: creature.armour,
+      laneChange:
+        creature.laneChange === null
+          ? null
+          : {
+              everyMovements: creature.laneChange.everyMovements,
+              laneDelta: creature.laneChange.laneDelta,
+              wrap: creature.laneChange.wrap,
+            },
+    })),
+    limits: { ...LIMITS },
+    commandRules: {
+      types: ['deploy', 'upgrade', 'salvage'],
+      reasonOrder: [...COMMAND_REASONS],
+      initialReserve: INITIAL_RESERVE,
+      initialHealth: INITIAL_HEALTH,
+      harbourGeneration: HARBOUR_GENERATION,
+      generationPeriod: GENERATION_PERIOD,
+      spawnPosition: SPAWN_POSITION,
+      harbourPosition: HARBOUR_POSITION,
+      cellWidth: CELL_WIDTH,
+      deviceCentreRule: 'cellWidth*cell-cellWidth/2',
+      initialEntityId: INITIAL_ENTITY_ID,
+      initialMovementId: INITIAL_MOVEMENT_ID,
+      initialTier: 'base',
+      maxUpgrades: MAX_UPGRADES,
+      upgradeDamageMultiplier: UPGRADE_DAMAGE_MULTIPLIER,
+      upgradeGenerationMultiplier: UPGRADE_GENERATION_MULTIPLIER,
+      salvageRefundDivisor: SALVAGE_REFUND_DIVISOR,
+      commandTransfersAt: 't',
+      otherEventsAt: 't+1',
+      framePhase: 'before-commands',
+      targetOrder: ['position-ascending', 'entity-id-ascending'],
+      damageMode: 'simultaneous',
+      damageEventHealth: 'pre-health-minus-all-prepared-hits',
+      wallCombination: 'strongest-once',
+      cooldownAfterFire: 't+cooldown',
+      upgradeResetsCooldown: false,
+      deadCanBreach: false,
+      terminalOrder: [
+        'zero-health-defeat',
+        'all-spawned-and-none-alive-victory',
+        'tick-limit-defeat',
+      ],
+      forecastTransitions: FORECAST_TRANSITIONS,
+      forecastPhases: FORECAST_PHASES.map((phase) => ({ ...phase })),
+      legality: {
+        sequence: 'strictly-increasing',
+        tickOrder: 'nondecreasing',
+        deployment: ['valid-buildable-cell', 'loadout-member', 'empty-cell', 'sufficient-reserve'],
+        upgrade: ['valid-cell', 'installed-device', 'base-tier', 'sufficient-reserve'],
+        salvage: ['valid-cell', 'installed-device'],
+        terminalCommand: 'reject-at-or-after-terminal-frame',
+        repair: false,
+        missingTerminalReason: NO_TERMINAL_REASON,
+      },
+    },
+    rankingRules: {
+      qualifyingOutcome: 'victory',
+      perAccount: 'best-only',
+      metricOrder: ['breaches-ascending', 'completionTick-ascending', 'remainingCharge-descending'],
+      rankStyle: 'competition',
+      equalAccountMetrics: 'earliest-committed',
+      tiedAccountOrder: 'account-id-ascending',
+      completions: 'distinct-accounts',
+      usageSource: 'deploy-commands-in-selected-best-runs-including-salvaged',
+      usageScale: USAGE_SCALE,
+      usageRounding: 'largest-remainder',
+      usageTieOrder: 'device-order',
+      emptyUsage: 'all-zero',
+    },
+    seasonRules: {
+      timeZone: SEASON_TIME_ZONE,
+      utcOffset: SEASON_UTC_OFFSET,
+      dayStart: SEASON_DAY_START,
+      dayFormat: SEASON_DAY_FORMAT,
+      selectionEpoch: SEASON_SELECTION_EPOCH,
+      selectionOrder: 'digest-lexicographic',
+      selectionRule: 'nonnegative-days-since-epoch-modulo-count',
+      selectionFreeze: 'first-season-read-or-challenge-ticket',
+      emptySelection: null,
+      ticketDaySource: 'server-issuance-instant',
+      streakAnchor: 'inspected-day-if-completed-else-preceding-day',
+      refreshSeconds: SEASON_REFRESH_SECONDS,
+    },
+    transitions: {
+      run: RUN_TRANSITIONS.map((row) => ({ ...row })),
+      challenge: CHALLENGE_TRANSITIONS.map((row) => ({ ...row })),
+      proof: PROOF_TRANSITIONS.map((row) => ({ ...row })),
+    },
+  };
+}

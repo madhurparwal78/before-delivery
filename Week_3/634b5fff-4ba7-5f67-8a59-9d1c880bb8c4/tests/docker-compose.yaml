@@ -1,0 +1,315 @@
+services:
+  main:
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    security_opt:
+    - seccomp=unconfined
+    - systempaths=unconfined
+    - apparmor=unconfined
+    depends_on:
+      killbill:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      gotenberg:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+      svix:
+        condition: service_healthy
+      ntfy:
+        condition: service_healthy
+      wiremock:
+        condition: service_healthy
+  killbill-db:
+    image: killbill/mariadb:0.24@sha256:8fddf7d564befcea3e3d762c01b3e65fb4b45fb8db077297998ad935468372fa
+    environment:
+      MYSQL_ROOT_PASSWORD: killbill
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - mariadb-admin ping -h 127.0.0.1 -uroot -pkillbill --silent
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+  killbill:
+    image: killbill/killbill:0.24.21@sha256:e6b6ab4a0e6287ebf57aafa2d5f22cfa6250dfa056682c74d7c208b4a39d0c9b
+    environment:
+      KB_org_killbill_dao_url: jdbc:mysql://killbill-db:3306/killbill
+      KB_org_killbill_dao_user: root
+      KB_org_killbill_dao_password: killbill
+      KB_org_killbill_billing_osgi_dao_url: jdbc:mysql://killbill-db:3306/killbill
+      KB_org_killbill_billing_osgi_dao_user: root
+      KB_org_killbill_billing_osgi_dao_password: killbill
+      KB_ADMIN_PASSWORD: password
+    depends_on:
+      killbill-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -fsS -o /dev/null http://127.0.0.1:8080/1.0/healthcheck
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 120s
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-5c1e8a37
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.7@sha256:4388e2379b7e870a447adbe7b80bd61f5fbf04e925832b19669fda4957f05a81
+    command:
+    - start-dev
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: gf-kc-boot
+      KC_BOOTSTRAP_ADMIN_PASSWORD: gf-kc-boot-4f81a2c7
+      KC_HEALTH_ENABLED: 'true'
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\r\n\r\n' >&3 && timeout 5 cat <&3
+        | grep -q UP
+      interval: 5s
+      timeout: 10s
+      retries: 36
+      start_period: 30s
+  valkey:
+    image: valkey/valkey:9.1.3-alpine@sha256:bf09d58e96d6b4524a15396b65b242bbe18beebbcc15a04d8ee75ddac62fae0b
+    command:
+    - valkey-server
+    - --requirepass
+    - gfkit-valkey-admin
+    - --save
+    - ''
+    - --appendonly
+    - 'no'
+    healthcheck:
+      test:
+      - CMD
+      - valkey-cli
+      - -a
+      - gfkit-valkey-admin
+      - --no-auth-warning
+      - ping
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  rabbitmq:
+    image: rabbitmq:4.4.0-management-alpine@sha256:b768d2e09a809b48458d6c3c32fc2894643a6bfafd76264c120373eff0ee6532
+    environment:
+      RABBITMQ_DEFAULT_USER: gfkit-admin
+      RABBITMQ_DEFAULT_PASS: gfkit-rabbitmq-admin
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - '[ -f /var/lib/rabbitmq/.erlang.cookie ] && rabbitmq-diagnostics -q ping'
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 10s
+  meilisearch:
+    image: getmeili/meilisearch:v1.56.0@sha256:1f578fa865f8251894b3bf38d6668d6209a3f451f8f65ab953e129d4c1db5ef4
+    environment:
+      MEILI_MASTER_KEY: gfkit-meilisearch-master-key-7f3a9c
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: 'true'
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - -o
+      - /dev/null
+      - http://127.0.0.1:7700/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  minio:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-root-6d29b4
+      MINIO_ROOT_PASSWORD: gf-root-secret-a83f17c5
+    command: server /data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - MC_HOST_local=http://gf-root-6d29b4:gf-root-secret-a83f17c5@localhost:9000 mc ready local >/dev/null
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  gotenberg:
+    image: gotenberg/gotenberg:8.39.0@sha256:13672f317b443c793e972b1bd2155ec62a3e7b6891b411e8196442cc053ee5f5
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - -o
+      - /dev/null
+      - http://127.0.0.1:3000/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  mailpit:
+    image: axllent/mailpit:v1.27@sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68
+    healthcheck:
+      test:
+      - CMD
+      - /mailpit
+      - readyz
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  svix-db:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: svix
+      POSTGRES_PASSWORD: svix
+      POSTGRES_DB: svix
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U svix -d svix
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  svix:
+    image: svix/svix-server:v1.104.0@sha256:fb0872f4d53e5ced46eef9349a15cc02e0ddae35d041a6f9f00fbee9dd1a0711
+    command:
+    - svix-server
+    - --run-migrations
+    - --wait-for
+    - '60'
+    environment:
+      SVIX_JWT_SECRET: gfkit-svix-jwt-secret-5b8e1d2c7a940f36
+      SVIX_DB_DSN: postgresql://svix:svix@svix-db:5432/svix
+      SVIX_QUEUE_TYPE: memory
+      SVIX_CACHE_TYPE: memory
+      SVIX_WHITELIST_SUBNETS: '[0.0.0.0/0]'
+    depends_on:
+      svix-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - svix-server
+      - healthcheck
+      - http://127.0.0.1:8071
+      interval: 2s
+      timeout: 5s
+      retries: 60
+  ntfy:
+    image: binwiederhier/ntfy:v2.36.0@sha256:fb48c413eb11d50339962b5d62cddce0f800e7f77c626d638a7c20cb7e9c4465
+    command:
+    - serve
+    environment:
+      NTFY_AUTH_FILE: /tmp/ntfy-auth.db
+      NTFY_AUTH_DEFAULT_ACCESS: deny-all
+      NTFY_VISITOR_REQUEST_LIMIT_EXEMPT_HOSTS: 0.0.0.0/0
+      NTFY_VISITOR_TOPIC_CREATION_LIMIT_BURST: '100000'
+      NTFY_AUTH_USERS: gfkit-admin:$$2a$$10$$X2Y40pdk5bhKVAWqN8CUuezX42K2J7bOmFECanwYwJCuYu7v/h.SG:admin
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - --spider
+      - http://127.0.0.1/v1/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  wiremock:
+    image: wiremock/wiremock:3.13.2@sha256:0d4ecb3e4dc8213fd7a4d37d6a78f6e6b553a6d2e15bd51b0999781282ac61b3
+    entrypoint:
+    - sh
+    - -c
+    - if [ -n "$$WIREMOCK_STUBS" ]; then printf '%s' "$$WIREMOCK_STUBS" > /home/wiremock/mappings/baseline.json;
+      fi; exec /docker-entrypoint.sh --port 8080 --disable-banner --max-request-journal-entries 20000 --admin-api-basic-auth
+      gfkit-admin:gfkit-wm-4fce2a657cbe2442
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -sf
+      - -u
+      - gfkit-admin:gfkit-wm-4fce2a657cbe2442
+      - http://127.0.0.1:8080/__admin/health
+      interval: 2s
+      timeout: 5s
+      retries: 60
+    environment:
+      WIREMOCK_STUBS: '{"mappings": [{"request": {"bodyPatterns": [{"matchesJsonPath": {"equalTo": "4242424242424242",
+        "expression": "$$.card.number"}}], "method": "POST", "urlPath": "/v1/authorisations"}, "response": {"headers":
+        {"Content-Type": "application/json"}, "jsonBody": {"confirmation": "immediate", "paymentId": "pay_{{randomValue
+        type=''UUID''}}", "status": "authorised"}, "status": 201, "transformers": ["response-template"]}}, {"request":
+        {"bodyPatterns": [{"matchesJsonPath": {"equalTo": "4000000000003220", "expression": "$$.card.number"}}],
+        "method": "POST", "urlPath": "/v1/authorisations"}, "response": {"headers": {"Content-Type": "application/json"},
+        "jsonBody": {"challengeId": "chl_{{randomValue type=''UUID''}}", "paymentId": "pay_{{randomValue type=''UUID''}}",
+        "status": "challenge"}, "status": 202, "transformers": ["response-template"]}}, {"request": {"bodyPatterns":
+        [{"matchesJsonPath": {"equalTo": "4000000000007777", "expression": "$$.card.number"}}], "method": "POST",
+        "urlPath": "/v1/authorisations"}, "response": {"headers": {"Content-Type": "application/json"}, "jsonBody":
+        {"confirmation": "callback", "paymentId": "pay_cb_{{randomValue type=''UUID''}}", "status": "pending"},
+        "status": 202, "transformers": ["response-template"]}}, {"request": {"bodyPatterns": [{"matchesJsonPath":
+        {"equalTo": "4000000000000341", "expression": "$$.card.number"}}], "method": "POST", "urlPath": "/v1/authorisations"},
+        "response": {"headers": {"Content-Type": "application/json"}, "jsonBody": {"confirmation": "immediate",
+        "paymentId": "pay_capfail_{{randomValue type=''UUID''}}", "status": "authorised"}, "status": 201, "transformers":
+        ["response-template"]}}, {"request": {"bodyPatterns": [{"matchesJsonPath": {"equalTo": "4000000000009995",
+        "expression": "$$.card.number"}}], "method": "POST", "urlPath": "/v1/authorisations"}, "response": {"headers":
+        {"Content-Type": "application/json"}, "jsonBody": {"declineCode": "insufficient_funds", "status": "declined"},
+        "status": 402}}, {"request": {"bodyPatterns": [{"matchesJsonPath": {"equalTo": "4000000000000069", "expression":
+        "$$.card.number"}}], "method": "POST", "urlPath": "/v1/authorisations"}, "response": {"headers": {"Content-Type":
+        "application/json"}, "jsonBody": {"declineCode": "expired_card", "status": "declined"}, "status": 402}},
+        {"priority": 9, "request": {"method": "POST", "urlPath": "/v1/authorisations"}, "response": {"headers":
+        {"Content-Type": "application/json"}, "jsonBody": {"declineCode": "do_not_honor", "status": "declined"},
+        "status": 402}}, {"request": {"bodyPatterns": [{"matchesJsonPath": {"equalTo": "1234", "expression": "$$.code"}}],
+        "method": "POST", "urlPathPattern": "/v1/challenges/[^/]+"}, "response": {"headers": {"Content-Type": "application/json"},
+        "jsonBody": {"confirmation": "immediate", "status": "authorised"}, "status": 200}}, {"priority": 9, "request":
+        {"method": "POST", "urlPathPattern": "/v1/challenges/[^/]+"}, "response": {"headers": {"Content-Type": "application/json"},
+        "jsonBody": {"declineCode": "challenge_failed", "status": "declined"}, "status": 402}}, {"request": {"method":
+        "POST", "urlPathPattern": "/v1/payments/pay_cb_[^/]+/capture"}, "response": {"headers": {"Content-Type":
+        "application/json"}, "jsonBody": {"confirmation": "callback", "status": "pending"}, "status": 202}}, {"request":
+        {"method": "POST", "urlPathPattern": "/v1/payments/pay_capfail_[^/]+/capture"}, "response": {"headers":
+        {"Content-Type": "application/json"}, "jsonBody": {"declineCode": "authorisation_lost", "status": "capture_failed"},
+        "status": 402}}, {"priority": 9, "request": {"method": "POST", "urlPathPattern": "/v1/payments/[^/]+/capture"},
+        "response": {"headers": {"Content-Type": "application/json"}, "jsonBody": {"confirmation": "immediate",
+        "status": "captured"}, "status": 200}}, {"request": {"method": "POST", "urlPathPattern": "/v1/payments/[^/]+/void"},
+        "response": {"headers": {"Content-Type": "application/json"}, "jsonBody": {"status": "voided"}, "status":
+        200}}, {"request": {"method": "POST", "urlPathPattern": "/v1/payments/pay_cb_[^/]+/refunds"}, "response":
+        {"headers": {"Content-Type": "application/json"}, "jsonBody": {"confirmation": "callback", "refundId": "ref_{{randomValue
+        type=''UUID''}}", "status": "pending"}, "status": 202, "transformers": ["response-template"]}}, {"priority":
+        9, "request": {"method": "POST", "urlPathPattern": "/v1/payments/[^/]+/refunds"}, "response": {"headers":
+        {"Content-Type": "application/json"}, "jsonBody": {"confirmation": "immediate", "refundId": "ref_{{randomValue
+        type=''UUID''}}", "status": "refunded"}, "status": 200, "transformers": ["response-template"]}}, {"request":
+        {"method": "POST", "urlPath": "/v1/transfers"}, "response": {"headers": {"Content-Type": "application/json"},
+        "jsonBody": {"iban": "DK0000000000000000", "paymentReference": "{{jsonPath request.body ''$$.reference''}}",
+        "transferId": "trf_{{randomValue type=''UUID''}}"}, "status": 201, "transformers": ["response-template"]}},
+        {"request": {"method": "POST", "urlPathPattern": "/v1/transfers/[^/]+/refund"}, "response": {"headers":
+        {"Content-Type": "application/json"}, "jsonBody": {"status": "refunded"}, "status": 200}}, {"request": {"method":
+        "POST", "urlPathPattern": "/v1/transfers/[^/]+/return"}, "response": {"headers": {"Content-Type": "application/json"},
+        "jsonBody": {"status": "returned"}, "status": 200}}, {"request": {"method": "POST", "urlPath": "/v1/courier/bookings"},
+        "response": {"headers": {"Content-Type": "application/json"}, "jsonBody": {"bookingId": "crr_{{randomValue
+        type=''UUID''}}", "trackingCode": "SP{{randomValue type=''UUID''}}"}, "status": 201, "transformers": ["response-template"]}}]}'

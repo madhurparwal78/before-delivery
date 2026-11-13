@@ -1,0 +1,1087 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 46
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "search-by-keyboard",
+    "search-history",
+    "quote-build",
+    "checkout-pressure",
+    "arabic-journey",
+    "phone-journey",
+    "cancellation",
+    "change-dates",
+    "reviews",
+    "manager-calendar",
+    "two-tabs",
+    "rate-import",
+    "documents",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 85
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 5
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 3
+B13 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+KIP_GRADING = "1"
+KIP_HOLD_MS = "900000"
+KIP_QUOTE_TTL_MS = "600000"
+KIP_REVIEW_WINDOW_MS = "2592000000"
+KIP_MAP_DEBOUNCE_MS = "400"
+KIP_TYPE_DEBOUNCE_MS = "200"
+KIP_PAGE_SIZE = "5"
+KIP_SSE_HEARTBEAT_MS = "2000"
+KIP_TOAST_MS = "5000"
+KIP_LOGIN_RATE = "1000"
+KIP_LOOKUP_RATE = "1000"
+KIP_SEARCH_RATE = "100000"
+KIP_IMPORT_MAX_BYTES = "1000000"
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "`/app/run.json` installs, builds and serves the app on port 4173, and `GET /api/health` answers as qualified in Deployment and Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_reports_storage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Grading routes"
+text = "With `KIP_GRADING=1` the seed, session, clock, currency and storage routes behave exactly as published in API, and without it every one answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_routes_behave",
+    "test_app.py::test_grading_routes_absent_without_flag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Server clock and live events"
+text = "Every business time follows the server clock, and `GET /api/events` delivers the five published events to the calling browser context, which applies them to the page without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_clock_and_event_stream",
+    "test_app.py::test_clock_event_corrects_open_timer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Server boundary and limits"
+text = "Body sizes, content types, cross-origin writes, rate limits and private files are refused with the published statuses in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = [
+    "too_large",
+    "media_type",
+    "cross_origin",
+    "private_files",
+    "rate_limit",
+]
+
+[[requirements]]
+id = "DP-05"
+title = "Configuration from the environment"
+text = "Every service credential, URL and published setting is read from its environment variable at start and never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Focus, dialogs and forced colours"
+text = "Every dialog and sheet keeps Tab inside, closes on Escape and returns focus to its opener, and focus and selection stay visible in forced-colours mode."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dialogs_trap_focus_and_forced_colours",
+    "test_app.py::test_forced_colours_selected_day",
+    "test_app.py::test_sheets_keep_tab_inside",
+    "test_app.py::test_price_dialog_holds_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Motion and reduced motion"
+text = "The bottom sheets, gallery and Night Strip run their named animations with the published durations, and under reduced motion they jump to the same end state."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_named_motion_and_reduced_motion",
+]
+criteria = []
+parameter_cases = [
+    "motion",
+    "reduced",
+]
+
+[[requirements]]
+id = "DP-08"
+title = "Visual design"
+text = "Every screen carries the published type-only look: heavy Chivo totals larger than names, flat colour blocks for money states with text tags, square corners and the cropped NIGHTS hero."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Destination and party controls"
+text = "The destination combobox and the guest spinbuttons work by keyboard exactly as published in Interactions, and the age comboboxes follow the child count."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-by-keyboard"
+tests = [
+    "test_app.py::test_destination_and_party_controls",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Date picker"
+text = "The date picker labels every day with availability, price and minimum stay or the blocking reason, moves by the published keys, and names the chosen range on its opener."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-by-keyboard"
+tests = [
+    "test_app.py::test_date_picker_labels_and_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Stay restrictions"
+text = "Every stay is checked in the published order and the first failure wins, with its published reason everywhere it is shown."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-by-keyboard"
+tests = [
+    "test_app.py::test_stay_restrictions_first_failure",
+]
+criteria = []
+parameter_cases = [
+    "release",
+    "no_arrival",
+    "no_departure",
+    "min_stay",
+    "max_stay",
+    "stop_sell",
+    "sold_out",
+]
+
+[[requirements]]
+id = "DP-12"
+title = "Keyboard search journey"
+text = "A traveller completes a search by keyboard alone, hearing the published date help and result count, and reaches a property page from a result row."
+kind = "behavior"
+primary = "workflow"
+workflow = "search-by-keyboard"
+tests = [
+    "test_app.py::test_wf_search_by_keyboard_happy",
+    "test_app.py::test_wf_search_by_keyboard_blocked_day",
+    "test_app.py::test_wf_keyboard_picker_escape_keeps_range",
+    "test_app.py::test_wf_keyboard_picker_keeps_tab_inside",
+    "test_app.py::test_wf_keyboard_results_labels",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Search results and paging"
+text = "Results are filtered, counted, ranked, bucketed and paged by the published rules, and paging never repeats or skips a property whose position did not change."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-history"
+tests = [
+    "test_app.py::test_search_rank_filters_counts",
+    "test_app.py::test_search_stable_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Search links and history"
+text = "Every search setting lives in the URL in the published order, invalid links normalise with the published notice, and back and forward restore results, scroll and focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-history"
+tests = [
+    "test_app.py::test_search_link_normalisation",
+    "test_app.py::test_search_history_restores_scroll_and_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Map"
+text = "The drawn map clusters, pans, zooms, searches its area and stays in sync with the result rows by the published rules, by pointer and by keyboard."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-history"
+tests = [
+    "test_app.py::test_map_clusters_pins_and_area",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Shared search journey"
+text = "A traveller filters, sorts, searches a map area and pages, shares the link into a second browser, and goes back and forward through each earlier search."
+kind = "behavior"
+primary = "workflow"
+workflow = "search-history"
+tests = [
+    "test_app.py::test_wf_search_history_happy",
+    "test_app.py::test_wf_search_history_normalise",
+    "test_app.py::test_wf_history_counts_restore",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Nightly price build"
+text = "Every night of every room is priced in whole cents by the published steps and rounding, and every screen and document shows the same totals."
+kind = "behavior"
+primary = "pytest"
+workflow = "quote-build"
+tests = [
+    "test_app.py::test_nightly_price_build",
+]
+criteria = []
+parameter_cases = [
+    "worked_example",
+    "single_nonrefundable",
+    "long_stay_teen_breakfast",
+]
+
+[[requirements]]
+id = "DP-18"
+title = "Currency split and price display"
+text = "A total in USD, JPY or KWD is converted by the published rule and split across nights so the nights add up exactly, and the price display switches follow the published rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "quote-build"
+tests = [
+    "test_app.py::test_currency_split_and_display",
+]
+criteria = []
+parameter_cases = [
+    "USD",
+    "JPY",
+    "KWD",
+]
+
+[[requirements]]
+id = "DP-19"
+title = "Room allocation"
+text = "The property page recommends the cheapest room combination by the published rule, and a refused override shows the published room advice and keeps the previous prices."
+kind = "behavior"
+primary = "pytest"
+workflow = "quote-build"
+tests = [
+    "test_app.py::test_room_allocation_and_advice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Night Strip"
+text = "Night Strip shows one column per night with its amount and its rate state by the published rule, and expands by keyboard into the published price lines."
+kind = "behavior"
+primary = "pytest"
+workflow = "quote-build"
+tests = [
+    "test_app.py::test_night_strip_states_and_lines",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Quote journey"
+text = "A traveller builds a two-room quote with a child, a loyalty tier and tax on tax, switches currencies and display, and reads each night by keyboard."
+kind = "behavior"
+primary = "workflow"
+workflow = "quote-build"
+tests = [
+    "test_app.py::test_wf_quote_build_happy",
+    "test_app.py::test_wf_quote_build_options",
+    "test_app.py::test_wf_quote_jpy_display_switch",
+    "test_app.py::test_wf_quote_worked_lines_by_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Quotes and holds"
+text = "Quotes and holds last their published lifetimes on the server clock with the published edges, and exactly one of several simultaneous holds on the last room wins."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-pressure"
+tests = [
+    "test_app.py::test_quote_and_hold_edges",
+    "test_app.py::test_last_room_hold_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Payment and booking"
+text = "Paying follows the published error order, test cards and repeat-request rule so a double submit books and charges once."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-pressure"
+tests = [
+    "test_app.py::test_payment_cards_and_error_order",
+    "test_app.py::test_payment_idempotency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Live checkout dialogs"
+text = "An open checkout shows the published hold countdown and announcements and raises the hold-ended, price-changed and just-taken dialogs live from server events."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-pressure"
+tests = [
+    "test_app.py::test_checkout_countdown_and_hold_ended",
+    "test_app.py::test_checkout_price_changed_dialog",
+    "test_app.py::test_checkout_just_taken_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Checkout journey"
+text = "Two travellers compete for one last room while a manager edits the rate, and the winner pays after a declined card and a double click."
+kind = "behavior"
+primary = "workflow"
+workflow = "checkout-pressure"
+tests = [
+    "test_app.py::test_wf_checkout_pressure_happy",
+    "test_app.py::test_wf_checkout_pressure_expired",
+    "test_app.py::test_wf_checkout_problems_and_step_up",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Languages"
+text = "English, German and Arabic show the published strings, plurals, number and date forms, and Arabic mirrors the layout and the reading-direction arrow keys."
+kind = "behavior"
+primary = "pytest"
+workflow = "arabic-journey"
+tests = [
+    "test_app.py::test_languages_strings_and_rtl",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Arabic journey"
+text = "A traveller switches a search to Arabic and KWD without losing state, picks dates with mirrored keys, and reads a KWD quote whose nights add up."
+kind = "behavior"
+primary = "workflow"
+workflow = "arabic-journey"
+tests = [
+    "test_app.py::test_wf_arabic_journey_happy",
+    "test_app.py::test_wf_arabic_journey_shared_link",
+    "test_app.py::test_wf_arabic_plurals_and_day_label",
+    "test_app.py::test_wf_arabic_night_strip_mirrored",
+    "test_app.py::test_wf_arabic_switch_keeps_checkout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Phone layout and touch"
+text = "At each published viewport the screens follow their layouts with no sideways scroll at 320 pixels, and on a phone the sheets, sticky bar, touch range and gallery swipe work as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-journey"
+tests = [
+    "test_app.py::test_viewport_layouts_and_touch",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "desk",
+    "narrow",
+]
+
+[[requirements]]
+id = "DP-29"
+title = "Phone journey"
+text = "A traveller on a touch phone picks dates by touch, filters and selects on the map in sheets, swipes the gallery under reduced motion and pays at 320 pixels wide."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone-journey"
+tests = [
+    "test_app.py::test_wf_phone_journey_happy",
+    "test_app.py::test_wf_phone_journey_short_swipe",
+    "test_app.py::test_wf_phone_tap_range_updates_bar",
+    "test_app.py::test_wf_phone_map_sheet_keeps_selection",
+    "test_app.py::test_wf_phone_problems_at_320",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Deadlines in property time"
+text = "Cancellation deadlines are resolved in the property's time zone across daylight saving days, shown in both clocks, and the refund status comes from the server and updates live."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_deadlines_in_property_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Room cancellation and ledger"
+text = "Cancelling one room refunds the published amount, returns its nights to sale at once and adds a balanced ledger pair without changing earlier entries."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_room_cancellation_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Cancellation journey"
+text = "A guest in another time zone cancels one room around a property's daylight saving day while a second browser sees the room back in search."
+kind = "behavior"
+primary = "workflow"
+workflow = "cancellation"
+tests = [
+    "test_app.py::test_wf_cancellation_happy",
+    "test_app.py::test_wf_cancellation_live_status",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Date changes"
+text = "A date change rechecks restrictions, re-prices at current rates and tier, and pays or refunds the difference by the published rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "change-dates"
+tests = [
+    "test_app.py::test_date_changes_pay_and_refund",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Change journey"
+text = "A returning guest is refused one new date range with its reason, then changes to another and settles the difference under the refund tier in force."
+kind = "behavior"
+primary = "workflow"
+workflow = "change-dates"
+tests = [
+    "test_app.py::test_wf_change_dates_happy",
+    "test_app.py::test_wf_change_dates_refund",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Reviews and score"
+text = "Review links open only inside the published window, moderation follows the published states, and published reviews set the weighted score that ranking uses."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviews"
+tests = [
+    "test_app.py::test_review_window_moderation_score",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Review journey"
+text = "A guest is refused before the stay ends, reviews through the inbox link afterwards, and the operator's publication moves the property's score and rank in search."
+kind = "behavior"
+primary = "workflow"
+workflow = "reviews"
+tests = [
+    "test_app.py::test_wf_reviews_happy",
+    "test_app.py::test_wf_reviews_closed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Rate calendar and seasons"
+text = "A manager edits nights on the keyboard grid with the published validation and season overlap rule, and each edit reaches searches and open checkouts live."
+kind = "behavior"
+primary = "pytest"
+workflow = "manager-calendar"
+tests = [
+    "test_app.py::test_calendar_validation_and_seasons",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Calendar journey"
+text = "A manager bulk-edits weekday nights by keyboard, resolves a season overlap and closes a night, and a traveller in another browser sees it closed."
+kind = "behavior"
+primary = "workflow"
+workflow = "manager-calendar"
+tests = [
+    "test_app.py::test_wf_manager_calendar_happy",
+    "test_app.py::test_wf_manager_calendar_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Accounts, sessions and tab sync"
+text = "Sign-up, sign-in and sign-out follow the published rules, and language, currency and sign-out everywhere reach every open tab live."
+kind = "behavior"
+primary = "pytest"
+workflow = "two-tabs"
+tests = [
+    "test_app.py::test_accounts_signup_signin_signout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Loyalty tiers"
+text = "The tier comes from completed stays in the published rolling period and applies to new quotes only."
+kind = "behavior"
+primary = "pytest"
+workflow = "two-tabs"
+tests = [
+    "test_app.py::test_loyalty_tiers_rolling",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Two-tab journey"
+text = "A signed-in guest changes language and currency in one tab and sees the other follow, gains a tier that only a new quote uses, and signs out everywhere."
+kind = "behavior"
+primary = "workflow"
+workflow = "two-tabs"
+tests = [
+    "test_app.py::test_wf_two_tabs_happy",
+    "test_app.py::test_wf_two_tabs_new_quote_tier",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Rate import"
+text = "A rate file in the published format is stored byte for byte and applied in one step only when valid, with every error listed by line and a preview first."
+kind = "behavior"
+primary = "pytest"
+workflow = "rate-import"
+tests = [
+    "test_app.py::test_rate_import_validation_and_apply",
+    "test_app.py::test_wf_rate_import_happy",
+    "test_app.py::test_wf_rate_import_preview_rows_by_keyboard",
+    "test_app.py::test_wf_rate_import_header_error_german",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Storage outage and recovery"
+text = "When storage is down, imports and documents show the published outage copy, search keeps working, and a retry succeeds once storage returns with no restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "rate-import"
+tests = [
+    "test_app.py::test_storage_outage_instance",
+    "test_app.py::test_wf_rate_import_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Access order"
+text = "Bookings, manager pages and moderation answer other people's resources with 404 before any 403, by the published error order."
+kind = "behavior"
+primary = "pytest"
+workflow = "documents"
+tests = [
+    "test_app.py::test_access_order_404_before_403",
+    "test_app.py::test_wf_documents_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Reservation and statement exports"
+text = "Reservation CSVs and monthly statements carry the published columns and 9 percent commission figures, with formula-leading cells neutralised."
+kind = "behavior"
+primary = "pytest"
+workflow = "documents"
+tests = [
+    "test_app.py::test_exports_and_statements",
+    "test_app.py::test_wf_documents_export",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Invoice and print"
+text = "The stored invoice and the printed confirmation show the published content and match the booking's figures."
+kind = "behavior"
+primary = "pytest"
+workflow = "documents"
+tests = [
+    "test_app.py::test_invoice_and_print",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` is valid JSON with string `install`, `build` and `serve` and `\"_schema\":\"run-manifest-v1\"`, and nothing else is needed to run the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` lists every shipped package (the production dependency tree from `npm ls --omit=dev --all --json`) and the two bundled font families, each with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and bundled font is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, CC0-1.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses only Postgres and MinIO as services: no other datastore, queue, cache, mail, search or payment service, and no outside network request at runtime."
+tests = [
+    "test_app.py::test_if_services_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration (compose files, service credentials and the dev bucket and database) is left untouched."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "All server and browser source is written in TypeScript."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "search-by-keyboard"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_search_by_keyboard_happy",
+    "test_app.py::test_wf_search_by_keyboard_blocked_day",
+    "test_app.py::test_destination_and_party_controls",
+    "test_app.py::test_date_picker_labels_and_keys",
+    "test_app.py::test_wf_keyboard_picker_escape_keeps_range",
+    "test_app.py::test_wf_keyboard_picker_keeps_tab_inside",
+    "test_app.py::test_wf_keyboard_results_labels",
+]
+checkpoints = [
+    "B6",
+    "B13",
+]
+critical_checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "search-history"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_wf_search_history_happy",
+    "test_app.py::test_search_stable_paging",
+    "test_app.py::test_search_link_normalisation",
+    "test_app.py::test_search_history_restores_scroll_and_focus",
+    "test_app.py::test_map_clusters_pins_and_area",
+    "test_app.py::test_wf_search_history_normalise",
+    "test_app.py::test_wf_history_counts_restore",
+]
+checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "quote-build"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_quote_build_happy",
+    "test_app.py::test_nightly_price_build",
+    "test_app.py::test_currency_split_and_display",
+    "test_app.py::test_room_allocation_and_advice",
+    "test_app.py::test_night_strip_states_and_lines",
+    "test_app.py::test_wf_quote_build_options",
+    "test_app.py::test_wf_quote_jpy_display_switch",
+    "test_app.py::test_wf_quote_worked_lines_by_keyboard",
+]
+checkpoints = [
+    "B8",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "checkout-pressure"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_checkout_pressure_happy",
+    "test_app.py::test_last_room_hold_race",
+    "test_app.py::test_quote_and_hold_edges",
+    "test_app.py::test_checkout_price_changed_dialog",
+    "test_app.py::test_checkout_countdown_and_hold_ended",
+    "test_app.py::test_checkout_just_taken_dialog",
+    "test_app.py::test_wf_checkout_pressure_expired",
+    "test_app.py::test_wf_checkout_problems_and_step_up",
+]
+checkpoints = [
+    "B9",
+]
+critical_checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "arabic-journey"
+requirements = [
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_arabic_journey_happy",
+    "test_app.py::test_languages_strings_and_rtl",
+    "test_app.py::test_wf_arabic_journey_shared_link",
+    "test_app.py::test_wf_arabic_plurals_and_day_label",
+    "test_app.py::test_wf_arabic_night_strip_mirrored",
+    "test_app.py::test_wf_arabic_switch_keeps_checkout",
+]
+
+[[workflows]]
+id = "phone-journey"
+requirements = [
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_phone_journey_happy",
+    "test_app.py::test_viewport_layouts_and_touch",
+    "test_app.py::test_wf_phone_journey_short_swipe",
+    "test_app.py::test_wf_phone_tap_range_updates_bar",
+    "test_app.py::test_wf_phone_map_sheet_keeps_selection",
+    "test_app.py::test_wf_phone_problems_at_320",
+]
+
+[[workflows]]
+id = "cancellation"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_cancellation_happy",
+    "test_app.py::test_wf_cancellation_live_status",
+    "test_app.py::test_deadlines_in_property_time",
+    "test_app.py::test_room_cancellation_ledger",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "change-dates"
+requirements = [
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_change_dates_happy",
+    "test_app.py::test_date_changes_pay_and_refund",
+    "test_app.py::test_wf_change_dates_refund",
+]
+
+[[workflows]]
+id = "reviews"
+requirements = [
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_reviews_happy",
+    "test_app.py::test_wf_reviews_closed",
+]
+
+[[workflows]]
+id = "manager-calendar"
+requirements = [
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_manager_calendar_happy",
+]
+
+[[workflows]]
+id = "two-tabs"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_two_tabs_happy",
+]
+
+[[workflows]]
+id = "rate-import"
+requirements = [
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_rate_import_happy",
+    "test_app.py::test_wf_rate_import_outage",
+    "test_app.py::test_wf_rate_import_preview_rows_by_keyboard",
+    "test_app.py::test_wf_rate_import_header_error_german",
+]
+
+[[workflows]]
+id = "documents"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_documents_export",
+    "test_app.py::test_wf_documents_access",
+    "test_app.py::test_access_order_404_before_403",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_health_reports_storage",
+    "test_app.py::test_grading_routes_behave",
+    "test_app.py::test_grading_routes_absent_without_flag",
+    "test_app.py::test_server_clock_and_event_stream",
+    "test_app.py::test_clock_event_corrects_open_timer",
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_dialogs_trap_focus_and_forced_colours",
+    "test_app.py::test_forced_colours_selected_day",
+    "test_app.py::test_sheets_keep_tab_inside",
+    "test_app.py::test_price_dialog_holds_focus",
+    "test_app.py::test_named_motion_and_reduced_motion",
+]

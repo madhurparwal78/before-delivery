@@ -1,0 +1,1352 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 64
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "onboarding",
+    "invites",
+    "roles-activity",
+    "editing",
+    "readouts",
+    "run-cut",
+    "autosave-conflict",
+    "locks-presence",
+    "assets",
+    "checkpoints",
+    "publish",
+    "student-lab",
+    "share-links",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+    "B17",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 97
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "valkey", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Rampwright <bench@tarnandtally.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+B13 = 3
+B14 = 3
+B15 = 5
+B16 = 3
+B17 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "valkey-down"
+port = 4174
+url_env = "APP_VALKEY_DOWN_URL"
+
+[outages.env]
+VALKEY_URL = "redis://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4176
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "short-timers"
+port = 4177
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+LOCK_TTL_SECONDS = "6"
+PRESENCE_TTL_SECONDS = "6"
+INVITE_TTL_SECONDS = "8"
+SHARE_LINK_TTL_SECONDS = "8"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Account sign-up and sign-in"
+text = "Visitors create an account with display name, email and password and sign in with email and password, with exactly one account per address whatever its letter case or surrounding spaces, even under simultaneous sign-ups, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_signup_and_signin",
+    "test_app.py::test_signup_concurrent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Sign-in landing route"
+text = "When no safe return path is given, after sign-in the address bar shows `/w/<workspace id>` of the account's last opened workspace, its earliest-joined workspace when it has never opened one, or `/workspaces/new` when it belongs to none, and reloading shows the same screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_signin_landing_routes",
+    "test_app.py::test_wf_onboarding_signin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Workspace creation and switching"
+text = "Creating a workspace lands on `/w/<new workspace id>` and choosing another workspace in the account menu lands on `/w/<that workspace id>`, each surviving a reload and a direct visit."
+kind = "behavior"
+primary = "pytest"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_wf_onboarding_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Workspace isolation"
+text = "A signed-in person who is not a member of a workspace gets 404 for that workspace and everything in it, exactly as for an id that does not exist."
+kind = "behavior"
+primary = "pytest"
+workflow = "roles-activity"
+tests = [
+    "test_app.py::test_workspace_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Co-tutor invite email"
+text = "An owner's invite leaves exactly one pending invite per workspace and address, superseding any older pending one, and delivers one Mailpit message to the invitee with the subject and link given in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "invites"
+tests = [
+    "test_app.py::test_invite_email_and_supersede",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Invite lifecycle"
+text = "An invite moves from pending to accepted, expired or revoked (by the owner or by supersession) only along the legal edges in Business rules, expires on the server clock at its stated time, and every illegal edge answers its stated status."
+kind = "behavior"
+primary = "pytest"
+workflow = "invites"
+tests = [
+    "test_app.py::test_invite_lifecycle",
+    "test_app.py::test_invite_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Invite acceptance journey"
+text = "An invited co-tutor opens the emailed link, signs in or signs up with the invited address, accepts, and lands on `/w/<workspace id>` as a member with the invited role."
+kind = "behavior"
+primary = "workflow"
+workflow = "invites"
+tests = [
+    "test_app.py::test_wf_invites_accept_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Mail outage queueing"
+text = "When mail cannot be sent the invite, share and publish actions still succeed and report the email as queued with the Feedback states copy, and once mail returns each queued message is delivered exactly once in queue order without a restart, except that a message whose invite or link is no longer live is never sent."
+kind = "behavior"
+primary = "pytest"
+workflow = "invites"
+tests = [
+    "test_app.py::test_mail_outage_queue",
+    "test_app.py::test_wf_invites_mail_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Workspace roles"
+text = "Owners, editors and viewers can do exactly what the role table in Business rules allows, and anything else answers 403."
+kind = "behavior"
+primary = "pytest"
+workflow = "roles-activity"
+tests = [
+    "test_app.py::test_role_table",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Role changes on the next request"
+text = "An owner's role change applies to the member's very next request on every endpoint, and sends one role-change email to that member."
+kind = "behavior"
+primary = "pytest"
+workflow = "roles-activity"
+tests = [
+    "test_app.py::test_role_change_next_request",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Activity log"
+text = "Every successful write that names an activity action writes exactly one activity event that owners, editors and viewers can read, newest first."
+kind = "behavior"
+primary = "pytest"
+workflow = "roles-activity"
+tests = [
+    "test_app.py::test_activity_events",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Viewer review journey"
+text = "A workspace viewer signs in, lands on the workspace, opens a scene in view-only mode with no edit controls, runs it, and reads the activity log."
+kind = "behavior"
+primary = "workflow"
+workflow = "roles-activity"
+tests = [
+    "test_app.py::test_wf_roles_activity_viewer_review",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Projects and scenes"
+text = "Owners and editors create projects and scenes from the four templates, and empty project lists, scene lists and outlines show the Feedback states copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "editing"
+tests = [
+    "test_app.py::test_projects_scenes_templates",
+    "test_app.py::test_wf_editing_create",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Placing props"
+text = "The tutor places rigs and models from the Props panel by click, by Enter or by dragging a tile onto the stage, and the new object appears in the outline, the stage and the saved scene."
+kind = "behavior"
+primary = "pytest"
+workflow = "editing"
+tests = [
+    "test_app.py::test_wf_editing_place_props",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Keyboard editing on the stage"
+text = "With the stage focused, arrow and page keys nudge the selected object by the steps in Interactions, Snap rounds the result to the grid, Delete removes it, and undo and redo reverse and reapply each change."
+kind = "behavior"
+primary = "pytest"
+workflow = "editing"
+tests = [
+    "test_app.py::test_wf_editing_keyboard_nudge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Command palette"
+text = "Ctrl+K or Cmd+K opens the command palette, which filters commands as you type and runs the chosen one with Enter."
+kind = "behavior"
+primary = "pytest"
+workflow = "editing"
+tests = [
+    "test_app.py::test_command_palette",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Inline rename"
+text = "F2 or a double-click opens an inline rename on an outline row that Enter commits and Escape cancels, and autosave, lock-renewal and presence updates never close or reset it while it is open."
+kind = "behavior"
+primary = "pytest"
+workflow = "editing"
+tests = [
+    "test_app.py::test_inline_rename",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Parameter units, ranges and field errors"
+text = "Parameter fields accept the published unit suffixes and show the SI value on blur, and an unknown unit or an out-of-range value shows its field error, is never saved, and blanks the affected readouts."
+kind = "behavior"
+primary = "pytest"
+workflow = "readouts"
+tests = [
+    "test_app.py::test_wf_readouts_invalid_entry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Live derived readouts"
+text = "The Derived readouts region recomputes potential energy, speed at the bottom, period, time of flight, range and peak height from the published formulas on every keystroke and after a co-tutor's saved change, without a submit or reload, never overwriting the text in a field being typed in, and announces the new values."
+kind = "behavior"
+primary = "pytest"
+workflow = "readouts"
+tests = [
+    "test_app.py::test_wf_readouts_live",
+    "test_app.py::test_wf_readouts_remote_typing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Material popover"
+text = "The Material popover sets a ramp's friction from four named surfaces, keeps focus inside until Escape or a choice, and stays open while autosave, lock and presence timers fire."
+kind = "behavior"
+primary = "pytest"
+workflow = "editing"
+tests = [
+    "test_app.py::test_material_popover",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Bench-to-run cut"
+text = "Run, or the R key, switches the editor to run mode in one frame: dock panels and the camera view widget hide, the mode pill and centre mark appear, and Pause and Step become available."
+kind = "behavior"
+primary = "pytest"
+workflow = "run-cut"
+tests = [
+    "test_app.py::test_wf_run_cut_bench_to_run",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Fixed-step run telemetry"
+text = "A run advances a fixed-step simulation at 1/120 second per step regardless of frame rate, and the Run telemetry card shows fps with its colour band, frame time, step count and state hash."
+kind = "behavior"
+primary = "pytest"
+workflow = "run-cut"
+tests = [
+    "test_app.py::test_fixed_step_hash",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Stop restores the bench"
+text = "Stop, or the R key again, returns every object to its pre-run transform, restores each dock panel to its previous position, and shows the same state hash as before the run, without saving anything."
+kind = "behavior"
+primary = "pytest"
+workflow = "run-cut"
+tests = [
+    "test_app.py::test_wf_run_cut_stop_restores",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Server verifier agreement"
+text = "For any saved scene and step count the server verifier returns the same state hash that the editor shows after pausing at that step."
+kind = "behavior"
+primary = "pytest"
+workflow = "run-cut"
+tests = [
+    "test_app.py::test_verifier_agreement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Same run on every device"
+text = "The same scene and parameters give the same state hash after the same number of steps on a phone-sized touch browser, a desktop browser and the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "run-cut"
+tests = [
+    "test_app.py::test_wf_run_cut_phone_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Revision-checked autosave"
+text = "Autosave sends each change once, in order, with its change id and the revision it was based on, applies a replayed change id only once, and rejects with 412 any save whose fields changed in a newer revision or that predates a restore, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "autosave-conflict"
+tests = [
+    "test_app.py::test_patch_replay_and_conflicts",
+    "test_app.py::test_concurrent_patch_one_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Save status announcements"
+text = "The Save status live region announces saving, saved, offline and each kind of failed save with the exact Feedback states copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "autosave-conflict"
+tests = [
+    "test_app.py::test_wf_autosave_conflict_offline",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Conflict dialog journey"
+text = "When autosave meets a newer revision the editor opens the Scene changed elsewhere dialog, which offers Keep my changes or Use their version and stays open until the person chooses."
+kind = "behavior"
+primary = "workflow"
+workflow = "autosave-conflict"
+tests = [
+    "test_app.py::test_wf_autosave_conflict_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Object lock leases"
+text = "Selecting an object takes a lease on it that renews while held, expires on the server clock and is released within five seconds when its tab closes, and of any number of simultaneous requests for a free object exactly one wins while the rest get 409 naming the holder."
+kind = "behavior"
+primary = "pytest"
+workflow = "locks-presence"
+tests = [
+    "test_app.py::test_lock_lease_rules",
+    "test_app.py::test_lock_release_on_tab_close",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Fenced object writes"
+text = "Every object change carries the lease number it was made under, and a change made under an expired or superseded lease is rejected with 409 and never written."
+kind = "behavior"
+primary = "pytest"
+workflow = "locks-presence"
+tests = [
+    "test_app.py::test_lock_expiry_fencing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Lock-held journey"
+text = "A co-tutor who selects an object the owner holds sees the lock-held notice with the holder's name, read-only fields, and an announcement when the object becomes free."
+kind = "behavior"
+primary = "workflow"
+workflow = "locks-presence"
+tests = [
+    "test_app.py::test_wf_locks_presence_lock_held",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Presence and live cursors"
+text = "Everyone with a scene open appears in the People here list and as a labelled live cursor on the other screens within two seconds, and joins, leaves and lock changes are announced in the Collaboration live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "locks-presence"
+tests = [
+    "test_app.py::test_wf_locks_presence_people",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Lock service outage"
+text = "While the lock service is unreachable the editor shows the lock outage banner, refuses shared edits with 503, keeps Run working, and resumes editing within ten seconds of the service returning without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "locks-presence"
+tests = [
+    "test_app.py::test_wf_locks_presence_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Upload type and size checks"
+text = "Uploads are accepted only as GLB, glTF, PNG or JPEG judged by their bytes, up to 10,000,000 bytes, and anything else answers with the stated rejection."
+kind = "behavior"
+primary = "pytest"
+workflow = "assets"
+tests = [
+    "test_app.py::test_upload_type_checks",
+]
+criteria = []
+parameter_cases = [
+    "glb",
+    "gltf",
+    "png",
+    "jpeg",
+    "png-named-glb",
+    "svg",
+    "svg-named-png",
+    "plain-text-named-gltf",
+    "gltf-no-scene",
+    "gltf-no-bounds",
+    "at-limit",
+    "over-limit",
+]
+
+[[requirements]]
+id = "DP-35"
+title = "Self-contained models and safe names"
+text = "Models that reference external files and uploads whose names contain slashes, backslashes or two dots in a row are rejected before anything is stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "assets"
+tests = [
+    "test_app.py::test_upload_refs_and_names",
+]
+criteria = []
+parameter_cases = [
+    "external-buffer",
+    "external-image",
+    "glb-external-image",
+    "slash",
+    "backslash",
+    "two-dots",
+    "control-character",
+    "too-long",
+]
+
+[[requirements]]
+id = "DP-36"
+title = "Scale normalised to metres"
+text = "Each model's size is measured through the node transforms of its default scene and converted to metres using the unit chosen at upload by the published extent rule, and models outside 0.01 m to 100 m are rejected."
+kind = "behavior"
+primary = "pytest"
+workflow = "assets"
+tests = [
+    "test_app.py::test_extent_rule",
+]
+criteria = []
+parameter_cases = [
+    "brief-example",
+    "centimetres",
+    "millimetres",
+    "inches",
+    "feet",
+    "matrix-node",
+    "named-scene",
+    "glb-centimetres",
+    "lower-limit",
+    "too-small",
+    "too-large",
+    "unknown-unit",
+]
+
+[[requirements]]
+id = "DP-37"
+title = "Assets stored as submitted"
+text = "An accepted upload is stored in MinIO byte for byte as submitted under its content hash, counted in the project only after storage confirms it, and replaying the same bytes returns the existing asset."
+kind = "behavior"
+primary = "pytest"
+workflow = "assets"
+tests = [
+    "test_app.py::test_asset_stored_byte_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Asset browser journey"
+text = "The tutor uploads a model and an image through the Assets panel, sees each in its folder with its size in metres, filters the list, and drags the model into the scene at its converted scale."
+kind = "behavior"
+primary = "workflow"
+workflow = "assets"
+tests = [
+    "test_app.py::test_wf_assets_browser",
+    "test_app.py::test_wf_assets_rejected_upload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "File storage outage"
+text = "While file storage is unreachable uploads, checkpoints, restores and publishing answer 503 with the storage outage copy, record nothing, and work again on the first request after storage returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "assets"
+tests = [
+    "test_app.py::test_storage_outage_recovery",
+    "test_app.py::test_wf_assets_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Checkpoint snapshots"
+text = "A checkpoint stores the scene document as a MinIO snapshot and moves a draft scene to checkpointed."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkpoints"
+tests = [
+    "test_app.py::test_checkpoint_snapshot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Byte-exact checkpoint restore"
+text = "Restoring a checkpoint writes a new revision, one above the current one, whose document is byte-identical to the snapshot, including after a Run and Stop cycle, and is refused while someone else holds a lease in the scene."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkpoints"
+tests = [
+    "test_app.py::test_restore_byte_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Checkpoint journey"
+text = "The tutor saves a named checkpoint from the Checkpoints tab, changes the scene, restores the checkpoint through its confirmation dialog, and sees the outline, inspector and state hash return to the checkpoint."
+kind = "behavior"
+primary = "workflow"
+workflow = "checkpoints"
+tests = [
+    "test_app.py::test_wf_checkpoints_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Scene publish states"
+text = "A scene moves through draft, checkpointed, published and unpublished only along the legal edges in Business rules, and publishing a draft or unpublishing an unpublished scene answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish"
+tests = [
+    "test_app.py::test_wf_publish_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Immutable lab bundles"
+text = "Each publish writes an immutable lab bundle to MinIO whose SHA-256 is the recorded bundle hash and which names every model by the hash of its stored bytes."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish"
+tests = [
+    "test_app.py::test_lab_bundle_immutable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Publish confirmation email"
+text = "Each publish sends one confirmation email with the public lab address to the publishing owner."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish"
+tests = [
+    "test_app.py::test_publish_email",
+    "test_app.py::test_wf_publish_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Student lab journey"
+text = "A student opens a lab link without an account, changes only the exposed parameters, runs the lab, and sees the same state hash that the lab verifier returns for those values."
+kind = "behavior"
+primary = "workflow"
+workflow = "student-lab"
+tests = [
+    "test_app.py::test_wf_student_lab_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Exposed parameters only"
+text = "The lab shows controls only for the parameters the owner exposed, and the lab verifier rejects any other parameter with 422."
+kind = "behavior"
+primary = "pytest"
+workflow = "student-lab"
+tests = [
+    "test_app.py::test_lab_exposed_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Lab on phones and touch"
+text = "At phone width the lab keeps the stage on at least 40% of the screen with a tabbed bottom sheet, touch dragging orbits the camera, every control is at least 44 px tall, and reduced motion changes only animations."
+kind = "behavior"
+primary = "pytest"
+workflow = "student-lab"
+tests = [
+    "test_app.py::test_wf_student_lab_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Missing lab page"
+text = "An unknown, regenerated-away or unpublished lab link shows the missing-lab page with the exact copy, and its API answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "student-lab"
+tests = [
+    "test_app.py::test_missing_lab_page",
+]
+criteria = []
+parameter_cases = [
+    "unknown",
+    "regenerated",
+    "unpublished",
+]
+
+[[requirements]]
+id = "DP-50"
+title = "Read-only project links"
+text = "An owner's read-only project link lets anyone read the project and run its scenes, shows each newly saved revision of an open scene within five seconds without a reload, and answers 405 to any attempt to change something."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_readonly_link_api",
+    "test_app.py::test_wf_share_links_live_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Link revocation, regeneration and expiry"
+text = "Revoking or regenerating a read-only or lab link, or reaching its expiry, stops the old link on the very next request and replaces an open read-only view with the dead-link copy within five seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_link_dead_next_request",
+]
+criteria = []
+parameter_cases = [
+    "revoked",
+    "regenerated",
+    "expired",
+]
+
+[[requirements]]
+id = "DP-52"
+title = "Share dialog journey"
+text = "The owner creates, copies, emails, regenerates and revokes read-only links in the Share project dialog and sees each change announced."
+kind = "behavior"
+primary = "workflow"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_wf_share_links_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Landing scroll story"
+text = "The landing page scrubs its ramp, pendulum and cart scene and camera with scroll position across the first 3000 pixels of scroll, reverses exactly when scrolled back, and reports its progress on the stage."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_landing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Landing reduced motion and fallback"
+text = "Under reduced motion the landing shows still key frames at the four section anchors, and without WebGL it shows a still picture, with every heading and link working in both."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_landing_reduced_and_nowebgl",
+]
+criteria = []
+parameter_cases = [
+    "reduced-motion",
+    "no-webgl",
+]
+
+[[requirements]]
+id = "DP-55"
+title = "Landing stage look"
+text = "The landing stage shows the product name in large type at the stage edge over a flat sky-and-grass bench with an original procedural ramp, pendulum and capsule cart, ending in the bench toolbar."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Editor layouts at published widths"
+text = "From 1000 pixels wide and up the editor floats its dock panels, from 600 to 999 it docks them in one right-hand column, and below 600 it shows a tabbed bottom sheet with the stage on at least 40% of the height, never overflowing sideways."
+kind = "behavior"
+primary = "pytest"
+workflow = "editing"
+tests = [
+    "test_app.py::test_editor_layouts",
+]
+criteria = []
+parameter_cases = [
+    "1440x900",
+    "1280x800",
+    "1024x768",
+    "768x1024",
+    "390x844",
+    "375x812",
+]
+
+[[requirements]]
+id = "DP-57"
+title = "Dialogs, sheets and shortcuts by keyboard"
+text = "Every dialog keeps Tab and Shift+Tab inside it, closes on Escape and returns focus to its opener, and every editor shortcut works whichever non-text control has focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_keyboard",
+    "test_app.py::test_bench_toolbar",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Bench chrome visual language"
+text = "The editor, lists, settings and dialogs share the compact navy-and-lavender bench chrome with chip buttons, uppercase blue panel titles and pastel state colours that alone carry meaning."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+    "B17",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Run manifest and health"
+text = "The app ships `/app/run.json` with install, build and serve commands, serves on port 4173 or `APP_PUBLIC_PORT`, answers `/api/health` with 200, and boots even when a dependency is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_run_manifest_and_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Configuration from the environment"
+text = "Every service URL and credential is read from the environment at start and never hard-coded in source or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Safe return after sign-in"
+text = "A screen whose session has ended sends the person to sign in with that screen's address as the return path, and after sign-in the app follows a return path only when it passes the safe-return rule in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "onboarding"
+tests = [
+    "test_app.py::test_safe_return_rule",
+    "test_app.py::test_wf_onboarding_session_return",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Live demotion of an open editor"
+text = "When an owner makes an editor a viewer while that editor has a scene open, within five seconds and without a reload the open editor turns view-only, the demoted person's leases are released and announced, and their further writes answer 403."
+kind = "behavior"
+primary = "pytest"
+workflow = "roles-activity"
+tests = [
+    "test_app.py::test_wf_roles_activity_live_demotion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Stable activity paging"
+text = "The activity log pages newest first by cursor with a capped page size, never repeats or skips an event while new events are written between pages, and the Activity screen adds older pages with Show older."
+kind = "behavior"
+primary = "pytest"
+workflow = "roles-activity"
+tests = [
+    "test_app.py::test_activity_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Restore wins over stale saves"
+text = "After a restore, open co-tutor editors show the restored scene within the live-update time in Business rules, any save based on a pre-restore revision opens the conflict dialog instead of overwriting the restore, and checkpoint names are unique per scene ignoring letter case."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkpoints"
+tests = [
+    "test_app.py::test_wf_checkpoints_restore_barrier",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with string `install`, `build` and `serve` commands and `\"_schema\":\"run-manifest-v1\"`, and nothing else is needed to install, build or serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` lists every shipped package (the production dependency tree, `npm ls --omit=dev --all --json`) with its version and licence, plus the bundled Inter and JetBrains Mono fonts."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the same production dependency tree) and every font is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, Zlib or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores state only in the provided Postgres, MinIO and Valkey. There is no other database, embedded store, or file on disk holding app data."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and its dev credentials are left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "`package-lock.json` is committed, and `install` uses it without changing it."
+tests = [
+    "test_app.py::test_if_lockfile_committed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Fonts and all other static files are served from the app's own origin, and no CDN or external URL appears in the built frontend."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "onboarding"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_onboarding_happy",
+    "test_app.py::test_wf_onboarding_signin",
+    "test_app.py::test_wf_onboarding_session_return",
+    "test_app.py::test_signup_concurrent",
+    "test_app.py::test_safe_return_rule",
+]
+checkpoints = [
+    "B17",
+]
+
+[[workflows]]
+id = "invites"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_wf_invites_accept_journey",
+    "test_app.py::test_wf_invites_mail_outage",
+    "test_app.py::test_mail_outage_queue",
+    "test_app.py::test_invite_expiry",
+]
+
+[[workflows]]
+id = "roles-activity"
+requirements = [
+    "DP-04",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-62",
+    "DP-63",
+]
+critical = [
+    "test_app.py::test_wf_roles_activity_viewer_review",
+    "test_app.py::test_wf_roles_activity_live_demotion",
+    "test_app.py::test_role_change_next_request",
+    "test_app.py::test_activity_paging",
+]
+
+[[workflows]]
+id = "editing"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-20",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_editing_create",
+    "test_app.py::test_wf_editing_place_props",
+    "test_app.py::test_wf_editing_keyboard_nudge",
+    "test_app.py::test_inline_rename",
+    "test_app.py::test_editor_layouts",
+]
+checkpoints = [
+    "B10",
+    "B12",
+    "B13",
+]
+
+[[workflows]]
+id = "readouts"
+requirements = [
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_readouts_live",
+    "test_app.py::test_wf_readouts_remote_typing",
+    "test_app.py::test_wf_readouts_invalid_entry",
+]
+
+[[workflows]]
+id = "run-cut"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_run_cut_bench_to_run",
+    "test_app.py::test_wf_run_cut_stop_restores",
+    "test_app.py::test_wf_run_cut_phone_touch",
+]
+checkpoints = [
+    "B14",
+    "B15",
+    "B16",
+]
+critical_checkpoints = [
+    "B15",
+]
+
+[[workflows]]
+id = "autosave-conflict"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_autosave_conflict_dialog",
+    "test_app.py::test_wf_autosave_conflict_offline",
+    "test_app.py::test_patch_replay_and_conflicts",
+    "test_app.py::test_concurrent_patch_one_wins",
+]
+
+[[workflows]]
+id = "locks-presence"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_locks_presence_lock_held",
+    "test_app.py::test_wf_locks_presence_people",
+    "test_app.py::test_wf_locks_presence_outage",
+    "test_app.py::test_lock_lease_rules",
+    "test_app.py::test_lock_release_on_tab_close",
+]
+
+[[workflows]]
+id = "assets"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_assets_browser",
+    "test_app.py::test_wf_assets_rejected_upload",
+    "test_app.py::test_wf_assets_storage_outage",
+    "test_app.py::test_upload_type_checks",
+    "test_app.py::test_asset_stored_byte_exact",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "checkpoints"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_checkpoints_journey",
+    "test_app.py::test_wf_checkpoints_restore_barrier",
+    "test_app.py::test_restore_byte_exact",
+]
+
+[[workflows]]
+id = "publish"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_publish_lifecycle",
+    "test_app.py::test_wf_publish_dialog",
+    "test_app.py::test_lab_bundle_immutable",
+]
+
+[[workflows]]
+id = "student-lab"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_wf_student_lab_journey",
+    "test_app.py::test_wf_student_lab_phone",
+    "test_app.py::test_missing_lab_page",
+]
+
+[[workflows]]
+id = "share-links"
+requirements = [
+    "DP-50",
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_share_links_dialog",
+    "test_app.py::test_wf_share_links_live_view",
+    "test_app.py::test_link_dead_next_request",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_landing",
+    "test_app.py::test_wf_cross_cutting_keyboard",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B3",
+]

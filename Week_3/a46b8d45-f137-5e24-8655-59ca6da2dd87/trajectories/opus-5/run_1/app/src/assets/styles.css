@@ -1,0 +1,435 @@
+/*
+ * The desk reads as an assembly booklet spread: warm paper, a blueprint diagram on a faint
+ * grid, a ruled claim slip and mono part numbers.
+ *
+ * The only layout breakpoints are 768 px and 1280 px.
+ */
+
+:root {
+  --paper: #faf6ec;
+  --paper-edge: #f1ead8;
+  --ink: #141b26;
+  --blueprint: #2f5d9e;
+  --blueprint-soft: #8fa9cd;
+  --signal: #c25416;
+  --rule: #b7ae9b;
+  --grid: 8px;
+
+  --page-margin: 16px;
+  --gutter: 40px;
+
+  --heading-font: "Space Grotesk", system-ui, sans-serif;
+  --body-font: "IBM Plex Sans", system-ui, sans-serif;
+  --mono-font: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Each heading level is a quarter larger than the level below it. */
+  --step-0: 1rem;
+  --step-1: 1.25rem;
+  --step-2: 1.5625rem;
+  --step-3: 1.953rem;
+}
+
+@media (min-width: 768px) {
+  :root { --page-margin: 24px; }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { background: var(--paper); }
+
+body {
+  margin: 0;
+  /* The document is never wider than the window. */
+  overflow-x: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body-font);
+  font-size: var(--step-0);
+  line-height: 1.55;
+}
+
+h1 { font-size: var(--step-3); }
+h2 { font-size: var(--step-2); }
+h3 { font-size: var(--step-1); }
+h1, h2, h3 { font-family: var(--heading-font); font-weight: 700; margin: 0 0 0.5em; line-height: 1.2; }
+
+.mono, .slip-reference, .fan-callout-number, code { font-family: var(--mono-font); }
+
+a { color: var(--blueprint); }
+
+/* Every focused control shows a clearly visible blueprint-blue ring, never hidden. */
+:focus-visible {
+  outline: 2px solid var(--blueprint);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--paper);
+  border: 2px solid var(--blueprint);
+  padding: 8px 12px;
+  z-index: 50;
+}
+.skip-link:focus {
+  left: var(--page-margin);
+}
+
+.desk-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px var(--page-margin);
+  border-bottom: 1px solid var(--rule);
+}
+
+.brand {
+  font-family: var(--heading-font);
+  font-weight: 700;
+  font-size: var(--step-1);
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.language-switch { display: flex; gap: 16px; align-items: center; }
+.language-option { display: inline-flex; gap: 6px; align-items: center; min-height: 44px; }
+.language-option label { min-height: 44px; display: inline-flex; align-items: center; }
+
+/* The live regions take no space but are always present. */
+.live-regions { padding: 0 var(--page-margin); }
+.desk-status:empty, .desk-alert:empty { display: none; }
+.desk-alert { color: var(--signal); font-weight: 600; padding: 8px 0; }
+.desk-status { padding: 8px 0; }
+
+.desk-main { padding: 16px var(--page-margin) 48px; }
+
+.page-heading { margin-top: 8px; }
+
+/* ----------------------------------------------------------------- controls */
+
+.form-control {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--rule);
+  background: #fffdf7;
+  color: var(--ink);
+  font: inherit;
+}
+
+textarea.form-control { min-height: 96px; }
+
+.form-field { margin-bottom: 16px; }
+.form-field label { display: block; margin-bottom: 4px; font-weight: 600; }
+
+.field-error { color: var(--signal); margin: 4px 0 0; min-height: 0; }
+.field-error:empty { display: none; }
+
+.primary-action, .secondary-action, .slip-action, .button-link, .disclosure-toggle {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 600;
+  border: 1px solid var(--blueprint);
+  cursor: pointer;
+}
+
+.primary-action, .button-link {
+  background: var(--blueprint);
+  color: #fffdf7;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.secondary-action, .slip-action, .disclosure-toggle {
+  background: transparent;
+  color: var(--blueprint);
+}
+
+button:disabled { opacity: 0.5; cursor: default; }
+
+.home-links { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 24px; }
+.button-link .lucide { margin-right: 8px; flex: none; }
+
+/* ------------------------------------------------------- the exploded fitting fan */
+
+.fan {
+  position: relative;
+  /* A faint blueprint grid of 8 px squares. */
+  background-image:
+    linear-gradient(to right, rgba(143, 169, 205, 0.25) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(143, 169, 205, 0.25) 1px, transparent 1px);
+  background-size: var(--grid) var(--grid);
+  border: 1px solid var(--blueprint-soft);
+  padding: 16px;
+  min-width: 0;
+}
+
+.fan-slider {
+  width: 100%;
+  min-height: 44px;
+  accent-color: var(--blueprint);
+}
+
+.fan-stage {
+  position: relative;
+  height: 360px;
+  transform: scale(var(--fan-scale, 1));
+  transform-origin: center center;
+}
+
+/*
+ * The box is kept to the 44 px tap target, so that once the parts are separated no part
+ * covers its neighbour's centre and every one stays tappable along each axis.
+ */
+.fan-part {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin-left: -22px;
+  margin-top: -22px;
+  padding: 0;
+  background: rgba(255, 253, 247, 0.92);
+  border: 1.5px solid var(--blueprint);
+  cursor: pointer;
+  /* The parts glide to their new places in about a quarter of a second. */
+  transform: translate(var(--dx, 0px), var(--dy, 0px));
+  transition: transform 0.24s ease-out, box-shadow 0.16s ease-out, border-color 0.16s ease-out;
+}
+
+.fan.no-glide .fan-part { transition: none; }
+
+/* Selecting a part raises it slightly and rings it in the signal colour. */
+.fan-part.is-selected {
+  border-color: var(--signal);
+  box-shadow: 0 0 0 2px var(--signal), 0 4px 10px rgba(20, 27, 38, 0.25);
+  z-index: 5;
+}
+
+.fan-part[aria-disabled="true"] { opacity: 0.45; cursor: default; }
+
+.fan-part-shape {
+  position: absolute;
+  pointer-events: none;
+  inset: 6px;
+  border: 1px solid var(--blueprint-soft);
+}
+
+/* Every diagram part carries a 1 px hairline callout to its booklet number. */
+.fan-part-callout {
+  position: absolute;
+  /* Decoration never swallows a click meant for a neighbouring part. */
+  pointer-events: none;
+  top: -22px;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.fan-callout-line {
+  width: 1px;
+  height: 14px;
+  background: var(--blueprint);
+}
+.fan-callout-number {
+  font-family: var(--mono-font);
+  font-size: 0.75rem;
+  color: var(--blueprint);
+}
+
+.fan.is-read-only .fan-part { cursor: default; }
+
+/* The fallback list, shown when a model's diagram cannot be drawn. */
+.fan-fallback .fan-unavailable { font-size: var(--step-1); }
+.fan-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fan-fallback .fan-part {
+  position: static;
+  width: 100%;
+  height: auto;
+  margin: 0;
+  padding: 10px 12px;
+  text-align: left;
+  transform: none;
+}
+.fan-fallback .fan-part-shape, .fan-fallback .fan-part-callout { display: none; }
+
+/* ---------------------------------------------------------------- the claim slip */
+
+.claim-slip {
+  background: var(--paper-edge);
+  border: 1px solid var(--rule);
+  padding: 16px;
+  min-width: 0;
+}
+
+.slip-line {
+  margin: 0;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule); /* a ruled card */
+}
+
+.slip-value { display: block; }
+
+/* Each figure carries a small lowercase mono caption naming its source. */
+.slip-caption {
+  display: block;
+  font-family: var(--mono-font);
+  font-size: 0.75rem;
+  text-transform: lowercase;
+  color: #5d6675;
+}
+
+.slip-heading { margin-top: 16px; }
+.slip-reference { font-size: var(--step-1); font-weight: 600; }
+.slip-photos { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0; }
+.slip-photo { max-width: 100%; height: auto; border: 1px solid var(--rule); }
+.slip-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.identify-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 0; }
+.identify-quantity { width: 88px; min-height: 44px; padding: 8px; border: 1px solid var(--rule); font: inherit; }
+.identify-model { min-height: 44px; padding: 8px; border: 1px solid var(--rule); font: inherit; max-width: 100%; }
+
+.history-list, .earlier-list { list-style: none; margin: 0; padding: 0; }
+.history-entry, .earlier-entry { padding: 6px 0; border-bottom: 1px solid var(--rule); }
+
+.disclosure { margin: 16px 0; }
+.disclosure-panel[hidden] { display: none; }
+
+/* ------------------------------------------------------------------- layouts */
+
+/* Below 768 px every page is one column, with the fan above the form or slip. */
+.claim-layout, .share-layout, .workspace-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--gutter);
+  align-items: start;
+}
+
+.queue-pane { display: none; } /* not rendered below 1280 px */
+
+@media (min-width: 768px) {
+  /* The fan takes 60% to 70% of the fan and form's combined width. */
+  .claim-layout, .share-layout { grid-template-columns: 65fr 35fr; }
+  .workspace-layout { grid-template-columns: 65fr 35fr; }
+}
+
+@media (min-width: 1280px) {
+  .share-layout { max-width: 1200px; margin: 0 auto; }
+  /* Three columns: the queue pane, the fan and the slip. */
+  .workspace-layout { grid-template-columns: 18fr 50fr 32fr; }
+  .queue-pane { display: block; min-width: 0; }
+}
+
+/* Single-purpose owner pages are one calm centred column. */
+.confirm-page, .find-page { display: block; }
+
+.confirm-page .primary-action, .find-page .primary-action { width: 100%; }
+
+@media (min-width: 768px) {
+  .confirm-page {
+    width: 560px;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  /* From 768 px the button keeps its natural width, lined up with the heading. */
+  .confirm-page .primary-action { width: auto; }
+
+  .find-page {
+    width: 480px;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .find-page .primary-action { width: auto; }
+}
+
+.all-claims-link { display: inline-block; margin-bottom: 16px; }
+
+@media (min-width: 1280px) {
+  .all-claims-link { display: none; } /* below 1280 px only */
+}
+
+/* ------------------------------------------------------------------- tables */
+
+.table-region { overflow-x: auto; max-width: 100%; }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--rule); }
+th { font-family: var(--heading-font); }
+
+.decided-count { padding: 8px 0; font-weight: 600; }
+
+/* ------------------------------------------------------------------ dialogs */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 27, 38, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  opacity: 0;
+  /* Dialogs fade in within a quarter of a second and out within a sixth. */
+  transition: opacity 0.24s ease-out;
+}
+
+.dialog-backdrop[hidden] { display: none; }
+.dialog-backdrop.is-open { opacity: 1; }
+.dialog-backdrop.is-closing { opacity: 0; transition-duration: 0.16s; }
+
+.dialog {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  padding: 16px;
+  width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+.dialog-heading { font-size: var(--step-1); }
+.dialog-reasons { display: grid; gap: 8px; margin-bottom: 16px; }
+.dialog-radio { display: flex; gap: 8px; align-items: center; min-height: 44px; }
+
+/* Below 768 px the buttons are as wide as the dialog, action above Cancel. */
+.dialog-actions { display: grid; gap: 8px; }
+.dialog-actions .primary-action, .dialog-actions .secondary-action { width: 100%; }
+
+@media (min-width: 768px) {
+  .dialog { width: 480px; }
+  /* The two buttons share one row, action on the left and Cancel on the right. */
+  .dialog-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .dialog-actions .primary-action, .dialog-actions .secondary-action { width: auto; }
+}
+
+/* ----------------------------------------------------------- reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  /* Nothing glides, fades or loops. */
+  *, *::before, *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}
+
+.estimate-region {
+  border: 1px solid var(--rule);
+  padding: 12px;
+  margin: 16px 0;
+}
+.estimate-value { margin: 8px 0 0; font-family: var(--mono-font); }
+.estimate-value:empty { display: none; }
+.selected-part { padding: 8px 0; }
+.selected-part:empty { display: none; }
+.share-link { word-break: break-all; }

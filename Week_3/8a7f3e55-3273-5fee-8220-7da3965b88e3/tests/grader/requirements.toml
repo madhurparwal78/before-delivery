@@ -1,0 +1,1276 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 67
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "request-intake",
+    "triage-and-open-call",
+    "open-call-claim",
+    "coordinator-assign",
+    "withdraw-and-recover",
+    "prep-materials",
+    "requester-cancel",
+    "complete-and-bill",
+    "weekly-close",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 76
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Relayline <dispatch@tandemhands.example>" } },
+    { name = "killbill", env = {} },
+    { name = "minio", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+MAILPIT_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4176
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-timer"
+port = 4177
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+OPEN_CALL_LEAD_MINUTES = "2"
+PREP_ACCESS_GRACE_MINUTES = "1"
+PREP_LINK_TTL_SECONDS = "5"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Seeded sign-in and roles"
+text = "Each seeded person signs in with their email and password, lands on their role's home screen, and every API call acts with exactly the permissions of that role as listed in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_seeded_sign_in_and_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Booking request intake"
+text = "A requester (for their own organisation) or the coordinator submits a request that is validated, receives a booking reference, starts as Submitted and gets one or two seats by the team seat rule in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "request-intake"
+tests = [
+    "test_app.py::test_booking_intake",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Who sees which booking"
+text = "Requesters see only their own organisation's bookings, files and billing totals, interpreters see only bookings they hold or are offered, and any other booking answers as not found."
+kind = "behavior"
+primary = "pytest"
+workflow = "request-intake"
+tests = [
+    "test_app.py::test_visibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Requester books from the browser"
+text = "A requester completes the New request dialog in agency time and sees the new booking listed as Uncovered with its reference, whatever their browser's time zone."
+kind = "behavior"
+primary = "workflow"
+workflow = "request-intake"
+tests = [
+    "test_app.py::test_wf_request_intake_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Coverage states by pattern and label"
+text = "Every coverage state on the coverage board and in the rotation weave differs by pattern and text label as well as colour, and meets the contrast thresholds in Feedback states."
+kind = "visual"
+primary = "pytest"
+workflow = "triage-and-open-call"
+tests = [
+    "test_app.py::test_coverage_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Team decision and open call"
+text = "The coordinator can turn a solo booking into a team booking and publish an open call that offers vacant seats to qualified interpreters until the server-decided close time, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "triage-and-open-call"
+tests = [
+    "test_app.py::test_team_and_open_call",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Coordinator triage in the browser"
+text = "The coordinator selects a submitted booking on the coverage board, makes it a team booking if needed and posts the open call, and the row then reads Open call and the Seats panel shows when the open call closes."
+kind = "behavior"
+primary = "workflow"
+workflow = "triage-and-open-call"
+tests = [
+    "test_app.py::test_wf_triage_and_open_call_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Seat filling rules"
+text = "An interpreter claim fills the lowest vacant seat and a coordinator assignment fills the seat it names, only when the interpreter is qualified, free at that time and not already on the booking, and the booking moves to Partly covered or Covered."
+kind = "behavior"
+primary = "pytest"
+workflow = "open-call-claim"
+tests = [
+    "test_app.py::test_seat_filling",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "One winner for the last seat"
+text = "When several attempts to fill the same vacant seat arrive at once, exactly one succeeds, the rest receive the already-filled rejection, and no booking ever shows more holders than seats."
+kind = "behavior"
+primary = "pytest"
+workflow = "open-call-claim"
+tests = [
+    "test_app.py::test_claim_race_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Interpreter claims from the browser"
+text = "A qualified interpreter sees the booking under Open calls, claims a seat and then sees it under My assignments, while a slower colleague sees the already-filled message."
+kind = "behavior"
+primary = "workflow"
+workflow = "open-call-claim"
+tests = [
+    "test_app.py::test_wf_open_call_claim_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Role-shaped interpreter cards"
+text = "Booking responses and screens carry only the interpreter fields published for the caller's role, so requesters and fellow interpreters never receive an interpreter's phone, email, home city, pay rate or id."
+kind = "behavior"
+primary = "pytest"
+workflow = "open-call-claim"
+tests = [
+    "test_app.py::test_role_cards",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Confirmation emails"
+text = "Each interpreter receives one assignment confirmation when given a seat, and the requester receives one coverage confirmation each time the booking becomes fully covered, sent late rather than lost when mail is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "coordinator-assign"
+tests = [
+    "test_app.py::test_assignment_emails",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Nothing private in emails"
+text = "Interpreter emails never carry the requester's notes or any money amount, and requester emails never carry an interpreter's pay, phone, email or home city."
+kind = "behavior"
+primary = "pytest"
+workflow = "coordinator-assign"
+tests = [
+    "test_app.py::test_email_privacy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Coordinator assigns from the browser"
+text = "The coordinator fills both seats of a court booking through the Assign interpreter dialog, each assignment naming its seat, and sees the rotation weave split into alternating turns."
+kind = "behavior"
+primary = "workflow"
+workflow = "coordinator-assign"
+tests = [
+    "test_app.py::test_wf_coordinator_assign_court",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Seat release"
+text = "Before check-in, an interpreter can withdraw from a held seat and the coordinator can release one, each after confirming in an in-app dialog, which reopens the seat, recalculates the status and ends that interpreter's prep access at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "withdraw-and-recover"
+tests = [
+    "test_app.py::test_seat_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Rotation plan"
+text = "Every booking response carries a rotation plan of turns and gaps computed from the seats, the contract rotation interval and the solo threshold, with every boundary in elapsed minutes from the start, as defined in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "withdraw-and-recover"
+tests = [
+    "test_app.py::test_rotation_plan",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Rotation weave on screen"
+text = "The selected booking's time bar draws the rotation plan as turns and gaps that carry their index, kind, holder and agency wall-clock times, with a coverage figure and an adjacent list that announces the plan, and redraws only when the plan changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "withdraw-and-recover"
+tests = [
+    "test_app.py::test_weave_on_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Refill after a withdrawal"
+text = "When an interpreter withdraws from a covered team booking, the coordinator sees the gap and the lower coverage within the refresh interval and refills the seat from the Assign interpreter dialog to return the booking to Covered."
+kind = "behavior"
+primary = "workflow"
+workflow = "withdraw-and-recover"
+tests = [
+    "test_app.py::test_wf_withdraw_and_recover_refill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Prep material upload checks"
+text = "Uploads are accepted only within the published size and count limits and only for the accepted file kinds judged by content, and they are stored under keys the uploader cannot influence."
+kind = "behavior"
+primary = "pytest"
+workflow = "prep-materials"
+tests = [
+    "test_app.py::test_upload_checks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Prep access follows the seat"
+text = "Only current seat holders can get a short-lived download link, and access ends when they stop holding the seat, when the booking is cancelled, or when the grace period after the assignment ends runs out."
+kind = "behavior"
+primary = "pytest"
+workflow = "prep-materials"
+tests = [
+    "test_app.py::test_prep_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Prep materials in the browser"
+text = "A requester attaches a file to their booking and an assigned interpreter downloads it from the Prep materials panel under its display name with its exact bytes."
+kind = "behavior"
+primary = "workflow"
+workflow = "prep-materials"
+tests = [
+    "test_app.py::test_wf_prep_materials_download",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Late window in agency time"
+text = "Whether a cancellation is late is decided by the two-business-day rule in the agency time zone with weekends skipped and the start's wall-clock time kept across a clock change, never by server UTC or the browser clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "requester-cancel"
+tests = [
+    "test_app.py::test_late_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Quoted cancellation"
+text = "Cancelling requires confirming the quoted charge, the booking ends as Cancelled or Cancelled (late) as qualified in Business rules, and a stale quote is rejected with the current one."
+kind = "behavior"
+primary = "pytest"
+workflow = "requester-cancel"
+tests = [
+    "test_app.py::test_quoted_cancellation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Cancellation notices"
+text = "Cancelling sends one notice to the requester and one to each seat holder, and the requester's copy states the late charge when there is one."
+kind = "behavior"
+primary = "pytest"
+workflow = "requester-cancel"
+tests = [
+    "test_app.py::test_cancellation_notices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Requester cancels from the browser"
+text = "A requester whose browser runs in another time zone opens Cancel booking, sees the agency-time quote, confirms it and sees the booking marked Cancelled or Cancelled (late)."
+kind = "behavior"
+primary = "workflow"
+workflow = "requester-cancel"
+tests = [
+    "test_app.py::test_wf_requester_cancel_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Check-in and completion"
+text = "The coordinator checks in a covered booking and completes it with worked minutes and mileage, and every other attempted transition is rejected as described in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "complete-and-bill"
+tests = [
+    "test_app.py::test_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Contract line arithmetic"
+text = "Each completion or late cancellation creates one invoice line computed once in integer cents from the contract rate in force on the assignment date, applying the minimum, quarter-hour rounding, team surcharge, mileage and the single rounding step in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "complete-and-bill"
+tests = [
+    "test_app.py::test_line_arithmetic",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "One Kill Bill charge per line"
+text = "Every invoice line appears exactly once as a charge of the same amount on its organisation's Kill Bill account, however often the action or the posting is retried, and counts as synced only once read back as described in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "complete-and-bill"
+tests = [
+    "test_app.py::test_killbill_charge_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Pending sync when billing is down"
+text = "If Kill Bill is unreachable, completion and late cancellation still succeed, the line shows Pending sync, and it posts on its own after Kill Bill returns, without a restart, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "complete-and-bill"
+tests = [
+    "test_app.py::test_billing_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Coordinator completes from the browser"
+text = "The coordinator checks in a covered booking, records completion in the Complete assignment dialog and sees the invoice line and its amount in the Billing panel."
+kind = "behavior"
+primary = "workflow"
+workflow = "complete-and-bill"
+tests = [
+    "test_app.py::test_wf_complete_and_bill_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Weekly statement and close"
+text = "The billing manager reads a client's weekly statement and can close the week only when every line is synced and the Relayline total equals Kill Bill's current total to the cent."
+kind = "behavior"
+primary = "pytest"
+workflow = "weekly-close"
+tests = [
+    "test_app.py::test_weekly_statement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Dispute record"
+text = "Each invoice line exposes its full calculation, and each booking keeps an audit trail with exactly one entry per successful state-changing action, as qualified in Business rules, that retries never duplicate."
+kind = "behavior"
+primary = "pytest"
+workflow = "complete-and-bill"
+tests = [
+    "test_app.py::test_audit_trail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Effective-dated contract rates"
+text = "The billing manager adds a contract rate that applies from a stated future date, and the rate is rejected if it would reprice an assignment that has already been billed."
+kind = "behavior"
+primary = "pytest"
+workflow = "weekly-close"
+tests = [
+    "test_app.py::test_contract_rates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Billing manager closes a week in the browser"
+text = "The billing manager picks a client and a week, reviews each line's amount, billing amount and sync label, and closes the week or sees why it was refused with both totals."
+kind = "behavior"
+primary = "workflow"
+workflow = "weekly-close"
+tests = [
+    "test_app.py::test_wf_weekly_close_happy",
+    "test_app.py::test_wf_weekly_close_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Retried actions are idempotent"
+text = "A POST that accepts an Idempotency-Key, repeated with the same key, returns the stored response without new effects, a key still being processed answers idempotency_in_progress, an invalid or reused key is rejected as stated in API, and a repeated transition without a key is rejected with no new charge, email or audit entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_idempotency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from the run manifest on the published port and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Configuration from environment"
+text = "Every service URL and credential is read from the environment at start and is never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Server boundary"
+text = "The server serves only the app and its API from one origin, enforces the request size limits, rejects cross-origin writes and never serves source files or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Error shape and precedence"
+text = "Every API error uses the single error body shape and the single precedence order stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Responsive layout"
+text = "Every screen works at 375x812, 768x1024 and 1280x800 with no horizontal scrolling and the arrangement of its layout range described in Screens and layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Keyboard and focus"
+text = "Every control is reachable in the described Tab order with a visible focus outline, Tab wraps inside open dialogs, Escape closes them except where Interactions says otherwise, and focus returns to the opener or, when the opener is gone, to the place Interactions names."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_and_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Weave motion"
+text = "Turns enter left to right with a short stagger, the coverage figure counts to its new value and withdrawals collapse right to left only when the rotation plan changes, with hover and press feedback as described in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_weave_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Reduced motion"
+text = "When reduced motion is requested, the weave and the coverage figure reach their final state instantly with the same patterns, labels and list."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Ruled utility look"
+text = "Screens follow the ruled twelve-column layout, warm off-white ground, signal yellow reserved for uncovered work and monospace numerals described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Rotation weave craft"
+text = "The rotation weave shows at a glance who carries each stretch, with distinct solid and striped turns, hatched gaps and aligned monospace times."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B4",
+    "B5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Server-timed open call"
+text = "The server alone decides when an open call closes, and the screen shows that moment as fixed text and stops offering the claim within one refresh after it passes, whatever the browser clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "triage-and-open-call"
+tests = [
+    "test_app.py::test_open_call_server_timed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Announced assignment results"
+text = "Assignment pending, success and error results are announced in the page's status and alert regions that exist from first load, and a schedule conflict keeps the Assign interpreter dialog open with the now-busy interpreter disabled."
+kind = "behavior"
+primary = "pytest"
+workflow = "coordinator-assign"
+tests = [
+    "test_app.py::test_wf_coordinator_assign_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Refresh keeps what the user is doing"
+text = "The ten-second refresh updates data in place without closing dialogs, resetting chosen or typed inputs, moving focus, changing selection, scrolling or writing to the page's status and alert regions, and tells the Assign interpreter dialog in place when its seat was filled by someone else."
+kind = "behavior"
+primary = "pytest"
+workflow = "withdraw-and-recover"
+tests = [
+    "test_app.py::test_refresh_keeps_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Cancel by keyboard alone"
+text = "A requester can cancel a booking with the keyboard alone, with focus starting on Keep booking, moving to a changed quote before it can be confirmed, and landing on the detail heading after cancelling."
+kind = "behavior"
+primary = "pytest"
+workflow = "requester-cancel"
+tests = [
+    "test_app.py::test_wf_requester_cancel_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Billing state comes from Kill Bill"
+text = "Each line's sync state and billing amount, and the week's billing total, are read back from Kill Bill including adjustments made there, so a changed charge shows as Differs and closing is refused with both exact totals."
+kind = "behavior"
+primary = "pytest"
+workflow = "weekly-close"
+tests = [
+    "test_app.py::test_billing_from_killbill",
+    "test_app.py::test_billing_adjustment_differs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Text limits in characters"
+text = "Every text limit is counted in Unicode code points and is inclusive at the limit, on the server and in the live character hints, and accepted text is stored and returned exactly as submitted."
+kind = "behavior"
+primary = "pytest"
+workflow = "request-intake"
+tests = [
+    "test_app.py::test_text_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Start time in agency time across clock changes"
+text = "A start is read as agency wall-clock time, a time skipped by a clock change is refused, a repeated time means its first occurrence, and the end is the length in elapsed minutes after the start."
+kind = "behavior"
+primary = "pytest"
+workflow = "request-intake"
+tests = [
+    "test_app.py::test_agency_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Board day and selection live in the URL"
+text = "The coordinator board's agency-local day and selected booking are kept in the URL so that reload, Back and Forward restore them as qualified in Interactions, and the periodic refresh never changes the URL."
+kind = "behavior"
+primary = "pytest"
+workflow = "triage-and-open-call"
+tests = [
+    "test_app.py::test_wf_triage_and_open_call_url",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Interpreter search in the Assign dialog"
+text = "Typing in Find interpreter narrows the Assign interpreter list, which always shows the results of the latest search text, and a chosen interpreter who is filtered out of view is unchosen and Assign is disabled."
+kind = "behavior"
+primary = "pytest"
+workflow = "coordinator-assign"
+tests = [
+    "test_app.py::test_wf_coordinator_assign_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "The hidden pane is unavailable"
+text = "In the compact layout, whichever of the list and detail panes is hidden is absent from the accessibility tree and unreachable by Tab, and after a withdrawal the list returns with focus on its first row as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "withdraw-and-recover"
+tests = [
+    "test_app.py::test_wf_withdraw_and_recover_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Upload stores object and record together"
+text = "Each prep file's stored object and its record exist together or not at all, concurrent uploads never take a booking past its file limit, and a storage outage leaves the materials list unchanged while bookings keep working."
+kind = "behavior"
+primary = "pytest"
+workflow = "prep-materials"
+tests = [
+    "test_app.py::test_concurrent_uploads",
+    "test_app.py::test_wf_prep_materials_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Layout ranges at exact edges"
+text = "The compact, medium and wide layouts and their dialog sizes switch exactly at the published range edges in Screens and layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "requester-cancel"
+tests = [
+    "test_app.py::test_wf_requester_cancel_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Rate by agency-local assignment date"
+text = "Completions, late-cancellation lines and cancellation quotes use the contract rate in force on the booking's agency-local start date, and a rate added after a quote changes the charge that quote must confirm."
+kind = "behavior"
+primary = "pytest"
+workflow = "complete-and-bill"
+tests = [
+    "test_app.py::test_rate_by_assignment_date",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "One booking per draft"
+text = "The New request dialog sends one Idempotency-Key for an unchanged draft, so pressing Submit request again after a lost response replays the stored booking, and one key yields exactly one booking, reference and audit entry even when requests with it arrive concurrently."
+kind = "behavior"
+primary = "pytest"
+workflow = "request-intake"
+tests = [
+    "test_app.py::test_wf_request_intake_lost_response",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Actions are never undone by a stale refresh"
+text = "A refetch requested before the user's latest action on the same data finished is discarded, so the board, the interpreter lists and the weave never show a booking state older than one an action produced and the action's announced result stays."
+kind = "behavior"
+primary = "pytest"
+workflow = "triage-and-open-call"
+tests = [
+    "test_app.py::test_wf_triage_and_open_call_stale_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "In-app withdraw and release confirmation"
+text = "Withdraw and Release confirm through in-app dialogs sized by the layout ranges, with the safe button focused first, Tab wrapping, tap support and no native prompt, and the departing turns collapse right to left or instantly under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "withdraw-and-recover"
+tests = [
+    "test_app.py::test_wf_withdraw_and_recover_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Prep files stored as submitted"
+text = "Each prep file is stored and served byte for byte with its recorded SHA-256, and its display name is kept exactly as submitted up to 120 code points and delivered in the download's RFC 5987 file name with the published ASCII fallback."
+kind = "behavior"
+primary = "pytest"
+workflow = "prep-materials"
+tests = [
+    "test_app.py::test_stored_as_submitted",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "An ended session resumes the action"
+text = "A user action answered as unauthenticated opens Sign in to continue over the kept screen and, after signing in again, is resent once with the same method, path, body and Idempotency-Key, while refreshes answered as unauthenticated change nothing on screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "request-intake"
+tests = [
+    "test_app.py::test_wf_request_intake_session_resume",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "A claim moves only on the server's answer"
+text = "A claimed row moves to My assignments only after the server accepts the claim, a refetch requested before the claim answered never puts it back under Open calls, and a refused claim's alert and focus survive every later refresh, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "open-call-claim"
+tests = [
+    "test_app.py::test_wf_open_call_claim_refusal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Abandoned transfers release storage at once"
+text = "A prep download the client abandons releases its storage connection at once and an upload cut off mid-body stores nothing and uses no file slot, so later downloads and API calls stay exact and fast, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "prep-materials"
+tests = [
+    "test_app.py::test_abandoned_transfers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Cancel dialog survives reopening"
+text = "Reopening Cancel booking during its closing fade keeps the new dialog open with focus on Keep booking, each opening shows only its own fresh quote, and refreshes never change the quote, the confirm label or focus while it is open."
+kind = "behavior"
+primary = "pytest"
+workflow = "requester-cancel"
+tests = [
+    "test_app.py::test_wf_requester_cancel_reopen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "One completion per draft"
+text = "The Complete assignment dialog sends one Idempotency-Key per unchanged draft, so pressing Record completion again after a lost response replays the stored result with exactly one invoice line, one Kill Bill charge and one audit entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "complete-and-bill"
+tests = [
+    "test_app.py::test_wf_complete_and_bill_lost_response",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build, serve and _schema run-manifest-v1, and nothing else is needed to start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package and every bundled font with its licence; shipped packages are the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (as defined in IF-02) and bundled font is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0, CC0-1.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Postgres is the only datastore; there is no SQLite, Redis, embedded database or state file on disk, and prep files live only in the configured bucket."
+tests = [
+    "test_app.py::test_if_postgres_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "A committed package-lock.json pins the dependency tree used by install."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service configuration (compose files and their environment values) is left untouched."
+tests = [
+    "test_app.py::test_if_compose_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The browser loads no script, style or font from any origin other than the app's own."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "request-intake"
+requirements = [
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-51",
+    "DP-52",
+    "DP-59",
+    "DP-63",
+]
+critical = [
+    "test_app.py::test_wf_request_intake_happy",
+    "test_app.py::test_wf_request_intake_session_resume",
+    "test_app.py::test_wf_request_intake_lost_response",
+    "test_app.py::test_visibility",
+    "test_app.py::test_text_limits",
+]
+checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "triage-and-open-call"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-46",
+    "DP-53",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_triage_and_open_call_happy",
+    "test_app.py::test_wf_triage_and_open_call_stale_refresh",
+    "test_app.py::test_wf_triage_and_open_call_url",
+    "test_app.py::test_coverage_states",
+    "test_app.py::test_open_call_server_timed",
+]
+checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "open-call-claim"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_open_call_claim_race",
+    "test_app.py::test_wf_open_call_claim_refusal",
+    "test_app.py::test_claim_race_api",
+    "test_app.py::test_role_cards",
+]
+checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "coordinator-assign"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-47",
+    "DP-54",
+]
+critical = [
+    "test_app.py::test_wf_coordinator_assign_court",
+    "test_app.py::test_wf_coordinator_assign_conflict",
+    "test_app.py::test_wf_coordinator_assign_search",
+    "test_app.py::test_email_privacy",
+]
+checkpoints = [
+    "B4",
+]
+critical_checkpoints = [
+    "B4",
+]
+
+[[workflows]]
+id = "withdraw-and-recover"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-48",
+    "DP-55",
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_withdraw_and_recover_refill",
+    "test_app.py::test_wf_withdraw_and_recover_phone",
+    "test_app.py::test_wf_withdraw_and_recover_release",
+    "test_app.py::test_refresh_keeps_state",
+]
+
+[[workflows]]
+id = "prep-materials"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-56",
+    "DP-62",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_prep_materials_download",
+    "test_app.py::test_wf_prep_materials_storage_outage",
+    "test_app.py::test_upload_checks",
+    "test_app.py::test_concurrent_uploads",
+    "test_app.py::test_stored_as_submitted",
+    "test_app.py::test_abandoned_transfers",
+]
+
+[[workflows]]
+id = "requester-cancel"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-49",
+    "DP-57",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_requester_cancel_keyboard",
+    "test_app.py::test_wf_requester_cancel_reopen",
+    "test_app.py::test_wf_requester_cancel_layout",
+    "test_app.py::test_wf_requester_cancel_happy",
+    "test_app.py::test_late_window",
+]
+checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "complete-and-bill"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-32",
+    "DP-58",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_complete_and_bill_happy",
+    "test_app.py::test_wf_complete_and_bill_lost_response",
+    "test_app.py::test_line_arithmetic",
+    "test_app.py::test_billing_down",
+    "test_app.py::test_rate_by_assignment_date",
+]
+
+[[workflows]]
+id = "weekly-close"
+requirements = [
+    "DP-31",
+    "DP-33",
+    "DP-34",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_weekly_close_happy",
+    "test_app.py::test_wf_weekly_close_outage",
+    "test_app.py::test_billing_from_killbill",
+    "test_app.py::test_billing_adjustment_differs",
+    "test_app.py::test_contract_rates",
+]
+checkpoints = [
+    "B8",
+    "B9",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_seeded_sign_in_and_roles",
+    "test_app.py::test_health",
+    "test_app.py::test_idempotency",
+]
+checkpoints = [
+    "B1",
+    "B3",
+]
+critical_checkpoints = [
+    "B1",
+]

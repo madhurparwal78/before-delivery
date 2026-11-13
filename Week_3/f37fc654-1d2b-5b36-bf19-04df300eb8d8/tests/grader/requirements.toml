@@ -1,0 +1,1328 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "sign-in",
+    "brief",
+    "uploads",
+    "render-preview",
+    "configurator",
+    "install-day-hold",
+    "checkout",
+    "co-funding",
+    "milestones",
+    "crm-webhooks",
+    "crew",
+    "producer-ops",
+    "landing",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 81
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "keycloak", env = {} },
+    { name = "killbill", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Spindrift Rooms <studio@spindrift.test>" } },
+    { name = "minio", env = {} },
+    { name = "gotenberg", env = {} },
+    { name = "svix", env = {} },
+    { name = "ntfy", env = {} },
+    { name = "wiremock", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 5
+B11 = 5
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 1
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "minio-down"
+port = 4176
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "gotenberg-down"
+port = 4177
+url_env = "APP_GOTENBERG_DOWN_URL"
+
+[outages.env]
+GOTENBERG_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "svix-down"
+port = 4178
+url_env = "APP_SVIX_DOWN_URL"
+
+[outages.env]
+SVIX_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "ntfy-down"
+port = 4179
+url_env = "APP_NTFY_DOWN_URL"
+
+[outages.env]
+NTFY_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "wiremock-down"
+port = 4180
+url_env = "APP_WIREMOCK_DOWN_URL"
+
+[outages.env]
+WIREMOCK_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "keycloak-down"
+port = 4181
+url_env = "APP_KEYCLOAK_DOWN_URL"
+
+[outages.env]
+KEYCLOAK_URL = "http://127.0.0.1:9"
+AUTH_ISSUER_URL = "http://127.0.0.1:9/realms/down"
+
+[[outages]]
+id = "short-timer"
+port = 4182
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+HOLD_SECONDS = "5"
+INVITE_TTL_SECONDS = "5"
+QUOTE_TTL_SECONDS = "5"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Browser-bound sign-in"
+text = "Sign-in goes through Keycloak with a fresh state and code challenge per attempt, and a callback with a missing, reused or other-browser state shows the published sign-in error and creates no session."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_signin_state_bound_to_browser",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Seeded accounts and roles"
+text = "At start the app ensures the four roles and the seeded Keycloak accounts exist, gives a first-time self-registered user the client role, and lands each role on its published route after sign-in."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_seeded_roles_and_landing",
+]
+criteria = []
+parameter_cases = [
+    "producer",
+    "client",
+    "crew",
+    "self-registered",
+]
+
+[[requirements]]
+id = "DP-03"
+title = "Expired access resumes the action"
+text = "When access expires during a request the browser refreshes once, shared by concurrent requests, and replays the original request with its payload; a failed refresh shows the published signed-out message and keeps what was entered."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_expired_access_refresh_replay",
+    "test_app.py::test_wf_sign_in_failed_refresh_keeps_entries",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Sign-in returns to the interrupted step"
+text = "A client who signs in from the brief or checkout comes back to the interrupted step with the pending answer saved once, at that step's published address as qualified in Interactions, and reloading that address shows the same screen."
+kind = "behavior"
+primary = "workflow"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_wf_sign_in_brief_return",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Brief answers saved per step"
+text = "Each brief answer is validated and saved on the server step by step in order with the published field errors, and completing all six steps creates one commission in state briefed."
+kind = "behavior"
+primary = "pytest"
+workflow = "brief"
+tests = [
+    "test_app.py::test_brief_steps_validated_in_order",
+    "test_app.py::test_wf_brief_field_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Stage reshaped by answers"
+text = "After each saved answer the venue stage publishes and shows the new room size, installation silhouette and dust density within the published time."
+kind = "behavior"
+primary = "pytest"
+workflow = "brief"
+tests = [
+    "test_app.py::test_stage_reshaped_by_answers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Venue search answers the latest query"
+text = "The venue field shows suggestions only for the latest text typed, even when an earlier search answers later."
+kind = "behavior"
+primary = "pytest"
+workflow = "brief"
+tests = [
+    "test_app.py::test_venue_search_latest_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Cue-line typing sequence"
+text = "Each brief question types in on the published letter schedule with the guide cursor and colour trail and then reveals its answer controls, and under reduced motion it appears whole at once."
+kind = "visual"
+primary = "pytest"
+workflow = "brief"
+tests = [
+    "test_app.py::test_cue_line_typing_schedule",
+    "test_app.py::test_brief_components_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Cue-line Brief journey"
+text = "A client completes the six-question brief by keyboard alone with focus on the first answer control of each new question, and ends on the room-ready screen of their new commission."
+kind = "behavior"
+primary = "workflow"
+workflow = "brief"
+tests = [
+    "test_app.py::test_wf_brief_keyboard_journey",
+    "test_app.py::test_wf_brief_step_addresses",
+    "test_app.py::test_wf_brief_session_expiry_resume",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Upload limits and byte-exact storage"
+text = "Briefs, venue photos and GLB models are accepted only within the published type and size limits judged by content, stored byte-exact with their SHA-256, and shown as Stored only after the file store confirms."
+kind = "behavior"
+primary = "pytest"
+workflow = "uploads"
+tests = [
+    "test_app.py::test_upload_limits_by_content",
+]
+criteria = []
+parameter_cases = [
+    "brief-pdf",
+    "png-photo",
+    "jpeg-photo",
+    "glb-model",
+    "photo-at-limit",
+    "photo-over-limit",
+    "pdf-named-png",
+    "glb-wrong-length",
+    "glb-version-1",
+    "empty-photo",
+    "traversal-name",
+    "unknown-kind",
+]
+
+[[requirements]]
+id = "DP-11"
+title = "Upload announcements"
+text = "Each upload's progress and result, including the stored size and SHA-256, is announced word for word in the Upload status live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "uploads"
+tests = [
+    "test_app.py::test_upload_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Venue files journey"
+text = "A client uploads a venue photo and a GLB model from the files screen and sees each listed as Stored with its size and SHA-256."
+kind = "behavior"
+primary = "workflow"
+workflow = "uploads"
+tests = [
+    "test_app.py::test_wf_uploads_venue_files",
+    "test_app.py::test_wf_uploads_cross_client",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Render requests reach the provider"
+text = "A concept preview request becomes a durable render job that submits the venue photo, brief and layout to the render provider exactly as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "render-preview"
+tests = [
+    "test_app.py::test_render_submission_payload",
+    "test_app.py::test_render_submit_survives_provider_fault",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Safe reference-image fetching"
+text = "A reference-image address that leads, directly or after any redirect, to a loopback, private, link-local or metadata address is refused with the published error and never contacted."
+kind = "behavior"
+primary = "pytest"
+workflow = "render-preview"
+tests = [
+    "test_app.py::test_reference_image_ssrf",
+]
+criteria = []
+parameter_cases = [
+    "loopback",
+    "decimal-host",
+    "octal-host",
+    "hex-host",
+    "ipv6-loopback",
+    "ipv4-mapped",
+    "unspecified",
+    "private-10",
+    "cgnat",
+    "metadata",
+    "redirect-to-loopback",
+    "ftp-scheme",
+]
+
+[[requirements]]
+id = "DP-15"
+title = "Verified render callbacks"
+text = "Render callbacks are accepted only with a valid signature and a fresh timestamp, a replayed or out-of-order callback changes nothing, and a render is Ready only after its preview is stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "render-preview"
+tests = [
+    "test_app.py::test_render_callbacks_verified",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Concept preview journey"
+text = "A client requests a preview, hears its progress and completion in the Preview status live region, and sees the preview image on their commission."
+kind = "behavior"
+primary = "workflow"
+workflow = "render-preview"
+tests = [
+    "test_app.py::test_wf_render_preview_journey",
+    "test_app.py::test_wf_render_preview_unsafe_reference",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Server-validated placements"
+text = "The server accepts a layout only when every piece sits inside the room, no pieces overlap, the door clearance is kept and positions are snapped, and it answers each failure with the published message."
+kind = "behavior"
+primary = "pytest"
+workflow = "configurator"
+tests = [
+    "test_app.py::test_layout_placement_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Layout versions"
+text = "Saving a layout over a newer version answers 412, and the configurator then shows the latest layout with the published conflict copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "configurator"
+tests = [
+    "test_app.py::test_layout_version_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Keyboard and touch placement"
+text = "Pieces move by the published keys and by drag and fling with touch or mouse, snap to the quarter-metre grid and are saved on drop, with the same function under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "configurator"
+tests = [
+    "test_app.py::test_keyboard_and_touch_placement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Configurator breakpoints"
+text = "The configurator shows scene and inspector side by side from 1200 pixels wide, stacked from 768 to 1199 pixels, and as a scene with a collapsible bottom sheet below 768 pixels."
+kind = "visual"
+primary = "pytest"
+workflow = "configurator"
+tests = [
+    "test_app.py::test_configurator_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "1280x800",
+    "1200x800",
+    "1199x1024",
+    "768x1024",
+    "375x812",
+]
+
+[[requirements]]
+id = "DP-21"
+title = "Live quote recount"
+text = "Configurator choices update the quote in place from the server's reply to the latest choice only, recounting the numerals and announcing the total in the Quote total live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "configurator"
+tests = [
+    "test_app.py::test_quote_recount_latest_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Configure-the-room journey"
+text = "A client places every required piece, chooses size and extras and saves the quote, and the commission reaches state placed."
+kind = "behavior"
+primary = "workflow"
+workflow = "configurator"
+tests = [
+    "test_app.py::test_wf_configurator_room_journey",
+    "test_app.py::test_wf_configurator_phone_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Install days in the venue's zone"
+text = "Install days are whole calendar days in the venue's time zone with one install per day, including days that change to or from daylight saving time."
+kind = "behavior"
+primary = "pytest"
+workflow = "install-day-hold"
+tests = [
+    "test_app.py::test_install_days_venue_zone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "One winner per venue day"
+text = "Of any number of simultaneous holds for the same venue day exactly one succeeds, and the others receive the published taken response with the next free days."
+kind = "behavior"
+primary = "pytest"
+workflow = "install-day-hold"
+tests = [
+    "test_app.py::test_hold_race_one_winner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Server-decided hold deadline"
+text = "A hold ends at the server instant HOLD_SECONDS after it was recorded and is judged on the server at that exact edge, and the countdown follows the server's remaining time, never the device clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "install-day-hold"
+tests = [
+    "test_app.py::test_hold_deadline_server_edge",
+    "test_app.py::test_hold_countdown_ignores_device_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Hold journey"
+text = "A client holds a free day and watches the countdown, and when the hold ends mid-checkout keeps the open payment sheet and entered data and sees the published hold-ended state."
+kind = "behavior"
+primary = "workflow"
+workflow = "install-day-hold"
+tests = [
+    "test_app.py::test_wf_install_day_hold_journey",
+    "test_app.py::test_wf_install_day_hold_taken",
+    "test_app.py::test_wf_install_day_hold_ends_mid_checkout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Exact quote and milestone amounts"
+text = "Quotes, tax and every milestone and share amount are integer cents computed by the published rules, and they match the Kill Bill invoice, the receipt and the invoice PDF."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_amounts_exact_across_systems",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Quote validity"
+text = "A saved quote is usable through its validUntil second and is refused at checkout from the next second, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_quote_validity_edge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Idempotent payments"
+text = "Every payment request carries an idempotency key; replays and concurrent duplicates return the original response with one Kill Bill payment, and a reused key with a different request answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_payment_idempotency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Paid only after Kill Bill confirms"
+text = "A milestone or share becomes Paid, enters the ledger and produces its receipt and CRM event only after Kill Bill confirms the payment, and none of these appear when the payment fails."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_paid_only_after_killbill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Checkout journey"
+text = "A client with a held day signs the agreement and pays the deposit by keyboard alone, and sees the commission contracted with its install day booked."
+kind = "behavior"
+primary = "workflow"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_wf_checkout_keyboard_deposit",
+    "test_app.py::test_wf_checkout_payment_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Funder shares by basis points"
+text = "Funder shares are basis points summing to 10000, split to the cent by largest remainder with ties going to the earlier funder, so the shares always add up to the total."
+kind = "behavior"
+primary = "pytest"
+workflow = "co-funding"
+tests = [
+    "test_app.py::test_funder_split_largest_remainder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Sponsor invite links"
+text = "A sponsor invite link shows only that sponsor's share and the public summary, changes nothing without sign-in, expires on the server after INVITE_TTL_SECONDS, and stops working when revoked or reissued."
+kind = "behavior"
+primary = "pytest"
+workflow = "co-funding"
+tests = [
+    "test_app.py::test_sponsor_invite_link_rules",
+    "test_app.py::test_sponsor_invite_expires_on_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Sponsor journey"
+text = "A sponsor opens the invite link, signs in, accepts, lands on /c/<commission id>/share and pays their share."
+kind = "behavior"
+primary = "workflow"
+workflow = "co-funding"
+tests = [
+    "test_app.py::test_wf_co_funding_sponsor_journey",
+    "test_app.py::test_wf_co_funding_invite_used",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Commission state machine"
+text = "Commissions move only along the published transitions by the published roles, and every illegal move answers 409 with the published body."
+kind = "behavior"
+primary = "pytest"
+workflow = "milestones"
+tests = [
+    "test_app.py::test_state_machine_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Milestone invoices and due dates"
+text = "Each milestone is invoiced in Kill Bill on its triggering event, with a due date computed on the server as 14 days later at 23:59:59 in the venue's time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "milestones"
+tests = [
+    "test_app.py::test_milestone_invoice_due_dates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Frozen contract and invoice PDFs"
+text = "The contract PDF is rendered at signing and each invoice PDF at issue, both are stored with their SHA-256 and never rewritten, and a later change makes a new document."
+kind = "behavior"
+primary = "pytest"
+workflow = "milestones"
+tests = [
+    "test_app.py::test_contract_and_invoice_pdfs_frozen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Milestone journey"
+text = "The client approves the concept, the producer starts fabrication, the crew lead confirms installation and the client signs acceptance, with each paid milestone unlocking the next step."
+kind = "behavior"
+primary = "workflow"
+workflow = "milestones"
+tests = [
+    "test_app.py::test_wf_milestones_delivery_journey",
+    "test_app.py::test_wf_milestones_billing_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Signed CRM events with delivery log"
+text = "Slot, contract, milestone and maintenance events reach the client's CRM endpoint through Svix with one event id each, and the client and producer see every delivery attempt and its final state."
+kind = "behavior"
+primary = "pytest"
+workflow = "crm-webhooks"
+tests = [
+    "test_app.py::test_crm_events_through_svix",
+    "test_app.py::test_crm_events_after_svix_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "CRM journey"
+text = "A client saves their CRM endpoint, pays a milestone and sees that delivery with its attempts on the deliveries screen."
+kind = "behavior"
+primary = "workflow"
+workflow = "crm-webhooks"
+tests = [
+    "test_app.py::test_wf_crm_webhooks_journey",
+    "test_app.py::test_wf_crm_webhooks_invalid_endpoint",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Crew alerts"
+text = "Slot-confirmed, day-before load-in and placement-changed alerts reach the crew topic once each with the published titles, including after an alert service outage."
+kind = "behavior"
+primary = "pytest"
+workflow = "crew"
+tests = [
+    "test_app.py::test_crew_alerts_titles_once",
+    "test_app.py::test_crew_alert_after_ntfy_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Crew see only their days"
+text = "A crew lead sees and acts on only the install days they are assigned to, and any other day answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "crew"
+tests = [
+    "test_app.py::test_crew_sees_only_assigned_days",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Crew day journey on a phone"
+text = "A crew lead on a phone opens the install-days list, opens their day sheet and confirms installation."
+kind = "behavior"
+primary = "workflow"
+workflow = "crew"
+tests = [
+    "test_app.py::test_wf_crew_phone_confirm",
+    "test_app.py::test_wf_crew_unassigned_day",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Maintenance subscription"
+text = "After the acceptance milestone is paid the client starts a monthly maintenance plan billed in advance by Kill Bill, and the commission becomes maintained."
+kind = "behavior"
+primary = "pytest"
+workflow = "milestones"
+tests = [
+    "test_app.py::test_maintenance_subscription",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Mid-cycle plan change"
+text = "A plan change takes effect immediately from the venue-local date, Kill Bill prorates it, and the app shows Kill Bill's invoice items and amounts."
+kind = "behavior"
+primary = "pytest"
+workflow = "milestones"
+tests = [
+    "test_app.py::test_plan_change_prorated_by_killbill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Maintenance journey"
+text = "A client starts maintenance, switches plans and sees Kill Bill's proration on the maintenance screen."
+kind = "behavior"
+primary = "workflow"
+workflow = "milestones"
+tests = [
+    "test_app.py::test_wf_milestones_maintenance_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Durable jobs exactly once"
+text = "Every render, PDF, email, crew-alert and webhook job is stored in Postgres, survives an app restart or service outage, and takes effect exactly once within 30 seconds of its service answering again."
+kind = "behavior"
+primary = "pytest"
+workflow = "producer-ops"
+tests = [
+    "test_app.py::test_jobs_durable_exactly_once",
+]
+criteria = []
+parameter_cases = [
+    "mailpit-down",
+    "gotenberg-down",
+    "ntfy-down",
+    "svix-down",
+]
+
+[[requirements]]
+id = "DP-48"
+title = "Live commission board"
+text = "The producer's board updates in place within 2 seconds of any confirmed payment and announces it in the Board updates live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "producer-ops"
+tests = [
+    "test_app.py::test_board_updates_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Outage banners and degraded behaviour"
+text = "When a service is unreachable every screen shows its published banner word for word, and each action behaves as published for that outage."
+kind = "behavior"
+primary = "pytest"
+workflow = "producer-ops"
+tests = [
+    "test_app.py::test_outage_banners_and_degraded",
+]
+criteria = []
+parameter_cases = [
+    "killbill",
+    "mailpit",
+    "minio",
+    "gotenberg",
+    "svix",
+    "ntfy",
+    "render-provider",
+    "keycloak",
+]
+
+[[requirements]]
+id = "DP-50"
+title = "Producer journey"
+text = "The producer sets funders, watches sponsor payments arrive on the board and follows a job through an outage to completion."
+kind = "behavior"
+primary = "workflow"
+workflow = "producer-ops"
+tests = [
+    "test_app.py::test_wf_studio_ops_producer_board",
+    "test_app.py::test_wf_studio_ops_jobs_table",
+    "test_app.py::test_wf_studio_ops_outage_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Scroll-scrubbed landing stage"
+text = "The landing stage moves its camera through five published keyframes as the visitor scrolls and reverses on scroll back, while the headline types in."
+kind = "visual"
+primary = "pytest"
+workflow = "landing"
+tests = [
+    "test_app.py::test_landing_scroll_keyframes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Case-study sheet and navigation drawer"
+text = "Case-study sheets and the mobile navigation drawer open as dialogs that keep focus inside, close with Escape and return focus, and when closed nothing inside them can be seen or reached."
+kind = "behavior"
+primary = "pytest"
+workflow = "landing"
+tests = [
+    "test_app.py::test_landing_dialogs_trap_and_hide",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Reduced motion and still fallback"
+text = "Under reduced motion every sequence shows its end state at once with the same controls, and without WebGL a published still frame carries the same content."
+kind = "visual"
+primary = "pytest"
+workflow = "landing"
+tests = [
+    "test_app.py::test_reduced_motion_and_fallback",
+]
+criteria = []
+parameter_cases = [
+    "reduced-motion",
+    "no-webgl",
+]
+
+[[requirements]]
+id = "DP-54"
+title = "Landing journey"
+text = "A visitor on a phone scrolls the landing stage, opens a case study and starts a commission into the first brief question."
+kind = "behavior"
+primary = "workflow"
+workflow = "landing"
+tests = [
+    "test_app.py::test_wf_landing_phone_journey",
+    "test_app.py::test_wf_landing_case_cards",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Object-level access"
+text = "Every route checks that each id, including ids inside request bodies, belongs to the caller, and answers 404 for any that does not."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_object_level_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Platform and server boundary"
+text = "The app runs from the published run manifest, answers the health check, enforces the published body limits and serves nothing but the app."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_platform_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Keyboard and dialogs"
+text = "Every action works by keyboard, dialogs keep Tab inside and return focus to their opener, and published shortcuts work whichever control in their region has focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_hold_and_brief_escape",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Responsive viewports"
+text = "Every screen fits 375x812, 768x1024 and 1280x800 with no sideways page scrolling and with controls at least 44 pixels in both dimensions."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_viewports",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-59"
+title = "Nocturnal stage look"
+text = "Every screen sits on the near-black stage with the electric-blue light field, the published typefaces and the single corner rule, with ink contrast of at least 4.5:1."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Provider-backed state in source"
+text = "The source reads every credential from the environment and derives paid, stored, ready and delivered states from the providers' answers, never from local flags."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with exactly the string keys _schema (value run-manifest-v1), install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package with its version and licence, where shipped packages are the production dependency tree from npm ls --omit=dev --all --json, plus every bundled font."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package is licensed MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, CC0-1.0 or Unlicense, and fonts are OFL-1.1; no GPL, AGPL or LGPL package ships."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in the provided Postgres and MinIO (plus the providers' own records), with no SQLite, Redis, local data files or in-memory store standing in for a database."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The seeded service configuration (compose files, service images and the provided realm, tenant and bucket settings) is left untouched; the app changes provider state only through their APIs at run time."
+tests = [
+    "test_app.py::test_if_seeded_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "package-lock.json is committed and install uses it."
+tests = [
+    "test_app.py::test_if_lockfile_used",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Fonts and scenes are bundled or generated; the app copies no third-party site's names, copy, images, models or shader code."
+tests = [
+    "test_app.py::test_if_bundled_assets_no_cdn",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "sign-in"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_sign_in_brief_return",
+    "test_app.py::test_wf_sign_in_failed_refresh_keeps_entries",
+    "test_app.py::test_signin_state_bound_to_browser",
+    "test_app.py::test_expired_access_refresh_replay",
+]
+
+[[workflows]]
+id = "brief"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+]
+critical = [
+    "test_app.py::test_wf_brief_keyboard_journey",
+    "test_app.py::test_wf_brief_step_addresses",
+    "test_app.py::test_wf_brief_session_expiry_resume",
+    "test_app.py::test_venue_search_latest_wins",
+]
+checkpoints = [
+    "B3",
+    "B5",
+]
+critical_checkpoints = [
+    "B3",
+]
+
+[[workflows]]
+id = "uploads"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_uploads_venue_files",
+    "test_app.py::test_wf_uploads_cross_client",
+    "test_app.py::test_upload_limits_by_content",
+    "test_app.py::test_upload_announcements",
+]
+
+[[workflows]]
+id = "render-preview"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_wf_render_preview_journey",
+    "test_app.py::test_reference_image_ssrf",
+    "test_app.py::test_render_callbacks_verified",
+    "test_app.py::test_render_submit_survives_provider_fault",
+]
+
+[[workflows]]
+id = "configurator"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_configurator_room_journey",
+    "test_app.py::test_wf_configurator_phone_reduced_motion",
+    "test_app.py::test_configurator_breakpoints",
+    "test_app.py::test_quote_recount_latest_wins",
+    "test_app.py::test_layout_version_conflict",
+]
+
+[[workflows]]
+id = "install-day-hold"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_install_day_hold_journey",
+    "test_app.py::test_wf_install_day_hold_ends_mid_checkout",
+    "test_app.py::test_hold_race_one_winner",
+    "test_app.py::test_hold_deadline_server_edge",
+    "test_app.py::test_hold_countdown_ignores_device_clock",
+]
+
+[[workflows]]
+id = "checkout"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_checkout_keyboard_deposit",
+    "test_app.py::test_wf_checkout_payment_outage",
+    "test_app.py::test_amounts_exact_across_systems",
+    "test_app.py::test_payment_idempotency",
+    "test_app.py::test_paid_only_after_killbill",
+]
+
+[[workflows]]
+id = "co-funding"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_co_funding_sponsor_journey",
+    "test_app.py::test_funder_split_largest_remainder",
+    "test_app.py::test_sponsor_invite_link_rules",
+    "test_app.py::test_sponsor_invite_expires_on_server",
+]
+
+[[workflows]]
+id = "milestones"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_milestones_delivery_journey",
+    "test_app.py::test_wf_milestones_billing_outage",
+    "test_app.py::test_wf_milestones_maintenance_journey",
+    "test_app.py::test_milestone_invoice_due_dates",
+]
+
+[[workflows]]
+id = "crm-webhooks"
+requirements = [
+    "DP-39",
+    "DP-40",
+]
+critical = [
+    "test_app.py::test_wf_crm_webhooks_journey",
+    "test_app.py::test_crm_events_through_svix",
+    "test_app.py::test_crm_events_after_svix_outage",
+]
+
+[[workflows]]
+id = "crew"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_crew_phone_confirm",
+    "test_app.py::test_crew_sees_only_assigned_days",
+    "test_app.py::test_crew_alert_after_ntfy_outage",
+]
+
+[[workflows]]
+id = "producer-ops"
+requirements = [
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_studio_ops_producer_board",
+    "test_app.py::test_wf_studio_ops_outage_recovery",
+    "test_app.py::test_board_updates_live",
+    "test_app.py::test_outage_banners_and_degraded",
+]
+
+[[workflows]]
+id = "landing"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+]
+critical = [
+    "test_app.py::test_wf_landing_phone_journey",
+    "test_app.py::test_reduced_motion_and_fallback",
+    "test_app.py::test_landing_dialogs_trap_and_hide",
+]
+checkpoints = [
+    "B1",
+    "B11",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_object_level_access",
+    "test_app.py::test_platform_boundary",
+]

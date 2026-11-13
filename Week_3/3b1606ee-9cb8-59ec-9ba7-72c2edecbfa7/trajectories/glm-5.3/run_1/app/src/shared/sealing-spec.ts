@@ -1,0 +1,26 @@
+// The published sealing scheme's fixed parameters. DP-08, DP-45.
+export const BLOCK_BYTES = 160;
+export const IV_BYTES = 12;
+export const GCM_TAG_BYTES = 16;
+export const KEY_BYTES = 32;
+export const PROFILE_KEY_BYTES = 32;
+export const ATTACHMENT_KEY_BYTES = 32;
+export const LETTER_IV_CHARS = 16; // 12 bytes base64url
+export const CT_MULTIPLE = 160;
+export const CT_MAX = 64_016; // 400 blocks + tag
+export const TEXT_MAX_CODEPOINTS = 8_000;
+export const DISPLAY_NAME_MAX = 40;
+export const RECOVERY_GROUP_COUNT = 8;
+export const RECOVERY_GROUP_CHARS = 4;
+export const CROCKFORD_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+export const MSG_INFO = 'airfold/v1/msg';
+export const RECOVERY_SALT = 'airfold/v1/recovery';
+export const RECOVERY_VERIFIER_INFO = 'airfold/v1/recovery-verifier';
+export const KEY_BACKUP_INFO = 'airfold/v1/key-backup';
+export const SEAL_GROUP_COUNT = 12;
+export const REJECT_WINDOW_HOURS = 24;
+export const RETURN_DAYS = 30;
+export const USERNAME_COOLDOWN_DAYS = 7;
+export const NAME_HOLD_DAYS = 14;
+export const RETRY_WINDOW_SECONDS = 60;
+export const MAX_ATTEMPTS = 5;

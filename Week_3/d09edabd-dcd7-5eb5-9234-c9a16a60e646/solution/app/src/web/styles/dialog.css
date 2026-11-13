@@ -1,0 +1,65 @@
+/* Layers: scrim, dialogs and sheets share one motion language. */
+#layers { position: relative; z-index: 50; }
+
+.layer { position: fixed; inset: 0; display: grid; pointer-events: none; }
+.layer.with-scrim { pointer-events: auto; }
+.layer > * { pointer-events: auto; }
+
+.scrim {
+  position: absolute; inset: 0; background: var(--scrim);
+  animation: fade-in var(--dur-open) var(--ease) both;
+}
+.scrim[data-state='closing'] { animation: fade-out var(--dur-close) var(--ease) both; }
+
+.dialog {
+  position: absolute; display: flex; flex-direction: column; isolation: isolate; border-radius: var(--radius-sheet);
+  color: var(--ink); max-height: calc(100dvh - 24px); outline: none; animation: fade-in var(--dur-open) var(--ease) both;
+}
+.dialog[data-state='closing'] { animation: fade-out var(--dur-close) var(--ease) both; }
+/* The surface grows from 98% behind the content, so no control moves while the dialog opens. */
+.dialog::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; background: var(--surface); border: 1px solid var(--hairline); border-radius: inherit;
+  box-shadow: var(--shadow-sheet); animation: dialog-in var(--dur-open) var(--ease) both;
+}
+.dialog[data-state='closing']::before { animation: dialog-out var(--dur-close) var(--ease) both; }
+.dialog-inner { flex: 1 1 auto; min-height: 0; overflow: auto; border-radius: inherit; }
+
+.dialog.centered { --top: 96px; left: 0; right: 0; margin: 0 auto; top: var(--top); max-height: calc(100dvh - var(--top) - 12px); width: min(560px, calc(100vw - 24px)); }
+.dialog.centered.wide { width: min(640px, calc(100vw - 24px)); }
+.dialog.centered.small { width: min(380px, calc(100vw - 24px)); }
+
+.dialog-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); padding: var(--space-5) var(--space-6) var(--space-4); }
+.dialog-head h2 { font-size: var(--text-h2); font-weight: 700; letter-spacing: 0; }
+.dialog-body { padding: 0 var(--space-6) var(--space-6); display: grid; gap: var(--space-5); }
+
+.icon-btn {
+  position: relative; display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0;
+  border-radius: var(--radius-field); border: 1px solid transparent; background: transparent; color: var(--muted);
+  transition: background-color var(--dur-colour) var(--ease), color var(--dur-colour) var(--ease), border-color var(--dur-colour) var(--ease), transform var(--dur-press) var(--ease);
+}
+.icon-btn::after { content: ''; position: absolute; inset: -6px; }
+.icon-btn:hover { background: var(--hairline); color: var(--ink); }
+.icon-btn:active { transform: scale(0.95); }
+.icon-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* A dialog opens from 1% opacity, so it is never fully invisible while it is already in the page. */
+@keyframes fade-in { from { opacity: 0.01; } to { opacity: 1; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes dialog-in { from { opacity: 0.01; scale: 0.98; } to { opacity: 1; scale: 1; } }
+@keyframes dialog-out { from { opacity: 1; scale: 1; } to { opacity: 0; scale: 0.98; } }
+
+@media (max-width: 767.98px) {
+  .dialog.centered, .dialog.centered.wide, .dialog.centered.small {
+    left: 12px; right: 12px; top: 12px; width: auto; margin: 0; max-height: calc(100dvh - 12px - 60px - 36px - 12px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scrim, .dialog, .dialog::before { animation: none !important; }
+}
+
+/* A closed dialog stays mounted, faded out and inert, so it never blinks out of the page while it closes. */
+.layer[data-state='closed'] { pointer-events: none; }
+.layer[data-state='closed'] .scrim, .dialog[data-state='closed'] { opacity: 0; animation: none; pointer-events: none; }
+.dialog[data-state='closed']::before { animation: none; }
+/* While a dialog fades out, clicks already reach the page underneath. */
+.layer[data-state='closing'], .layer[data-state='closing'] * { pointer-events: none; }

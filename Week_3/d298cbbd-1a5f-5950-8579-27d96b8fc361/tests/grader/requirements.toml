@@ -1,0 +1,1473 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 76
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "timed-test",
+    "correction-rules",
+    "restart-and-command-line",
+    "text-view-warnings",
+    "phone-typing",
+    "quote-and-custom",
+    "carbon-replay",
+    "signup-to-history",
+    "tampered-log",
+    "live-board",
+    "private-race",
+    "race-rejoin",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 90
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Strikeproof <proofs@strikeproof.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 3
+B13 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 5
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "mail-down"
+port = 4174
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "short-timer"
+port = 4175
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+TICKET_TTL_SECONDS = "8"
+RACE_COUNTDOWN_SECONDS = "1"
+RACE_REJOIN_SECONDS = "4"
+RACE_TIME_LIMIT_SECONDS = "20"
+VERIFY_TTL_SECONDS = "8"
+TEXT_SEED = "777"
+DATABASE_URL = "${DATABASE_URL}_short"
+
+[[requirements]]
+id = "DP-01"
+title = "Server-issued tickets"
+text = "Every test, signed in or not, starts from a ticket the server issues through the tickets endpoint with its exact words, seed, quote id and expiry, as specified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "timed-test"
+tests = [
+    "test_app.py::test_tickets_endpoint",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Published text generator"
+text = "Generated words follow the published word list, generator and seed rule exactly, so a ticket's words are reproducible from its seed with punctuation and numbers on or off."
+kind = "behavior"
+primary = "pytest"
+workflow = "restart-and-command-line"
+tests = [
+    "test_app.py::test_text_generator",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Letter states and caret"
+text = "While typing, every letter element in the words area carries the data-state and the caret carries the word and letter position that the published typing rules give after each key."
+kind = "behavior"
+primary = "pytest"
+workflow = "timed-test"
+tests = [
+    "test_app.py::test_letter_states_and_caret",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Time test clock"
+text = "A time test starts on its first logged key, shows the seconds left and the live speed and accuracy once per second, and ends exactly its length after that key, with later keys neither changing the screen nor entering the log."
+kind = "behavior"
+primary = "pytest"
+workflow = "timed-test"
+tests = [
+    "test_app.py::test_time_test_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Certificate figures"
+text = "When a test ends, the certificate shows speed, raw speed, accuracy, consistency, characters and duration exactly as the published formulas and rounding give for the log just typed."
+kind = "behavior"
+primary = "pytest"
+workflow = "timed-test"
+tests = [
+    "test_app.py::test_certificate_figures",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Speed-over-time and error tables"
+text = "The certificate's Speed over time table holds one row per second with that second's speed, raw speed and errors, and its Errors by key table lists every miskeyed key in the published order."
+kind = "behavior"
+primary = "pytest"
+workflow = "timed-test"
+tests = [
+    "test_app.py::test_certificate_tables",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Result announcement"
+text = "The Test result live region announces the published result line exactly once per finished test and never again for that test."
+kind = "behavior"
+primary = "pytest"
+workflow = "timed-test"
+tests = [
+    "test_app.py::test_result_announcement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Timed test journey"
+text = "A signed-in typist takes a 15-second time test by keyboard with mistakes, a correction and extra letters, and reads the exact letter states, live readouts, certificate figures, tables and announcement."
+kind = "behavior"
+primary = "workflow"
+workflow = "timed-test"
+tests = [
+    "test_app.py::test_wf_timed_test_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Backspace"
+text = "Backspace deletes the current word's last typed letter and, in an empty word, moves back into the previous word only when that word has an error, restoring its missed letters to untyped."
+kind = "behavior"
+primary = "pytest"
+workflow = "correction-rules"
+tests = [
+    "test_app.py::test_backspace_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Ctrl+Backspace"
+text = "Ctrl+Backspace and Alt+Backspace clear the current word's typed letters and, in an empty word, cross into an erroneous previous word and clear it, under the same error-only rule as Backspace."
+kind = "behavior"
+primary = "pytest"
+workflow = "correction-rules"
+tests = [
+    "test_app.py::test_wf_correction_rules_ctrl_backspace",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Space, extra letters and test end"
+text = "Space in an empty word does nothing, letters past a word's end become extra letters up to the published cap, Space leaves untyped letters missed, and words, quote and custom tests end on the published ending keystroke."
+kind = "behavior"
+primary = "pytest"
+workflow = "correction-rules"
+tests = [
+    "test_app.py::test_space_extra_and_end",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Correction journey"
+text = "A typist takes a 10-word test that exercises every correction rule and reads the exact letter states, characters, accuracy and speed on the certificate."
+kind = "behavior"
+primary = "workflow"
+workflow = "correction-rules"
+tests = [
+    "test_app.py::test_wf_correction_rules_ten_words",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Quick restart"
+text = "The quick-restart key and Next test issue a new ticket with the same settings and the remembered custom text in custom mode, discard the log, submit nothing, reset the timer and return focus to the typing input, in both published quick-restart settings, and Enter never restarts while a dialog is open."
+kind = "behavior"
+primary = "pytest"
+workflow = "restart-and-command-line"
+tests = [
+    "test_app.py::test_quick_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Command line"
+text = "Escape opens the Command line dialog, whose filter, active option kept in view, arrow-key wrap, Enter, Escape, focus trap, focus return and Settings updates announcement follow Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "restart-and-command-line"
+tests = [
+    "test_app.py::test_command_line",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Typist settings"
+text = "Theme, caret style, smooth caret, font size, blind mode and quick restart are set from the command line or the settings folder, apply at once, and survive reload, on the server for signed-in typists and in the browser for guests."
+kind = "behavior"
+primary = "pytest"
+workflow = "restart-and-command-line"
+tests = [
+    "test_app.py::test_typist_settings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Restart and command line journey"
+text = "A typist restarts mid-test by keyboard, switches mode, theme, caret and quick-restart key through the command line, and finds the settings kept after reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "restart-and-command-line"
+tests = [
+    "test_app.py::test_wf_restart_and_command_line_journey",
+    "test_app.py::test_wf_restart_and_command_line_custom_mode",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Three-line view"
+text = "The words area is exactly three lines tall at every published width and font size, moves the text up one line when the caret enters the first word of the third line, and recomputes its lines after a mid-test resize without changing any letter state, as reported by each word's data-line."
+kind = "behavior"
+primary = "pytest"
+workflow = "text-view-warnings"
+tests = [
+    "test_app.py::test_three_line_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Focus warning"
+text = "When the typing input stays unfocused for the published focus warning time during a test, the words area is marked blurred and the focus button appears, a running time test keeps counting, the key that refocuses is neither typed nor logged, and the warning never appears over the certificate."
+kind = "behavior"
+primary = "pytest"
+workflow = "text-view-warnings"
+tests = [
+    "test_app.py::test_wf_text_view_warnings_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Caps Lock warning"
+text = "The Caps Lock region shows and clears the published warning from the Caps Lock key and the modifier state of other keys, without changing what is typed."
+kind = "behavior"
+primary = "pytest"
+workflow = "text-view-warnings"
+tests = [
+    "test_app.py::test_caps_lock_warning",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Blind mode"
+text = "With blind mode on, typed letters show as typed, extra letters are hidden and missed letters stay untyped, while the certificate figures stay exactly as without blind mode."
+kind = "behavior"
+primary = "pytest"
+workflow = "text-view-warnings"
+tests = [
+    "test_app.py::test_blind_mode",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Text view journey"
+text = "A typist at a large font size watches the three-line scroll, resizes the window mid-test, leaves and regains focus, toggles Caps Lock and types blind, reading each published state."
+kind = "behavior"
+primary = "workflow"
+workflow = "text-view-warnings"
+tests = [
+    "test_app.py::test_wf_text_view_warnings_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "On-screen keyboard typing"
+text = "Characters and deletions that arrive as input events, with no key events or with unidentified composition key events, are typed and logged exactly once each, and typing never scrolls the page."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-typing"
+tests = [
+    "test_app.py::test_onscreen_keyboard_input",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Published breakpoints"
+text = "The test sheet, certificate, history, boards and navigation take the published phone, tablet and desktop layouts at 375, 768 and 1280 pixels wide, with no sideways scrolling and the history as index cards below 768."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-typing"
+tests = [
+    "test_app.py::test_published_breakpoints",
+    "test_app.py::test_wf_phone_typing_bottom_bar",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Touch scrubbing"
+text = "Dragging the Replay position slider by touch moves it in whole seconds and never scrolls the page."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-typing"
+tests = [
+    "test_app.py::test_wf_phone_typing_scrub",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Phone typing journey"
+text = "A typist on a 375-pixel touch screen picks a mode by tap, operates the Custom text and Command line dialogs by tap, types a test with the on-screen keyboard, reads the certificate within the screen width and scrubs the replay by touch."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone-typing"
+tests = [
+    "test_app.py::test_wf_phone_typing_journey",
+    "test_app.py::test_wf_phone_typing_command_custom",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Quote tests and mode controls"
+text = "A quote test uses the published quote picked for its length group, shows its exact text and source and ends on its last letter, and in quote and custom modes the controls that do not apply are absent from the screen, the Tab order, the accessibility tree and the ticket request."
+kind = "behavior"
+primary = "pytest"
+workflow = "quote-and-custom"
+tests = [
+    "test_app.py::test_quote_tests_and_controls",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Custom text limit"
+text = "Custom text is collapsed and trimmed, counted live against the published character and word limits, and refused by the server with the published code when it exceeds either."
+kind = "behavior"
+primary = "pytest"
+workflow = "quote-and-custom"
+tests = [
+    "test_app.py::test_wf_quote_and_custom_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Custom text dialog"
+text = "The Custom text dialog opens above every folder and inside the viewport from the custom radio or the Mode: custom command, keeps Tab inside itself, disables Use text over a limit, closes on Escape with the published fallback ticket, returns focus as stated in Interactions, and is absent from the accessibility tree when closed."
+kind = "behavior"
+primary = "pytest"
+workflow = "quote-and-custom"
+tests = [
+    "test_app.py::test_custom_text_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Quote and custom journey"
+text = "A typist takes a fixed quote test, switches to short quotes through the command line, and builds and finishes a custom test by keyboard."
+kind = "behavior"
+primary = "workflow"
+workflow = "quote-and-custom"
+tests = [
+    "test_app.py::test_wf_quote_and_custom_journey",
+    "test_app.py::test_wf_quote_and_custom_punctuation_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Replay slider"
+text = "The certificate's Replay position slider spans 0 to the run's whole seconds, starts at its maximum or at a stored run's address position, carries the published value text, moves by the published keys and steps, and keeps a stored run's position in the address without adding history entries."
+kind = "behavior"
+primary = "pytest"
+workflow = "carbon-replay"
+tests = [
+    "test_app.py::test_wf_carbon_replay_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Carbon strike state"
+text = "At every slider position the carbon, its caret, the replay speed numeral and the current chart point and table row show exactly the state after the log entries before that second, and moving back restores earlier states."
+kind = "behavior"
+primary = "pytest"
+workflow = "carbon-replay"
+tests = [
+    "test_app.py::test_carbon_strike_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Stored run replay"
+text = "Opening a filed counted run shows its certificate, finish time and carbon replay rebuilt from the stored keystroke log with the same figures and states as when it was typed, and a run without a replay shows its stored figures only."
+kind = "behavior"
+primary = "pytest"
+workflow = "carbon-replay"
+tests = [
+    "test_app.py::test_stored_run_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Carbon replay journey"
+text = "After typing the published worked example, a typist scrubs the carbon by keyboard from the start to the end and reads the exact strike states and speeds at each second."
+kind = "behavior"
+primary = "workflow"
+workflow = "carbon-replay"
+tests = [
+    "test_app.py::test_wf_carbon_replay_journey",
+    "test_app.py::test_wf_carbon_replay_time_test",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Sign-up and verification"
+text = "Sign-up creates an unverified, signed-in account and sends the verification mail through Mailpit, whose single-use link verifies the account within its validity."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup-to-history"
+tests = [
+    "test_app.py::test_signup_and_verification",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Sign-in and password reset"
+text = "Sign-in sets the session or answers the published refusal and a rate limit that counts parallel failures exactly, and password reset mails a single-use link for known emails while showing the same notice for any email."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup-to-history"
+tests = [
+    "test_app.py::test_signin_and_reset",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Mail outage"
+text = "When mail cannot be sent, sign-up still creates the account, the page shows the mail outage banner, and the verification mail is delivered by retry once mail recovers."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup-to-history"
+tests = [
+    "test_app.py::test_mail_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Filing seal"
+text = "The seal shows the published state for guests, unverified typists and verified typists, moves from held to the server's first verdict with the personal best mark, resends a held run only until that first verdict, and announces each change."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup-to-history"
+tests = [
+    "test_app.py::test_filing_seal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "History ledger"
+text = "History lists the typist's own runs newest first in pages of 20 with UTC dates, with Mode, Length and Verdict filters kept in the URL across reload and the published empty sheet."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup-to-history"
+tests = [
+    "test_app.py::test_history_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Counted totals and personal bests"
+text = "The account's Tests counted total, its personal bests and the typist's board row are derived from counted runs only and agree after reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup-to-history"
+tests = [
+    "test_app.py::test_counted_totals_and_bests",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Private runs"
+text = "A run, its certificate, carbon replay and keystroke log are served to its owner only, and anyone else gets the published not found answer and No such run page."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup-to-history"
+tests = [
+    "test_app.py::test_private_runs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Sign-up to history journey"
+text = "A new typist signs up, verifies through the mailed link, takes a counted test and finds it in history and on the account page, while a second typist cannot open it."
+kind = "behavior"
+primary = "workflow"
+workflow = "signup-to-history"
+tests = [
+    "test_app.py::test_wf_signup_to_history_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Run checks in published order"
+text = "The server checks every submitted run in the published order, stores the log as the JSON value submitted, malformed values included, and answers each refusal with its single published status and code."
+kind = "behavior"
+primary = "pytest"
+workflow = "tampered-log"
+tests = [
+    "test_app.py::test_run_checks_order",
+]
+criteria = []
+parameter_cases = [
+    "invalid_log_string",
+    "invalid_log_null",
+    "invalid_log_nested",
+    "invalid_log_extra_key",
+    "invalid_log_first_t",
+    "wrong_text",
+    "impossible_interval_order",
+    "impossible_interval_fast",
+    "duration_mismatch",
+    "replay_mismatch",
+    "replay_mismatch_missing_value",
+    "invalid_log_before_wrong_text",
+    "wrong_text_before_interval",
+    "unauthenticated",
+    "email_unverified",
+    "unsupported_media_type",
+    "invalid_json",
+    "ticket_not_found_unknown",
+    "ticket_not_found_other",
+    "ticket_not_found_guest",
+]
+
+[[requirements]]
+id = "DP-43"
+title = "Bounded keystroke logs"
+text = "A log longer than the published event or time limit is refused before replay within one second, without storing a run."
+kind = "behavior"
+primary = "pytest"
+workflow = "tampered-log"
+tests = [
+    "test_app.py::test_bounded_logs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "One ticket, one run"
+text = "Repeated or parallel submissions of one ticket, whatever their bodies, all get the first response unchanged, and the ticket never gets a second run, history row or board entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_one_ticket_one_run",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Server-clock ticket expiry"
+text = "A ticket submitted after its server-side lifetime is refused as expired whatever the browser's clock says, and the screen shows the server's verdict."
+kind = "behavior"
+primary = "pytest"
+workflow = "tampered-log"
+tests = [
+    "test_app.py::test_wf_tampered_log_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Not counted seal"
+text = "When the server refuses a run, the seal shows and announces Not counted with the published reason for that code."
+kind = "behavior"
+primary = "pytest"
+workflow = "tampered-log"
+tests = [
+    "test_app.py::test_not_counted_seal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Tampered log journey"
+text = "A typist whose browser submissions are altered sees each exact Not counted reason, finds the runs refused with a 422 code filtered as Not counted in history while 404, 410 and 413 refusals leave history unchanged, and never sees any of them on the open daily board of a second typist."
+kind = "behavior"
+primary = "workflow"
+workflow = "tampered-log"
+tests = [
+    "test_app.py::test_wf_tampered_log_journey",
+    "test_app.py::test_wf_tampered_log_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Board ranking"
+text = "The daily and all-time boards rank each eligible typist's best counted run by the published eligibility and order, with the daily board split at 00:00 UTC and every date shown in UTC whatever the browser's time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-board"
+tests = [
+    "test_app.py::test_board_ranking",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Board row fields"
+text = "Board responses and board rows carry rank, name, speed, accuracy and date only, never emails, logs, per-key errors or ids."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-board"
+tests = [
+    "test_app.py::test_board_row_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Live board"
+text = "An open board shows a new eligible counted run at its rank within 3 seconds without reload and announces it in the Board updates region."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-board"
+tests = [
+    "test_app.py::test_live_board",
+    "test_app.py::test_wf_live_board_best_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Board tabs"
+text = "The Board and Length tab lists move by arrow keys with roving focus, switch the shown board, and mark the signed-in typist's own row as current."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-board"
+tests = [
+    "test_app.py::test_wf_live_board_tabs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Live board journey"
+text = "A typist watching the daily 15-second board sees another typist's new best appear at its rank live, switches boards by keyboard and never sees an ineligible run."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-board"
+tests = [
+    "test_app.py::test_wf_live_board_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Race rooms"
+text = "A signed-in racer creates a room with a published-format code, others join with the code in any case with or without the dash, and every other seated racer sees the racers list update live and hears each join exactly once."
+kind = "behavior"
+primary = "pytest"
+workflow = "private-race"
+tests = [
+    "test_app.py::test_race_rooms",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Last seat"
+text = "A room holds at most 8 racers, and when several racers claim the last seat at once exactly one joins and every other is told the room is full, while a seated racer's repeated join never takes a second seat."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_private_race_last_seat",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Server-timed countdown"
+text = "The host starts the race once two racers are in, every racer sees and hears each countdown step the server pushes exactly once, and keys before Go are ignored whatever the browser's clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "private-race"
+tests = [
+    "test_app.py::test_server_countdown",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Live race progress"
+text = "Every racer sees each racer's progress bar at the published value within 1 second of their typing."
+kind = "behavior"
+primary = "pytest"
+workflow = "private-race"
+tests = [
+    "test_app.py::test_live_race_progress",
+    "test_app.py::test_wf_private_race_phone_typing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Race places"
+text = "Finished racers are replayed and placed by replayed duration with shared places for equal durations in the Race results table, and every other racer hears each finish and the race end exactly once in Race updates."
+kind = "behavior"
+primary = "pytest"
+workflow = "private-race"
+tests = [
+    "test_app.py::test_race_places",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Private race journey"
+text = "Three racers in separate browsers gather in a room, count down, type the same text and see live bars and shared places."
+kind = "behavior"
+primary = "workflow"
+workflow = "private-race"
+tests = [
+    "test_app.py::test_wf_private_race_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Race rejoin"
+text = "A racer who reloads within the rejoin window is told they rejoined, gets their typed words and caret back, continues from the server's elapsed time, and other racers never see their bar drop."
+kind = "behavior"
+primary = "pytest"
+workflow = "race-rejoin"
+tests = [
+    "test_app.py::test_race_rejoin",
+    "test_app.py::test_wf_race_rejoin_phone",
+    "test_app.py::test_wf_race_rejoin_bars_restored",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Leaving and cut-off"
+text = "A racer gone longer than the rejoin window during a race shows as Left, unfinished racers show DNF after the time limit, and the room refuses joins once the race has started."
+kind = "behavior"
+primary = "pytest"
+workflow = "race-rejoin"
+tests = [
+    "test_app.py::test_leaving_and_cutoff",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Race rejoin journey"
+text = "A racer reloads mid-race, continues and places, while late, unknown and full-room joins get their published refusals by keyboard."
+kind = "behavior"
+primary = "workflow"
+workflow = "race-rejoin"
+tests = [
+    "test_app.py::test_wf_race_rejoin_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Smooth caret"
+text = "With smooth caret on, the caret glides to its new place over the published time after each keystroke, and it jumps with smooth caret off or under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_smooth_caret",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Certificate and seal motion"
+text = "The certificate rise, the seal stamp and the carbon ink-in run over their published durations, and under reduced motion all appear at once with the same text and announcements."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Keyboard focus and accessibility"
+text = "Every control is reachable and operable by keyboard with a visible focus ring, and the test page, certificate, history and boards have no automated accessibility violations at the three published widths."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Health and run manifest"
+text = "The app installs, builds and serves from its run manifest on the published port and answers the health check in every grading instance."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_config",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Server boundary"
+text = "The server accepts same-origin JSON within the published size limit, answers unknown API paths with the published not found body, and never serves source files or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_unknown_page_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Configuration from environment"
+text = "Every service address, credential, timer and limit is read from the published environment variables at start, and none is hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "File drawer look"
+text = "Every folder screen is drawn as sand stationery inside a flat cobalt drawer field on the sand page ground, set in Bodoni Moda and Jost with one cobalt ink, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Certificate stationery"
+text = "The certificate reads as a 5:7 proficiency certificate with its large Bodoni speed, aligned figure column, drawn keyboard of errors and perforated stub holding the seal and proof key."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Landing hero"
+text = "The landing page shows the published hero with the wordmark, the headline, the stacked folders and the open Test folder holding the live test sheet."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Timers belong to their test"
+text = "Every timer a test starts ends with that test, so a restarted, abandoned or left test never ends, warns, resends or changes the seal of the test that replaced it."
+kind = "behavior"
+primary = "pytest"
+workflow = "timed-test"
+tests = [
+    "test_app.py::test_wf_timed_test_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Letter states by shape and contrast"
+text = "Every letter state in the words area and the carbon carries its published strike-through or dotted underline mark and meets the published contrast in all four themes, and every caret style meets its published contrast."
+kind = "behavior"
+primary = "pytest"
+workflow = "correction-rules"
+tests = [
+    "test_app.py::test_letter_marks_contrast",
+    "test_app.py::test_wf_correction_rules_carbon_final_mark",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Latest request wins"
+text = "The sheet shows and submits only the latest requested ticket, and the stored and reloaded settings are always the last ones chosen, whatever order the server answers in."
+kind = "behavior"
+primary = "pytest"
+workflow = "restart-and-command-line"
+tests = [
+    "test_app.py::test_wf_restart_and_command_line_latest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "A reset ends every session"
+text = "Confirming a password reset signs the typist out of every browser, the confirming one included, and closes their live connections within 5 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup-to-history"
+tests = [
+    "test_app.py::test_wf_signup_to_history_reset",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Proof key"
+text = "Every stored run carries a proof key that is the SHA-256 of the exact bytes of the first body received for its ticket, returned by the run endpoints and shown on the certificate stub."
+kind = "behavior"
+primary = "pytest"
+workflow = "tampered-log"
+tests = [
+    "test_app.py::test_proof_key",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Lobby seats and host handover"
+text = "In an open room, a racer whose live connection stays closed for the rejoin window loses their seat, the host role passes to the earliest-seated remaining racer, an emptied room is deleted, and closed live connections leave no database work running."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_race_rejoin_lobby",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve and \"_schema\":\"run-manifest-v1\", and nothing else is needed to start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package and both font families with their licence; shipped packages means the production dependency tree as npm ls --omit=dev --all --json reports it."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font uses only the MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1 licence."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "PostgreSQL is the only datastore; there is no Redis, SQLite, message queue, cache server or state kept in files."
+tests = [
+    "test_app.py::test_if_postgres_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The server and client source are TypeScript, and the npm lockfile is committed."
+tests = [
+    "test_app.py::test_if_typescript_and_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The browser loads nothing from another origin; fonts, icons and chart code are bundled and served by the app."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The holloway-120 word list and the six quotes ship exactly as published, and the app ships no other typing texts."
+tests = [
+    "test_app.py::test_if_texts_exact",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "The provided service configuration files are left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "timed-test"
+requirements = [
+    "DP-01",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_wf_timed_test_happy",
+    "test_app.py::test_wf_timed_test_restart",
+    "test_app.py::test_result_announcement",
+    "test_app.py::test_tickets_endpoint",
+    "test_app.py::test_letter_states_and_caret",
+    "test_app.py::test_time_test_clock",
+    "test_app.py::test_certificate_figures",
+    "test_app.py::test_certificate_tables",
+]
+checkpoints = [
+    "B9",
+    "B11",
+    "B12",
+]
+
+[[workflows]]
+id = "correction-rules"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_correction_rules_ten_words",
+    "test_app.py::test_wf_correction_rules_ctrl_backspace",
+    "test_app.py::test_letter_marks_contrast",
+    "test_app.py::test_backspace_rules",
+    "test_app.py::test_space_extra_and_end",
+    "test_app.py::test_wf_correction_rules_carbon_final_mark",
+]
+
+[[workflows]]
+id = "restart-and-command-line"
+requirements = [
+    "DP-02",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_restart_and_command_line_journey",
+    "test_app.py::test_wf_restart_and_command_line_latest",
+    "test_app.py::test_command_line",
+    "test_app.py::test_quick_restart",
+    "test_app.py::test_typist_settings",
+    "test_app.py::test_wf_restart_and_command_line_custom_mode",
+]
+
+[[workflows]]
+id = "text-view-warnings"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_text_view_warnings_journey",
+    "test_app.py::test_wf_text_view_warnings_focus",
+    "test_app.py::test_caps_lock_warning",
+    "test_app.py::test_three_line_view",
+    "test_app.py::test_blind_mode",
+]
+
+[[workflows]]
+id = "phone-typing"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_phone_typing_journey",
+    "test_app.py::test_wf_phone_typing_scrub",
+    "test_app.py::test_published_breakpoints",
+    "test_app.py::test_onscreen_keyboard_input",
+    "test_app.py::test_wf_phone_typing_bottom_bar",
+    "test_app.py::test_wf_phone_typing_command_custom",
+]
+
+[[workflows]]
+id = "quote-and-custom"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_quote_and_custom_journey",
+    "test_app.py::test_wf_quote_and_custom_limit",
+    "test_app.py::test_quote_tests_and_controls",
+    "test_app.py::test_custom_text_dialog",
+    "test_app.py::test_wf_quote_and_custom_punctuation_errors",
+]
+
+[[workflows]]
+id = "carbon-replay"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_carbon_replay_journey",
+    "test_app.py::test_wf_carbon_replay_address",
+    "test_app.py::test_carbon_strike_state",
+    "test_app.py::test_stored_run_replay",
+    "test_app.py::test_wf_carbon_replay_time_test",
+]
+
+[[workflows]]
+id = "signup-to-history"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-74",
+]
+critical = [
+    "test_app.py::test_wf_signup_to_history_journey",
+    "test_app.py::test_wf_signup_to_history_reset",
+    "test_app.py::test_counted_totals_and_bests",
+    "test_app.py::test_private_runs",
+    "test_app.py::test_signup_and_verification",
+    "test_app.py::test_signin_and_reset",
+    "test_app.py::test_mail_outage",
+    "test_app.py::test_filing_seal",
+    "test_app.py::test_history_ledger",
+]
+
+[[workflows]]
+id = "tampered-log"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-75",
+]
+critical = [
+    "test_app.py::test_wf_tampered_log_journey",
+    "test_app.py::test_wf_tampered_log_expiry",
+    "test_app.py::test_not_counted_seal",
+    "test_app.py::test_bounded_logs",
+    "test_app.py::test_run_checks_order",
+    "test_app.py::test_wf_tampered_log_phone",
+    "test_app.py::test_proof_key",
+]
+
+[[workflows]]
+id = "live-board"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_live_board_journey",
+    "test_app.py::test_wf_live_board_tabs",
+    "test_app.py::test_live_board",
+    "test_app.py::test_board_row_fields",
+    "test_app.py::test_board_ranking",
+    "test_app.py::test_wf_live_board_best_in_place",
+]
+
+[[workflows]]
+id = "private-race"
+requirements = [
+    "DP-53",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_wf_private_race_journey",
+    "test_app.py::test_live_race_progress",
+    "test_app.py::test_server_countdown",
+    "test_app.py::test_race_places",
+    "test_app.py::test_race_rooms",
+    "test_app.py::test_wf_private_race_phone_typing",
+]
+
+[[workflows]]
+id = "race-rejoin"
+requirements = [
+    "DP-59",
+    "DP-60",
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_race_rejoin_journey",
+    "test_app.py::test_race_rejoin",
+    "test_app.py::test_leaving_and_cutoff",
+    "test_app.py::test_wf_race_rejoin_phone",
+    "test_app.py::test_wf_race_rejoin_bars_restored",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-44",
+    "DP-54",
+    "DP-62",
+    "DP-63",
+    "DP-64",
+    "DP-65",
+    "DP-66",
+    "DP-67",
+    "DP-68",
+    "DP-69",
+    "DP-70",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_motion",
+    "test_app.py::test_wf_cross_cutting_keyboard",
+    "test_app.py::test_one_ticket_one_run",
+    "test_app.py::test_wf_private_race_last_seat",
+    "test_app.py::test_wf_race_rejoin_lobby",
+    "test_app.py::test_smooth_caret",
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_unknown_page_sheet",
+]
+checkpoints = [
+    "B1",
+    "B3",
+    "B7",
+]
+critical_checkpoints = [
+    "B1",
+]

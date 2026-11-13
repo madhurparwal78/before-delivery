@@ -1,0 +1,21 @@
+/** Messages for problems found in one request field; the server answers with them and the browser checks with the same ones. */
+export const FIELD_MESSAGES = {
+  grammar: 'Enter a number, optionally followed by mm or in.',
+  lengthRange: 'Enter a length greater than 0 and at most 10000 mm.',
+  coordinateRange: 'Enter a coordinate from −10000 mm to 10000 mm.',
+  angle: 'Enter an angle in degrees.',
+  tolerance: 'Enter a tolerance like ±0.05 or +0.1/−0.05.',
+  baseRevision: 'Send the revision you started from.',
+  idempotencyKey: 'Send an Idempotency-Key header of 1 to 100 visible characters.',
+  nameLength: 'Enter a name of 1 to 80 characters.',
+  nameUsed: 'That name is already used.',
+  quantity: 'Enter a whole number from 1 to 999.',
+  declaredMass: 'Enter a mass greater than 0 and at most 100000 g.',
+  operation: 'The first extrude makes the body; later extrudes join, cut or intersect.',
+  option: 'Choose one of the listed options.',
+  material: 'Choose one of the listed materials.',
+  component: 'Choose one of the listed components.',
+  email: 'Enter your email.',
+  password: 'Enter your password.',
+  refs: (kind: string) => `These entities cannot take a ${kind} constraint.`,
+} as const;

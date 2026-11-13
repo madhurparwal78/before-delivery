@@ -1,0 +1,1623 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 87
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "desk-sign-in",
+    "sheet-upload",
+    "round-control",
+    "captain-submit",
+    "team-rename",
+    "marking",
+    "answer-archive",
+    "spelling-search",
+    "disputes",
+    "rulings",
+    "publish",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 83
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Roundkeeper <rulings@snug-league.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 5
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 5
+S4 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+DATABASE_URL = "${DATABASE_URL}_mailpit_down"
+
+[[outages]]
+id = "round-short"
+port = 4176
+url_env = "APP_ROUND_SHORT_URL"
+
+[outages.env]
+ROUND_SECONDS = "20"
+DATABASE_URL = "${DATABASE_URL}_round_short"
+S3_BUCKET = "${S3_BUCKET}-round-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Desk code sign-in"
+text = "Signing in with a seeded desk code starts a session for that code's role and team, and an unknown code is refused, as specified in API and Seed data."
+kind = "behavior"
+primary = "pytest"
+workflow = "desk-sign-in"
+tests = [
+    "test_app.py::test_session_codes",
+    "test_app.py::test_wf_desk_sign_in_bad_code",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Role permissions"
+text = "Each endpoint answers only the roles the API section gives it, and a captain acts only for their own team."
+kind = "behavior"
+primary = "pytest"
+workflow = "desk-sign-in"
+tests = [
+    "test_app.py::test_role_permissions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Signed-out desks"
+text = "A desk request without a session is refused with 401, and a desk screen that receives a 401 returns to sign-in with the signed-out copy from Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "desk-sign-in"
+tests = [
+    "test_app.py::test_signed_out_desks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Sign in to a desk"
+text = "A quizmaster, marker or captain types a desk code using only the keyboard and lands on their own desk, whose round strip and time left match what the server reports even when the device clock is hours off."
+kind = "behavior"
+primary = "workflow"
+workflow = "desk-sign-in"
+tests = [
+    "test_app.py::test_wf_desk_sign_in_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Confirmed picture sheets"
+text = "A picture-round sheet shows as stored only after the storage service holds the object at the published key with matching size and SHA-256, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "sheet-upload"
+tests = [
+    "test_app.py::test_sheet_confirmed_in_storage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Sheet type and size"
+text = "Sheet uploads accept only the declared image types and the byte range in Business rules and refuse all others with the published statuses."
+kind = "behavior"
+primary = "pytest"
+workflow = "sheet-upload"
+tests = [
+    "test_app.py::test_sheet_type_and_size",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Storage outage on sheets"
+text = "While storage is unreachable, uploading a sheet or opening a picture round whose sheet is stored fails with the outage status, and the round card shows the outage line word for word until the next upload or open attempt on that card answers."
+kind = "behavior"
+primary = "pytest"
+workflow = "sheet-upload"
+tests = [
+    "test_app.py::test_storage_outage_sheets",
+    "test_app.py::test_wf_sheet_upload_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Upload a picture sheet"
+text = "The quizmaster uploads a sheet for a drafted picture round and sees the round card change to stored, with the object present in storage."
+kind = "behavior"
+primary = "workflow"
+workflow = "sheet-upload"
+tests = [
+    "test_app.py::test_wf_sheet_upload_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Round state machine"
+text = "Rounds move only along the published round machine, and every illegal move is refused with its published conflict code."
+kind = "behavior"
+primary = "pytest"
+workflow = "round-control"
+tests = [
+    "test_app.py::test_round_machine",
+    "test_app.py::test_wf_round_control_another_open",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Picture round open guard"
+text = "A picture round cannot open until its sheet is stored and storage confirms it again at the moment of opening."
+kind = "behavior"
+primary = "pytest"
+workflow = "round-control"
+tests = [
+    "test_app.py::test_picture_open_guard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Server-timed close"
+text = "An open round closes on the server when its allowance from ROUND_SECONDS runs out or when the quizmaster closes it, whichever comes first."
+kind = "behavior"
+primary = "pytest"
+workflow = "round-control"
+tests = [
+    "test_app.py::test_server_timed_close",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Round strip status"
+text = "The masthead round strip shows each round's server status and refreshes within the published polling delay, whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "round-control"
+tests = [
+    "test_app.py::test_round_strip_status",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Run the night's rounds"
+text = "The quizmaster opens a round, watches the strip show it open on every desk, and closes it, with every step reachable by keyboard."
+kind = "behavior"
+primary = "workflow"
+workflow = "round-control"
+tests = [
+    "test_app.py::test_wf_round_control_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Answers stored as typed"
+text = "Each submitted answer is stored NFC-normalised exactly as typed, the latest answer per question counts, and earlier answers stay in the archive."
+kind = "behavior"
+primary = "pytest"
+workflow = "captain-submit"
+tests = [
+    "test_app.py::test_answers_stored_as_typed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Answer length limit"
+text = "Answers outside the published code-point range are refused field by field with 422."
+kind = "behavior"
+primary = "pytest"
+workflow = "captain-submit"
+tests = [
+    "test_app.py::test_answer_length_limit",
+    "test_app.py::test_wf_captain_submit_over_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Live character counters"
+text = "Every limited text field shows a live count of characters used, counted exactly as the server counts them, against its limit before submit, and shows the field's over-limit copy as soon as the limit is passed."
+kind = "behavior"
+primary = "pytest"
+workflow = "captain-submit"
+tests = [
+    "test_app.py::test_live_counters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Submit rate limit"
+text = "A team's submits beyond the published rolling allowance are refused with 429 and a Retry-After in whole seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "captain-submit"
+tests = [
+    "test_app.py::test_submit_rate_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Wait shown on the phone"
+text = "After a 429 the captain's phone shows the too-many-submits copy with the server's wait, word for word."
+kind = "behavior"
+primary = "pytest"
+workflow = "captain-submit"
+tests = [
+    "test_app.py::test_wait_copy_on_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Closed round refusal"
+text = "A submit that reaches the server after the round's close is refused with the round-closed conflict, and the phone switches to the round-closed copy even if its countdown still shows time."
+kind = "behavior"
+primary = "pytest"
+workflow = "captain-submit"
+tests = [
+    "test_app.py::test_closed_round_refusal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Server-synced countdown"
+text = "The captain's countdown is drawn from the server's seconds left and re-synced on every poll, never from the device clock alone."
+kind = "behavior"
+primary = "pytest"
+workflow = "captain-submit"
+tests = [
+    "test_app.py::test_countdown_synced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Submit replay"
+text = "A submit repeated with the same idempotency key replays the stored response, and the same key with a different body is refused as a conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "captain-submit"
+tests = [
+    "test_app.py::test_submit_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Submit a round from a phone"
+text = "A captain fills in and submits the open round's answers on a phone-sized screen and sees the success copy with their answers listed back."
+kind = "behavior"
+primary = "workflow"
+workflow = "captain-submit"
+tests = [
+    "test_app.py::test_wf_captain_submit_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Team name rules"
+text = "A captain renames their own team within the published name length and uniqueness rules, and every table shows the new name."
+kind = "behavior"
+primary = "pytest"
+workflow = "team-rename"
+tests = [
+    "test_app.py::test_team_name_rules",
+    "test_app.py::test_wf_team_rename_taken",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Rename dialog keyboard"
+text = "The rename dialog keeps Tab and Shift+Tab wrapping in its published order over an inert background, Enter in Team name saves, and Escape, Cancel or a saved name closes it with focus back on Rename team."
+kind = "behavior"
+primary = "pytest"
+workflow = "team-rename"
+tests = [
+    "test_app.py::test_rename_dialog_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Rename the team"
+text = "A captain opens the rename dialog, types a new name while watching the counter, saves it, and sees the new name on their tile."
+kind = "behavior"
+primary = "workflow"
+workflow = "team-rename"
+tests = [
+    "test_app.py::test_wf_team_rename_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Marks never touch answers"
+text = "The marker records a mark of 0 or 1 only on current answers of a closed round, and marking never changes the stored answer text."
+kind = "behavior"
+primary = "pytest"
+workflow = "marking"
+tests = [
+    "test_app.py::test_marks_never_touch_answers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Finish marking guard"
+text = "A round becomes marked only when every current answer in it carries a mark; otherwise the server refuses and reports how many are left."
+kind = "behavior"
+primary = "pytest"
+workflow = "marking"
+tests = [
+    "test_app.py::test_finish_marking_guard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Keyboard marking pane"
+text = "The marking pane's published shortcuts work whichever control in the pane has focus and do nothing while Ctrl, Meta or Alt is held, Tab follows its one-stop-per-row order and wraps over an inert background, and Escape closes it with focus back on its opener."
+kind = "behavior"
+primary = "pytest"
+workflow = "marking"
+tests = [
+    "test_app.py::test_marking_pane_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Mark a round"
+text = "The marker opens a closed round, marks every team's answers using only the keyboard, finishes marking and sees the round turn marked in the strip."
+kind = "behavior"
+primary = "workflow"
+workflow = "marking"
+tests = [
+    "test_app.py::test_wf_marking_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Stable capped archive paging"
+text = "The answer archive pages in a stable order with cursors that never skip or repeat an answer while new answers arrive, using the published default and cap on page size."
+kind = "behavior"
+primary = "pytest"
+workflow = "answer-archive"
+tests = [
+    "test_app.py::test_archive_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Page the archive live"
+text = "The quizmaster pages the archive with More answers while captains submit, and sees every answer exactly once."
+kind = "behavior"
+primary = "workflow"
+workflow = "answer-archive"
+tests = [
+    "test_app.py::test_wf_archive_live_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Search matching"
+text = "Archive search finds answers containing the query as plain text, ignoring case and accents, in archive order and within the published result cap."
+kind = "behavior"
+primary = "pytest"
+workflow = "spelling-search"
+tests = [
+    "test_app.py::test_search_matching",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Search bounds"
+text = "Search refuses queries outside the published length range, and bodies deeper than the published JSON depth, with 422."
+kind = "behavior"
+primary = "pytest"
+workflow = "spelling-search"
+tests = [
+    "test_app.py::test_search_bounds",
+    "test_app.py::test_wf_spelling_search_empty",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Search time budget"
+text = "Every search, including a pathological query, answers within the published time budget or returns the published timeout error within it."
+kind = "behavior"
+primary = "pytest"
+workflow = "spelling-search"
+tests = [
+    "test_app.py::test_search_time_budget",
+]
+criteria = []
+parameter_cases = [
+    "repeat",
+    "regex",
+    "wildcards",
+    "backslashes",
+    "emoji",
+]
+
+[[requirements]]
+id = "DP-35"
+title = "Check a contested spelling"
+text = "The marker searches the archive for a contested spelling, sees every matching answer as submitted, hears the result count in Desk messages, and moves through Search results and back to the search field with the published ArrowDown, ArrowUp, Home, End and Escape keys."
+kind = "behavior"
+primary = "workflow"
+workflow = "spelling-search"
+tests = [
+    "test_app.py::test_wf_spelling_search",
+    "test_app.py::test_search_results_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Raise a dispute"
+text = "A captain raises one dispute on a zero-marked current answer of their own team, with a reason in the published length range."
+kind = "behavior"
+primary = "pytest"
+workflow = "disputes"
+tests = [
+    "test_app.py::test_raise_dispute",
+    "test_app.py::test_wf_disputes_empty_reason",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Dispute window"
+text = "Disputes are accepted only while the answer's round is marked, and are refused before marking and after publishing with the published conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "disputes"
+tests = [
+    "test_app.py::test_dispute_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Dispute a mark"
+text = "A captain sees their marks for a marked round, disputes one from the phone, and sees the dispute-sent copy with the dispute listed as raised."
+kind = "behavior"
+primary = "workflow"
+workflow = "disputes"
+tests = [
+    "test_app.py::test_wf_disputes_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Rulings"
+text = "The quizmaster upholds or dismisses a raised dispute once, an upheld ruling scores that answer 1, and when rulings on one dispute arrive at the same time exactly one wins."
+kind = "behavior"
+primary = "pytest"
+workflow = "rulings"
+tests = [
+    "test_app.py::test_rulings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Ruling note email"
+text = "Each ruling sends exactly one note to the raising captain, naming the round, the question number, the answer as submitted and the ruling."
+kind = "behavior"
+primary = "pytest"
+workflow = "rulings"
+tests = [
+    "test_app.py::test_ruling_note_email",
+    "test_app.py::test_wf_rulings_keyboard_dismiss",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Confirmed note delivery"
+text = "A ruling's note shows as sent only after the mail server accepts it, and while the mail server is unreachable the ruling stands with its note queued, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "rulings"
+tests = [
+    "test_app.py::test_note_queued_while_mail_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Keyboard ruling dialog"
+text = "The ruling dialog's published shortcuts work whichever control in it has focus, Save ruling and Cancel included, Tab follows its published order and wraps over an inert background, and Escape or Cancel closes it with focus back on its opener."
+kind = "behavior"
+primary = "pytest"
+workflow = "rulings"
+tests = [
+    "test_app.py::test_ruling_dialog_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Dispute ruled copy"
+text = "The raising captain sees the dispute-ruled copy word for word on the answer desk and on the table view, within the published polling delay."
+kind = "behavior"
+primary = "pytest"
+workflow = "rulings"
+tests = [
+    "test_app.py::test_dispute_ruled_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Rule on a dispute"
+text = "The quizmaster opens the dispute queue, rules by keyboard and sees the ruling-saved copy, and the captain's inbox receives the note."
+kind = "behavior"
+primary = "workflow"
+workflow = "rulings"
+tests = [
+    "test_app.py::test_wf_rulings_keyboard_uphold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Publish guard"
+text = "A round publishes only when it is marked with no raised disputes left, and when several publishes arrive at the same time exactly one succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish"
+tests = [
+    "test_app.py::test_publish_guard",
+    "test_app.py::test_wf_publish_disputes_open",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "League table derivation"
+text = "The server computes each team's league total as the sum of its published round scores and orders teams by the published tie rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish"
+tests = [
+    "test_app.py::test_league_derivation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Tally cascade"
+text = "On a new publish every tile turns in the previous table order, slides to its new place and counts up its total at the published timings, settling to match the table API with focus and scroll kept, as described in Motion and effects."
+kind = "visual"
+primary = "pytest"
+workflow = "publish"
+tests = [
+    "test_app.py::test_tally_cascade",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Tally cascade with reduced motion"
+text = "With reduced motion the tiles crossfade and take their places with final totals on the first frame, and the publish result is announced in Table news on that frame."
+kind = "visual"
+primary = "pytest"
+workflow = "publish"
+tests = [
+    "test_app.py::test_cascade_reduced_motion_first_frame",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Publish a round to the pub"
+text = "The quizmaster publishes a marked round, and the public table and each captain's desk show the new order and totals, with Table news announcing the publish only after the tiles settle."
+kind = "behavior"
+primary = "workflow"
+workflow = "publish"
+tests = [
+    "test_app.py::test_wf_publish_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Published API surface"
+text = "Only the routes in the API section answer: unknown routes get 404, wrong methods get 405 with Allow, and wrong content types get 415, as stated in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_api_surface",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Error order and shape"
+text = "Every error uses the one published error body and follows the single error precedence order in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Health and run manifest"
+text = "The app installs, builds and serves from the run manifest on the published port and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_manifest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Schema and seed on serve"
+text = "Serving applies the schema and seed data idempotently, so a fresh empty database starts with exactly the Seed data records."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_seed_on_serve",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Responsive layout"
+text = "Each screen shows its published arrangement at 375x812, 768x1024 and 1280x800 with no horizontal overflow."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layout",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-55"
+title = "Pane and press motion"
+text = "Panes, sheets, presses, hovers and chip recolours start from their published positions and run for their published durations on the one published easing curve, and nothing loops."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_pane_and_press_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Not-found page"
+text = "An unknown page path answers 404 with the published not-found heading."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_not_found_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Contrast and tap targets"
+text = "Text and controls meet WCAG 2.2 AA contrast, every control is at least 44 by 44 pixels, and every focused element shows the published focus outline, at every viewport."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_contrast_targets_focus",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-58"
+title = "Beer-mat look"
+text = "Screens read as cream beer-mat tiles with rounded corners and an ink rule, with serif display type, hyperlegible body type and tabular score numerals, and an ale-red accent kept for the open round and the leader."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Credentials from environment"
+text = "Every service credential and URL is read from the environment at start and is never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Browser renders server state"
+text = "The browser renders round status, seconds left, scores and totals from server responses and never computes them itself."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Sign-in landing"
+text = "A signed-out desk visit goes to exactly /sign-in, sign-in ignores every query parameter, and each role lands only on its own desk path with focus on that desk's level-1 heading."
+kind = "behavior"
+primary = "pytest"
+workflow = "desk-sign-in"
+tests = [
+    "test_app.py::test_sign_in_landing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Sign-in card and signed-out copy"
+text = "The sign-in card has the published width either side of 600 px, and the signed-out copy shows on sign-in and expires without touching the typed code, its caret or focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "desk-sign-in"
+tests = [
+    "test_app.py::test_sign_in_card_and_signed_out_copy",
+]
+criteria = []
+parameter_cases = [
+    "599",
+    "600",
+]
+
+[[requirements]]
+id = "DP-63"
+title = "Sheet content and dimensions"
+text = "A sheet whose bytes do not match its declared type is refused with 415 and one outside the published pixel dimensions with 422, and a refused upload writes no object."
+kind = "behavior"
+primary = "pytest"
+workflow = "sheet-upload"
+tests = [
+    "test_app.py::test_sheet_content_and_dimensions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Round cards live and timer-safe"
+text = "Round cards on the quizmaster desk update in place within one polling delay, keeping focus, scroll and a chosen sheet file, and focus stays on the Upload button after a stored sheet."
+kind = "behavior"
+primary = "pytest"
+workflow = "sheet-upload"
+tests = [
+    "test_app.py::test_round_cards_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Round strip wrap and card focus"
+text = "The round strip wraps at the published width, and after Open, Close or Publish succeeds focus moves to the published target on the same round card."
+kind = "behavior"
+primary = "pytest"
+workflow = "round-control"
+tests = [
+    "test_app.py::test_strip_wrap_and_card_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Answer form survives its timers"
+text = "Countdown ticks and polls never change an answer field's value, selection or focus or replace the form, and on a phone the form meets the published touch and reduced-motion rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "captain-submit"
+tests = [
+    "test_app.py::test_answer_form_survives_timers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Rename sheet and live name"
+text = "The rename dialog is a full-screen sheet at 767 px and below and a right-anchored pane from 768 px, and a poll that renames the team updates the tile behind it without touching the dialog's text, counter, caret or focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "team-rename"
+tests = [
+    "test_app.py::test_rename_sheet_and_live_name",
+]
+criteria = []
+parameter_cases = [
+    "767",
+    "768",
+]
+
+[[requirements]]
+id = "DP-68"
+title = "Marking pane live"
+text = "The marking pane shows marks saved on another marker device in place within one polling delay without moving the current row, focus or scroll, and neither message expiry nor a refused Finish marking closes it or moves focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "marking"
+tests = [
+    "test_app.py::test_marking_pane_live",
+    "test_app.py::test_wf_marking_two_markers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Archive append in place"
+text = "More answers appends rows without moving or replacing the rows shown and focuses the first appended row, later polls and message expiry never move that focus, the scroll or the rows, below 600 px rows are stacked cards, from 600 to 1023 px the table has the published five columns with each row's time sent inside its Answer cell, and from 1024 px it has all six columns."
+kind = "behavior"
+primary = "pytest"
+workflow = "answer-archive"
+tests = [
+    "test_app.py::test_archive_tablet_columns",
+    "test_app.py::test_archive_append_in_place",
+    "test_app.py::test_wf_archive_phone_cards",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Search bar survives timers"
+text = "Enter in the search field runs the search with focus kept there, results fill in place with no navigation and no archive reload, polls and message expiry never clear the query, filter, results or caret, and the search bar has the published layout either side of 600 px."
+kind = "behavior"
+primary = "pytest"
+workflow = "spelling-search"
+tests = [
+    "test_app.py::test_search_bar_survives_timers",
+]
+criteria = []
+parameter_cases = [
+    "599",
+    "600",
+]
+
+[[requirements]]
+id = "DP-71"
+title = "Dispute sheet focus and stillness"
+text = "The dispute sheet follows its published Tab order and keeps its typed reason, caret, counter and focus through polls and message expiry, its reduced-motion version moves no layer, a sent dispute moves focus to the published target, and a ruling changes the row in place with focus and scroll kept."
+kind = "behavior"
+primary = "pytest"
+workflow = "disputes"
+tests = [
+    "test_app.py::test_dispute_sheet_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Ruling focus and live queue"
+text = "After a saved ruling focus goes to the published target in the queue, and another quizmaster device drops the ruled dispute in place and shows the already-ruled copy if its dialog was open on it."
+kind = "behavior"
+primary = "pytest"
+workflow = "rulings"
+tests = [
+    "test_app.py::test_ruling_focus_live_queue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Publish still on every layer"
+text = "With reduced motion, a publish on /, /captain and /quizmaster turns, moves or resizes no tile, tile face, grid or chip, runs nothing longer than 120 milliseconds, and shows final totals on the first frame."
+kind = "visual"
+primary = "pytest"
+workflow = "publish"
+tests = [
+    "test_app.py::test_publish_still_every_layer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Breakpoints exact"
+text = "Every published layout switches exactly at 600, 768 and 1024 px, with the published layout at and either side of each and no horizontal overflow."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_breakpoints_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Reduced motion on panes and controls"
+text = "With reduced motion, every dialog, pane and sheet, its backdrop and inner panel, and every pressed control changes only by fades and colour within 120 milliseconds."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion_panes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Desk messages lifetime"
+text = "Every result copy in Desk messages stays exactly 6 seconds and then clears, and a newer message replaces it and restarts the 6 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_desk_messages_lifetime",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Published tokens"
+text = "Colours, type sizes, corner radius, ink rule, tabular numerals and the accent's two uses match the published token table on every screen."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_published_tokens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Reopen during exit"
+text = "Reopening a dialog, pane or sheet during its exit leaves it fully open with focus on its first stop, a stale close never hides it, and a finished exit removes it from the accessibility tree."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reopen_during_exit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Server-timed close seen live"
+text = "When the server closes a round with no user action, every open screen shows it closed within one polling delay, the captain's answer fields turn read-only in place keeping their text, elements and focus with the round-closed copy shown, and focus on Close round moves to its round card, whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "round-control"
+tests = [
+    "test_app.py::test_server_close_seen_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Touch sign-in on small phones"
+text = "On a 320x568 or 375x812 touch phone a captain signs in by tapping and typing and lands on /captain, Desk code and Sign in are each at least 44 by 44 pixels, neither /sign-in nor the desk scrolls sideways, and every round chip can be brought fully into view by scrolling the strip while the page stays put."
+kind = "behavior"
+primary = "pytest"
+workflow = "desk-sign-in"
+tests = [
+    "test_app.py::test_touch_sign_in_small_phone",
+]
+criteria = []
+parameter_cases = [
+    "320x568",
+    "375x812",
+]
+
+[[requirements]]
+id = "DP-81"
+title = "Keyboard-complete sheet upload"
+text = "On a drafted picture round card Tab goes from Open round to the file field to Upload, the focused file field is visible, outlined and at least 44 by 44 pixels, Enter or Space on it opens the file chooser with focus returning to it, and Upload with no file chosen sends nothing and shows the no-file copy with focus kept on Upload."
+kind = "behavior"
+primary = "pytest"
+workflow = "sheet-upload"
+tests = [
+    "test_app.py::test_keyboard_sheet_upload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Answer form layout"
+text = "The countdown sits above Question 1, below 768 px each field has its own full-width row with its label above and the countdown stays pinned to the top of the viewport while the form scrolls, and from 768 px the fields form two columns in row order."
+kind = "visual"
+primary = "pytest"
+workflow = "captain-submit"
+tests = [
+    "test_app.py::test_answer_form_layout",
+]
+criteria = []
+parameter_cases = [
+    "375",
+    "767",
+    "768",
+]
+
+[[requirements]]
+id = "DP-83"
+title = "Rename seen live on every table"
+text = "Within one polling delay of a saved rename, the team's tile on /, /captain and /quizmaster shows the new name as the same element in its place with focus and scroll kept, even though the table version does not change."
+kind = "behavior"
+primary = "pytest"
+workflow = "team-rename"
+tests = [
+    "test_app.py::test_rename_seen_live_everywhere",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Touch marking with reduced motion"
+text = "On a 768x1024 touch tablet a tap anywhere in the 44 by 44 pixel square centred on a marking radio chooses and saves that mark and makes its row current, a row's two radios have centres at least 44 pixels apart, and with reduced motion the pane, its inner panel, its backdrop and their ancestors keep their position and size on every frame of open and close."
+kind = "behavior"
+primary = "pytest"
+workflow = "marking"
+tests = [
+    "test_app.py::test_touch_marking_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Archive times from the server"
+text = "Each archive row's time sent is the HH:MM:SS of the answer's submitted_at in UTC, the same on every device whatever its clock or time zone, and from 1024 px the archive columns are Round, Question, Team, Answer, Time sent and Mark in that order."
+kind = "behavior"
+primary = "pytest"
+workflow = "answer-archive"
+tests = [
+    "test_app.py::test_archive_times_utc",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Search counter counts code points"
+text = "The search counter counts code points after normalising and trimming exactly as the server does, matching the worked examples in Business rules, and a query one past the limit shows the over-limit copy and is refused by the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "spelling-search"
+tests = [
+    "test_app.py::test_search_counter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-87"
+title = "Dispute window from the server"
+text = "Dispute buttons show exactly while the server last reported their round marked whatever the device clock says, a poll reporting the round published removes them in place with focus moving to Your marks, and a dispute sheet left open on a stale screen stays open and shows the window-closed copy on Send dispute."
+kind = "behavior"
+primary = "pytest"
+workflow = "disputes"
+tests = [
+    "test_app.py::test_dispute_window_from_server",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with exactly the string keys _schema (value run-manifest-v1), install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package with its version and licence, plus the Fraunces and Atkinson Hyperlegible typefaces; shipped packages means the production dependency tree reported by npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the production dependency tree reported by npm ls --omit=dev --all --json) carries MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0, and every font carries the SIL Open Font License 1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "package-lock.json is committed, and the manifest's install command is npm ci."
+tests = [
+    "test_app.py::test_if_lockfile_and_npm_ci",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "State lives only in the provided PostgreSQL database and MinIO bucket, with no other database, cache server, embedded database file or on-disk store."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The browser loads nothing from other origins; the app serves every font, script, style and image itself."
+tests = [
+    "test_app.py::test_if_same_origin_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The provided service configuration (the dev compose files and service settings) stays unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "desk-sign-in"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-61",
+    "DP-62",
+    "DP-80",
+]
+critical = [
+    "test_app.py::test_wf_desk_sign_in_keyboard",
+    "test_app.py::test_wf_desk_sign_in_bad_code",
+    "test_app.py::test_sign_in_landing",
+    "test_app.py::test_sign_in_card_and_signed_out_copy",
+    "test_app.py::test_touch_sign_in_small_phone",
+]
+
+[[workflows]]
+id = "sheet-upload"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-63",
+    "DP-64",
+    "DP-81",
+]
+critical = [
+    "test_app.py::test_wf_sheet_upload_keyboard",
+    "test_app.py::test_wf_sheet_upload_outage",
+    "test_app.py::test_sheet_confirmed_in_storage",
+    "test_app.py::test_sheet_content_and_dimensions",
+    "test_app.py::test_round_cards_live",
+    "test_app.py::test_keyboard_sheet_upload",
+]
+
+[[workflows]]
+id = "round-control"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-65",
+    "DP-79",
+]
+critical = [
+    "test_app.py::test_wf_round_control_keyboard",
+    "test_app.py::test_wf_round_control_another_open",
+    "test_app.py::test_round_strip_status",
+    "test_app.py::test_server_close_seen_live",
+    "test_app.py::test_strip_wrap_and_card_focus",
+]
+checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "captain-submit"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-66",
+    "DP-82",
+]
+critical = [
+    "test_app.py::test_wf_captain_submit_phone",
+    "test_app.py::test_wf_captain_submit_over_limit",
+    "test_app.py::test_answer_length_limit",
+    "test_app.py::test_submit_rate_limit",
+    "test_app.py::test_closed_round_refusal",
+    "test_app.py::test_answer_form_survives_timers",
+    "test_app.py::test_wait_copy_on_phone",
+    "test_app.py::test_answer_form_layout",
+    "test_app.py::test_submit_replay",
+]
+checkpoints = [
+    "B7",
+]
+critical_checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "team-rename"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-67",
+    "DP-83",
+]
+critical = [
+    "test_app.py::test_wf_team_rename_keyboard",
+    "test_app.py::test_wf_team_rename_taken",
+    "test_app.py::test_team_name_rules",
+    "test_app.py::test_rename_dialog_keyboard",
+    "test_app.py::test_rename_sheet_and_live_name",
+    "test_app.py::test_rename_seen_live_everywhere",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "marking"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-68",
+    "DP-84",
+]
+critical = [
+    "test_app.py::test_wf_marking_keyboard",
+    "test_app.py::test_wf_marking_two_markers",
+    "test_app.py::test_marking_pane_keyboard",
+    "test_app.py::test_marking_pane_live",
+    "test_app.py::test_touch_marking_reduced_motion",
+    "test_app.py::test_marks_never_touch_answers",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "answer-archive"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-69",
+    "DP-85",
+]
+critical = [
+    "test_app.py::test_wf_archive_live_paging",
+    "test_app.py::test_wf_archive_phone_cards",
+    "test_app.py::test_archive_paging",
+    "test_app.py::test_archive_append_in_place",
+    "test_app.py::test_archive_times_utc",
+]
+
+[[workflows]]
+id = "spelling-search"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-70",
+    "DP-86",
+]
+critical = [
+    "test_app.py::test_wf_spelling_search",
+    "test_app.py::test_wf_spelling_search_empty",
+    "test_app.py::test_search_bounds",
+    "test_app.py::test_search_time_budget",
+    "test_app.py::test_search_bar_survives_timers",
+    "test_app.py::test_search_counter",
+]
+
+[[workflows]]
+id = "disputes"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-71",
+    "DP-87",
+]
+critical = [
+    "test_app.py::test_wf_disputes_phone",
+    "test_app.py::test_wf_disputes_empty_reason",
+    "test_app.py::test_dispute_window",
+    "test_app.py::test_dispute_sheet_focus",
+    "test_app.py::test_dispute_window_from_server",
+]
+
+[[workflows]]
+id = "rulings"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_rulings_keyboard_uphold",
+    "test_app.py::test_wf_rulings_keyboard_dismiss",
+    "test_app.py::test_rulings",
+    "test_app.py::test_ruling_note_email",
+    "test_app.py::test_ruling_dialog_keyboard",
+    "test_app.py::test_ruling_focus_live_queue",
+    "test_app.py::test_dispute_ruled_copy",
+]
+
+[[workflows]]
+id = "publish"
+requirements = [
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_publish_keyboard",
+    "test_app.py::test_wf_publish_disputes_open",
+    "test_app.py::test_publish_guard",
+    "test_app.py::test_league_derivation",
+    "test_app.py::test_tally_cascade",
+    "test_app.py::test_cascade_reduced_motion_first_frame",
+    "test_app.py::test_publish_still_every_layer",
+]
+checkpoints = [
+    "B11",
+]
+critical_checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-74",
+    "DP-75",
+    "DP-76",
+    "DP-77",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_api_surface",
+    "test_app.py::test_error_precedence",
+    "test_app.py::test_health_and_manifest",
+    "test_app.py::test_seed_on_serve",
+    "test_app.py::test_not_found_page",
+]

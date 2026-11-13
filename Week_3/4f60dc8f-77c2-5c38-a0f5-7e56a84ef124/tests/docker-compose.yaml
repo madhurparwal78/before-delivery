@@ -1,0 +1,188 @@
+services:
+  main:
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    security_opt:
+    - seccomp=unconfined
+    - systempaths=unconfined
+    - apparmor=unconfined
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pocketbase:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      killbill:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      gotenberg:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+      ntfy:
+        condition: service_healthy
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-5c1e8a37
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:0.22.21@sha256:5916239bf33387cd64d9c194ce68a58f018417a9648727d68d988e4a30789057
+    environment:
+      PB_BOOT_EMAIL: bootstrap@gfkit.test
+      PB_BOOT_PASSWORD: gf-pb-boot-3e70c9d1
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      pb() { /usr/local/bin/pocketbase "$$@" --dir=/pb_data; }
+      pb migrate up
+      pb admin create "$$PB_BOOT_EMAIL" "$$PB_BOOT_PASSWORD" || pb admin update "$$PB_BOOT_EMAIL" "$$PB_BOOT_PASSWORD"
+      exec /usr/local/bin/pocketbase serve --http=0.0.0.0:8090 --dir=/pb_data
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -qO-
+      - http://127.0.0.1:8090/api/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  minio:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-root-6d29b4
+      MINIO_ROOT_PASSWORD: gf-root-secret-a83f17c5
+    command: server /data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - MC_HOST_local=http://gf-root-6d29b4:gf-root-secret-a83f17c5@localhost:9000 mc ready local >/dev/null
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  killbill-db:
+    image: killbill/mariadb:0.24@sha256:8fddf7d564befcea3e3d762c01b3e65fb4b45fb8db077297998ad935468372fa
+    environment:
+      MYSQL_ROOT_PASSWORD: killbill
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - mariadb-admin ping -h 127.0.0.1 -uroot -pkillbill --silent
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+  killbill:
+    image: killbill/killbill:0.24.21@sha256:e6b6ab4a0e6287ebf57aafa2d5f22cfa6250dfa056682c74d7c208b4a39d0c9b
+    environment:
+      KB_org_killbill_dao_url: jdbc:mysql://killbill-db:3306/killbill
+      KB_org_killbill_dao_user: root
+      KB_org_killbill_dao_password: killbill
+      KB_org_killbill_billing_osgi_dao_url: jdbc:mysql://killbill-db:3306/killbill
+      KB_org_killbill_billing_osgi_dao_user: root
+      KB_org_killbill_billing_osgi_dao_password: killbill
+      KB_ADMIN_PASSWORD: password
+    depends_on:
+      killbill-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -fsS -o /dev/null http://127.0.0.1:8080/1.0/healthcheck
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 120s
+  mailpit:
+    image: axllent/mailpit:v1.27@sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68
+    healthcheck:
+      test:
+      - CMD
+      - /mailpit
+      - readyz
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  rabbitmq:
+    image: rabbitmq:4.4.0-management-alpine@sha256:b768d2e09a809b48458d6c3c32fc2894643a6bfafd76264c120373eff0ee6532
+    environment:
+      RABBITMQ_DEFAULT_USER: gfkit-admin
+      RABBITMQ_DEFAULT_PASS: gfkit-rabbitmq-admin
+    healthcheck:
+      test:
+      - CMD
+      - rabbitmq-diagnostics
+      - -q
+      - ping
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 10s
+  gotenberg:
+    image: gotenberg/gotenberg:8.39.0@sha256:13672f317b443c793e972b1bd2155ec62a3e7b6891b411e8196442cc053ee5f5
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - -o
+      - /dev/null
+      - http://127.0.0.1:3000/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  meilisearch:
+    image: getmeili/meilisearch:v1.56.0@sha256:1f578fa865f8251894b3bf38d6668d6209a3f451f8f65ab953e129d4c1db5ef4
+    environment:
+      MEILI_MASTER_KEY: gfkit-meilisearch-master-key-7f3a9c
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: 'true'
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - -o
+      - /dev/null
+      - http://127.0.0.1:7700/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  ntfy:
+    image: binwiederhier/ntfy:v2.36.0@sha256:fb48c413eb11d50339962b5d62cddce0f800e7f77c626d638a7c20cb7e9c4465
+    command:
+    - serve
+    environment:
+      NTFY_AUTH_FILE: /tmp/ntfy-auth.db
+      NTFY_AUTH_DEFAULT_ACCESS: deny-all
+      NTFY_VISITOR_REQUEST_LIMIT_EXEMPT_HOSTS: 0.0.0.0/0
+      NTFY_VISITOR_TOPIC_CREATION_LIMIT_BURST: '100000'
+      NTFY_AUTH_USERS: gfkit-admin:$$2a$$10$$X2Y40pdk5bhKVAWqN8CUuezX42K2J7bOmFECanwYwJCuYu7v/h.SG:admin
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - --spider
+      - http://127.0.0.1/v1/health
+      interval: 2s
+      timeout: 5s
+      retries: 30

@@ -1,0 +1,130 @@
+services:
+  main:
+    environment:
+      APP_PUBLIC_PORT: '4173'
+      APP_PUBLIC_URL: http://127.0.0.1:4173
+      DATABASE_URL: postgresql://gf_app:gf-app-dev-2b7d41@postgres:5432/gf_dev
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: gf-dev
+      S3_FORCE_PATH_STYLE: 'true'
+      S3_ACCESS_KEY_ID: gf-dev-root-71c3e0
+      S3_SECRET_ACCESS_KEY: gf-dev-secret-4b8d92
+      WIREMOCK_URL: http://wiremock:8080
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    depends_on:
+      postgres-seed:
+        condition: service_completed_successfully
+      minio-seed:
+        condition: service_completed_successfully
+      wiremock:
+        condition: service_healthy
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-dev-9e4a02
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  postgres-seed:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      PGHOST: postgres
+      PGUSER: gf_admin
+      PGPASSWORD: gf-admin-dev-9e4a02
+      PGDATABASE: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      psql -Atqc "SELECT 1 FROM pg_roles WHERE rolname = 'gf_app'" | grep -q 1 ||
+        psql -qc "CREATE ROLE gf_app LOGIN PASSWORD 'gf-app-dev-2b7d41'"
+      psql -Atqc "SELECT 1 FROM pg_database WHERE datname = 'gf_dev'" | grep -q 1 ||
+        psql -qc "CREATE DATABASE gf_dev OWNER gf_app"
+  minio:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-dev-root-71c3e0
+      MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92
+    command: server /data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - MC_HOST_local=http://$$MINIO_ROOT_USER:$$MINIO_ROOT_PASSWORD@localhost:9000 mc ready local >/dev/null
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  minio-seed:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-dev-root-71c3e0
+      MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      export MC_HOST_local="http://$$MINIO_ROOT_USER:$$MINIO_ROOT_PASSWORD@minio:9000"
+      mc mb --ignore-existing local/gf-dev
+      mc anonymous set none local/gf-dev
+  wiremock:
+    image: wiremock/wiremock:3.13.2@sha256:0d4ecb3e4dc8213fd7a4d37d6a78f6e6b553a6d2e15bd51b0999781282ac61b3
+    entrypoint:
+    - sh
+    - -c
+    - if [ -n "$$WIREMOCK_STUBS" ]; then printf '%s' "$$WIREMOCK_STUBS" > /home/wiremock/mappings/baseline.json;
+      fi; exec /docker-entrypoint.sh --port 8080 --disable-banner --max-request-journal-entries 20000 --admin-api-basic-auth
+      gfkit-admin:gfkit-dev
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -sf
+      - -u
+      - gfkit-admin:gfkit-dev
+      - http://127.0.0.1:8080/__admin/health
+      interval: 2s
+      timeout: 5s
+      retries: 60
+    environment:
+      WIREMOCK_STUBS: '{"mappings": [{"request": {"method": "GET", "urlPath": "/v1/games/gloamrunner/players/p-ash-17/receipts"},
+        "response": {"headers": {"Content-Type": "application/json"}, "jsonBody": {"player_id": "p-ash-17", "receipts":
+        [{"amount_minor": 499, "currency": "USD", "item": "Lantern Pack", "purchased_at": "2026-11-02T18:04:00Z",
+        "receipt_id": "gr-rcpt-1001", "status": "paid"}, {"amount_minor": 1200, "currency": "JPY", "item": "Ember
+        Lantern Bundle", "purchased_at": "2026-11-02T18:20:00Z", "receipt_id": "gr-rcpt-1002", "status": "partly_refunded"}]},
+        "status": 200}}, {"request": {"method": "GET", "urlPath": "/v1/games/tiny-ferry/players/p-otter-5/receipts"},
+        "response": {"headers": {"Content-Type": "application/json"}, "jsonBody": {"player_id": "p-otter-5", "receipts":
+        [{"amount_minor": 299, "currency": "USD", "item": "Harbour Bell Skin", "purchased_at": "2026-11-01T20:30:00Z",
+        "receipt_id": "tf-rcpt-2001", "status": "paid"}]}, "status": 200}}, {"priority": 10, "request": {"method":
+        "GET", "urlPathPattern": "/v1/games/[^/]+/players/[^/]+/receipts"}, "response": {"headers": {"Content-Type":
+        "application/json"}, "jsonBody": {"error": "unknown player"}, "status": 404}}, {"request": {"method": "GET",
+        "urlPath": "/web/patch-notes"}, "response": {"body": "<!doctype html><html><head><title>Gloamrunner patch
+        0.9.4</title><meta property=\"og:title\" content=\"Gloamrunner patch 0.9.4\"><meta property=\"og:description\"
+        content=\"The Hollow boss no longer freezes after the second lantern.\"></head><body><p>Patch notes for
+        Gloamrunner 0.9.4.</p></body></html>", "headers": {"Content-Type": "text/html; charset=utf-8"}, "status":
+        200}}, {"request": {"method": "GET", "urlPath": "/web/patch-notes-short"}, "response": {"headers": {"Location":
+        "/web/patch-notes"}, "status": 302}}, {"request": {"method": "GET", "urlPath": "/web/free-skins"}, "response":
+        {"headers": {"Location": "http://169.254.169.254/latest/meta-data/"}, "status": 302}}, {"request": {"method":
+        "GET", "urlPath": "/web/back-door"}, "response": {"headers": {"Location": "http://127.0.0.1:4173/api/health"},
+        "status": 302}}]}'
+x-minio-root:
+  MINIO_ROOT_USER: gf-dev-root-71c3e0
+  MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92

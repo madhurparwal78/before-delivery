@@ -1,0 +1,81 @@
+// Every published sentence of the brief (Feedback states, Messages). Server and client import from here only.
+
+export const plural = (count: number, one: string, many: string): string => `${count} ${count === 1 ? one : many}`;
+
+export const copy = {
+  byesNeedRuns: 'Byes need at least 1 run.',
+  chooseBowlerFirst: 'Choose the next bowler first.',
+  startInningsFirst: 'Start the innings first.',
+  inningsOver: 'This innings is over.',
+  matchOver: 'This match is over.',
+  overInProgress: 'This over has already started.',
+  inningsInProgress: 'This innings has already started.',
+  freeHitWicket: 'Free hit: only a run out can dismiss a batter.',
+  wicketNotAllowed: (kind: string): string => `A ${kind} cannot happen on this delivery.`,
+  bowledLastOver: (short: string): string => `${short} bowled the last over.`,
+  bowlerAtLimit: (short: string, limit: number): string => `${short} has bowled ${limit} of ${limit} overs.`,
+  bowledLastSuperOver: (short: string): string => `${short} bowled in the last super over.`,
+  newBatterInvalid: 'Choose a batter who is waiting to bat.',
+  noBatterLeft: 'No batter is left to come in.',
+  changeMovesOvers: 'That change would move the overs. Undo back to this delivery instead.',
+  changeBreaksLaterWicket: (seq: number, kind: string): string =>
+    `That change would make delivery ${seq} a free hit, and its wicket (${kind}) cannot happen on a free hit.`,
+  changeBreaksWicket: (kind: string): string => `That change would make its wicket (${kind}) impossible.`,
+  deliveryChanged: (seq: number): string => `Delivery ${seq} changed. Innings recalculated.`,
+  undidDelivery: (seq: number): string => `Undid delivery ${seq}.`,
+  undidRetirement: (short: string): string => `Undid the retirement of ${short}.`,
+  nothingToUndo: 'Nothing to undo in this innings.',
+  viewerChange: (seq: number): string => `The scorer changed delivery ${seq}.`,
+  viewerUndo: (seq: number): string => `The scorer undid delivery ${seq}.`,
+  staleDelivery: 'The score has moved on. Showing the latest.',
+  notSaved: 'That ball was not saved. Check your connection and try again.',
+  penHeld: (holder: string): string => `${holder} is scoring this match. You are viewing it read-only.`,
+  penFree: 'No one is scoring this match.',
+  invitationSent: (email: string): string => `Invitation sent to ${email}.`,
+  invitationMailLine: (hours: number): string => `This invitation works once and expires after ${hours} hours.`,
+  invitationUsed: 'This invitation has already been used.',
+  invitationExpired: 'This invitation has expired.',
+  rateLimited: 'Too many invitations. Try again later.',
+  mailOutage: 'The invitation could not be sent. Try again later.',
+  logoUploading: 'Uploading logo',
+  logoUploaded: 'Logo updated.',
+  logoWrongType: 'Logo must be a PNG or JPEG image.',
+  logoTooLarge: (maxBytes: number): string => `Logo must be ${maxBytes.toLocaleString('en-US')} bytes or smaller.`,
+  storageOutage: 'Logo storage is unavailable. The team keeps its previous logo.',
+  liveOutageViewer: 'Live updates are paused. Reload for the latest score.',
+  liveOutageScoring: 'Live updates are paused. Scoring still saves.',
+  linkOff: 'This match is no longer shared.',
+  pointsUpdated: 'Points table updated.',
+  notFound: 'Not found.',
+  signInFailed: 'Email or password is wrong.',
+  signInRequired: 'Sign in to continue.',
+  fieldErrors: 'Check the highlighted fields.',
+  email: 'Enter a valid email address.',
+  emailTaken: 'An account with this email already exists.',
+  password: 'Password must be at least 10 characters.',
+  name: 'Enter a name.',
+  shortNameClash: 'Short names must be unique within a team.',
+  overs: 'Overs must be a whole number from 1 to 50.',
+  playersPerSide: 'Players per side must be a whole number from 2 to 11.',
+  xi: (playersPerSide: number): string => `Pick exactly ${playersPerSide} players from each team.`,
+  teamsNotInOneGroup: 'Both teams must be in the same group of this tournament.',
+  runs: 'Runs must be a whole number from 0 to 6.',
+  chooseFielder: 'Choose a fielder from the fielding side.',
+  runOutRuns: 'Runs completed must be a whole number from 0 to 3.',
+  wicketRuns: 'A wicket other than a run out is recorded with 0 runs.',
+  chooseSide: 'Choose the two sides of the match.',
+  emptyFixtures: 'No fixtures yet',
+  emptyTeams: 'No teams yet',
+  emptyTournaments: 'No tournaments yet',
+  emptyPlayers: 'No players yet',
+  internal: 'Something went wrong. Try again.',
+  inningsBreakHeading: 'Innings break',
+} as const;
+
+export type ErrorCode =
+  | 'PAYLOAD_TOO_LARGE' | 'UNSUPPORTED_MEDIA_TYPE' | 'BAD_JSON' | 'SIGN_IN_REQUIRED' | 'SIGN_IN_FAILED' | 'NOT_FOUND'
+  | 'PEN_HELD' | 'STALE_DELIVERY' | 'NEEDS_INNINGS' | 'NEEDS_BOWLER' | 'INNINGS_OVER' | 'MATCH_OVER' | 'INNINGS_IN_PROGRESS'
+  | 'OVER_IN_PROGRESS' | 'NOTHING_TO_UNDO' | 'INVITATION_USED' | 'INVITATION_EXPIRED' | 'VALIDATION' | 'WICKET_NOT_ALLOWED'
+  | 'BYES_NEED_RUNS' | 'NEW_BATTER_INVALID' | 'NO_BATTER_LEFT' | 'BOWLER_CONSECUTIVE' | 'BOWLER_LIMIT' | 'BOWLER_BARRED'
+  | 'CHANGE_MOVES_OVERS' | 'CHANGE_BREAKS_WICKET' | 'RATE_LIMITED' | 'STORAGE_UNAVAILABLE' | 'MAIL_UNAVAILABLE'
+  | 'SEED_INVALID' | 'INTERNAL';

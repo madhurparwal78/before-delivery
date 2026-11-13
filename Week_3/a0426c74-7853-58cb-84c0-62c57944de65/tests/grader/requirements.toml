@@ -1,0 +1,1283 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "command-line-drafting",
+    "pointer-drafting",
+    "modify-chain",
+    "layers",
+    "blocks",
+    "dimensions-hatch",
+    "constraints",
+    "xrefs",
+    "sheets-publish",
+    "offline-conflicts",
+    "compare-review",
+    "phone-field-review",
+    "import-large-drawing",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 97
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 5
+B9 = 3
+B10 = 5
+B11 = 5
+B12 = 3
+B13 = 5
+B14 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+PLOT_GRADING = "1"
+PLOT_PRESENCE_TIMEOUT_MS = "3000"
+PLOT_LINK_TTL_MS = "3600000"
+PLOT_REVIEW_TTL_MS = "3600000"
+PLOT_OP_WINDOW = "1000"
+PLOT_DOM_MARGIN_PX = "200"
+PLOT_DOM_CEILING = "500"
+PLOT_UNDERLAY_MAX_BYTES = "200000"
+PLOT_DRAWING_QUOTA_BYTES = "500000"
+PLOT_TEXT_MAX_BYTES = "1000000"
+PLOT_EXPORT_STEP_MS = "200"
+PLOT_OP_RATE = "100000"
+PLOT_LOGIN_RATE = "1000"
+PLOT_TOAST_MS = "5000"
+PLOT_UNDO_DEPTH = "100"
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "/app/run.json installs, builds and serves the app on the published port, and the health path answers HTTP 200 with the status published in Deployment for a normal instance and for a file-storage outage."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_normal_and_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Grading routes"
+text = "When PLOT_GRADING is 1, the seed, session, view, clock, operation batch and storage routes behave exactly as published in API and answer 404 when it is unset."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_routes_when_on",
+    "test_app.py::test_grading_routes_off_answer_404",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Local accounts"
+text = "People register and sign in with a local username and password, get the plot_session cookie, and sign-in attempts are rate limited per username as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_accounts_register_login_and_forms",
+    "test_app.py::test_login_rate_limit_per_username",
+    "test_app.py::test_accounts_keyboard_refusals_and_hidden_drawing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "One error order and shape"
+text = "Every API error uses the one published body shape and code list, and when several errors apply the response follows the one published error order."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Live drawing channel"
+text = "Each open drawing has one live socket whose messages carry a per-drawing sequence number, a reconnecting page receives exactly what it missed, and the page applies each message to the screen when it arrives."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_live_channel_sequence_and_replay",
+    "test_app.py::test_live_page_applies_messages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Published breakpoints"
+text = "At 375x812, 768x1024 and 1280x800 the folders list, drawing screen and review screen show their published layout and pane order with no horizontal page overflow."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_breakpoint_layouts",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-07"
+title = "Published motion and reduced motion"
+text = "The four published animations run with their published ids and durations, and under reduced motion none runs while results, data attributes, announcements and focus stay identical."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_ids_and_reduced_motion",
+]
+criteria = []
+parameter_cases = [
+    "motion",
+    "reduce",
+]
+
+[[requirements]]
+id = "DP-08"
+title = "Contact-sheet look"
+text = "The landing hero and folders list read as dense runs of small procedural sheet frames on a near-black ground, following Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Drafting and review screens look"
+text = "Working screens use one small text size, white-line geometry on charcoal, flat corner chips instead of toolbars, square corners and sage only for the active tool and the one primary button."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Configuration from the environment"
+text = "Every service credential, URL and published setting is read from its environment variable at start, and none is hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Server boundary"
+text = "The server serves one origin and refuses writes from other origins with the published code, enforces the published body limits, answers 404 for source files, credentials and every other unserved path, and boots and serves drawings while file storage is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Command line, prompts and input forms"
+text = "Every command and alias runs from textbox Command with its exact stage prompts, the three point forms, repeat, step back and cancel, as published in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "command-line-drafting"
+tests = [
+    "test_app.py::test_command_stage_prompts",
+    "test_app.py::test_point_forms_and_value_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Keyboard map and focus"
+text = "Every action in the published keyboard table works from the keyboard, F6 cycles the published regions, and focus lands at the published place after each step."
+kind = "behavior"
+primary = "pytest"
+workflow = "command-line-drafting"
+tests = [
+    "test_app.py::test_keyboard_map_and_focus",
+    "test_app.py::test_dialog_tab_wraps_and_escape_returns",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Entity list"
+text = "grid Entities gives one row per entity in the whole drawing with the published label wording, and arrow keys, Space and Enter select and pan as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "command-line-drafting"
+tests = [
+    "test_app.py::test_entity_list_labels_and_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Command-line drafting journey"
+text = "A drafter creates, repeats, steps back and cancels geometry using only the keyboard and reads every prompt, result and entity label exactly."
+kind = "behavior"
+primary = "workflow"
+workflow = "command-line-drafting"
+tests = [
+    "test_app.py::test_wf_command_line_drafting_happy",
+    "test_app.py::test_wf_command_line_drafting_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Snaps and drafting aids"
+text = "Pointer points resolve through the published snap priority, aperture and tie rule, then Ortho or Polar, then Grid, with the current candidate exposed on the drawing root."
+kind = "behavior"
+primary = "pytest"
+workflow = "pointer-drafting"
+tests = [
+    "test_app.py::test_snap_priority_aperture_and_aids",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Selection, grips and properties"
+text = "Window and crossing selection, click toggling, grips, keyboard nudges and the Properties values behave as published, and each grip drag or nudge is one undo step."
+kind = "behavior"
+primary = "pytest"
+workflow = "pointer-drafting"
+tests = [
+    "test_app.py::test_selection_grips_properties_nudges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Presence and follow"
+text = "Everyone in a drawing appears in list People here with a published colour index and a live crosshair, is removed after the published timeout, and can be followed until the follower pans or zooms."
+kind = "behavior"
+primary = "pytest"
+workflow = "pointer-drafting"
+tests = [
+    "test_app.py::test_presence_colours_follow_and_timeout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Pointer drafting journey"
+text = "Two drafters in one drawing see pointer drafting, snapping, selection and grip edits from each other live, with exact announcements."
+kind = "behavior"
+primary = "workflow"
+workflow = "pointer-drafting"
+tests = [
+    "test_app.py::test_wf_pointer_drafting_happy",
+    "test_app.py::test_wf_pointer_drafting_crossing_erase",
+    "test_app.py::test_wf_pointer_keys_list_and_watcher",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Trim and extend"
+text = "TRIM and EXTEND produce exactly the published geometry and handles, refuse with the published messages and are one undo step each."
+kind = "behavior"
+primary = "pytest"
+workflow = "modify-chain"
+tests = [
+    "test_app.py::test_trim_and_extend",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Fillet and chamfer"
+text = "FILLET and CHAMFER produce exactly the published geometry for every radius and distance, including zero, and refuse with the published messages."
+kind = "behavior"
+primary = "pytest"
+workflow = "modify-chain"
+tests = [
+    "test_app.py::test_fillet_and_chamfer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Offset, mirror and array"
+text = "OFFSET, MIRROR and ARRAY produce exactly the published geometry, arc direction and handle order, with each run one undo step."
+kind = "behavior"
+primary = "pytest"
+workflow = "modify-chain"
+tests = [
+    "test_app.py::test_offset_mirror_array",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Modify chain journey"
+text = "A drafter runs a chain of modify commands from the keyboard while a second person watches every result arrive live and the undo steps unwind it exactly."
+kind = "behavior"
+primary = "workflow"
+workflow = "modify-chain"
+tests = [
+    "test_app.py::test_wf_modify_chain_happy",
+    "test_app.py::test_wf_modify_chain_refusals",
+    "test_app.py::test_wf_modify_trim_undo_watched",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Layers, inheritance and saved states"
+text = "Layer properties, ByLayer inheritance, the off and frozen differences, current-layer rules, saved layer states and layer errors behave as published, each change one undo step."
+kind = "behavior"
+primary = "pytest"
+workflow = "layers"
+tests = [
+    "test_app.py::test_layers_inheritance_and_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Layer locks against live selections"
+text = "Locking or freezing a layer removes its entities from every other person's live selection with the published notice, and edits on a locked layer are refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "layers"
+tests = [
+    "test_app.py::test_layer_lock_drops_live_selection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Layers journey"
+text = "Two drafters change layer state while one holds a selection and see visibility, inheritance, selections and errors change live on both screens."
+kind = "behavior"
+primary = "workflow"
+workflow = "layers"
+tests = [
+    "test_app.py::test_wf_layers_happy",
+    "test_app.py::test_wf_layers_errors",
+    "test_app.py::test_wf_layers_state_restore_live",
+    "test_app.py::test_wf_layers_off_versus_frozen_hatch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Blocks, inserts and attributes"
+text = "BLOCK and INSERT place blocks by the published transform with ByBlock colour, nesting and per-insert attribute values."
+kind = "behavior"
+primary = "pytest"
+workflow = "blocks"
+tests = [
+    "test_app.py::test_blocks_inserts_attributes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Block redefinition, explode and purge"
+text = "Redefining a block updates every insert live and keeps matching attribute values, a self-containing block is refused with its chain, and EXPLODE and PURGE work as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "blocks"
+tests = [
+    "test_app.py::test_block_redefine_explode_purge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Blocks journey"
+text = "Two drafters build nested blocks with attributes, redefine one live on both screens, hit the self-reference error and explode an insert."
+kind = "behavior"
+primary = "workflow"
+workflow = "blocks"
+tests = [
+    "test_app.py::test_wf_blocks_happy",
+    "test_app.py::test_wf_blocks_concurrent_redefine",
+    "test_app.py::test_wf_blocks_keyboard_insert_explode",
+    "test_app.py::test_wf_blocks_purge_refusal_and_undo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Associative dimensions"
+text = "Dimension values always equal their published formulas over current geometry, follow moves, undo and redefinition live, and lose and regain their association as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "dimensions-hatch"
+tests = [
+    "test_app.py::test_associative_dimensions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Associative hatch"
+text = "HATCH finds the published boundary with islands, its area always equals the published formula, and a broken boundary and its undo behave as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "dimensions-hatch"
+tests = [
+    "test_app.py::test_associative_hatch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Dimensions and hatch journey"
+text = "Two drafters move geometry by keyboard and see dimension values and hatch areas recalculate on both screens, then break and restore an association."
+kind = "behavior"
+primary = "workflow"
+workflow = "dimensions-hatch"
+tests = [
+    "test_app.py::test_wf_dimensions_hatch_happy",
+    "test_app.py::test_wf_dimensions_hatch_concurrent",
+    "test_app.py::test_wf_dimension_after_concurrent_move_and_undo",
+    "test_app.py::test_wf_hatch_island_broken_boundary_undo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Constraints and parameters"
+text = "Geometric and dimensional constraints with named expressions solve by the published rules and tolerance, keep fixed entities in place and refuse over-constraint, cycles, unknown names and division by zero exactly."
+kind = "behavior"
+primary = "pytest"
+workflow = "constraints"
+tests = [
+    "test_app.py::test_constraints_and_parameters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Constraints journey"
+text = "Two drafters edit parameters and drag a grip on constrained geometry and see every constraint hold and refusals roll back on screen."
+kind = "behavior"
+primary = "workflow"
+workflow = "constraints"
+tests = [
+    "test_app.py::test_wf_constraints_happy",
+    "test_app.py::test_wf_constraints_rollback",
+    "test_app.py::test_wf_constraints_equal_after_grip_drag",
+    "test_app.py::test_wf_constraints_typed_refusals_keep_state",
+    "test_app.py::test_wf_hatch_and_dimension_follow_parameter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Xrefs"
+text = "XATTACH shows another drawing's last published version transformed, clipped, snappable and read-only, offers a live reload when it publishes again, binds with XBIND and refuses a circular chain by naming it."
+kind = "behavior"
+primary = "pytest"
+workflow = "xrefs"
+tests = [
+    "test_app.py::test_xrefs_attach_clip_reload_bind",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Xrefs journey"
+text = "One drafter publishes a source drawing and another sees the reload notice live, reloads, reads the source's layers and handles with the xref name in front, and hits the circular-reference error."
+kind = "behavior"
+primary = "workflow"
+workflow = "xrefs"
+tests = [
+    "test_app.py::test_wf_xrefs_happy",
+    "test_app.py::test_wf_xrefs_circular",
+    "test_app.py::test_wf_xref_typed_attach_transform_rows",
+    "test_app.py::test_wf_xref_clip_undo_and_typed_bind",
+    "test_app.py::test_wf_xref_reload_notice_both_and_undo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Sheets and viewports"
+text = "Sheets in A3 or A4 place viewports by the published paper mapping and scale, with viewport-only layer freeze, annotation scale and the auto-filled title block."
+kind = "behavior"
+primary = "pytest"
+workflow = "sheets-publish"
+tests = [
+    "test_app.py::test_sheets_viewports_title_block",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Publish confirmed by storage"
+text = "A sheet version shows as published, and takes its number, only after MinIO confirms both of its objects."
+kind = "behavior"
+primary = "pytest"
+workflow = "sheets-publish"
+tests = [
+    "test_app.py::test_publish_confirmed_by_storage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Export jobs"
+text = "An export runs as a background job with published states and progress, and its download is offered only after its MinIO object exists."
+kind = "behavior"
+primary = "pytest"
+workflow = "sheets-publish"
+tests = [
+    "test_app.py::test_export_jobs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "File storage outage and recovery"
+text = "While file storage is down, drawing and editing keep working and every storage action shows its published outage text, and each recovers without a restart once storage returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "sheets-publish"
+tests = [
+    "test_app.py::test_storage_outage_instance",
+    "test_app.py::test_storage_recovers_without_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Sheet publish journey"
+text = "A drafter lays out a scaled sheet, publishes it, exports it with live progress, meets a storage outage and retries successfully."
+kind = "behavior"
+primary = "workflow"
+workflow = "sheets-publish"
+tests = [
+    "test_app.py::test_wf_sheets_publish_happy",
+    "test_app.py::test_wf_sheets_publish_outage",
+    "test_app.py::test_wf_export_dialog_keyboard_outage_retry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Server-ordered operations"
+text = "Every change is an operation with an id, base revision and group, applied in server order, all or nothing per group, with stale bases refused and replays idempotent."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-conflicts"
+tests = [
+    "test_app.py::test_server_ordered_operations",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Conflict rules"
+text = "Concurrent moves, edits to deleted entities, drawing on deleted layers and inserts during a redefinition resolve by the published rules with exact notices, and the losing person's optimistic geometry rolls back on screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-conflicts"
+tests = [
+    "test_app.py::test_conflict_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Working offline"
+text = "switch Work offline queues operations in the browser across reloads, then sends them in order with their original ids and base revisions and reports exact counts."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-conflicts"
+tests = [
+    "test_app.py::test_work_offline_queue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Per-person undo and redo"
+text = "Undo and redo reverse only the requesting person's own operation groups, skip superseded ones with the published text, survive reload and restore deleted entities with their associations."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-conflicts"
+tests = [
+    "test_app.py::test_per_person_undo_redo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Offline merge journey"
+text = "Two drafters edit offline and reconnect in a known order, and they see exact conflict notices and counts and a per-person undo that skips an overridden change."
+kind = "behavior"
+primary = "workflow"
+workflow = "offline-conflicts"
+tests = [
+    "test_app.py::test_wf_offline_conflicts_happy",
+    "test_app.py::test_wf_offline_conflicts_reload",
+    "test_app.py::test_wf_offline_undo_queue_and_deleted_layer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Delta swipe"
+text = "Comparing two published versions gives the published added, removed and changed counts and per-entity marks, with a keyboard-operable swipe slider and an overlay switch."
+kind = "behavior"
+primary = "pytest"
+workflow = "compare-review"
+tests = [
+    "test_app.py::test_delta_swipe_compare",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Restore a version"
+text = "Restoring a published version is one new undoable operation group that brings back exactly that version's geometry and keeps all history."
+kind = "behavior"
+primary = "pytest"
+workflow = "compare-review"
+tests = [
+    "test_app.py::test_restore_version",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Markups carried forward"
+text = "Cloud, arrow and text markups carry to the next version and are flagged exactly when the compare rule finds a change under them."
+kind = "behavior"
+primary = "pytest"
+workflow = "compare-review"
+tests = [
+    "test_app.py::test_markups_carried_forward",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Review steps and approvals"
+text = "Reviews follow the published steps, order, expiry and voiding, with stamps and the exact rejection for each illegal action."
+kind = "behavior"
+primary = "pytest"
+workflow = "compare-review"
+tests = [
+    "test_app.py::test_review_steps_and_approvals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Compare and review journey"
+text = "A reviewer compares versions by keyboard with and without reduced motion, reads counts that include an xref reload, sees flagged markups and has a pending review voided by a newer version."
+kind = "behavior"
+primary = "workflow"
+workflow = "compare-review"
+tests = [
+    "test_app.py::test_wf_compare_review_happy",
+    "test_app.py::test_wf_compare_review_reduced_motion",
+    "test_app.py::test_wf_compare_counts_block_and_xref_flag_void",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Phone review gestures"
+text = "On a phone, pinch, two-finger pan, tap and long press follow the published formulas and timings, and drawing commands are refused with the published notice."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-field-review"
+tests = [
+    "test_app.py::test_phone_gestures",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Issues and RFIs"
+text = "Issues and RFIs follow their published state machines with ball-in-court ownership, two-way links and an exact rejection for each illegal transition, live for everyone."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-field-review"
+tests = [
+    "test_app.py::test_issues_and_rfis",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Folder roles applied live"
+text = "Folder roles with inheritance and sheet locks decide every action, and a role change or revoke applies in open sessions live as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-field-review"
+tests = [
+    "test_app.py::test_folder_roles_applied_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "View links"
+text = "A view link shows one published version without an account, grants nothing else, and stops working live when it expires or is revoked."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-field-review"
+tests = [
+    "test_app.py::test_view_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Field review journey"
+text = "A field reviewer on a phone pins an issue, raises an RFI answered live from a desktop, hits an illegal transition and loses access live when revoked."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone-field-review"
+tests = [
+    "test_app.py::test_wf_phone_field_review_happy",
+    "test_app.py::test_wf_phone_field_review_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Drawing text format"
+text = "Import parses the published Plotfold text format with exact line-numbered errors and a merge preview, and export followed by import is an exact round trip for canonical input."
+kind = "behavior"
+primary = "pytest"
+workflow = "import-large-drawing"
+tests = [
+    "test_app.py::test_drawing_text_format",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Upload checks"
+text = "Underlay images and drawing text files are checked for size, type and quota in the published order before they are stored, and are stored under the published keys."
+kind = "behavior"
+primary = "pytest"
+workflow = "import-large-drawing"
+tests = [
+    "test_app.py::test_upload_checks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Large drawings and Find"
+text = "Only the published number of nearest entity elements stays in the page while snaps, selection and Find work on the whole drawing."
+kind = "behavior"
+primary = "pytest"
+workflow = "import-large-drawing"
+tests = [
+    "test_app.py::test_large_drawing_and_find",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Import and large drawing journey"
+text = "A drafter fixes a failing import, merges it as one undo step, exports a round trip, and navigates a large drawing with Find, snaps and the entity list."
+kind = "behavior"
+primary = "workflow"
+workflow = "import-large-drawing"
+tests = [
+    "test_app.py::test_wf_import_large_drawing_happy",
+    "test_app.py::test_wf_import_large_drawing_outage",
+    "test_app.py::test_wf_import_keyboard_preview_two_people",
+    "test_app.py::test_wf_large_entity_list_screen_reader",
+    "test_app.py::test_wf_large_remote_edit_off_screen_snap_find",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with \"_schema\":\"run-manifest-v1\" and string install, build and serve commands, and serve starts the app on the published port."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package, meaning the production dependency tree (npm ls --omit=dev --all --json), with its licence, plus the two bundled fonts."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and bundled font is licensed under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses only PostgreSQL and MinIO as backing services, with no other datastore, queue, cache, mail or search service and no embedded database file."
+tests = [
+    "test_app.py::test_if_backing_services_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided development compose files and service seed configuration are left unchanged."
+tests = [
+    "test_app.py::test_if_compose_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The page loads no external origin at run time, with no CDN scripts, web fonts or images from elsewhere."
+tests = [
+    "test_app.py::test_if_no_external_origins",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The npm lockfile is committed and install uses it."
+tests = [
+    "test_app.py::test_if_lockfile_used",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "command-line-drafting"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_command_line_drafting_happy",
+    "test_app.py::test_keyboard_map_and_focus",
+    "test_app.py::test_point_forms_and_value_refusals",
+    "test_app.py::test_command_stage_prompts",
+    "test_app.py::test_dialog_tab_wraps_and_escape_returns",
+    "test_app.py::test_entity_list_labels_and_keys",
+]
+checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "pointer-drafting"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_pointer_drafting_happy",
+    "test_app.py::test_selection_grips_properties_nudges",
+    "test_app.py::test_presence_colours_follow_and_timeout",
+    "test_app.py::test_snap_priority_aperture_and_aids",
+    "test_app.py::test_wf_pointer_drafting_crossing_erase",
+    "test_app.py::test_wf_pointer_keys_list_and_watcher",
+]
+
+[[workflows]]
+id = "modify-chain"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_wf_modify_chain_happy",
+    "test_app.py::test_trim_and_extend",
+    "test_app.py::test_fillet_and_chamfer",
+    "test_app.py::test_offset_mirror_array",
+    "test_app.py::test_wf_modify_chain_refusals",
+    "test_app.py::test_wf_modify_trim_undo_watched",
+]
+
+[[workflows]]
+id = "layers"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_layers_happy",
+    "test_app.py::test_layers_inheritance_and_states",
+    "test_app.py::test_layer_lock_drops_live_selection",
+    "test_app.py::test_wf_layers_errors",
+    "test_app.py::test_wf_layers_state_restore_live",
+    "test_app.py::test_wf_layers_off_versus_frozen_hatch",
+]
+
+[[workflows]]
+id = "blocks"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_blocks_happy",
+    "test_app.py::test_block_redefine_explode_purge",
+    "test_app.py::test_wf_blocks_concurrent_redefine",
+    "test_app.py::test_blocks_inserts_attributes",
+    "test_app.py::test_wf_blocks_keyboard_insert_explode",
+    "test_app.py::test_wf_blocks_purge_refusal_and_undo",
+]
+
+[[workflows]]
+id = "dimensions-hatch"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_dimensions_hatch_happy",
+    "test_app.py::test_associative_dimensions",
+    "test_app.py::test_wf_dimensions_hatch_concurrent",
+    "test_app.py::test_associative_hatch",
+    "test_app.py::test_wf_dimension_after_concurrent_move_and_undo",
+    "test_app.py::test_wf_hatch_island_broken_boundary_undo",
+]
+
+[[workflows]]
+id = "constraints"
+requirements = [
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_constraints_happy",
+    "test_app.py::test_constraints_and_parameters",
+    "test_app.py::test_wf_constraints_rollback",
+    "test_app.py::test_wf_constraints_equal_after_grip_drag",
+    "test_app.py::test_wf_constraints_typed_refusals_keep_state",
+    "test_app.py::test_wf_hatch_and_dimension_follow_parameter",
+]
+
+[[workflows]]
+id = "xrefs"
+requirements = [
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_xrefs_happy",
+    "test_app.py::test_xrefs_attach_clip_reload_bind",
+    "test_app.py::test_wf_xrefs_circular",
+    "test_app.py::test_wf_xref_typed_attach_transform_rows",
+    "test_app.py::test_wf_xref_clip_undo_and_typed_bind",
+    "test_app.py::test_wf_xref_reload_notice_both_and_undo",
+]
+
+[[workflows]]
+id = "sheets-publish"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_sheets_publish_happy",
+    "test_app.py::test_publish_confirmed_by_storage",
+    "test_app.py::test_storage_recovers_without_restart",
+    "test_app.py::test_sheets_viewports_title_block",
+    "test_app.py::test_storage_outage_instance",
+    "test_app.py::test_wf_sheets_publish_outage",
+    "test_app.py::test_wf_export_dialog_keyboard_outage_retry",
+]
+checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "offline-conflicts"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_offline_conflicts_happy",
+    "test_app.py::test_conflict_rules",
+    "test_app.py::test_work_offline_queue",
+    "test_app.py::test_per_person_undo_redo",
+    "test_app.py::test_wf_offline_conflicts_reload",
+    "test_app.py::test_wf_offline_undo_queue_and_deleted_layer",
+]
+
+[[workflows]]
+id = "compare-review"
+requirements = [
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_compare_review_happy",
+    "test_app.py::test_restore_version",
+    "test_app.py::test_wf_compare_review_reduced_motion",
+    "test_app.py::test_delta_swipe_compare",
+    "test_app.py::test_markups_carried_forward",
+    "test_app.py::test_wf_compare_counts_block_and_xref_flag_void",
+]
+checkpoints = [
+    "B13",
+]
+critical_checkpoints = [
+    "B13",
+]
+
+[[workflows]]
+id = "phone-field-review"
+requirements = [
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_phone_field_review_happy",
+    "test_app.py::test_phone_gestures",
+    "test_app.py::test_wf_phone_field_review_layout",
+    "test_app.py::test_view_links",
+    "test_app.py::test_folder_roles_applied_live",
+    "test_app.py::test_issues_and_rfis",
+]
+
+[[workflows]]
+id = "import-large-drawing"
+requirements = [
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_import_large_drawing_happy",
+    "test_app.py::test_upload_checks",
+    "test_app.py::test_wf_import_large_drawing_outage",
+    "test_app.py::test_large_drawing_and_find",
+    "test_app.py::test_wf_import_keyboard_preview_two_people",
+    "test_app.py::test_wf_large_entity_list_screen_reader",
+    "test_app.py::test_wf_large_remote_edit_off_screen_snap_find",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_health_normal_and_outage",
+    "test_app.py::test_grading_routes_when_on",
+    "test_app.py::test_error_shape_and_order",
+    "test_app.py::test_live_channel_sequence_and_replay",
+    "test_app.py::test_accounts_register_login_and_forms",
+    "test_app.py::test_live_page_applies_messages",
+    "test_app.py::test_breakpoint_layouts",
+    "test_app.py::test_motion_ids_and_reduced_motion",
+    "test_app.py::test_accounts_keyboard_refusals_and_hidden_drawing",
+]
+checkpoints = [
+    "B1",
+    "B4",
+]

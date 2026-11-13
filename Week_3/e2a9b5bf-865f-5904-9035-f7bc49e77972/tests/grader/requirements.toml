@@ -1,0 +1,1848 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 99
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "account-and-kit",
+    "optics-readout",
+    "field-swap",
+    "sketching",
+    "offline-night",
+    "sync-replay",
+    "object-history",
+    "program-progress",
+    "packet-check",
+    "packet-render",
+    "packet-send",
+    "service-outages",
+    "edit-after-send",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 90
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "gotenberg", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Lowlamp Field Log <packets@lowlamp.test>" } },
+]
+
+[criterion_weights]
+B1 = 3
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 5
+B9 = 5
+B10 = 3
+B11 = 5
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+S5 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "gotenberg-down"
+port = 4174
+url_env = "APP_GOTENBERG_DOWN_URL"
+
+[outages.env]
+GOTENBERG_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "minio-down"
+port = 4176
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-lock"
+port = 4177
+url_env = "APP_SHORT_LOCK_URL"
+
+[outages.env]
+SIGNIN_LOCK_SECONDS = "20"
+SIGNIN_SESSION_SECONDS = "30"
+
+[[outages]]
+id = "minio-refusing"
+port = 4178
+url_env = "APP_MINIO_REFUSING_URL"
+
+[outages.env]
+S3_SECRET_ACCESS_KEY = "wrong-secret"
+
+[[outages]]
+id = "mailpit-silent"
+port = 4179
+url_env = "APP_MAILPIT_SILENT_URL"
+
+[outages.env]
+SMTP_PORT = "8025"
+
+[[outages]]
+id = "gotenberg-erroring"
+port = 4180
+url_env = "APP_GOTENBERG_ERRORING_URL"
+
+[outages.env]
+GOTENBERG_URL = "${S3_ENDPOINT}"
+
+[[requirements]]
+id = "DP-01"
+title = "Observer accounts"
+text = "Observers sign up, sign in and sign out with a password and an email that is compared trimmed and lowercased, a sign-in session ends after its published lifetime, and every observer route except health, sign-up and sign-in answers 401 without a signed-in session, as specified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-and-kit"
+tests = [
+    "test_app.py::test_accounts_email_normalised_and_routes_guarded",
+    "test_app.py::test_signin_session_ends_after_its_lifetime",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Kit in millimetres or inches"
+text = "Telescopes, eyepieces and Barlows are added to the observer's own kit, with telescope aperture accepted in millimetres or inches and stored in millimetres by the published conversion and ranges."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-and-kit"
+tests = [
+    "test_app.py::test_kit_conversion_ranges_and_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Setting up a kit"
+text = "A newly signed-up observer adds a telescope in inches, an eyepiece and a Barlow on the Kit screen, sees the millimetre equivalent update while typing, and finds all three listed and offered in the session optics pickers."
+kind = "behavior"
+primary = "workflow"
+workflow = "account-and-kit"
+tests = [
+    "test_app.py::test_wf_account_and_kit_setup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Derived optics values and orientation"
+text = "The server derives magnification, true field, exit pupil, aperture and orientation from the chosen telescope, eyepiece, optional Barlow and train with the published formulas, rounding and train table, and stores them on the session and the observation."
+kind = "behavior"
+primary = "pytest"
+workflow = "optics-readout"
+tests = [
+    "test_app.py::test_derived_optics_stored_on_session_and_observation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Live optics readout"
+text = "Changing any optics picker updates the Optics readout in place with the published readout line before anything is saved, with no reload or submit."
+kind = "behavior"
+primary = "pytest"
+workflow = "optics-readout"
+tests = [
+    "test_app.py::test_live_readout_follows_each_picker_before_saving",
+    "test_app.py::test_wf_optics_readout_keyboard_swaps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Choosing optics at the scope"
+text = "The observer starts a session, picks telescope, eyepiece, Barlow and train, watches the readout follow each pick, and finds the same values saved on the session by the server."
+kind = "behavior"
+primary = "workflow"
+workflow = "optics-readout"
+tests = [
+    "test_app.py::test_wf_optics_readout_choosing_saved_by_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Field swap numerals"
+text = "On an optics change the magnification and true-field numerals count from the old to the new values over the published count time."
+kind = "behavior"
+primary = "pytest"
+workflow = "field-swap"
+tests = [
+    "test_app.py::test_swap_numerals_count_old_to_new",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Field swap scale and clipping"
+text = "During the count all strokes and stars scale about the field centre by the ratio of old to new true field, and marks that fall outside the circle are clipped and reappear when a wider field returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "field-swap"
+tests = [
+    "test_app.py::test_swap_scales_marks_and_clips_then_restores",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Field swap orientation"
+text = "Right after the scale change the north/east compass and every stroke, star and measured pair line turn and mirror to the new train's published orientation, and the compass's accessible name gives the new orientation sentence."
+kind = "behavior"
+primary = "pytest"
+workflow = "field-swap"
+tests = [
+    "test_app.py::test_swap_orientation_follows_train_and_compass_waits",
+]
+criteria = []
+parameter_cases = [
+    "mirror-diagonal",
+    "erecting-prism",
+]
+
+[[requirements]]
+id = "DP-10"
+title = "Field swap with reduced motion"
+text = "With reduced motion the numerals, scale, compass and sketch orientation reach their new state in one frame and the Field announcements region reads the published swap sentence."
+kind = "behavior"
+primary = "pytest"
+workflow = "field-swap"
+tests = [
+    "test_app.py::test_wf_field_swap_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Swapping optics mid-sketch"
+text = "The observer opens a sketched observation, swaps eyepiece with the bracket keys and changes the train; the field rescales, the compass and sketch reorient, the stroke file stays byte-identical and the new optics and derived values are saved."
+kind = "behavior"
+primary = "workflow"
+workflow = "field-swap"
+tests = [
+    "test_app.py::test_wf_field_swap_mid_sketch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Keyboard sketching and eyepiece keys"
+text = "In the Field region the arrow keys move the sketch cursor by the published sky steps, 1 to 5 choose star brightness, Enter places a star or in Measure mode marks a pair point, Space activates a focused Sketch tools button, the bracket keys swap eyepieces and undo removes the last mark, whichever control in the region has focus, and none of these keys touch the field while a dialog is open."
+kind = "behavior"
+primary = "pytest"
+workflow = "sketching"
+tests = [
+    "test_app.py::test_field_keys_with_focus_on_a_tool",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Sketch tools"
+text = "The Sketch tools toolbar offers Pencil and Star modes, Measure mode for double stars, three pencil widths, Undo and Clear sketch; Clear sketch asks for confirmation in a dialog that keeps keyboard focus inside it, where Enter acts on the focused dialog button, before erasing, and Undo after Clear restores all cleared marks in one step."
+kind = "behavior"
+primary = "pytest"
+workflow = "sketching"
+tests = [
+    "test_app.py::test_sketch_tools_and_clear_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Touch and stylus sketching"
+text = "A finger or stylus draws on the field circle, taps place stars in Star mode, and a two-finger pinch on the circle zooms neither the page nor the field."
+kind = "behavior"
+primary = "pytest"
+workflow = "sketching"
+tests = [
+    "test_app.py::test_touch_and_stylus_sketching",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Stroke files stored as submitted"
+text = "Each sketch save stores the submitted stroke file and optional PNG byte for byte under content-addressed keys and serves the current stroke file back unchanged, and a save whose marks equal the last saved marks writes no new stroke file."
+kind = "behavior"
+primary = "pytest"
+workflow = "sketching"
+tests = [
+    "test_app.py::test_stroke_files_stored_byte_for_byte",
+    "test_app.py::test_wf_sketching_place_then_undo_writes_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Sketching an object at the eyepiece"
+text = "The observer logs a new object with its fields and a keyboard-placed star field, saves it, reloads, and sees the same sketch, fields and derived optics."
+kind = "behavior"
+primary = "workflow"
+workflow = "sketching"
+tests = [
+    "test_app.py::test_wf_sketching_keyboard_log",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Offline banner and waiting count"
+text = "Without signal the working screens show the published offline banner, and whenever changes are queued the published waiting-count line shows their number."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-night"
+tests = [
+    "test_app.py::test_offline_banner_and_waiting_count_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Usable without signal"
+text = "After one online visit, the working screens open with no network, and sessions, observations and sketches saved offline survive a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-night"
+tests = [
+    "test_app.py::test_usable_without_signal_and_survives_reload",
+    "test_app.py::test_offline_session_screen_published_layout",
+    "test_app.py::test_offline_logging_and_delete_move_the_session_count",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Logging a night without signal"
+text = "Offline, the observer starts a session, logs and sketches two objects and reloads; on reconnecting the queue is sent in order, the count clears and both observations exist once on the server."
+kind = "behavior"
+primary = "workflow"
+workflow = "offline-night"
+tests = [
+    "test_app.py::test_wf_offline_night_logs_two_objects",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Ordered sync journal"
+text = "The sync route applies a device's changes in array order and returns one result per change, and a batch the server refuses as too large splits and resends in order with the same op ids, as specified in API and Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "sync-replay"
+tests = [
+    "test_app.py::test_sync_applies_in_order_and_limits",
+    "test_app.py::test_browser_splits_a_refused_batch_in_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Replayed changes never duplicate"
+text = "A change replayed with the same client op id returns its stored result marked as replayed and never creates a second record, and a reused id with a different payload is rejected with 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "sync-replay"
+tests = [
+    "test_app.py::test_replayed_changes_never_duplicate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Newest field edit wins and is reported"
+text = "Observation fields edited on different devices resolve field by field to the latest edit time, and every value kept over, or replacing, another device's edit is reported in the change's result."
+kind = "behavior"
+primary = "pytest"
+workflow = "sync-replay"
+tests = [
+    "test_app.py::test_newest_field_edit_wins_and_is_reported",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Sync results announced"
+text = "When queued changes are sent, the Sync results region announces one published sentence per observation, including conflict and rejection sentences."
+kind = "behavior"
+primary = "pytest"
+workflow = "sync-replay"
+tests = [
+    "test_app.py::test_sync_sentences_for_conflicts_and_rejections",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Reconciling tablet and laptop"
+text = "A description edited offline on the tablet and later on the laptop resolves to the newer edit after the tablet syncs, and the tablet announces which value was kept and shows it without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "sync-replay"
+tests = [
+    "test_app.py::test_wf_sync_replay_tablet_and_laptop",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "UT times and evening dates"
+text = "Observation times are entered and stored in UT within 18 elapsed hours of their session start and shown with the site's local time, and each session belongs to the published evening date."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-history"
+tests = [
+    "test_app.py::test_ut_window_formats_and_evening_dates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "One object's history"
+text = "An object's history lists all of the observer's observations of it across every session and year, newest first, in the published row format with each row's local time and UTC offset."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-history"
+tests = [
+    "test_app.py::test_history_rows_for_the_seeded_observer",
+    "test_app.py::test_wf_object_history_private_to_owner",
+    "test_app.py::test_seeded_rows_read_exactly_in_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Tidying notes at the home desk"
+text = "On the laptop the observer opens M13's history, opens the 2025 observation, lengthens its description and sees the saved text in the observation and its history row."
+kind = "behavior"
+primary = "workflow"
+workflow = "object-history"
+tests = [
+    "test_app.py::test_wf_object_history_tidy_notes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Published completeness rule"
+text = "An observation qualifies for a program only under the published completeness rule, and program progress, checklists and packet checks all use that same rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "program-progress"
+tests = [
+    "test_app.py::test_completeness_rule_each_clause",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Program progress"
+text = "Programs show each program's qualifying, total and required counts and whether the observer follows it, recomputed on every read."
+kind = "behavior"
+primary = "pytest"
+workflow = "program-progress"
+tests = [
+    "test_app.py::test_program_progress_counts_recomputed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Empty program list"
+text = "An observer who follows no program sees the published empty-programs sentence in place of their program list."
+kind = "behavior"
+primary = "pytest"
+workflow = "program-progress"
+tests = [
+    "test_app.py::test_empty_programs_sentence_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Following a program"
+text = "An observer with no followed programs follows Twelve Showpieces and sees its checklist, progress counts and progress bar reflect the observations they already have."
+kind = "behavior"
+primary = "workflow"
+workflow = "program-progress"
+tests = [
+    "test_app.py::test_wf_program_progress_follow_showpieces",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Packet drafts and rows"
+text = "A packet is created as a draft from the observer's own observations for one program, and its rows can be replaced while it is a draft or checked."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-check"
+tests = [
+    "test_app.py::test_packet_drafts_and_rows",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Packet check and rejected reasons"
+text = "Checking a packet moves it to checked only when every row passes the completeness rule and the certificate count is met, and otherwise answers 422 with the published reasons in the published order."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-check"
+tests = [
+    "test_app.py::test_packet_check_reasons_in_published_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Edits return a packet to draft"
+text = "Any applied edit to an observation cited by a packet that has not started sending returns that packet to draft, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-check"
+tests = [
+    "test_app.py::test_edits_return_cited_packets_to_draft",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Checking a packet"
+text = "The observer builds a Globular Clusters by Hand packet, sees M2's problems listed, removes M2, checks again and sees the packet as Checked."
+kind = "behavior"
+primary = "workflow"
+workflow = "packet-check"
+tests = [
+    "test_app.py::test_wf_packet_check_remove_m2",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Packet PDF contents"
+text = "A rendered packet is a PDF with a cover page and exactly one page per row carrying the published lines and the sketch drawn dark on white, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-render"
+tests = [
+    "test_app.py::test_pdf_contents_lines_and_literal_text",
+]
+criteria = []
+parameter_cases = [
+    "straight-through",
+    "mirror-diagonal",
+    "erecting-prism",
+]
+
+[[requirements]]
+id = "DP-37"
+title = "Rendered only when stored"
+text = "A packet becomes rendered only after its PDF is written to storage under the published key and a follow-up read confirms its size and checksum, and its download returns those exact bytes."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-render"
+tests = [
+    "test_app.py::test_rendered_only_when_stored",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Packet status that holds"
+text = "The Packet status panel shows the newest packet state across its polling, a route change and a reload, and never lets an older answer replace a newer state or message, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-render"
+tests = [
+    "test_app.py::test_wf_packet_render_status_holds_across_screens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Paper preview"
+text = "The packet screen previews each packet page on a white paper field with the sketch in graphite strokes, in the same layout as the PDF."
+kind = "visual"
+primary = "rubric"
+workflow = "packet-render"
+tests = []
+criteria = [
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Rendering a packet"
+text = "The observer renders a checked packet, watches Packet status move from Rendering to Rendered, and downloads a PDF with the published pages."
+kind = "behavior"
+primary = "workflow"
+workflow = "packet-render"
+tests = [
+    "test_app.py::test_wf_packet_render_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Sending to the coordinator"
+text = "Sending a rendered packet mails the stored PDF to the program coordinator with a copy to the observer, and the packet becomes sent only after the mail server accepts the message."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-send"
+tests = [
+    "test_app.py::test_send_mails_the_stored_pdf",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Send dialog by keyboard"
+text = "Send to coordinator opens the Send packet dialog, where Tab and Shift+Tab wrap inside it, Escape closes it and focus returns to the opener, and Send now moves focus to the Packet status panel."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-send"
+tests = [
+    "test_app.py::test_send_dialog_by_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Exactly one render or send wins"
+text = "Of simultaneous render requests, or simultaneous send requests, on one packet exactly one starts the transition and the others answer 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-send"
+tests = [
+    "test_app.py::test_exactly_one_render_or_send_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Sending a packet"
+text = "The observer sends a rendered packet using only the keyboard, sees it as Sent, and finds the coordinator's message with the PDF attachment in the mail server."
+kind = "behavior"
+primary = "workflow"
+workflow = "packet-send"
+tests = [
+    "test_app.py::test_wf_packet_send_keyboard_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Renderer outage"
+text = "When the PDF renderer cannot be reached, rendering ends in render failed with the published renderer copy and a retry that succeeds once the renderer answers."
+kind = "behavior"
+primary = "pytest"
+workflow = "service-outages"
+tests = [
+    "test_app.py::test_wf_service_outages_renderer",
+]
+criteria = []
+parameter_cases = [
+    "gotenberg-down",
+    "gotenberg-erroring",
+]
+
+[[requirements]]
+id = "DP-46"
+title = "Mail outage"
+text = "When the mail server cannot be reached, sending answers 503, the packet keeps its previous state and revision with nothing recorded as sent, and the published mail outage copy shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "service-outages"
+tests = [
+    "test_app.py::test_mail_outage_keeps_state_and_revision",
+]
+criteria = []
+parameter_cases = [
+    "mailpit-down",
+    "mailpit-silent",
+]
+
+[[requirements]]
+id = "DP-47"
+title = "Storage outage"
+text = "When storage cannot be reached, a sketch save that would apply answers 503 and stays queued on the device with the published storage copy, sketch reads answer 503, and rendering ends in render failed with the storage copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "service-outages"
+tests = [
+    "test_app.py::test_storage_outage_reads_saves_and_render",
+]
+criteria = []
+parameter_cases = [
+    "minio-down",
+    "minio-refusing",
+]
+
+[[requirements]]
+id = "DP-48"
+title = "Starting and recovering with services down"
+text = "The app starts and answers health while the renderer, mail server or storage is unreachable, and each feature recovers on the next action after its service returns, without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "service-outages"
+tests = [
+    "test_app.py::test_boot_with_services_down_and_recover_without_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Meeting a mail outage"
+text = "With the mail server down, the observer renders a packet, presses Send now, and sees the mail outage copy with the packet still Rendered, and no message is delivered."
+kind = "behavior"
+primary = "workflow"
+workflow = "service-outages"
+tests = [
+    "test_app.py::test_wf_service_outages_meeting_a_mail_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Sent packets stay as sent, deleted observations leave"
+text = "A sent packet's PDF and every stroke file it cites stay byte for byte as sent after later edits, which go into a new packet, while deleting an observation no sent or sending packet cites removes its stroke files, sketch images and any PDF that printed it, drops its row from citing packets and can never be undone by a late write, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "edit-after-send"
+tests = [
+    "test_app.py::test_sent_packet_stays_byte_for_byte",
+    "test_app.py::test_delete_removes_files_rows_and_cannot_be_undone",
+]
+criteria = []
+parameter_cases = [
+    "straight-through",
+    "mirror-diagonal",
+    "erecting-prism",
+]
+
+[[requirements]]
+id = "DP-51"
+title = "Private to the owner"
+text = "Every session, observation, kit item, site, stroke file, sketch image and packet answers the same 404 to any other account, including ids inside request bodies and sync changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "edit-after-send"
+tests = [
+    "test_app.py::test_private_to_the_owner_everywhere",
+]
+criteria = []
+parameter_cases = [
+    "draft",
+    "checked",
+    "rendered",
+    "sent",
+]
+
+[[requirements]]
+id = "DP-52"
+title = "Editing after sending and deleting a mistake"
+text = "After sending, the observer redraws a cited sketch, finds the sent packet unchanged and still Sent, and builds a new packet that cites the new stroke file; then they delete a mistaken observation from a session row, see the row go and focus land on the next published row control, and find a delete of an observation the sent packet cites refused with its row back."
+kind = "behavior"
+primary = "workflow"
+workflow = "edit-after-send"
+tests = [
+    "test_app.py::test_wf_edit_after_send_redraw_and_delete",
+    "test_app.py::test_wf_edit_after_send_refused_redraw_waits",
+]
+criteria = []
+parameter_cases = [
+    "straight-through",
+    "mirror-diagonal",
+    "erecting-prism",
+]
+
+[[requirements]]
+id = "DP-53"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from the run manifest on the published port and answers the health route with the published body."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_run_manifest_serves_and_health_body",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Server boundary"
+text = "The server enforces the published body limits, content type, same-origin rule and error precedence, and never serves source, configuration or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Session screen at three widths"
+text = "The session screen shows its published layout at 375x812, 768x1024 and 1280x800, and no screen overflows horizontally at those sizes."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_session_layouts",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-56"
+title = "Landing hero motion"
+text = "The landing eyepiece view crossfades from M13 to Albireo to M51 on the published interval and holds still on M13 under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_landing_hero_crossfade_and_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Feedback motion and focus"
+text = "Buttons and rows give hover and press feedback within the published time, keyboard focus shows a visible white ring, and nothing else loops."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_feedback_motion_focus_and_no_loops",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Night working screens"
+text = "Working screens stay plum-black with surface-toned inputs, white sketches on the dark field, rows spaced without rules and at most one pink element per screen, as listed in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Landing page composition"
+text = "The landing page shows the wordmark, tagline, plinth with the eyepiece view, Start a log button and the white demonstration field in one column, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Real services from configuration"
+text = "The source talks to Postgres, MinIO, the PDF renderer and the SMTP server through the configured environment variables, with no stand-in state and no credentials in the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Sign-in lock"
+text = "Five failed sign-ins for one email within the published rolling window lock that email, known or unknown, so every sign-in for it answers 429 with Retry-After and the published sentence until the lock ends, even with the correct password and under parallel attempts, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-and-kit"
+tests = [
+    "test_app.py::test_signin_lock_counts_every_email_under_parallel_attempts",
+    "test_app.py::test_wf_account_and_kit_lock_sentence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Latest optics pick wins"
+text = "A server reply for an older optics change never repaints the pickers, readout, compass or field, and never starts a swap or announcement, while a newer optics change for that session or observation is queued or in flight, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "optics-readout"
+tests = [
+    "test_app.py::test_wf_optics_readout_late_reply_never_repaints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Local times with their offset"
+text = "Every session start and observation carries the site zone's UTC offset at that exact instant, shown beside its local time on screen, in history rows and in the PDF, so repeated local times on the night clocks fall back are told apart."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-history"
+tests = [
+    "test_app.py::test_offsets_tell_repeated_local_times_apart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Program rule editions"
+text = "Each program publishes dated rule editions, and every observation is judged by the edition in force on its session's evening date, including the concentration class and the measured pair where that edition requires them, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "program-progress"
+tests = [
+    "test_app.py::test_rule_editions_judge_by_evening_date",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Simultaneous syncs keep every field"
+text = "Simultaneous changes to different fields of one observation both apply with consecutive versions, and simultaneous changes to the same field resolve by edit time alone, whatever order they arrive in."
+kind = "behavior"
+primary = "pytest"
+workflow = "sync-replay"
+tests = [
+    "test_app.py::test_simultaneous_syncs_keep_every_field",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Honest Sending state"
+text = "From Send now until the send answers, Packet status shows Sending with no Send to coordinator button and the browser makes exactly one send request; it shows Sent only after success and returns to the previous label with the mail outage copy on a 503."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-send"
+tests = [
+    "test_app.py::test_honest_sending_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Signed out with changes waiting"
+text = "When a sync answers 401 the journal and unsaved work stay on the device, automatic sends stop and the published signed-out line offers Sign in, and after the same account signs in the app lands back on that screen, restores the unsaved work and sends the journal in its original order, under that account only."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-night"
+tests = [
+    "test_app.py::test_wf_offline_night_signed_out_resumes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Device copy follows the server"
+text = "Each sync result's body replaces the device's copy of each field in the form, session list and history copy without a reload, except a field with unsaved typing or a later queued change, and a rejected update rolls back while a rejected create leaves no ghost row and keeps its values in an open form, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "sync-replay"
+tests = [
+    "test_app.py::test_device_copy_follows_server_and_rolls_back",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Client op ids per account"
+text = "Client op ids are scoped per account, so one account's op id is a new change for another account and never returns the first account's stored result."
+kind = "behavior"
+primary = "pytest"
+workflow = "sync-replay"
+tests = [
+    "test_app.py::test_client_op_ids_are_per_account",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Published landing routes"
+text = "Sign-in, sign-up, sign-out, Start session and every signed-out or signed-in visit to a guarded screen land on the published route, a sign-in honours only a safe next path, and reloading the landing address shows the same screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-history"
+tests = [
+    "test_app.py::test_published_landing_routes_and_safe_next",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Opening an observation is not an optics change"
+text = "Opening an observation sets the published address and shows its stored optics in one frame with no swap, no optics announcement and no queued change, and a reload keeps it open."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-history"
+tests = [
+    "test_app.py::test_opening_an_observation_is_not_an_optics_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Follow and Unfollow keep the newest press"
+text = "Follow and Unfollow respond at once, the newest press stands on screen and on the server even when replies arrive late, a failed press restores the last server state with the published sentence, and syncs refresh open program counts in place, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "program-progress"
+tests = [
+    "test_app.py::test_follow_and_unfollow_keep_the_newest_press",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Stale packet actions and packet numbers"
+text = "Rows, check, render and send carry the revision the observer saw, a legal action on an old revision answers 412 and an illegal one 409 with nothing changed and the screen showing the current state, and simultaneous creates receive distinct consecutive packet numbers with no gaps."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-check"
+tests = [
+    "test_app.py::test_stale_actions_and_packet_numbers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Only the newest render counts"
+text = "A render's result applies only to the attempt that started it, whichever app instance started either attempt, so only the newest attempt can become the packet's state and its one stored PDF."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-render"
+tests = [
+    "test_app.py::test_only_the_newest_render_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "A stale tab cannot send the wrong thing"
+text = "A page acting on a packet another device has already sent or re-rendered sends nothing, repaints the current state and shows the published sentence, while this device's own send answer always applies to its panel."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-send"
+tests = [
+    "test_app.py::test_stale_tab_cannot_send_the_wrong_thing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Sending with storage down"
+text = "When the stored PDF cannot be read, sending answers 503, the packet keeps its state and revision, no message goes out, and the published storage sentence shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "service-outages"
+tests = [
+    "test_app.py::test_send_with_storage_down_sends_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "A failed sketch read is never an empty sketch"
+text = "When a sketch cannot be read and the device holds no copy, the published sentence shows, marking is disabled, other fields still save without touching the stroke file, and a failed PDF download stays on the packet screen with the published sentence."
+kind = "behavior"
+primary = "pytest"
+workflow = "service-outages"
+tests = [
+    "test_app.py::test_failed_sketch_read_is_never_an_empty_sketch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Interrupted Field swap"
+text = "A new pick during a swap continues from the displayed values, scale and orientation, and only the newest pick ends with a compass name and an announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "field-swap"
+tests = [
+    "test_app.py::test_interrupted_swap_continues_and_only_newest_ends",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Marks and pairs map back to the sky"
+text = "Marks placed by pointer or keyboard under any train and field are stored at their correct sky coordinates by the published projection, the keyboard cursor keeps its sky position, and a measured pair's separation and position angle update as it is marked and come out the same under every train, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "sketching"
+tests = [
+    "test_app.py::test_marks_map_back_to_the_sky_under_each_train",
+    "test_app.py::test_pair_values_on_server_and_readout_in_place",
+]
+criteria = []
+parameter_cases = [
+    "straight-through",
+    "mirror-diagonal",
+    "erecting-prism",
+]
+
+[[requirements]]
+id = "DP-80"
+title = "Second touches and stylus contacts"
+text = "A second finger landing during a finger stroke discards that stroke with no undo entry, a pinch in Star mode places no star, and touches on the circle are ignored while a pen is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "sketching"
+tests = [
+    "test_app.py::test_second_touches_and_pen_contacts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Published layouts on other screens"
+text = "Object history, Program, Programs, Kit and Packet show their published layouts at 375x812, 768x1024 and 1280x800, and every tappable control on every working screen is at least 44 by 44 px at each size."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_published_layouts_on_other_screens",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-82"
+title = "Kit and account copies belong to one account"
+text = "Kit, site, program and session copies kept for offline use are stored and served per account, so after another account signs in on a device only that account's data shows, online and offline, a reply to a request made under an earlier account paints nothing, and authenticated reads follow the published caching rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-and-kit"
+tests = [
+    "test_app.py::test_interleaved_reads_are_scoped_to_their_session",
+    "test_app.py::test_device_copies_belong_to_one_account",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "A swap never outlives its subject"
+text = "Open, New observation, a route change or a reload during a Field swap ends that swap in that frame with no later repaint, compass name change or announcement, its queued changes are still sent, and a session optics reply changes the display only while no saved observation is open."
+kind = "behavior"
+primary = "pytest"
+workflow = "field-swap"
+tests = [
+    "test_app.py::test_swap_never_outlives_its_subject",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Packet actions keep the keyboard's place"
+text = "After Remove, check, render, Try again or a stale repaint keyboard focus lands on its published target and never on the page body, each packet has one action in flight so a repeated press sends nothing more, and a packet's only row has no Remove button."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-check"
+tests = [
+    "test_app.py::test_packet_actions_keep_the_keyboards_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Packet status announces each outcome once"
+text = "Packet status stays one element while the packet screen is open and is written only when its label or sentence changes, and polling uses one timer with at most one request in flight, running only while that screen is open and the packet is rendering or sending."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-render"
+tests = [
+    "test_app.py::test_packet_status_one_node_one_timer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "A send outlives the screen that started it"
+text = "Leaving the packet screen during a send keeps the answer for that packet and paints no other screen, the panel holds Sending until the answer or a server-confirmed sent arrives, a reload never re-sends, and a dialog reopened during its exit stays open."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-send"
+tests = [
+    "test_app.py::test_wf_packet_send_outlives_the_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-87"
+title = "A sketch that storage refused changed nothing"
+text = "A sketch.put is decided in the published order, so a discarded sketch answers 200 without contacting storage, and a storage 503 leaves the observation, every cited packet and the op journal unchanged so a retry with that op id runs as new."
+kind = "behavior"
+primary = "pytest"
+workflow = "service-outages"
+tests = [
+    "test_app.py::test_refused_sketch_changed_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-88"
+title = "The device holds the whole account"
+text = "Within 10 seconds of the first online visit to any working screen the device holds the account's kit, sites, programs, every session and observation, every object history and every current stroke file, so those screens and sketches open offline even if never visited, and an id the device doesn't hold shows the published sentence instead of the Not found screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-night"
+tests = [
+    "test_app.py::test_device_holds_the_whole_account",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-89"
+title = "Offline progress computed on the device"
+text = "While offline or with changes queued, Programs and Program recompute counts, bar and checklist in place from the device's copy plus its queued changes under the same completeness and edition rule as the server, and a rejected change rolls them back."
+kind = "behavior"
+primary = "pytest"
+workflow = "program-progress"
+tests = [
+    "test_app.py::test_wf_program_progress_offline_on_device",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-90"
+title = "Two tabs share one journal and one sender"
+text = "Tabs of one browser profile share the journal, so each tab's count and copy follow within 2 seconds, no change is in two requests in flight at once, each sync sentence appears once in each tab, and another open tab takes over within 40 seconds if the sender closes."
+kind = "behavior"
+primary = "pytest"
+workflow = "sync-replay"
+tests = [
+    "test_app.py::test_wf_sync_replay_two_tabs_share_one_sender",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-91"
+title = "An account change reaches every tab"
+text = "A sign-out or a sign-in as another account in one tab reaches every other open tab within 2 seconds, which shows none of the earlier account's data and never sends its journal, and the owner's work returns on their next sign-in."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-and-kit"
+tests = [
+    "test_app.py::test_account_change_reaches_every_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-92"
+title = "Marking while the view moves"
+text = "A pointer or pen landing during a Field swap finishes that swap in that frame and its mark maps through the newest projection, an optics change during a stroke ends the stroke with its points in the projections they were drawn under, and a pointercancel discards the stroke with no undo entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "field-swap"
+tests = [
+    "test_app.py::test_marking_while_the_view_moves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-93"
+title = "Unsaved work kept per observation"
+text = "Unsaved form values, marks and the undo stack persist on the device per account and observation at each change, and return with the published sentence after a reload, Back, a route change or an Open elsewhere, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "sketching"
+tests = [
+    "test_app.py::test_unsaved_work_kept_per_observation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-94"
+title = "One request per form press"
+text = "Each account, kit and site form has one request in flight, so repeated Enter or a double-click sends one request and one mistyped password costs one failed attempt, and focus and field values after each answer follow the published rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-and-kit"
+tests = [
+    "test_app.py::test_one_request_per_form_press",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-95"
+title = "Session screen on its side"
+text = "At 812x375 and 1024x768 the Session screen shows its published side-on layout, and changing viewport while idle or during a swap keeps every mark and the cursor at their sky positions and ends on the same final state."
+kind = "behavior"
+primary = "pytest"
+workflow = "field-swap"
+tests = [
+    "test_app.py::test_session_screen_on_its_side",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-96"
+title = "Moving packet rows by keyboard"
+text = "Draft and checked packet rows have Move up and Move down buttons that persist the order through the rows route with its revision, announce the new position, keep focus on that row and return a checked packet to draft, and the check's reasons and the PDF's pages follow that order."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-check"
+tests = [
+    "test_app.py::test_wf_packet_check_keyboard_reorder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-97"
+title = "US Letter pages, on paper and in preview"
+text = "Packet PDF pages are exactly US Letter and each Paper preview page keeps exact US Letter proportions at its published width with all its content inside the page, even with a 4,000-character unbroken description and a sketch."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-render"
+tests = [
+    "test_app.py::test_us_letter_pages_on_paper_and_in_preview",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-98"
+title = "Names stay literal"
+text = "Sign-up refuses display names outside 1 to 60 characters or holding control characters or line separators, and any other name reaches the coordinator and the PDF literally with no added recipient or header."
+kind = "behavior"
+primary = "pytest"
+workflow = "packet-send"
+tests = [
+    "test_app.py::test_names_stay_literal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-99"
+title = "Refusing and silent providers"
+text = "Storage that refuses a request, a renderer that answers anything but a success with PDF bytes and an SMTP server that sends no greeting within the published limit are treated as down, with the exact published body and copy within that limit and no provider message, host or stack."
+kind = "behavior"
+primary = "pytest"
+workflow = "service-outages"
+tests = [
+    "test_app.py::test_refusing_and_silent_providers",
+]
+criteria = []
+parameter_cases = [
+    "minio-refusing",
+    "gotenberg-erroring",
+    "mailpit-silent",
+]
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve fields and _schema run-manifest-v1, and nothing else starts the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package with its version and licence, plus the Sora font. Shipped packages are the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and every bundled font uses one of MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0, CC0-1.0, Unlicense or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores state only in Postgres and MinIO: no SQLite, no other database or cache server, no in-process store for sign-in counts, and no app data written to local files."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Application source is TypeScript, and the provided service configuration (the compose and environment files given to you) is left unchanged."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The Sora font is served from the app itself, and no page requests fonts, scripts or styles from another origin."
+tests = [
+    "test_app.py::test_if_font_and_assets_same_origin",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "account-and-kit"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-61",
+    "DP-82",
+    "DP-91",
+    "DP-94",
+]
+critical = [
+    "test_app.py::test_wf_account_and_kit_setup",
+    "test_app.py::test_wf_account_and_kit_lock_sentence",
+    "test_app.py::test_signin_lock_counts_every_email_under_parallel_attempts",
+    "test_app.py::test_interleaved_reads_are_scoped_to_their_session",
+    "test_app.py::test_one_request_per_form_press",
+]
+
+[[workflows]]
+id = "optics-readout"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_optics_readout_choosing_saved_by_server",
+    "test_app.py::test_wf_optics_readout_late_reply_never_repaints",
+    "test_app.py::test_wf_optics_readout_keyboard_swaps",
+    "test_app.py::test_live_readout_follows_each_picker_before_saving",
+]
+
+[[workflows]]
+id = "field-swap"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-78",
+    "DP-83",
+    "DP-92",
+    "DP-95",
+]
+critical = [
+    "test_app.py::test_wf_field_swap_mid_sketch",
+    "test_app.py::test_wf_field_swap_reduced_motion",
+    "test_app.py::test_interrupted_swap_continues_and_only_newest_ends",
+    "test_app.py::test_session_screen_on_its_side",
+]
+
+[[workflows]]
+id = "sketching"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-79",
+    "DP-80",
+    "DP-93",
+]
+critical = [
+    "test_app.py::test_wf_sketching_keyboard_log",
+    "test_app.py::test_wf_sketching_place_then_undo_writes_nothing",
+    "test_app.py::test_field_keys_with_focus_on_a_tool",
+    "test_app.py::test_touch_and_stylus_sketching",
+    "test_app.py::test_stroke_files_stored_byte_for_byte",
+    "test_app.py::test_unsaved_work_kept_per_observation",
+    "test_app.py::test_pair_values_on_server_and_readout_in_place",
+]
+checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "offline-night"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-67",
+    "DP-88",
+]
+critical = [
+    "test_app.py::test_wf_offline_night_logs_two_objects",
+    "test_app.py::test_wf_offline_night_signed_out_resumes",
+    "test_app.py::test_offline_logging_and_delete_move_the_session_count",
+    "test_app.py::test_offline_banner_and_waiting_count_exact",
+    "test_app.py::test_offline_session_screen_published_layout",
+]
+
+[[workflows]]
+id = "sync-replay"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-65",
+    "DP-68",
+    "DP-69",
+    "DP-90",
+]
+critical = [
+    "test_app.py::test_wf_sync_replay_tablet_and_laptop",
+    "test_app.py::test_wf_sync_replay_two_tabs_share_one_sender",
+    "test_app.py::test_simultaneous_syncs_keep_every_field",
+    "test_app.py::test_device_copy_follows_server_and_rolls_back",
+    "test_app.py::test_sync_sentences_for_conflicts_and_rejections",
+]
+
+[[workflows]]
+id = "object-history"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-63",
+    "DP-70",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_wf_object_history_tidy_notes",
+    "test_app.py::test_wf_object_history_private_to_owner",
+    "test_app.py::test_offsets_tell_repeated_local_times_apart",
+    "test_app.py::test_published_landing_routes_and_safe_next",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "program-progress"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-64",
+    "DP-72",
+    "DP-89",
+]
+critical = [
+    "test_app.py::test_wf_program_progress_follow_showpieces",
+    "test_app.py::test_wf_program_progress_offline_on_device",
+    "test_app.py::test_rule_editions_judge_by_evening_date",
+    "test_app.py::test_follow_and_unfollow_keep_the_newest_press",
+    "test_app.py::test_empty_programs_sentence_exact",
+]
+
+[[workflows]]
+id = "packet-check"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-73",
+    "DP-84",
+    "DP-96",
+]
+critical = [
+    "test_app.py::test_wf_packet_check_remove_m2",
+    "test_app.py::test_wf_packet_check_keyboard_reorder",
+    "test_app.py::test_packet_check_reasons_in_published_order",
+    "test_app.py::test_packet_actions_keep_the_keyboards_place",
+    "test_app.py::test_stale_actions_and_packet_numbers",
+]
+
+[[workflows]]
+id = "packet-render"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-74",
+    "DP-85",
+    "DP-97",
+]
+critical = [
+    "test_app.py::test_wf_packet_render_happy",
+    "test_app.py::test_wf_packet_render_status_holds_across_screens",
+    "test_app.py::test_rendered_only_when_stored",
+    "test_app.py::test_only_the_newest_render_counts",
+    "test_app.py::test_us_letter_pages_on_paper_and_in_preview",
+    "test_app.py::test_packet_status_one_node_one_timer",
+]
+checkpoints = [
+    "B11",
+    "B12",
+]
+critical_checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "packet-send"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-66",
+    "DP-75",
+    "DP-86",
+    "DP-98",
+]
+critical = [
+    "test_app.py::test_wf_packet_send_keyboard_only",
+    "test_app.py::test_wf_packet_send_outlives_the_screen",
+    "test_app.py::test_send_mails_the_stored_pdf",
+    "test_app.py::test_honest_sending_state",
+    "test_app.py::test_names_stay_literal",
+    "test_app.py::test_exactly_one_render_or_send_wins",
+]
+
+[[workflows]]
+id = "service-outages"
+requirements = [
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-76",
+    "DP-77",
+    "DP-87",
+    "DP-99",
+]
+critical = [
+    "test_app.py::test_wf_service_outages_renderer",
+    "test_app.py::test_wf_service_outages_meeting_a_mail_outage",
+    "test_app.py::test_boot_with_services_down_and_recover_without_restart",
+    "test_app.py::test_refusing_and_silent_providers",
+    "test_app.py::test_refused_sketch_changed_nothing",
+    "test_app.py::test_failed_sketch_read_is_never_an_empty_sketch",
+]
+
+[[workflows]]
+id = "edit-after-send"
+requirements = [
+    "DP-50",
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_edit_after_send_redraw_and_delete",
+    "test_app.py::test_wf_edit_after_send_refused_redraw_waits",
+    "test_app.py::test_sent_packet_stays_byte_for_byte",
+    "test_app.py::test_delete_removes_files_rows_and_cannot_be_undone",
+    "test_app.py::test_private_to_the_owner_everywhere",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-81",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_server_boundary",
+    "test_app.py::test_wf_cross_cutting_session_layouts",
+]
+checkpoints = [
+    "B2",
+    "B6",
+    "B9",
+]
+critical_checkpoints = [
+    "B2",
+]

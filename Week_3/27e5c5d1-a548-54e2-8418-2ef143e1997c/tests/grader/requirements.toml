@@ -1,0 +1,1176 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "organiser-setup",
+    "keyboard-move",
+    "live-handoff",
+    "concurrent-moves",
+    "search-and-isolation",
+    "aide-visit",
+    "attachments",
+    "ending-access",
+    "privacy",
+    "live-outage",
+    "phone-board",
+    "card-lifecycle",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 84
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "valkey", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 5
+B10 = 5
+B11 = 3
+B12 = 5
+S1 = 5
+S2 = 3
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "storage-down"
+port = 4174
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "live-down"
+port = 4175
+url_env = "APP_LIVE_DOWN_URL"
+
+[outages.env]
+VALKEY_URL = "redis://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health check"
+text = "The app installs, builds and serves from /app/run.json and answers the health check, as set out in Deployment."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_page_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Two web workers on one port"
+text = "The serve command runs two web worker processes behind the one app port, and every response names the worker that answered."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_two_workers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read from the environment at start and never appears in source, built assets or responses to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Same-origin server boundary"
+text = "The server enforces the body-size, content-type, caching and cross-origin rules in Server boundary and never serves source, configuration or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_upload_limits",
+    "test_app.py::test_concurrent_requests_stay_with_caller",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Sign in, sign out and safe return"
+text = "Seeded people sign in with email and password and sign out, and a request without a live session sends the browser to sign-in carrying its return path, which sign-in follows only when it is a safe same-origin path, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "ending-access"
+tests = [
+    "test_app.py::test_safe_return_path",
+    "test_app.py::test_wf_ending_access_return_path",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Password change ends other sessions"
+text = "Changing a password keeps the current session and ends every other session of that account and its open live streams, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "ending-access"
+tests = [
+    "test_app.py::test_password_change_ends_other_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Workspace people"
+text = "Workspace admins add people with a starting password, change their workspace role and remove them, and a workspace always keeps at least one admin."
+kind = "behavior"
+primary = "pytest"
+workflow = "organiser-setup"
+tests = [
+    "test_app.py::test_workspace_people",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Set up boards and lists"
+text = "An organiser creates a board and lands on its own address with the no-lists-yet state and focus on Add a list, each new list takes focus to its add-card button, and new cards, visibility changes and added people show in every open copy of the board."
+kind = "behavior"
+primary = "workflow"
+workflow = "organiser-setup"
+tests = [
+    "test_app.py::test_wf_organiser_setup_create_board",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Attributed read-only permission log"
+text = "Every access change writes one permission-log entry with actor, target, before, after and time, readable only by workspace admins and editable by nobody."
+kind = "behavior"
+primary = "pytest"
+workflow = "organiser-setup"
+tests = [
+    "test_app.py::test_permission_log_entries",
+    "test_app.py::test_wf_organiser_setup_permission_log",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Effective board access"
+text = "Each person's board role follows from their membership state and the board's visibility exactly as Business rules defines."
+kind = "behavior"
+primary = "pytest"
+workflow = "privacy"
+tests = [
+    "test_app.py::test_effective_board_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Board membership changes"
+text = "Board admins add, re-role and remove board members, and the demotion or removal of a board's last admin is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "organiser-setup"
+tests = [
+    "test_app.py::test_board_membership_changes",
+    "test_app.py::test_wf_organiser_setup_members",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Access changes apply on the next request"
+text = "A demoted, removed or signed-out person's very next API request is answered with their new rights."
+kind = "behavior"
+primary = "pytest"
+workflow = "ending-access"
+tests = [
+    "test_app.py::test_next_request_new_rights",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Open boards follow access changes"
+text = "A person whose access changes while their board is open sees the new role, locked edits or the board gone without reloading, as qualified in Interactions."
+kind = "behavior"
+primary = "workflow"
+workflow = "ending-access"
+tests = [
+    "test_app.py::test_wf_ending_access_open_board",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Role-shaped responses"
+text = "Every card, board, member, search and event payload carries exactly the fields published for the caller's role and nothing more."
+kind = "behavior"
+primary = "pytest"
+workflow = "aide-visit"
+tests = [
+    "test_app.py::test_role_shaped_payloads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Hidden means not found"
+text = "A private board, a private card or another workspace's record answers exactly like an id that does not exist, in the API and on screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "privacy"
+tests = [
+    "test_app.py::test_hidden_answers_like_missing",
+    "test_app.py::test_wf_privacy_not_found_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Private cards"
+text = "People named on a card can make it private to chosen board members, after which it disappears from everyone else's lists, list counts, drawer open-card counts, positions, search and events."
+kind = "behavior"
+primary = "pytest"
+workflow = "privacy"
+tests = [
+    "test_app.py::test_private_cards",
+    "test_app.py::test_wf_privacy_private_card_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Workspace isolation"
+text = "Search, the Add a person picker, member lists, board lists and every count never include anything from another workspace."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-and-isolation"
+tests = [
+    "test_app.py::test_workspace_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Workspace search keeps up with typing"
+text = "Search returns matching cards from boards the caller can see, and the results and the announced count on screen always belong to the search box's current text, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-and-isolation"
+tests = [
+    "test_app.py::test_wf_search_and_isolation_latest_input",
+    "test_app.py::test_search_result_opens_card",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Create cards without duplicates"
+text = "Adding a card appends it to its list, and repeating the request with the same idempotency key creates nothing new."
+kind = "behavior"
+primary = "pytest"
+workflow = "card-lifecycle"
+tests = [
+    "test_app.py::test_wf_card_lifecycle_create",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Versioned card edits"
+text = "Card edits carry the card's version, and a stale version is rejected with the card's current state and who changed it."
+kind = "behavior"
+primary = "pytest"
+workflow = "card-lifecycle"
+tests = [
+    "test_app.py::test_versioned_edits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Card status lifecycle"
+text = "Cards move between open, done and archived only along the published edges, and members can restore archived cards."
+kind = "behavior"
+primary = "pytest"
+workflow = "card-lifecycle"
+tests = [
+    "test_app.py::test_status_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Due labels in the workspace time zone"
+text = "The server decides each card's due state in the workspace's time zone, and the board shows the matching label and re-reads it at least once a minute."
+kind = "behavior"
+primary = "pytest"
+workflow = "card-lifecycle"
+tests = [
+    "test_app.py::test_due_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Checklists"
+text = "Members add, rename, tick, untick and delete checklist items on a card, and each change shows on every open copy of the board."
+kind = "behavior"
+primary = "pytest"
+workflow = "card-lifecycle"
+tests = [
+    "test_app.py::test_checklists",
+    "test_app.py::test_checklist_box_waits_for_reply",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Card dialog by keyboard"
+text = "The card dialog opens with Enter, keeps Tab and Shift+Tab inside itself, saves, and closes with Escape back to the card."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-move"
+tests = [
+    "test_app.py::test_card_dialog_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Dense card ranks on every move"
+text = "A move places the card at the requested list and position, and every list's positions stay unique and gap-free after any sequence of moves."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-moves"
+tests = [
+    "test_app.py::test_dense_ranks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Keyboard lift, move and drop"
+text = "A card can be lifted with Space, moved within and across lists with the arrow keys, and then dropped or cancelled, following the published key map."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-move"
+tests = [
+    "test_app.py::test_wf_keyboard_move_drop",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Move card dialog"
+text = "The card's Move to… menu item opens a dialog that moves the card to the chosen list and position, with the same result as a keyboard or pointer move."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-move"
+tests = [
+    "test_app.py::test_wf_keyboard_move_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Move announcements"
+text = "Every lift, move, drop, cancel, remote move, card creation, status change and checklist change is announced with its published sentence in the board's announcement region."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-move"
+tests = [
+    "test_app.py::test_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "One winner for simultaneous moves"
+text = "When two people move the same card at the same version, exactly one move succeeds and the other is rejected as stale."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-moves"
+tests = [
+    "test_app.py::test_wf_concurrent_moves_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Live board events across workers"
+text = "Every change to a board reaches every open live stream of that board on either worker, shaped for each recipient, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-handoff"
+tests = [
+    "test_app.py::test_events_across_workers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Board updates in place"
+text = "With two people on the same board, one person's move, new card or rename appears in the other's open board with updated list counts and no reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-handoff"
+tests = [
+    "test_app.py::test_wf_live_handoff_remote_update",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Stale move snaps back"
+text = "When the server rejects a move as stale, the card returns on screen to the server's position and the board says who moved or edited it first."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-moves"
+tests = [
+    "test_app.py::test_wf_concurrent_moves_snap_back",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Hand-off glide"
+text = "A remote move glides the card from its current place to its newest one with the mover's tint and initials chip for the published time, restarting the chip for a later mover and retargeting a glide still in flight, as described in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-handoff"
+tests = [
+    "test_app.py::test_wf_live_handoff_glide",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Aide's visit view"
+text = "An observer on a tablet reads the week's visit cards and checklists in a read-only card dialog that shows no notes, attachments, privacy controls or phone numbers."
+kind = "behavior"
+primary = "workflow"
+workflow = "aide-visit"
+tests = [
+    "test_app.py::test_wf_aide_visit_read_only",
+]
+criteria = [
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Reduced-motion hand-off"
+text = "With reduced motion on, cards jump into place with no animation, while the mover's chip, a still outline and the announcement remain as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "aide-visit"
+tests = [
+    "test_app.py::test_wf_aide_visit_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Attachments only after storage confirms"
+text = "An attachment exists on a card only after file storage confirms the stored object, and a failed upload never shows as attached."
+kind = "behavior"
+primary = "pytest"
+workflow = "attachments"
+tests = [
+    "test_app.py::test_attachment_only_after_confirm",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Byte-exact attachment downloads"
+text = "Attachments download byte for byte, and only through the app's own authorised route."
+kind = "behavior"
+primary = "pytest"
+workflow = "attachments"
+tests = [
+    "test_app.py::test_wf_attachments_upload_download",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Deleting removes stored objects"
+text = "Deleting an attachment or a card removes its stored objects, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "attachments"
+tests = [
+    "test_app.py::test_delete_removes_objects",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "File storage outage"
+text = "When file storage is down, the board stays usable, shows the storage banner and refuses only attachment actions, then recovers by itself."
+kind = "behavior"
+primary = "pytest"
+workflow = "attachments"
+tests = [
+    "test_app.py::test_wf_attachments_storage_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Live updates pause and resume"
+text = "When the live relay is down, open boards show the paused banner while every change still saves, and live updates resume by themselves when the relay returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-outage"
+tests = [
+    "test_app.py::test_wf_live_outage_paused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Boot and recover without restart"
+text = "The app starts and serves while file storage or the live relay is unreachable, and recovers when they return, with no restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-outage"
+tests = [
+    "test_app.py::test_boot_and_recover",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Published breakpoints"
+text = "The board shows one list, two lists or all lists at the widths published in Screens and layout, at every published viewport."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-board"
+tests = [
+    "test_app.py::test_wf_phone_board_breakpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Closed panels are inert"
+text = "A closed board drawer, sheet, menu or dialog has nothing visible, focusable or clickable at any viewport."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-board"
+tests = [
+    "test_app.py::test_closed_panels_inert",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Menus open uncut"
+text = "The card actions menu and the member role picker open fully inside the viewport, above every other layer, and close with Escape back to their button."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-board"
+tests = [
+    "test_app.py::test_menus_uncut",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Verbatim published copy"
+text = "Every backticked string in this brief renders and is announced character for character."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Calm visual identity"
+text = "The board uses the oat, cream, ink, sage and brick colour roles and the Literata and Atkinson Hyperlegible type described in Visual design, with no gradients and no shadows at rest."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Editorial board composition"
+text = "The parent's name heads the board as an editorial title over cream list columns with ruled headings, card counts and an even spacing rhythm."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B9",
+    "B10",
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Re-reads keep unsaved work"
+text = "When the board re-reads itself, an open dialog's unsaved fields, every undismissed notice, the selected list and focus all stay, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-outage"
+tests = [
+    "test_app.py::test_wf_live_outage_drafts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "List and card in the address"
+text = "Below 1200 pixels the selected list is kept in the address across reloads, and an opened card has its own address that browser Back closes to its list with focus on the card, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-board"
+tests = [
+    "test_app.py::test_wf_phone_board_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Only published request keys"
+text = "Every JSON endpoint refuses any request key outside its published list with a 422 on that key, and changes, logs and broadcasts nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "organiser-setup"
+tests = [
+    "test_app.py::test_unknown_request_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Counts after your own action come from the server"
+text = "After a person's own drop, move, mark done, reopen or archive, their list counts, drawer open count and announced position come from the server's reply, even while live updates are paused, and focus lands as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyboard-move"
+tests = [
+    "test_app.py::test_counts_from_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Mover shown by more than colour"
+text = "Mover chips, owner chips and the Overdue label meet the published contrast, and a tinted or outlined card always carries the mover's named initials chip."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-handoff"
+tests = [
+    "test_app.py::test_mover_chip_contrast",
+    "test_app.py::test_outlined_card_keeps_visible_chip",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Exactly one winner and no merged edits"
+text = "Of any number of same-version writes to one card on either worker exactly one succeeds, a stale write is refused even when it touches other fields, and the losing browser takes the server's version so its next attempt succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-moves"
+tests = [
+    "test_app.py::test_same_version_writes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Nothing survives sign-out"
+text = "Every response is uncacheable and sign-out discards all in-page state, so Back after sign-out and the next person on the same browser never see the earlier person's data."
+kind = "behavior"
+primary = "pytest"
+workflow = "aide-visit"
+tests = [
+    "test_app.py::test_wf_aide_visit_sign_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Safe attachment files"
+text = "Uploaded bytes must match the declared PDF, JPEG or PNG type, file names with control characters are refused, and downloads carry the published safe file-name and no-sniff headers."
+kind = "behavior"
+primary = "pytest"
+workflow = "attachments"
+tests = [
+    "test_app.py::test_wf_attachments_mismatch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Hidden cards never reach copies"
+text = "Permission-log labels, event streams and write replies never carry a card or board the reader cannot see, and a person whose write meets a newly hidden card sees it leave their board with the published notice."
+kind = "behavior"
+primary = "pytest"
+workflow = "privacy"
+tests = [
+    "test_app.py::test_hidden_cards_never_reach_copies",
+    "test_app.py::test_wf_privacy_write_meets_hidden_card",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Literal, bounded search"
+text = "Search treats every character literally, ignores case across Unicode, counts length in code points from 2 to 100, and reports totals above 50 with the published sentence."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-and-isolation"
+tests = [
+    "test_app.py::test_wf_search_and_isolation_literal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Opaque errors"
+text = "No response, header, event or on-screen message reveals a service address, driver error, stack or environment value, unexpected errors answer the published 500, and malformed ids answer the plain not-found."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-outage"
+tests = [
+    "test_app.py::test_opaque_errors",
+    "test_app.py::test_unexpected_error_notice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Exact accessible names"
+text = "List tabs, card buttons, the lock icon, the owner chip and the Boards button carry exactly the published accessible names and states at every viewport."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-board"
+tests = [
+    "test_app.py::test_accessible_names",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Server decides due dates"
+text = "The browser never derives a due date or label from its own clock or time zone, and a workspace time-zone change shows on open boards at their next minute re-read."
+kind = "behavior"
+primary = "pytest"
+workflow = "card-lifecycle"
+tests = [
+    "test_app.py::test_wf_card_lifecycle_due",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json is a single JSON object with exactly the string keys _schema (value run-manifest-v1), install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package and every bundled font and icon set, each with its licence; shipped packages are the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package, font and icon set is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in PostgreSQL, MinIO and Valkey: no SQLite, no other datastore and no application data written to local disk."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration (compose files, environment names and the seeded dev credentials) is left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "All application source is TypeScript; plain JavaScript appears only in tool configuration files."
+tests = [
+    "test_app.py::test_if_typescript_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The browser loads no resource from any origin other than the app's own, so fonts and icons are bundled locally."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "organiser-setup"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-11",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_organiser_setup_create_board",
+    "test_app.py::test_unknown_request_keys",
+    "test_app.py::test_permission_log_entries",
+]
+
+[[workflows]]
+id = "keyboard-move"
+requirements = [
+    "DP-24",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_keyboard_move_drop",
+    "test_app.py::test_wf_keyboard_move_dialog",
+    "test_app.py::test_announcements",
+    "test_app.py::test_counts_from_server",
+]
+
+[[workflows]]
+id = "live-handoff"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-33",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_live_handoff_remote_update",
+    "test_app.py::test_wf_live_handoff_glide",
+    "test_app.py::test_mover_chip_contrast",
+    "test_app.py::test_outlined_card_keeps_visible_chip",
+]
+
+[[workflows]]
+id = "concurrent-moves"
+requirements = [
+    "DP-25",
+    "DP-29",
+    "DP-32",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_concurrent_moves_snap_back",
+    "test_app.py::test_wf_concurrent_moves_race",
+]
+
+[[workflows]]
+id = "search-and-isolation"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-57",
+]
+critical = [
+    "test_app.py::test_wf_search_and_isolation_latest_input",
+    "test_app.py::test_wf_search_and_isolation_literal",
+    "test_app.py::test_search_result_opens_card",
+]
+
+[[workflows]]
+id = "aide-visit"
+requirements = [
+    "DP-14",
+    "DP-34",
+    "DP-35",
+    "DP-54",
+]
+critical = [
+    "test_app.py::test_wf_aide_visit_read_only",
+    "test_app.py::test_wf_aide_visit_reduced_motion",
+    "test_app.py::test_wf_aide_visit_sign_out",
+    "test_app.py::test_role_shaped_payloads",
+]
+checkpoints = [
+    "B12",
+]
+critical_checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "attachments"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_attachments_upload_download",
+    "test_app.py::test_wf_attachments_mismatch",
+    "test_app.py::test_wf_attachments_storage_down",
+]
+
+[[workflows]]
+id = "ending-access"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_ending_access_return_path",
+    "test_app.py::test_wf_ending_access_open_board",
+    "test_app.py::test_password_change_ends_other_sessions",
+    "test_app.py::test_next_request_new_rights",
+]
+
+[[workflows]]
+id = "privacy"
+requirements = [
+    "DP-10",
+    "DP-15",
+    "DP-16",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_hidden_answers_like_missing",
+    "test_app.py::test_wf_privacy_private_card_live",
+    "test_app.py::test_hidden_cards_never_reach_copies",
+    "test_app.py::test_wf_privacy_not_found_pages",
+]
+
+[[workflows]]
+id = "live-outage"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-48",
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_wf_live_outage_paused",
+    "test_app.py::test_wf_live_outage_drafts",
+    "test_app.py::test_boot_and_recover",
+    "test_app.py::test_opaque_errors",
+    "test_app.py::test_unexpected_error_notice",
+]
+
+[[workflows]]
+id = "phone-board"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-49",
+    "DP-59",
+]
+critical = [
+    "test_app.py::test_wf_phone_board_address",
+    "test_app.py::test_wf_phone_board_breakpoints",
+    "test_app.py::test_accessible_names",
+    "test_app.py::test_closed_panels_inert",
+    "test_app.py::test_menus_uncut",
+]
+
+[[workflows]]
+id = "card-lifecycle"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_card_lifecycle_create",
+    "test_app.py::test_wf_card_lifecycle_due",
+    "test_app.py::test_due_state",
+    "test_app.py::test_checklist_box_waits_for_reply",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_health_and_page_routes",
+]
+checkpoints = [
+    "B1",
+    "B10",
+]

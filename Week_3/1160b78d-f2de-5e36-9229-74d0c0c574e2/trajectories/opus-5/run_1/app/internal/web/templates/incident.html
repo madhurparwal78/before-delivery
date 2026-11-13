@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>{{template "assets" .}}<title>Incident #{{.Incident.Number}} — Switchlamp</title></head>
+<body data-page="incident" data-last-seq="{{.LastSeq}}" data-incident="{{.Incident.ID}}" data-number="{{.Incident.Number}}">
+{{template "chrome" .}}
+<section class="incident-field">
+  <div role="region" aria-label="Holder" id="holder-region"
+       data-level="{{.Incident.Level}}" data-cycle="{{.Incident.Cycle}}"
+       data-holder="{{holderNames .Incident.Holders}}"
+       data-remaining-seconds="{{.Incident.Countdown.RemainingSeconds}}">
+    <p class="figure" id="holder-figure">{{holderNames .Incident.Holders}}</p>
+    <p id="countdown-label">{{.Incident.CountdownLabel}}</p>
+    <p><span role="timer" aria-label="Incident countdown" id="incident-countdown"
+             data-kind="{{.Incident.Countdown.Kind}}">{{if eq .Incident.Countdown.Kind "none"}}--:--{{else}}{{countdown .Incident.Countdown.RemainingSeconds}}{{end}}</span></p>
+  </div>
+</section>
+<main>
+  <h1>#{{.Incident.Number}} {{.Incident.Title}}</h1>
+  <p><span class="status-word" id="incident-status">{{.Incident.StatusWord}}</span>
+     · {{.Incident.Service.Name}} · <span id="incident-urgency">{{.Incident.Urgency}} urgency</span></p>
+  {{if .MailDown}}<p class="notice-bar">Mail is unreachable. {{.QueuedSteps}} notification steps are queued and will go out when it returns.</p>{{end}}
+
+  <div role="toolbar" aria-label="Incident actions" class="incident-actions phone-bar">
+    <button type="button" id="acknowledge">Acknowledge</button>
+    <button type="button" id="snooze">Snooze</button>
+    <button type="button" id="resolve">Resolve</button>
+    <button type="button" id="reassign">Reassign</button>
+    <button type="button" id="add-responder">Add responder</button>
+    {{if .CanLead}}<button type="button" id="merge">Merge</button>{{end}}
+  </div>
+
+  {{if .MyRequest}}
+  <div role="region" aria-label="Responder request" id="responder-request" data-request="{{.MyRequest.ID}}">
+    <p>You have been asked to join this incident.</p>
+    <button type="button" id="responder-accept">Accept</button>
+    <button type="button" id="responder-decline">Decline</button>
+  </div>
+  {{end}}
+
+  <h2>Alerts</h2>
+  <ul aria-label="Alerts" id="alert-list">
+    {{range .Incident.Alerts}}
+    <li data-alert="{{.ID}}">
+      <span class="mono">{{.DedupKey}}</span> — {{.Summary}} ({{.Severity}}, {{.EventCount}} events)
+      {{if $.CanLead}}<button type="button" class="split" data-alert="{{.ID}}">Split off</button>{{end}}
+    </li>
+    {{end}}
+  </ul>
+
+  <h2>Notification steps</h2>
+  <ul aria-label="Notification steps" id="step-list">
+    {{range .Incident.Steps}}
+    <li>{{.Person}} · {{.Channel}} · <span class="mono">{{localTime .DueAt $.Zone}}</span> · <span class="status-word">{{.Word}}</span></li>
+    {{else}}
+    <li class="empty">No steps yet.</li>
+    {{end}}
+  </ul>
+
+  <div role="region" aria-label="Opened-with policy" id="opened-with-policy">
+    <h2>Opened-with policy</h2>
+    <p>{{.Incident.PolicySnapshot.Name}} version {{.Incident.PolicySnapshot.Version}},
+       repeats {{.Incident.PolicySnapshot.Repeats}}, at level {{.Incident.Level}} cycle {{.Incident.Cycle}}.</p>
+    <ol>
+      {{range .Incident.PolicySnapshot.Levels}}
+      <li>{{.TimeoutMinutes}} minutes: {{range $i, $t := .Targets}}{{if $i}}, {{end}}{{$t.Name}}{{end}}</li>
+      {{end}}
+    </ol>
+  </div>
+
+  <h2>Impacted services</h2>
+  <ul aria-label="Impacted services" id="impacted-services">
+    <li>{{.Incident.Service.Name}}</li>
+    {{range .Incident.ImpactedServices}}<li>{{.Name}}</li>{{end}}
+  </ul>
+
+  <h2>Responders</h2>
+  <ul aria-label="Responders" id="responder-list">
+    {{range .Incident.Responders}}<li>{{.Name}}</li>{{else}}<li class="empty">Nobody else is helping yet.</li>{{end}}
+  </ul>
+
+  <h2>Timeline</h2>
+  <ul aria-label="Timeline" id="timeline">
+    {{range .Incident.Timeline}}
+    <li data-kind="{{.Kind}}"><span class="mono">{{localTime .At $.Zone}}</span> — {{.Text}} <span class="actor">{{.Actor}}</span></li>
+    {{end}}
+  </ul>
+
+  <form id="note-form" novalidate>
+    {{template "problems" .}}
+    <p><label for="note">Note</label>
+      <textarea id="note" aria-label="Note" rows="3">{{.Draft}}</textarea></p>
+    <p><button type="submit" id="add-note">Add note</button></p>
+  </form>
+
+  <dialog id="snooze-dialog" aria-label="Snooze incident">
+    <fieldset>
+      <legend>Snooze for</legend>
+      <label><input type="radio" name="snooze" value="1" checked> 1 hour</label>
+      <label><input type="radio" name="snooze" value="4"> 4 hours</label>
+      <label><input type="radio" name="snooze" value="8"> 8 hours</label>
+      <label><input type="radio" name="snooze" value="24"> 24 hours</label>
+      <label><input type="radio" name="snooze" value="custom"> Custom time</label>
+    </fieldset>
+    <p><label for="snooze-until">Snooze until</label><input id="snooze-until" aria-label="Snooze until" type="text" placeholder="YYYY-MM-DD HH:MM"></p>
+    <p class="field-error" id="snooze-error"></p>
+    <button type="button" id="snooze-confirm">Snooze incident</button>
+    <button type="button" id="snooze-cancel">Cancel</button>
+  </dialog>
+
+  <dialog id="reassign-dialog" aria-label="Reassign incident">
+    <p><label for="reassign-person">Person</label>
+      <select id="reassign-person" aria-label="Person">
+        <option value="">Not chosen</option>
+        {{range .People}}{{if ne .Role "stakeholder"}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}
+      </select></p>
+    <p><label for="reassign-service">Service</label>
+      <select id="reassign-service" aria-label="Service">
+        <option value="">Not chosen</option>
+        {{range .Services}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+      </select></p>
+    <button type="button" id="reassign-confirm">Reassign incident</button>
+    <button type="button" id="reassign-cancel">Cancel</button>
+  </dialog>
+
+  <dialog id="responder-dialog" aria-label="Request responder">
+    <p><label for="responder-choice">Responder</label>
+      <select id="responder-choice" aria-label="Responder">
+        {{range .People}}{{if ne .Role "stakeholder"}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}
+      </select></p>
+    <button type="button" id="responder-send">Send request</button>
+    <button type="button" id="responder-cancel">Cancel</button>
+  </dialog>
+
+  {{if .CanLead}}
+  <dialog id="merge-dialog" aria-label="Merge incidents">
+    <p><label for="merge-numbers">Incident numbers</label>
+      <input id="merge-numbers" aria-label="Incident numbers" type="text" placeholder="6, 7"></p>
+    <button type="button" id="merge-confirm">Merge incidents</button>
+    <button type="button" id="merge-cancel">Cancel</button>
+  </dialog>
+  {{end}}
+</main>
+{{template "footer" .}}
+</body>
+</html>

@@ -1,0 +1,1504 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 78
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "account",
+    "outages",
+    "hero-builder",
+    "weapon-forge",
+    "solo-story",
+    "friends",
+    "ready-check",
+    "coop-rejoin",
+    "model-in-session",
+    "party-night",
+    "reconnect-chat",
+    "forge-to-session",
+    "language-roundtrip",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 94
+solo_criteria = [
+    "B13",
+]
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Linewright <play@linewright.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+B13 = 5
+B14 = 3
+S1 = 5
+S2 = 3
+S3 = 5
+S4 = 5
+Q1 = 5
+Q2 = 3
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 5
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mail-down"
+port = 4175
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "short-timer"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+REJOIN_GRACE_SECONDS = "8"
+MAIL_LINK_TTL_SECONDS = "20"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Sign-up to hangar journey"
+text = "A visitor picks a language, creates an account, confirms it through the emailed link, signs in and sees the hangar entirely in that language."
+kind = "behavior"
+primary = "workflow"
+workflow = "account"
+tests = [
+    "test_app.py::test_wf_account_signup_to_hangar",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Name and password limits"
+text = "Display names and hero names must be 3 to 20 characters and passwords 10 to 128 characters, counted as user-perceived characters, and both the form and the API enforce this with the localised limit message."
+kind = "behavior"
+primary = "pytest"
+workflow = "account"
+tests = [
+    "test_app.py::test_wf_account_name_password_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Verification email in the account's language"
+text = "Sign-up sends one verification email to Mailpit whose subject, body and language attribute are in the account's language, whatever the browser's language, and which holds exactly one link."
+kind = "behavior"
+primary = "pytest"
+workflow = "language-roundtrip"
+tests = [
+    "test_app.py::test_wf_language_roundtrip_verification_email",
+]
+criteria = []
+parameter_cases = [
+    "en",
+    "ja",
+    "es",
+]
+
+[[requirements]]
+id = "DP-04"
+title = "Single-use expiring email links"
+text = "Verification and password-reset links work once, stop working when a newer link of the same kind is sent, and expire after the configured lifetime, with the published 410 answers and copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "account"
+tests = [
+    "test_app.py::test_wf_account_email_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Password reset"
+text = "A player can request a reset email, which arrives in the account's language, and set a new password through its link, after which the old password no longer signs in."
+kind = "behavior"
+primary = "workflow"
+workflow = "language-roundtrip"
+tests = [
+    "test_app.py::test_wf_language_roundtrip_password_reset",
+    "test_app.py::test_wf_language_roundtrip_reset_mail_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Sign-in lands on the hangar"
+text = "Signing in lands on /hangar showing the equipped hero, and reloading or deep-linking /hangar shows the same screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "account"
+tests = [
+    "test_app.py::test_wf_account_signin_lands_hangar",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Saved language choice"
+text = "The language picker saves the choice for the visitor and the account, and every page is served with the matching language attribute and document title before any script runs."
+kind = "behavior"
+primary = "pytest"
+workflow = "language-roundtrip"
+tests = [
+    "test_app.py::test_page_shell_locale",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Persistent unsent-verification notice"
+text = "When mail is unreachable, sign-up still creates the account, records its verification email as not sent and shows the localised resend notice, which persists across reloads and sign-ins until a resend is accepted by the mail server or the email is verified, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_wf_outages_mail_down_signup_banner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Upload while storage is down"
+text = "When object storage is unreachable, an upload answers 503, shows the localised upload-outage banner, which persists across reloads until a later upload or delete succeeds, and leaves no model record or object behind."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_wf_outages_upload_storage_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Boot and recover without restart"
+text = "The app starts and answers its health check while mail or storage is unreachable, keeps every other feature working, and makes a fresh attempt on every use of that service, so it recovers without a restart once the service is back."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_wf_outages_recover_without_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Build and save a hero"
+text = "A player assembles and poses a hero from parts, proportions, a right arm raise, a material and socket accessories in the live 3D builder and saves it to a slot."
+kind = "behavior"
+primary = "workflow"
+workflow = "hero-builder"
+tests = [
+    "test_app.py::test_wf_hero_builder_keyboard_save",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Keyboard-complete builder"
+text = "Every builder control works by keyboard, focus is always visible, and Tab order follows the published order, with Right arm raise after Shin length and before Undo."
+kind = "behavior"
+primary = "pytest"
+workflow = "hero-builder"
+tests = [
+    "test_app.py::test_builder_keyboard_tab_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Builder undo and redo"
+text = "Undo and redo buttons and their shortcuts step through the last 50 builder changes from any builder control except the hero name field."
+kind = "behavior"
+primary = "pytest"
+workflow = "hero-builder"
+tests = [
+    "test_app.py::test_builder_undo_redo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Save slot dialog"
+text = "The save dialog keeps Tab and Shift+Tab inside itself, closes on Escape, returns focus to its opener after a save or cancel, and announces a confirmed save in the Notifications live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "hero-builder"
+tests = [
+    "test_app.py::test_save_dialog_focus_trap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Stale slot saves rejected"
+text = "Saving a slot with an out-of-date revision answers 412 and shows the localised stale-slot message without overwriting the newer hero."
+kind = "behavior"
+primary = "pytest"
+workflow = "hero-builder"
+tests = [
+    "test_app.py::test_stale_slot_rejected",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Builder layout and inert bottom sheet"
+text = "The parts rail and inspector sit beside the scene at 1280 pixels wide and become a bottom sheet below 1024 pixels whose collapsed part is inert, with no horizontal overflow at any published viewport."
+kind = "behavior"
+primary = "pytest"
+workflow = "hero-builder"
+tests = [
+    "test_app.py::test_builder_layout_bottom_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Touch orbit and zoom"
+text = "On touch screens, one-finger drag orbits and two-finger pinch or spread zooms the hero preview within the published limits, publishing the running gesture and never scrolling or zooming the page, also under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "hero-builder"
+tests = [
+    "test_app.py::test_touch_orbit_zoom",
+]
+criteria = []
+parameter_cases = [
+    "full_motion",
+    "reduced_motion",
+]
+
+[[requirements]]
+id = "DP-18"
+title = "Draw and forge a weapon"
+text = "A player draws strokes on the 320-CSS-pixel drawing plane by mouse, touch or keyboard cursor, whose Up key raises data-cursor-y, presses Forge, and the weapon is saved to the armoury and equipped in the hero's right hand."
+kind = "behavior"
+primary = "workflow"
+workflow = "forge-to-session"
+tests = [
+    "test_app.py::test_wf_forge_to_session_draw_and_forge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Server-derived weapon stats"
+text = "The server derives reach, weight, swing speed and vertex count from the stroke geometry with the published formulas, the same for every viewer."
+kind = "behavior"
+primary = "pytest"
+workflow = "forge-to-session"
+tests = [
+    "test_app.py::test_weapon_stats_formulas",
+]
+criteria = []
+parameter_cases = [
+    "vertical",
+    "horizontal",
+    "empty",
+    "polyline",
+]
+
+[[requirements]]
+id = "DP-20"
+title = "Live stats and vertex budget"
+text = "After every stroke, undo or clear, the stats and the vertex budget meter update in place in locale-formatted numbers within half a second, and an exceeded limit is shown immediately with no page reload, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "forge-to-session"
+tests = [
+    "test_app.py::test_wf_forge_to_session_live_stats",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Weapon limits at form and API"
+text = "A weapon with 0 or more than 24 strokes, more than 12,000 vertices, or out-of-range points or thickness cannot be forged from the form and is refused by the API with the localised limit message, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "weapon-forge"
+tests = [
+    "test_app.py::test_wf_weapon_forge_form_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Ink-to-steel lift"
+text = "Committing a stroke inflates it into a tube and Forge flies the weapon into the posed right hand through the published phases and timings, ending with the grip on the hand and the server's weapon ID equipped, and reduced motion swaps in the published crossfade with the same end state."
+kind = "behavior"
+primary = "pytest"
+workflow = "forge-to-session"
+tests = [
+    "test_app.py::test_forge_lift_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Armoury"
+text = "The armoury lists the player's weapons with their stats, equips and deletes them, and shows the published empty state when there are none."
+kind = "behavior"
+primary = "pytest"
+workflow = "weapon-forge"
+tests = [
+    "test_app.py::test_wf_weapon_forge_armoury",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Upload, fix and equip a model"
+text = "A model creator uploads a .glb, reads the report for each rule, uploads a fixed version and equips the accepted one."
+kind = "behavior"
+primary = "workflow"
+workflow = "model-in-session"
+tests = [
+    "test_app.py::test_wf_model_in_session_fix_and_equip",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Upload intake checks"
+text = "Uploads are checked for content type and glTF magic bytes, size-limited at 15 MiB while streaming, given a sanitised name and counted against a 60 MiB per-account quota."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-in-session"
+tests = [
+    "test_app.py::test_upload_intake",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Stored only after storage confirms"
+text = "An upload appears as stored only after MinIO confirms the object, and validation starts only after that."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-in-session"
+tests = [
+    "test_app.py::test_wf_model_in_session_storage_confirms",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Versioned acceptance rulebook"
+text = "Every upload is judged against the published rulebook R01 to R10, and the report gives a status, measured value and limit for each rule as the rulebook defines."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-in-session"
+tests = [
+    "test_app.py::test_rulebook_and_report",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Originals kept with their verdict"
+text = "Each upload is kept in MinIO byte for byte as submitted, and its verdict and rulebook version never change after they are written."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-in-session"
+tests = [
+    "test_app.py::test_originals_kept_with_verdict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Announced upload stages"
+text = "The pending, stored, validating and verdict stages are announced once each, in order, in the Upload status live region in the chosen language, each kept until the next replaces it, while the selected model, its open report and focus survive every re-render."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-in-session"
+tests = [
+    "test_app.py::test_wf_model_in_session_upload_fix_equip",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Only accepted models equip"
+text = "Only an accepted model can be equipped on a hero, and a rejected or still-validating model answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-in-session"
+tests = [
+    "test_app.py::test_only_accepted_models_equip",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Play a solo chapter"
+text = "A player starts an unlocked solo chapter, collects the ink motes, passes the checkpoint and reaches the gate."
+kind = "behavior"
+primary = "workflow"
+workflow = "solo-story"
+tests = [
+    "test_app.py::test_wf_solo_story_play_chapter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Authoritative fixed-step world"
+text = "The server runs every session on a fixed 20-tick-per-second step from player intents, moving heroes 0.2 metres and puddle damage 0.5 health per tick, and every ack names the tick it applied on."
+kind = "behavior"
+primary = "pytest"
+workflow = "solo-story"
+tests = [
+    "test_app.py::test_fixed_step_world",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Saved solo progress"
+text = "Solo progress, including unlocked chapters and the last checkpoint with its saved motes, is saved by the server, survives a restart and resumes at the checkpoint on return."
+kind = "behavior"
+primary = "pytest"
+workflow = "solo-story"
+tests = [
+    "test_app.py::test_wf_solo_story_resume_checkpoint",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Chapter-complete route"
+text = "Finishing a chapter takes every connected player in it to /stories/<story id>/chapters/<n>/complete within 2 seconds, that address reloads and deep-links to the same screen, and the server answers 404 for a viewer who has not completed that chapter."
+kind = "behavior"
+primary = "pytest"
+workflow = "party-night"
+tests = [
+    "test_app.py::test_chapter_complete_route",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Add a friend"
+text = "A player sends a friend request by display name, the other player accepts it, and both see each other in their friends lists with presence."
+kind = "behavior"
+primary = "workflow"
+workflow = "friends"
+tests = [
+    "test_app.py::test_wf_friends_add_friend",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Friend request rules"
+text = "Friend requests follow the published idempotency, duplicate and self-request rules with exact status codes."
+kind = "behavior"
+primary = "pytest"
+workflow = "friends"
+tests = [
+    "test_app.py::test_friend_request_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Presence across tabs"
+text = "A friend's screen shows a player as online while any of their tabs sends heartbeats, keeps them online when one of several tabs closes, and shows offline within the published delays after the last heartbeat or last tab."
+kind = "behavior"
+primary = "pytest"
+workflow = "friends"
+tests = [
+    "test_app.py::test_wf_friends_presence_tabs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Gather a party"
+text = "A verified party leader creates a party for a co-op story, invites friends, and sees them join the party lobby."
+kind = "behavior"
+primary = "workflow"
+workflow = "party-night"
+tests = [
+    "test_app.py::test_wf_party_night_gather",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Invite acceptance lands on the lobby"
+text = "Accepting an invite lands on /party/<party id>, and reloading or deep-linking that address shows the same lobby."
+kind = "behavior"
+primary = "pytest"
+workflow = "party-night"
+tests = [
+    "test_app.py::test_invite_lands_on_lobby",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Fourth-seat race without ghost members"
+text = "When several players accept invites to a party with one free seat at the same moment, exactly one joins and every other gets 409, stays on the invite page with the party-full message in their own language, and never sees themselves shown as a member."
+kind = "behavior"
+primary = "pytest"
+workflow = "party-night"
+tests = [
+    "test_app.py::test_wf_party_night_fourth_seat_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Exactly one leader"
+text = "A party always has exactly one leader, through handoff, the leader leaving and simultaneous leaves."
+kind = "behavior"
+primary = "pytest"
+workflow = "party-night"
+tests = [
+    "test_app.py::test_party_leader_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Localised party system lines"
+text = "Party system chat lines are rendered in each viewer's own language with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "party-night"
+tests = [
+    "test_app.py::test_party_system_lines_localised",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Ready check starts the session"
+text = "When every member answers Ready, the party enters a co-op session of its chosen story and every member lands on its play route."
+kind = "behavior"
+primary = "pytest"
+workflow = "party-night"
+tests = [
+    "test_app.py::test_wf_party_night_gather_and_play",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Server-timed ready check"
+text = "The ready check's 20-second window is decided and counted by the server, every member's timer shows the server's remaining seconds whatever the device clock says, and neither a wrong clock nor a reload extends or ends it early."
+kind = "behavior"
+primary = "pytest"
+workflow = "ready-check"
+tests = [
+    "test_app.py::test_wf_ready_check_server_timer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Ready-check dialog by keyboard"
+text = "The ready-check dialog takes focus, keeps Tab inside, answers by keyboard, can be reopened by any member while the check runs, and returns focus to where it was or to the published fallback."
+kind = "behavior"
+primary = "pytest"
+workflow = "ready-check"
+tests = [
+    "test_app.py::test_wf_ready_check_keyboard_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Chat messages and limits"
+text = "Lobby, party and session chat accept messages of 1 to 280 user-perceived characters, counted the same way as the Message counter, and a repeated send with the same client message ID creates one message."
+kind = "behavior"
+primary = "pytest"
+workflow = "reconnect-chat"
+tests = [
+    "test_app.py::test_chat_api_limits_idempotency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Chat cooldown"
+text = "A sixth message within 10 seconds in one channel answers 429 with Retry-After and shows the localised cooldown notice, idempotent replays are never charged, and no message is lost silently."
+kind = "behavior"
+primary = "pytest"
+workflow = "reconnect-chat"
+tests = [
+    "test_app.py::test_chat_rate_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Inert chat drawer on phones"
+text = "Below 768 pixels wide, lobby and party chat collapse into a drawer that is inert while closed, and the drawer keeps its open state and typed text across a reconnect."
+kind = "behavior"
+primary = "pytest"
+workflow = "reconnect-chat"
+tests = [
+    "test_app.py::test_wf_reconnect_chat_phone_drawer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Drop and rejoin a co-op session"
+text = "A dropped member reconnects within the grace period, from any of their tabs, and is back in the same session, party, seat and position."
+kind = "behavior"
+primary = "workflow"
+workflow = "coop-rejoin"
+tests = [
+    "test_app.py::test_wf_coop_rejoin_same_seat",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Server-held rejoin grace"
+text = "The server decides and counts down the rejoin grace and settles it when it ends, whatever any client clock says, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "coop-rejoin"
+tests = [
+    "test_app.py::test_grace_held_by_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "At-most-once delivery across reconnects"
+text = "After a reconnect, no chat line, emote, pickup or friend event shows twice, and every intent the client resends with its original ID is applied at most once."
+kind = "behavior"
+primary = "pytest"
+workflow = "reconnect-chat"
+tests = [
+    "test_app.py::test_wf_reconnect_chat_no_duplicates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Party story progress"
+text = "A party's co-op progress per story is saved by the server and resumes at the party's next chapter and last checkpoint."
+kind = "behavior"
+primary = "pytest"
+workflow = "coop-rejoin"
+tests = [
+    "test_app.py::test_wf_coop_rejoin_grace_nobody_progress",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Emote wheel hotkeys"
+text = "In a session, E opens the emote wheel and keys 1 to 6 send emotes whichever session control has focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "coop-rejoin"
+tests = [
+    "test_app.py::test_wf_coop_rejoin_emote_hotkeys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Party heroes shared only in session"
+text = "Session members receive each other's hero, weapon geometry and accepted model only through the running session they share, and a model stops being served within 1 second of being deleted or unequipped."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-in-session"
+tests = [
+    "test_app.py::test_shared_model_in_session",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Account-scoped records"
+text = "An account can read or change only its own heroes, weapons, models and progress, and any other account's ID answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_account_scoped_records",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "One language on every surface"
+text = "Once a language is chosen, no text, accessible name, title, language attribute, system line or email shows another language or a raw message key, apart from the published exemptions."
+kind = "visual"
+primary = "rubric"
+workflow = "language-roundtrip"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Scene motion and reduced motion"
+text = "The hangar turntable, chapter flythrough, builder camera moves and button settle follow the published timings and scene state, each has its reduced-motion variant, and the scene has a still fallback without WebGL."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_scene_motion_and_fallbacks",
+]
+criteria = []
+parameter_cases = [
+    "full_motion",
+    "reduced_motion",
+    "no_webgl",
+]
+
+[[requirements]]
+id = "DP-58"
+title = "Paper-and-graphite look"
+text = "The product looks like a hand-drawn sketchbook over a live 3D scene, with graphite outlines, warm paper and the published colour roles and type."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Run manifest, health and server boundary"
+text = "The app runs from its manifest, answers the health check, and enforces the same-origin rules and request limits."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Real scene and server-side rules"
+text = "The 3D scene, the outline shader, glTF validation and weapon derivation are real implementations on the server and in the browser, not stand-ins."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Latest drawing wins"
+text = "Every forge preview carries a drawing revision and only the newest drawing's answer updates the stats, meter, markers and announcement, whatever order the answers arrive in."
+kind = "behavior"
+primary = "pytest"
+workflow = "forge-to-session"
+tests = [
+    "test_app.py::test_wf_forge_to_session_latest_drawing_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Locale resolution order"
+text = "Locale resolves as account, then lw_locale cookie, then Accept-Language, then en; signing in rewrites the cookie; and emails always use the account's locale."
+kind = "behavior"
+primary = "pytest"
+workflow = "language-roundtrip"
+tests = [
+    "test_app.py::test_locale_resolution_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Checkpoint keeps the motes held at it"
+text = "Reaching the checkpoint saves exactly the motes collected at that moment, and motes collected later are saved only by reaching the checkpoint again or completing the chapter."
+kind = "behavior"
+primary = "pytest"
+workflow = "solo-story"
+tests = [
+    "test_app.py::test_checkpoint_keeps_motes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Streams survive restart"
+text = "Event seq per stream and processed intent IDs persist across a server restart, so resume and duplicate acks keep working and seq never starts over."
+kind = "behavior"
+primary = "pytest"
+workflow = "coop-rejoin"
+tests = [
+    "test_app.py::test_streams_survive_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Ready check survives reload"
+text = "A reloaded member's tab reopens the running ready check by itself with the server's remaining seconds, focus on Ready if unanswered, and disabled answer buttons if answered."
+kind = "behavior"
+primary = "pytest"
+workflow = "ready-check"
+tests = [
+    "test_app.py::test_ready_check_reload_reopens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Scene-drawn triangles and pinned validator"
+text = "R04 counts the triangles the default scene draws per node and primitive mode, and R02 counts the errors reported by the glTF-Validator 2.0.0-dev.3.10."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-in-session"
+tests = [
+    "test_app.py::test_scene_triangles_and_validator",
+]
+criteria = []
+parameter_cases = [
+    "two_nodes",
+    "one_node_unused",
+    "strip",
+    "three_errors",
+]
+
+[[requirements]]
+id = "DP-67"
+title = "Right arm raise"
+text = "The builder's Right arm raise slider shows and accepts whole degrees from -180 to 180 in 15-degree key steps, the hero record stores pose.right_arm_raise in radians rounded half up to 4 decimals, and the posed hand moves data-hand-px and is where the lift ends."
+kind = "behavior"
+primary = "pytest"
+workflow = "hero-builder"
+tests = [
+    "test_app.py::test_right_arm_raise",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Drawing plane coordinates"
+text = "The drawing plane is a 320 by 320 CSS-pixel square at every viewport and pixel density, pointer positions are taken from its top-left corner in CSS pixels, and stroke points are stored in metres from the plane's centre with y up."
+kind = "behavior"
+primary = "pytest"
+workflow = "weapon-forge"
+tests = [
+    "test_app.py::test_wf_weapon_forge_plane_coordinates",
+]
+criteria = []
+parameter_cases = [
+    "dpr1",
+    "dpr2",
+]
+
+[[requirements]]
+id = "DP-69"
+title = "Model delete is all or nothing"
+text = "Deleting a model removes both objects and the record, or answers 503 storage_unavailable with the localised delete-outage banner and leaves the record, status, quota, equipped heroes and session model unchanged, and an upload whose record write fails removes the object it wrote."
+kind = "behavior"
+primary = "pytest"
+workflow = "outages"
+tests = [
+    "test_app.py::test_wf_outages_delete_all_or_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Deleted weapon gone everywhere"
+text = "A deleted weapon answers 404, vanishes from the armoury in place, unequips from every hero, turns null in a running session's snapshot within 1 second so the next swing is acked no_weapon, and its number is never reused."
+kind = "behavior"
+primary = "pytest"
+workflow = "weapon-forge"
+tests = [
+    "test_app.py::test_deleted_weapon_in_session",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Removed member loses session access"
+text = "During a dropped member's grace their model still streams to the session, and once their seat is released their session snapshot, session chat and model requests answer 404 within 1 second and their model stops streaming to everyone."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-in-session"
+tests = [
+    "test_app.py::test_removed_member_loses_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Upright rest pose (R10)"
+text = "R10 judges the hips node's rotation, reported as glTF's [x, y, z, w] to 4 decimals and shown in the report as w, x, y, z in locale format, failing when |w| is below 0.9999 or the hips use a matrix and skipped when R01, R02, R05 or R06 failed."
+kind = "behavior"
+primary = "pytest"
+workflow = "model-in-session"
+tests = [
+    "test_app.py::test_r10_upright_rest_pose",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Character counters"
+text = "Message and Hero name show a live counter of used and allowed user-perceived characters, text over the limit stays in the field with the limit copy, and the API refuses it with 422."
+kind = "behavior"
+primary = "pytest"
+workflow = "reconnect-chat"
+tests = [
+    "test_app.py::test_character_counters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Numeric seq and tick"
+text = "seq, tick and weapon number are JSON integers in every REST and realtime message, after_seq is a decimal integer, and resume works across seq 9 to 10."
+kind = "behavior"
+primary = "pytest"
+workflow = "reconnect-chat"
+tests = [
+    "test_app.py::test_numeric_seq_and_after_seq",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Ready-check deadline"
+text = "Party.ready_check.deadline_at is the check's end in whole Unix seconds by server time, and the dialog timer shows remaining_seconds and never reads the device clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "ready-check"
+tests = [
+    "test_app.py::test_ready_check_deadline",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Fresh grace per drop"
+text = "Every drop starts a fresh full grace, the seat belongs to the account so any of its tabs can rejoin, a member with two session connections drops only when the last closes, and dropped, rejoined and removed lines post once per drop."
+kind = "behavior"
+primary = "pytest"
+workflow = "coop-rejoin"
+tests = [
+    "test_app.py::test_wf_coop_rejoin_drop_and_rejoin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Language picker on every public page"
+text = "The Language combobox is on /, /signup, /signin, /forgot-password, /reset-password, /verify, the not-found page and the hangar, and signed-out pages keep the account's last locale after sign-out."
+kind = "behavior"
+primary = "pytest"
+workflow = "account"
+tests = [
+    "test_app.py::test_wf_account_picker_public_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Honest save dialog"
+text = "Pressing Save disables the dialog's controls with the pending copy, changes no slot label and announces nothing until the server answers, and on 412 the dialog keeps the server's slot name, the builder's edits and its undo history."
+kind = "behavior"
+primary = "pytest"
+workflow = "hero-builder"
+tests = [
+    "test_app.py::test_wf_hero_builder_stale_slot",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with exactly the string keys _schema (value run-manifest-v1), install, build and serve, and these commands install, build and serve the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists, with its licence, every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and every bundled font, icon, model and texture."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package, font and asset uses one of these licences: MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, Zlib, BlueOak-1.0.0, OFL-1.1 or CC0-1.0."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The only datastores are the provided Postgres and MinIO. There is no SQLite, Redis, embedded database or file-based store of app state."
+tests = [
+    "test_app.py::test_if_only_postgres_and_minio",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Every 3D asset is made in code or is CC0, and the icons come from one ISC- or MIT-licensed line-icon set."
+tests = [
+    "test_app.py::test_if_assets_and_icons",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "package-lock.json is committed and install uses it."
+tests = [
+    "test_app.py::test_if_lockfile_used",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The provided service configuration (compose files and service definitions) is left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "The glTF validator R02 uses appears among the shipped packages in package-lock.json at exactly version 2.0.0-dev.3.10."
+tests = [
+    "test_app.py::test_if_pinned_validator",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "account"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-04",
+    "DP-06",
+    "DP-77",
+]
+critical = [
+    "test_app.py::test_wf_account_signup_to_hangar",
+    "test_app.py::test_wf_account_signin_lands_hangar",
+    "test_app.py::test_wf_account_name_password_limits",
+    "test_app.py::test_wf_account_email_links",
+    "test_app.py::test_wf_account_picker_public_pages",
+]
+checkpoints = [
+    "B1",
+]
+
+[[workflows]]
+id = "outages"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-69",
+]
+critical = [
+    "test_app.py::test_wf_outages_mail_down_signup_banner",
+    "test_app.py::test_wf_outages_upload_storage_down",
+    "test_app.py::test_wf_outages_delete_all_or_nothing",
+    "test_app.py::test_wf_outages_recover_without_restart",
+]
+
+[[workflows]]
+id = "hero-builder"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-67",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_hero_builder_keyboard_save",
+    "test_app.py::test_wf_hero_builder_stale_slot",
+    "test_app.py::test_stale_slot_rejected",
+    "test_app.py::test_builder_layout_bottom_sheet",
+    "test_app.py::test_touch_orbit_zoom",
+]
+checkpoints = [
+    "B10",
+    "B14",
+]
+
+[[workflows]]
+id = "weapon-forge"
+requirements = [
+    "DP-21",
+    "DP-23",
+    "DP-68",
+    "DP-70",
+]
+critical = [
+    "test_app.py::test_wf_weapon_forge_form_limits",
+    "test_app.py::test_wf_weapon_forge_armoury",
+    "test_app.py::test_wf_weapon_forge_plane_coordinates",
+    "test_app.py::test_deleted_weapon_in_session",
+]
+checkpoints = [
+    "B13",
+]
+
+[[workflows]]
+id = "solo-story"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-63",
+]
+critical = [
+    "test_app.py::test_wf_solo_story_play_chapter",
+    "test_app.py::test_wf_solo_story_resume_checkpoint",
+    "test_app.py::test_fixed_step_world",
+    "test_app.py::test_checkpoint_keeps_motes",
+]
+
+[[workflows]]
+id = "friends"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_friends_add_friend",
+    "test_app.py::test_wf_friends_presence_tabs",
+    "test_app.py::test_friend_request_rules",
+]
+
+[[workflows]]
+id = "ready-check"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-65",
+    "DP-75",
+]
+critical = [
+    "test_app.py::test_wf_ready_check_keyboard_dialog",
+    "test_app.py::test_wf_ready_check_server_timer",
+    "test_app.py::test_ready_check_reload_reopens",
+    "test_app.py::test_ready_check_deadline",
+]
+
+[[workflows]]
+id = "coop-rejoin"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-52",
+    "DP-53",
+    "DP-64",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_wf_coop_rejoin_drop_and_rejoin",
+    "test_app.py::test_wf_coop_rejoin_same_seat",
+    "test_app.py::test_grace_held_by_server",
+    "test_app.py::test_wf_coop_rejoin_grace_nobody_progress",
+    "test_app.py::test_streams_survive_restart",
+]
+
+[[workflows]]
+id = "model-in-session"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-54",
+    "DP-66",
+    "DP-71",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_model_in_session_upload_fix_equip",
+    "test_app.py::test_wf_model_in_session_fix_and_equip",
+    "test_app.py::test_wf_model_in_session_storage_confirms",
+    "test_app.py::test_originals_kept_with_verdict",
+    "test_app.py::test_upload_intake",
+    "test_app.py::test_shared_model_in_session",
+    "test_app.py::test_removed_member_loses_access",
+]
+
+[[workflows]]
+id = "party-night"
+requirements = [
+    "DP-34",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_party_night_gather_and_play",
+    "test_app.py::test_wf_party_night_gather",
+    "test_app.py::test_invite_lands_on_lobby",
+    "test_app.py::test_chapter_complete_route",
+    "test_app.py::test_wf_party_night_fourth_seat_race",
+    "test_app.py::test_party_system_lines_localised",
+]
+
+[[workflows]]
+id = "reconnect-chat"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-51",
+    "DP-73",
+    "DP-74",
+]
+critical = [
+    "test_app.py::test_wf_reconnect_chat_phone_drawer",
+    "test_app.py::test_wf_reconnect_chat_no_duplicates",
+    "test_app.py::test_chat_rate_limit",
+    "test_app.py::test_chat_api_limits_idempotency",
+]
+
+[[workflows]]
+id = "forge-to-session"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-22",
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_forge_to_session_draw_and_forge",
+    "test_app.py::test_wf_forge_to_session_live_stats",
+    "test_app.py::test_wf_forge_to_session_latest_drawing_wins",
+    "test_app.py::test_forge_lift_reduced_motion",
+]
+checkpoints = [
+    "B13",
+    "B2",
+]
+critical_checkpoints = [
+    "B13",
+]
+
+[[workflows]]
+id = "language-roundtrip"
+requirements = [
+    "DP-03",
+    "DP-05",
+    "DP-07",
+    "DP-56",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_language_roundtrip_verification_email",
+    "test_app.py::test_wf_language_roundtrip_password_reset",
+    "test_app.py::test_wf_language_roundtrip_reset_mail_down",
+]
+checkpoints = [
+    "B1",
+    "B3",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-55",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_account_scoped_records",
+]
+checkpoints = [
+    "B6",
+    "B7",
+]

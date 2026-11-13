@@ -1,0 +1,1159 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 46
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "cross-cutting",
+    "review-keyboard",
+    "versions-suggestions",
+    "approvals-owners",
+    "merging",
+    "pipeline-config",
+    "pipeline-run",
+    "merge-train",
+    "environments",
+    "boards-planning",
+    "phone-review",
+    "access-roles",
+    "commits-wiki",
+    "reports-delivery-export",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+    "B17",
+    "B18",
+    "B19",
+    "B20",
+    "B21",
+    "B22",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 117
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+B13 = 3
+B14 = 3
+B15 = 3
+B16 = 3
+B17 = 3
+B18 = 5
+B19 = 3
+B20 = 3
+B21 = 3
+B22 = 3
+S1 = 5
+S2 = 3
+S3 = 5
+S4 = 3
+S5 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 3
+Q4 = 5
+Q5 = 3
+Q6 = 5
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+SPUR_GRADING = "1"
+SPUR_INLINE_MAX_BYTES = "4096"
+SPUR_FILE_MAX_BYTES = "500000"
+SPUR_PARALLEL_LIMIT = "2"
+SPUR_RETRY_MAX = "2"
+SPUR_JOB_TIMEOUT_MS = "60000"
+SPUR_ARTIFACT_TTL_MS = "3600000"
+SPUR_CACHE_TTL_MS = "3600000"
+SPUR_AUTO_STOP_MS = "3600000"
+SPUR_DEPLOY_APPROVAL_MS = "3600000"
+SPUR_RETARGET_LIMIT = "2"
+SPUR_TRAIN_MAX = "6"
+SPUR_PRESENCE_TIMEOUT_MS = "3000"
+SPUR_EXPORT_STEP_MS = "100"
+SPUR_EXPORT_MAX_BYTES = "5000000"
+SPUR_WEBHOOK_RETRY_MS = "1000,2000,4000"
+SPUR_WEBHOOK_ALLOW = "127.0.0.1:4173"
+SPUR_SSE_HEARTBEAT_MS = "1000"
+SPUR_WRITE_RATE = "100000"
+SPUR_LOGIN_RATE = "1000"
+SPUR_TOAST_MS = "5000"
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health check"
+text = "`/app/run.json` installs, builds and serves the app on port 4173 (or `APP_PUBLIC_PORT`), and `GET /api/health` answers 200 with the status JSON defined in Deployment."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_status",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Grading routes"
+text = "With `SPUR_GRADING=1`, the seed, session, clock, commit, runner, storage and sink routes behave exactly as published in API, and every one of them answers 404 when the variable is unset."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_routes",
+    "test_app.py::test_grading_routes_off",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Accounts and sessions"
+text = "People sign up and sign in with a local username and password and hold the `spur_session` cookie, which every page and API route needs except sign-in, sign-up and health."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_accounts_api",
+    "test_app.py::test_wf_cross_cutting_sign_in_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "One error shape and order"
+text = "Every API error uses one JSON body shape with a published code and message, and when several errors apply, the published precedence decides which one is returned."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Live updates and settle signal"
+text = "Every project change is pushed over the project's live socket with a per-project sequence number that the causing write also returns, a reconnecting page receives what it missed, and live pages expose the applied sequence and the pending write count on `<main>`."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_live_socket_sequence",
+    "test_app.py::test_wf_cross_cutting_settle_signal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Server boundary and limits"
+text = "The server serves only same-origin built assets and API responses, enforces the published body, file and rate limits, never exposes credentials or source, and starts and recovers when a service is down, as qualified in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_body_and_file_limits",
+    "test_app.py::test_login_rate_limit",
+    "test_app.py::test_server_never_leaks",
+    "test_app.py::test_storage_outage_and_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Names, focus and announcements"
+text = "Every control in the public table carries its published role and name, dialogs and sheets keep Tab inside and return focus to their opener, F6 cycles regions, and results are announced in the single polite `status \"Announcements\"` region with the published sentences."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_shell_and_project_home_components",
+    "test_app.py::test_dialogs_regions_and_form_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Motion and reduced motion"
+text = "The six published animations play with their published ids and durations on the published elements, nothing loops, and under reduced motion none of them run while the final state, announcements and focus stay the same."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_published_animations",
+]
+criteria = []
+parameter_cases = [
+    "motion",
+    "reduced",
+]
+
+[[requirements]]
+id = "DP-09"
+title = "Project home and seed components"
+text = "The project home and the shell show the instance status strip, group switcher header, project hero dot field, open merge request bar, latest tag and pipeline tiles, project health stat cards, release notes carousel, recent activity row and instance footer as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Working screen language"
+text = "Code, diffs, logs, pipelines and the train sit on the dark ground in the mono face; settings, issues and boards sit as white bordered square cards on the light band; and empty and error states use the empty state start band and the status strip pattern, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B15",
+    "B16",
+    "B17",
+    "B18",
+    "B19",
+    "B20",
+    "B21",
+    "B22",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Source integrity"
+text = "The source reads every service credential and published setting from the environment, keeps all state in Postgres and MinIO, computes every published value on the server from stored records, and bundles its fonts."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Diffs and views"
+text = "Diffs follow the published line diff, hunk and context rules, switch between inline and side-by-side views, expand context 20 lines at a time, and keep the view, file and line in the URL."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-keyboard"
+tests = [
+    "test_app.py::test_diff_hunks_api",
+    "test_app.py::test_wf_review_keyboard_views_url",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Threads and batch review"
+text = "Line and range comments start threads, a started review keeps comments visible only to their author until one submit publishes them as one event, threads resolve and reopen, and open threads move to a new issue with the published texts."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-keyboard"
+tests = [
+    "test_app.py::test_threads_and_batch_review_api",
+    "test_app.py::test_wf_review_keyboard_pending_discard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Keyboard review in the diff"
+text = "A reviewer walks a diff, comments on a range, resolves threads and submits a review using only the keyboard while the author's page updates live, and after each step focus lands where the keyboard table publishes."
+kind = "behavior"
+primary = "workflow"
+workflow = "review-keyboard"
+tests = [
+    "test_app.py::test_wf_review_keyboard_journey",
+    "test_app.py::test_wf_review_keyboard_file_keys",
+    "test_app.py::test_wf_review_keyboard_cancel_then_post",
+    "test_app.py::test_wf_review_keyboard_thread_walk",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Versions and compare"
+text = "Every push to a source branch makes a numbered version, and any two versions, or the target and a version, can be compared, with the choice kept in the URL."
+kind = "behavior"
+primary = "pytest"
+workflow = "versions-suggestions"
+tests = [
+    "test_app.py::test_wf_versions_suggestions_compare",
+    "test_app.py::test_wf_versions_suggestions_remap_live",
+    "test_app.py::test_wf_versions_suggestions_auto_resolve",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "One push, every consequence"
+text = "A single push to a source branch, from any route, makes a version, remaps or outdates threads, resets approvals when set, recalculates code owners, cancels interruptible pipelines, removes the request from its train and cancels auto-merge, all in one write."
+kind = "behavior"
+primary = "pytest"
+workflow = "versions-suggestions"
+tests = [
+    "test_app.py::test_one_push_every_consequence",
+]
+criteria = []
+parameter_cases = [
+    "commit_api",
+    "grading_commit",
+]
+
+[[requirements]]
+id = "DP-17"
+title = "Suggestions"
+text = "Suggestions apply alone or as a batch in one commit with the published messages, pass through push rules and count as a push, and are refused with the published 409 texts in the published order."
+kind = "behavior"
+primary = "pytest"
+workflow = "versions-suggestions"
+tests = [
+    "test_app.py::test_suggestions_apply_and_refusals",
+    "test_app.py::test_wf_versions_suggestions_apply_ui",
+    "test_app.py::test_wf_versions_suggestions_overlap_refused",
+    "test_app.py::test_wf_versions_suggestions_apply_is_a_push",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Code owners and approval rules"
+text = "The owners file on the target branch and the project's approval rules decide each required rule and its count by the published section, glob and last-match rules, recalculated whenever the request's changed files change."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals-owners"
+tests = [
+    "test_app.py::test_owners_sections_and_rules",
+    "test_app.py::test_wf_approvals_owners_rebase_changes_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Giving and resetting approvals"
+text = "Eligible people approve, authors and ineligible people are refused with the published 403 texts unless the setting allows authors, one approval counts toward every rule its giver is eligible for, and approvals reset on push when the setting is on."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals-owners"
+tests = [
+    "test_app.py::test_approval_refusals_and_counting",
+    "test_app.py::test_wf_approvals_owners_approve",
+    "test_app.py::test_wf_approvals_owners_partial_then_reset",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Merge checks and auto-merge"
+text = "The merge checks widget lists the ten published checks in order with their exact texts and states, a blocked merge returns the first failed check, and auto-merge merges on the server when all checks pass or cancels with the published reason."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals-owners"
+tests = [
+    "test_app.py::test_merge_checks_texts_and_blocking",
+    "test_app.py::test_merge_checks_structure",
+    "test_app.py::test_auto_merge",
+    "test_app.py::test_wf_approvals_owners_checks_live",
+    "test_app.py::test_wf_approvals_owners_auto_merge_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Merge methods and conflicts"
+text = "Merge commit, squash, fast-forward and rebase produce the published commits and hashes, and conflicts are resolved in the browser with the exact markers into one merge commit on the source branch."
+kind = "behavior"
+primary = "pytest"
+workflow = "merging"
+tests = [
+    "test_app.py::test_merge_methods_and_hashes",
+    "test_app.py::test_rebase_and_conflicts_api",
+    "test_app.py::test_wf_merging_conflict_inline",
+    "test_app.py::test_wf_merging_squash_exact_hash",
+    "test_app.py::test_wf_merging_fast_forward_after_rebase",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Stacked requests and closing keywords"
+text = "A merge that deletes its source branch retargets the requests stacked on it, up to the published limit and with the published notes, and closing keywords close issues only when a request merges into the default branch."
+kind = "behavior"
+primary = "pytest"
+workflow = "merging"
+tests = [
+    "test_app.py::test_stacked_retarget_and_closing",
+    "test_app.py::test_wf_merging_merge_closes_issue",
+    "test_app.py::test_wf_merging_stack_retarget_other_target",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Pipeline config and lint"
+text = "The pipeline file is read by the published YAML subset and the include, extends, default, variables, rules, workflow rules and matrix rules, and lint returns the published messages at their 1-based lines, or the valid summary and the expanded jobs."
+kind = "behavior"
+primary = "pytest"
+workflow = "pipeline-config"
+tests = [
+    "test_app.py::test_lint_messages",
+    "test_app.py::test_pipeline_config_semantics",
+    "test_app.py::test_wf_pipeline_config_lint_editor",
+    "test_app.py::test_wf_pipeline_config_cycle_and_removed_need",
+    "test_app.py::test_wf_pipeline_config_matrix_expanded_jobs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Pipeline graph"
+text = "The pipeline graph places each job at the published layer, row and coordinates, draws one published curve per need, and moves focus along needs with the arrow keys."
+kind = "behavior"
+primary = "pytest"
+workflow = "pipeline-config"
+tests = [
+    "test_app.py::test_wf_pipeline_config_graph",
+    "test_app.py::test_wf_pipeline_config_graph_matrix_layers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Scheduler and job states"
+text = "Each runner round follows the published four steps, job eligibility rules, `when` values, parallel and resource group limits, and the published status rollup for stages and pipelines."
+kind = "behavior"
+primary = "pytest"
+workflow = "pipeline-run"
+tests = [
+    "test_app.py::test_scheduler_worked_example",
+    "test_app.py::test_scheduler_limits_and_when",
+    "test_app.py::test_wf_pipeline_run_live_rows",
+    "test_app.py::test_wf_pipeline_run_delayed_server_clock",
+    "test_app.py::test_wf_pipeline_run_manual_gate_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Retries, timeouts and cancellation"
+text = "Automatic and manual retries create new attempts with new ids, timeouts fail jobs on the server clock, and a newer push cancels older interruptible pipelines with the published reasons."
+kind = "behavior"
+primary = "pytest"
+workflow = "pipeline-run"
+tests = [
+    "test_app.py::test_retries_timeouts_cancellation",
+    "test_app.py::test_wf_pipeline_run_retry_and_newer_push",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Job logs, artifacts and caches"
+text = "Job logs follow the published line format and sections, stream live and are sealed into file storage; artifacts and caches follow the published download, expiry and restore rules; and a link appears only after file storage confirms the object."
+kind = "behavior"
+primary = "pytest"
+workflow = "pipeline-config"
+tests = [
+    "test_app.py::test_logs_artifacts_caches",
+    "test_app.py::test_wf_pipeline_run_storage_outage",
+    "test_app.py::test_wf_pipeline_run_live_log_second_context",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Merge train rules"
+text = "Each train car is tested as a stored speculative commit built on the car ahead, the first car merges that exact commit when its pipeline succeeds, and failures, removals, pushes, merge-now and target pushes rebuild the cars behind with new stored commits."
+kind = "behavior"
+primary = "pytest"
+workflow = "merge-train"
+tests = [
+    "test_app.py::test_train_speculative_commits",
+    "test_app.py::test_train_rebuild_rules",
+    "test_app.py::test_wf_merge_train_add",
+    "test_app.py::test_wf_merge_train_remove_by_keyboard",
+    "test_app.py::test_wf_merge_train_merge_now_rebuilds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Train Ref Resolve"
+text = "The train shows one stepped block per car with a resolving 7-character kicker and the published label, plays the published join, leave and rise animations and announcements live, becomes a plain list on phones, and changes at once under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "merge-train"
+tests = [
+    "test_app.py::test_wf_merge_train_watch",
+    "test_app.py::test_wf_merge_train_phone_reduced",
+    "test_app.py::test_wf_merge_train_pushes_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Protected deployments"
+text = "Deploy jobs to protected environments wait for the published number of approvals from allowed roles, refuse the deployer and lower roles, let approvals lapse on the server clock, and run one job per resource group at a time."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-roles"
+tests = [
+    "test_app.py::test_protected_deployment_approvals",
+    "test_app.py::test_wf_environments_approve",
+    "test_app.py::test_wf_environments_resource_group_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Rollback, outdated deploys and auto-stop"
+text = "A rollback makes a new deployment only when its artifact is still stored, a deploy from an older pipeline fails as outdated, and review environments stop at their server-clock auto-stop unless they are kept."
+kind = "behavior"
+primary = "pytest"
+workflow = "environments"
+tests = [
+    "test_app.py::test_rollback_outdated_autostop",
+    "test_app.py::test_wf_environments_rollback",
+    "test_app.py::test_wf_environments_review_auto_stop_clock",
+    "test_app.py::test_wf_environments_outdated_and_expired_rollback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Delivery metrics"
+text = "The delivery metrics region computes deployment frequency, lead time, change failure rate and recovery time over production deployments, with days cut at midnight in the chosen time zone, by the published formulas and formats."
+kind = "behavior"
+primary = "pytest"
+workflow = "reports-delivery-export"
+tests = [
+    "test_app.py::test_delivery_metrics",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Boards and card moves"
+text = "Board moves change the matching field, place the card at the server's position, refuse a stale move of the same card with the published 409 text, keep filters in the URL, and work by mouse, keyboard and touch with live updates for everyone."
+kind = "behavior"
+primary = "pytest"
+workflow = "boards-planning"
+tests = [
+    "test_app.py::test_board_moves_api",
+    "test_app.py::test_board_concurrent_moves",
+    "test_app.py::test_wf_boards_planning_keyboard",
+    "test_app.py::test_wf_boards_planning_filters_url",
+    "test_app.py::test_wf_boards_planning_stale_card_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Issues, quick actions and scoped labels"
+text = "Quick actions run on submit with the published results, durations and weights follow the published formats, and a scoped label replaces its sibling in one write with one note, from every route."
+kind = "behavior"
+primary = "pytest"
+workflow = "boards-planning"
+tests = [
+    "test_app.py::test_quick_actions_and_scoped_labels",
+    "test_app.py::test_wf_boards_planning_quick_actions_reach_board",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Epics, milestones and burndown"
+text = "Epics nest one level and take their dates from their issues' milestones, promotion copies the published fields, and the burndown plots one point per day by the published formula in the milestone's zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "boards-planning"
+tests = [
+    "test_app.py::test_epics_milestones_burndown",
+    "test_app.py::test_promote_to_epic",
+    "test_app.py::test_wf_boards_planning_promote_to_epic_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Breakpoints and the bottom sheet"
+text = "The merge request view has three panes from 1280 px, two panes from 768 px to 1279 px, and one column below 768 px, where checks, threads and files move into the `dialog \"Panel\"` bottom sheet, with no horizontal page overflow at any published viewport."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-review"
+tests = [
+    "test_app.py::test_wf_phone_review_breakpoints",
+    "test_app.py::test_wf_phone_review_check_flip_in_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Touch gestures"
+text = "On a touch phone, a horizontal swipe changes file, a long press opens the line comment sheet, Approve works from the bottom sheet, and a held card drags to a board list, each with the published thresholds and announcements."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-review"
+tests = [
+    "test_app.py::test_wf_phone_review_touch",
+    "test_app.py::test_wf_phone_review_swipe_back_and_drift",
+    "test_app.py::test_wf_phone_review_comment_sheet_reaches_author",
+    "test_app.py::test_wf_phone_review_card_hold_threshold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Groups, roles and visibility"
+text = "Effective roles resolve as the highest of direct and inherited memberships plus custom permissions, the server refuses every action in the role table below its minimum, and unreadable resources answer 404 while readable but forbidden actions answer 403."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-roles"
+tests = [
+    "test_app.py::test_roles_and_visibility_api",
+    "test_app.py::test_wf_access_roles_protected_editor",
+    "test_app.py::test_wf_access_roles_custom_role_approves_by_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Live role changes and audit"
+text = "A role change or removal applies to the person's open pages live, with the published announcement and focus rule, and every listed change writes a permanent audit event with before and after values."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-roles"
+tests = [
+    "test_app.py::test_audit_events_api",
+    "test_app.py::test_wf_access_roles_live_role",
+    "test_app.py::test_wf_access_roles_inherited_change_and_removal_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Confidential issues"
+text = "Confidential issues are invisible to people without access in pages, search, counts, notes, mentions and closing lines, while a closing keyword still closes them."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-roles"
+tests = [
+    "test_app.py::test_confidential_issues_api",
+    "test_app.py::test_wf_access_roles_confidential_search",
+    "test_app.py::test_wf_access_roles_confidential_board_and_closing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Repository objects and commits"
+text = "Blobs, trees and commits use the published hash formulas, the commit API and the web editor each make one all-or-nothing commit with stale-base refusal, and history and blame follow the published walks."
+kind = "behavior"
+primary = "pytest"
+workflow = "commits-wiki"
+tests = [
+    "test_app.py::test_hashes_and_commit_api",
+    "test_app.py::test_history_and_blame",
+    "test_app.py::test_wf_commits_wiki_editor_commit",
+    "test_app.py::test_wf_commits_wiki_hash_history_blame_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Protection and push rules"
+text = "Protected branches and tags and the five push rules give the published verdicts, in the published order, for every commit from the editor, suggestions, merges, rebases, the train and the API."
+kind = "behavior"
+primary = "pytest"
+workflow = "commits-wiki"
+tests = [
+    "test_app.py::test_protection_and_push_rules",
+    "test_app.py::test_wf_commits_wiki_push_rule_order_editor",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Wiki"
+text = "Wiki pages keep numbered versions, render only the published Markdown subset, refuse a stale edit with the published 409 text, compare versions, and restore an old version as a new version."
+kind = "behavior"
+primary = "pytest"
+workflow = "commits-wiki"
+tests = [
+    "test_app.py::test_wiki_versions_and_rendering",
+    "test_app.py::test_wf_commits_wiki_wiki_stale",
+    "test_app.py::test_wf_commits_wiki_render_subset_and_restore",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Reports and security findings"
+text = "Test, coverage, quality and security reports compare the head pipeline with the base pipeline by the published rules, and an unreviewed high or critical finding adds the Security review rule and merge check until it is dismissed."
+kind = "behavior"
+primary = "pytest"
+workflow = "reports-delivery-export"
+tests = [
+    "test_app.py::test_reports_and_findings",
+    "test_app.py::test_wf_reports_delivery_export_findings",
+    "test_app.py::test_wf_reports_delivery_export_finding_live_two_people",
+    "test_app.py::test_wf_reports_delivery_export_regions_read_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Webhooks"
+text = "Webhook deliveries carry the published payload and signed headers, reach only allow-listed targets, retry on the server-clock schedule, and are listed and can be redelivered."
+kind = "behavior"
+primary = "pytest"
+workflow = "reports-delivery-export"
+tests = [
+    "test_app.py::test_webhooks_signed_retried_redelivered",
+    "test_app.py::test_wf_reports_delivery_export_webhook_rows_redeliver",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Project export and import"
+text = "Exports and imports use the published `.spurpack` format with exact line errors and a byte-exact round trip, show live progress, show a file link only after storage confirms the file, and recover through Retry export after a storage outage without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "reports-delivery-export"
+tests = [
+    "test_app.py::test_spurpack_round_trip_and_errors",
+    "test_app.py::test_wf_reports_delivery_export_outage",
+    "test_app.py::test_wf_reports_delivery_export_import_preview_round_trip",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with string `install`, `build` and `serve` and `\"_schema\":\"run-manifest-v1\"`, and `serve` starts the server without a further build."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at the repository root lists every shipped package (the production dependency tree from `npm ls --omit=dev --all --json`) and each bundled font, with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font uses MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastore, queue, cache, mail or search service besides the provided Postgres and MinIO, and writes no state to local files."
+tests = [
+    "test_app.py::test_if_no_extra_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "`package-lock.json` is committed and `install` uses it."
+tests = [
+    "test_app.py::test_if_lockfile_used",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided compose and service configuration files are left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "No source file, asset or UI copy names another code hosting product."
+tests = [
+    "test_app.py::test_if_no_other_forge_names",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_sign_in_pages",
+    "test_app.py::test_wf_cross_cutting_settle_signal",
+]
+checkpoints = [
+    "B1",
+    "B10",
+]
+critical_checkpoints = [
+    "B1",
+]
+
+[[workflows]]
+id = "review-keyboard"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_review_keyboard_journey",
+    "test_app.py::test_wf_review_keyboard_views_url",
+    "test_app.py::test_wf_review_keyboard_file_keys",
+    "test_app.py::test_wf_review_keyboard_cancel_then_post",
+    "test_app.py::test_wf_review_keyboard_thread_walk",
+    "test_app.py::test_wf_review_keyboard_pending_discard",
+]
+
+[[workflows]]
+id = "versions-suggestions"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_versions_suggestions_compare",
+    "test_app.py::test_wf_versions_suggestions_apply_ui",
+    "test_app.py::test_wf_versions_suggestions_remap_live",
+    "test_app.py::test_wf_versions_suggestions_overlap_refused",
+    "test_app.py::test_wf_versions_suggestions_apply_is_a_push",
+    "test_app.py::test_wf_versions_suggestions_auto_resolve",
+]
+
+[[workflows]]
+id = "approvals-owners"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_approvals_owners_approve",
+    "test_app.py::test_wf_approvals_owners_checks_live",
+    "test_app.py::test_wf_approvals_owners_partial_then_reset",
+    "test_app.py::test_wf_approvals_owners_rebase_changes_rules",
+    "test_app.py::test_wf_approvals_owners_auto_merge_live",
+    "test_app.py::test_owners_sections_and_rules",
+]
+
+[[workflows]]
+id = "merging"
+requirements = [
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_merging_squash_exact_hash",
+    "test_app.py::test_wf_merging_fast_forward_after_rebase",
+    "test_app.py::test_wf_merging_stack_retarget_other_target",
+]
+checkpoints = [
+    "B22",
+]
+critical_checkpoints = [
+    "B22",
+]
+
+[[workflows]]
+id = "pipeline-config"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_pipeline_config_lint_editor",
+    "test_app.py::test_wf_pipeline_config_graph",
+    "test_app.py::test_wf_pipeline_config_cycle_and_removed_need",
+    "test_app.py::test_wf_pipeline_config_matrix_expanded_jobs",
+    "test_app.py::test_wf_pipeline_run_storage_outage",
+    "test_app.py::test_wf_pipeline_run_live_log_second_context",
+]
+checkpoints = [
+    "B17",
+]
+
+[[workflows]]
+id = "pipeline-run"
+requirements = [
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_pipeline_run_live_rows",
+    "test_app.py::test_wf_pipeline_run_delayed_server_clock",
+    "test_app.py::test_wf_pipeline_run_retry_and_newer_push",
+    "test_app.py::test_wf_pipeline_run_manual_gate_motion",
+]
+
+[[workflows]]
+id = "merge-train"
+requirements = [
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_merge_train_watch",
+    "test_app.py::test_wf_merge_train_phone_reduced",
+    "test_app.py::test_wf_merge_train_remove_by_keyboard",
+    "test_app.py::test_wf_merge_train_merge_now_rebuilds",
+    "test_app.py::test_wf_merge_train_pushes_reduced_motion",
+    "test_app.py::test_wf_merge_train_add",
+]
+checkpoints = [
+    "B19",
+]
+
+[[workflows]]
+id = "environments"
+requirements = [
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_environments_rollback",
+    "test_app.py::test_wf_environments_review_auto_stop_clock",
+    "test_app.py::test_wf_environments_outdated_and_expired_rollback",
+]
+
+[[workflows]]
+id = "boards-planning"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_boards_planning_keyboard",
+    "test_app.py::test_wf_boards_planning_filters_url",
+    "test_app.py::test_board_concurrent_moves",
+    "test_app.py::test_wf_boards_planning_stale_card_refused",
+    "test_app.py::test_wf_boards_planning_quick_actions_reach_board",
+    "test_app.py::test_wf_boards_planning_promote_to_epic_page",
+    "test_app.py::test_epics_milestones_burndown",
+]
+
+[[workflows]]
+id = "phone-review"
+requirements = [
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_phone_review_touch",
+    "test_app.py::test_wf_phone_review_breakpoints",
+    "test_app.py::test_wf_phone_review_swipe_back_and_drift",
+    "test_app.py::test_wf_phone_review_comment_sheet_reaches_author",
+    "test_app.py::test_wf_phone_review_check_flip_in_sheet",
+    "test_app.py::test_wf_phone_review_card_hold_threshold",
+]
+
+[[workflows]]
+id = "access-roles"
+requirements = [
+    "DP-30",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+]
+critical = [
+    "test_app.py::test_wf_access_roles_protected_editor",
+    "test_app.py::test_wf_access_roles_live_role",
+    "test_app.py::test_wf_access_roles_confidential_search",
+    "test_app.py::test_wf_access_roles_custom_role_approves_by_keyboard",
+    "test_app.py::test_wf_access_roles_inherited_change_and_removal_live",
+    "test_app.py::test_wf_access_roles_confidential_board_and_closing",
+    "test_app.py::test_wf_environments_approve",
+    "test_app.py::test_wf_environments_resource_group_order",
+]
+
+[[workflows]]
+id = "commits-wiki"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_commits_wiki_editor_commit",
+    "test_app.py::test_wf_commits_wiki_wiki_stale",
+    "test_app.py::test_hashes_and_commit_api",
+    "test_app.py::test_wf_commits_wiki_push_rule_order_editor",
+    "test_app.py::test_wf_commits_wiki_hash_history_blame_pages",
+    "test_app.py::test_wf_commits_wiki_render_subset_and_restore",
+]
+checkpoints = [
+    "B21",
+]
+critical_checkpoints = [
+    "B21",
+]
+
+[[workflows]]
+id = "reports-delivery-export"
+requirements = [
+    "DP-32",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_reports_delivery_export_outage",
+    "test_app.py::test_wf_reports_delivery_export_findings",
+    "test_app.py::test_wf_reports_delivery_export_finding_live_two_people",
+    "test_app.py::test_wf_reports_delivery_export_regions_read_exact",
+    "test_app.py::test_wf_reports_delivery_export_webhook_rows_redeliver",
+    "test_app.py::test_wf_reports_delivery_export_import_preview_round_trip",
+    "test_app.py::test_delivery_metrics",
+]

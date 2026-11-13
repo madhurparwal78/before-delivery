@@ -1,0 +1,1117 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "primitive-transform",
+    "extrusion-materials",
+    "gltf-clips",
+    "particles",
+    "cloth",
+    "tilt-orbit",
+    "keyframe-easing",
+    "breakpoints",
+    "variables-presets",
+    "compositing",
+    "live-collab",
+    "publish-embed",
+    "phone-layers-import",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 79
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 5
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 5
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+GRADING_KEY = "hs-grading-key-5e1c9a7d"
+APP_START_AT = "2026-11-06T10:00:00Z"
+APP_TIME_ZONE = "Europe/Lisbon"
+AUTOSAVE_MS = "800"
+UNDO_LIMIT = "100"
+LOCK_TIMEOUT_SECONDS = "30"
+PUBLISH_LIMIT = "20"
+EMBED_POLL_SECONDS = "30"
+INVITE_TTL_HOURS = "72"
+IMAGE_MAX_BYTES = "1048576"
+IMAGE_MAX_DIMENSION = "2048"
+MODEL_MAX_BYTES = "2097152"
+MODEL_MAX_VERTICES = "50000"
+PARTICLE_MAX = "2000"
+PARTICLE_SEED = "7"
+CLOTH_SEED = "3"
+GRAIN_SEED = "11"
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Halation Studio <studio@tinderbox-optics.test>"
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+MAILPIT_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_maildown"
+S3_BUCKET = "${S3_BUCKET}-maildown"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health check"
+text = "/app/run.json installs, builds and serves the app on port 4173 (or APP_PUBLIC_PORT), and GET /api/health answers as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_reports_storage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Grading routes"
+text = "With the right X-Grading-Key, the reset, seed and clock routes empty the store, create the published seed with every id and session, and move the server clock; without the key they answer 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_routes_hidden_and_seed_map",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Seeded sign-in"
+text = "A seeded person signs in with email and password using only the keyboard, gets the hs_session cookie and lands on the project list; wrong credentials show the sign-in error."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_signin_by_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Unseen projects answer 404"
+text = "Any project, project API route or embed the requester can't open, including another workspace's, an unknown one, a purged one or an unpublished embed, answers 404, never 403."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_unseen_projects_answer_404",
+    "test_app.py::test_wf_cross_cutting_unseen_in_browser",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "One error order for every write"
+text = "Every write checks sign-in, visibility, role, locks and state, validation, limits and storage in the published order and answers with the one published error shape."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_order_and_shape",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Invites by mail"
+text = "The owner invites an email as Editor or Viewer, Mailpit receives one invite with a single-use link valid for INVITE_TTL_HOURS, and accepting it is the only way to become a member."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_invite_by_mail_single_use",
+    "test_app.py::test_wf_cross_cutting_invite_accept_in_browser",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Mail outage keeps mail queued"
+text = "With Mailpit unreachable, invites and publishes still succeed, their mail waits in the outbox and shows as queued, and each queued mail is sent exactly once when mail works again."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_mail_outage_queues_and_sends_once",
+    "test_app.py::test_wf_cross_cutting_queued_invite_row",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Autosave and reload"
+text = "Each change is saved within AUTOSAVE_MS of the last change while the save status shows its progress, and every saved change is still there after a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_autosave_and_reload",
+    "test_app.py::test_wf_cross_cutting_nudges_save_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Landing stage with Follow Light"
+text = "The landing stage starts black, raises its light over 800 ms while the headline lines stagger in 60 ms apart, leans the light toward the pointer and settles back, with the published reduced-motion substitute."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_landing_follow_light_stage",
+    "test_app.py::test_wf_cross_cutting_landing_touch_light",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Nocturnal panel look"
+text = "Every screen uses the near-black inset panel stack, takes its violet light only from live canvases, and uses the grotesk-plus-serif headline and tabular figures described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Three viewports without overflow"
+text = "At 375x812, 768x1024 and 1280x800 each screen shows its published layout with no horizontal scrolling and with every touched control at least 44 px in both directions."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_three_viewports_layout",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-12"
+title = "Real stage and configuration from env"
+text = "The stage draws every layer from the stored scene with WebGL2 or the 2D fallback, the inspector uses the published formulas, and every credential, timer and limit comes from the environment."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Primitives and 3D transforms"
+text = "The five primitives show their published triangle counts, and position, rotation and scale change by typing, arrow keys, Shift steps and the drag gizmo with the published steps and snaps."
+kind = "behavior"
+primary = "pytest"
+workflow = "primitive-transform"
+tests = [
+    "test_app.py::test_wf_primitive_transform_steps_and_gizmo",
+    "test_app.py::test_wf_primitive_transform_shift_steps_vertex",
+    "test_app.py::test_wf_primitive_transform_ring_shift_snap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Camera projection readout"
+text = "The inspector's Screen point for a layer centre or a named vertex equals the published projection for the current camera, breakpoint and clock, or reads Not visible."
+kind = "behavior"
+primary = "pytest"
+workflow = "primitive-transform"
+tests = [
+    "test_app.py::test_projection_readouts",
+]
+criteria = []
+parameter_cases = [
+    "centre-desktop",
+    "centre-fov35",
+    "centre-mobile",
+    "cube-vertex",
+    "rotated-vertex",
+    "behind-camera",
+]
+
+[[requirements]]
+id = "DP-15"
+title = "Place and frame a primitive"
+text = "A signed-in owner adds a Torus by keyboard, places it, scales it with the gizmo, reads its screen points, narrows the field of view and sees every readout update."
+kind = "behavior"
+primary = "workflow"
+workflow = "primitive-transform"
+tests = [
+    "test_app.py::test_wf_primitive_transform_place_torus",
+    "test_app.py::test_wf_primitive_transform_fov_keyboard",
+]
+criteria = [
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Text and SVG extrusion"
+text = "Text in the built-in Halation Block cell font and one-path straight-line SVGs extrude with the published bounds and triangle counts, and every other input is refused with its exact text."
+kind = "behavior"
+primary = "pytest"
+workflow = "extrusion-materials"
+tests = [
+    "test_app.py::test_extrusion_bounds_and_refusals",
+]
+criteria = []
+parameter_cases = [
+    "halo-bevel",
+    "halo-flat",
+    "halo-lowercase",
+    "char-refused",
+    "svg-rectangle",
+    "svg-relative",
+    "svg-not-svg",
+    "svg-three-paths",
+    "svg-curve",
+    "svg-crossing",
+]
+
+[[requirements]]
+id = "DP-17"
+title = "Materials and draw order"
+text = "Matcap and Glass materials, depth testing and face settings produce the published IOR readout, Draw order items and Triangles drawn."
+kind = "behavior"
+primary = "pytest"
+workflow = "extrusion-materials"
+tests = [
+    "test_app.py::test_wf_extrusion_materials_logo_draw_order",
+    "test_app.py::test_wf_extrusion_materials_refraction_keyboard",
+    "test_app.py::test_wf_extrusion_materials_both_sides_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Uploads confirmed and kept as submitted"
+text = "An uploaded image, SVG or model becomes usable for a layer only after storage confirms its object, and its original bytes download unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "extrusion-materials"
+tests = [
+    "test_app.py::test_wf_extrusion_materials_uploads_kept",
+    "test_app.py::test_wf_extrusion_materials_upload_pending",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "glTF upload subset and refusals"
+text = ".gltf and .glb files inside the published subset upload and list their clips, and files outside it are refused with the first applicable exact text."
+kind = "behavior"
+primary = "pytest"
+workflow = "gltf-clips"
+tests = [
+    "test_app.py::test_gltf_subset_and_refusals",
+]
+criteria = []
+parameter_cases = [
+    "gltf-accepted",
+    "glb-accepted",
+    "at-byte-limit",
+    "too-large",
+    "not-parseable",
+    "version-1",
+    "compressed",
+    "external-uri",
+    "node-matrix",
+    "cubicspline",
+    "matrix-before-cubicspline",
+    "too-many-vertices",
+]
+
+[[requirements]]
+id = "DP-20"
+title = "Clip sampling on the timeline"
+text = "A model node's translation, rotation and scale at any timeline time follow the published clip-time and sampling rules for Loop, Speed, offset, LINEAR and STEP."
+kind = "behavior"
+primary = "pytest"
+workflow = "gltf-clips"
+tests = [
+    "test_app.py::test_wf_gltf_clips_model_sampling",
+    "test_app.py::test_wf_gltf_clips_speed_keyboard",
+    "test_app.py::test_wf_gltf_clips_step_loop_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Storage outage keeps embeds playing"
+text = "With storage unreachable, uploads and publishing are refused with the outage text while published embeds still render from their version row, with a named placeholder for each stored asset."
+kind = "behavior"
+primary = "pytest"
+workflow = "gltf-clips"
+tests = [
+    "test_app.py::test_wf_gltf_clips_storage_outage",
+    "test_app.py::test_wf_gltf_clips_outage_placeholder_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Seeded particle emitter"
+text = "An emitter's live count and each numbered particle's position at a frame follow the published seeded simulation exactly."
+kind = "behavior"
+primary = "pytest"
+workflow = "particles"
+tests = [
+    "test_app.py::test_wf_particles_emitter_inspect",
+    "test_app.py::test_wf_particles_live_count_playhead",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Particle formation and trails"
+text = "Particles forming into a shape follow the published start points, target points and Glide easing, and trail points follow the published rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "particles"
+tests = [
+    "test_app.py::test_wf_particles_formation_trails",
+    "test_app.py::test_wf_particles_trail_points_keyboard",
+    "test_app.py::test_wf_particles_formation_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Fixed-step cloth"
+text = "A cloth point's position at a frame follows the published fixed-step simulation for every pinned edge, wind and stiffness setting."
+kind = "behavior"
+primary = "pytest"
+workflow = "cloth"
+tests = [
+    "test_app.py::test_wf_cloth_banner_points",
+    "test_app.py::test_wf_cloth_playhead_keyboard_points",
+    "test_app.py::test_wf_cloth_pinned_edge_editor",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Reduce motion preview"
+text = "With Reduce motion on in the editor, or reduced motion requested in the embed, every animation, clip, particle field, cloth and the cursor tilt show their published still state."
+kind = "behavior"
+primary = "pytest"
+workflow = "cloth"
+tests = [
+    "test_app.py::test_wf_cloth_reduce_motion",
+    "test_app.py::test_wf_cloth_reduce_motion_switch_click",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Follow Light cursor tilt"
+text = "Cursor tilt and the light focus follow the pointer by the published per-frame smoothing within the max tilt, ease back over 1.2 s when the pointer leaves, and can be driven from the keyboard."
+kind = "behavior"
+primary = "pytest"
+workflow = "tilt-orbit"
+tests = [
+    "test_app.py::test_wf_tilt_orbit_cursor_tilt",
+    "test_app.py::test_wf_tilt_orbit_keyboard_diagonal",
+    "test_app.py::test_wf_tilt_orbit_leave_eases_back",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Scroll camera orbit"
+text = "The camera azimuth follows scroll progress between the start and end angles, driven by the editor's Scroll progress slider and by real scrolling in the embed."
+kind = "behavior"
+primary = "pytest"
+workflow = "tilt-orbit"
+tests = [
+    "test_app.py::test_wf_tilt_orbit_scroll_orbit",
+    "test_app.py::test_wf_tilt_orbit_scroll_slider_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Easing presets and keyframe values"
+text = "Property values between keyframes follow each published easing preset, Elastic, Bouncy and Spring exactly."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyframe-easing"
+tests = [
+    "test_app.py::test_easing_values",
+]
+criteria = []
+parameter_cases = [
+    "ease",
+    "ease-in",
+    "ease-out",
+    "ease-in-out",
+    "glide",
+    "anticipate",
+    "elastic",
+    "bouncy",
+    "spring-15",
+    "spring-30",
+    "rotation-ease-out",
+    "rotation-ease-in",
+    "invalid-easing",
+    "spring-on-event",
+]
+
+[[requirements]]
+id = "DP-29"
+title = "Timeline by keyboard and drag"
+text = "The playhead, Add keyframe (K) and keyframe buttons move by frames with the keyboard and snap when dragged, and focus stays on the moved control."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyframe-easing"
+tests = [
+    "test_app.py::test_wf_keyframe_easing_timeline_keyboard",
+    "test_app.py::test_wf_keyframe_easing_arrow_frame_steps",
+    "test_app.py::test_wf_keyframe_easing_drag_snaps_playhead",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Undo history counts each change once"
+text = "Undo and redo walk each person's own changes up to UNDO_LIMIT steps, and a retried save, undo or redo never applies twice."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyframe-easing"
+tests = [
+    "test_app.py::test_wf_keyframe_easing_undo_replay",
+    "test_app.py::test_wf_keyframe_easing_undo_redo_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Breakpoint inheritance and overrides"
+text = "Tablet inherits Desktop and Mobile inherits Tablet, an override shows a reset marker, and the inspector names the level that supplied each value."
+kind = "behavior"
+primary = "pytest"
+workflow = "breakpoints"
+tests = [
+    "test_app.py::test_wf_breakpoints_override_reset",
+    "test_app.py::test_wf_breakpoints_mobile_override_typed",
+    "test_app.py::test_wf_breakpoints_reset_mobile_by_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Embed follows its own width"
+text = "A published embed picks Desktop, Tablet or Mobile values by its own viewport width, switching exactly at 1024 and 640 pixels."
+kind = "behavior"
+primary = "workflow"
+workflow = "breakpoints"
+tests = [
+    "test_app.py::test_wf_breakpoints_embed_widths",
+    "test_app.py::test_wf_breakpoints_embed_device_sizes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Variables and bindings"
+text = "Typed variables bind to compatible properties, clamp to the property's range, make the bound field read-only, and leave their last value behind when deleted."
+kind = "behavior"
+primary = "pytest"
+workflow = "variables-presets"
+tests = [
+    "test_app.py::test_wf_variables_presets_bind_delete",
+    "test_app.py::test_wf_variables_presets_name_refusals_keyboard",
+    "test_app.py::test_wf_variables_presets_clamp_reaches_viewer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Presets applied live"
+text = "Applying a preset sets only the variables it names, reaches every open editor and viewer within 2 s, and undoes as one step."
+kind = "behavior"
+primary = "pytest"
+workflow = "variables-presets"
+tests = [
+    "test_app.py::test_wf_variables_presets_live_apply",
+    "test_app.py::test_wf_variables_presets_editor_applies_by_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Blend modes, masks and colour sampling"
+text = "The inspector's Sample equals the published 8-bit compositing of 2D layers, blend modes, opacity and masks at the pixel centre."
+kind = "behavior"
+primary = "pytest"
+workflow = "compositing"
+tests = [
+    "test_app.py::test_wf_compositing_blend_sample",
+    "test_app.py::test_wf_compositing_opacity_keys_resample",
+    "test_app.py::test_wf_compositing_mask_switch_keyboard_viewer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Gradients and effects"
+text = "Linear and radial gradients and the per-pixel effects sample to the published values, spatial effects show their published readouts, and a disabled effect passes pixels through unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "compositing"
+tests = [
+    "test_app.py::test_wf_compositing_gradients_effects",
+    "test_app.py::test_wf_compositing_gradient_stop_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Work together live"
+text = "An invited editor accepts from the mail and edits alongside the owner, with presence and live changes both ways, while a viewer watches with every edit control disabled."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-collab"
+tests = [
+    "test_app.py::test_wf_live_collab_editor_viewer",
+    "test_app.py::test_wf_live_collab_presence_both_ways",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Layer locks"
+text = "Editing a layer takes its lock, others see who holds it and are refused, and the lock is released on deselect, on blur, or after LOCK_TIMEOUT_SECONDS without a change."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-collab"
+tests = [
+    "test_app.py::test_wf_live_collab_locks",
+    "test_app.py::test_wf_live_collab_lock_refusal_then_timeout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Roles and member counts"
+text = "Viewers can't edit, editors can't publish or manage members, and the project list's layer count, live version and editor and viewer counts always match the stored records."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-collab"
+tests = [
+    "test_app.py::test_wf_live_collab_roles_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Numbered immutable publishing"
+text = "One publish click or retry creates exactly one gapless version number whose bundle and scene never change, and the version goes live only once storage confirms the bundle, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-embed"
+tests = [
+    "test_app.py::test_wf_publish_embed_publish_once",
+    "test_app.py::test_wf_publish_embed_republish_by_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Embed page and live version swap"
+text = "/embed/<projectId> shows only the latest live version and switches to a new one within 2 s over the live channel, or within EMBED_POLL_SECONDS by polling."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-embed"
+tests = [
+    "test_app.py::test_wf_publish_embed_live_swap",
+    "test_app.py::test_wf_publish_embed_keyboard_publish_swaps_embed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Publish notices by mail"
+text = "Every publish mails each owner and editor once with the project name and version number, and a retried publish sends no second mail."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-embed"
+tests = [
+    "test_app.py::test_wf_publish_embed_notices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Layer list editing on a phone"
+text = "On a 390x844 phone the owner reorders, duplicates, groups, hides, undoes and redoes layers by touch and the row menu, using the Editor panels tabs."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone-layers-import"
+tests = [
+    "test_app.py::test_wf_phone_layers_import_phone_edit",
+    "test_app.py::test_wf_phone_layers_import_tabs_move_up",
+]
+criteria = [
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Trash and exact restore"
+text = "A restored project, or a layer delete that was undone, comes back with every layer, keyframe, binding and override exactly, and published versions stay unchanged throughout."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-layers-import"
+tests = [
+    "test_app.py::test_wf_phone_layers_import_trash_restore",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "JSON export and import"
+text = "A scene exports as complete schema version 3 JSON, defaults included, that re-imports to an identical scene as qualified in Business rules, and an import is either refused at the first published problem or creates a project with its original bytes kept beside it."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-layers-import"
+tests = [
+    "test_app.py::test_wf_phone_layers_import_json",
+    "test_app.py::test_wf_phone_layers_import_phone_refusal_then_import",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build, serve and \"_schema\":\"run-manifest-v1\", and nothing else is needed to run the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Shipped packages use only MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, CC0-1.0 or BlueOak-1.0.0 licences."
+tests = [
+    "test_app.py::test_if_licence_allowlist",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "No datastore, cache or queue beyond PostgreSQL and MinIO, and no service beyond PostgreSQL, MinIO and Mailpit."
+tests = [
+    "test_app.py::test_if_no_extra_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The repository ships no font, image, model, matcap or video files; every visual asset is generated in code or comes from the bundled icon package."
+tests = [
+    "test_app.py::test_if_no_shipped_media",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service configuration and seeded development settings are left unchanged."
+tests = [
+    "test_app.py::test_if_seeded_settings_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "package-lock.json is committed and install uses it."
+tests = [
+    "test_app.py::test_if_lockfile_used",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "The running app fetches nothing from outside hosts."
+tests = [
+    "test_app.py::test_if_no_outside_fetches",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "primitive-transform"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_primitive_transform_place_torus",
+    "test_app.py::test_wf_primitive_transform_steps_and_gizmo",
+    "test_app.py::test_wf_primitive_transform_shift_steps_vertex",
+    "test_app.py::test_wf_primitive_transform_ring_shift_snap",
+    "test_app.py::test_wf_primitive_transform_fov_keyboard",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "extrusion-materials"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_extrusion_materials_logo_draw_order",
+    "test_app.py::test_wf_extrusion_materials_uploads_kept",
+    "test_app.py::test_wf_extrusion_materials_refraction_keyboard",
+    "test_app.py::test_wf_extrusion_materials_both_sides_keyboard",
+    "test_app.py::test_wf_extrusion_materials_upload_pending",
+]
+
+[[workflows]]
+id = "gltf-clips"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_gltf_clips_model_sampling",
+    "test_app.py::test_wf_gltf_clips_storage_outage",
+    "test_app.py::test_wf_gltf_clips_speed_keyboard",
+    "test_app.py::test_wf_gltf_clips_step_loop_keyboard",
+    "test_app.py::test_wf_gltf_clips_outage_placeholder_phone",
+]
+
+[[workflows]]
+id = "particles"
+requirements = [
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_wf_particles_emitter_inspect",
+    "test_app.py::test_wf_particles_formation_trails",
+    "test_app.py::test_wf_particles_live_count_playhead",
+    "test_app.py::test_wf_particles_trail_points_keyboard",
+    "test_app.py::test_wf_particles_formation_phone",
+]
+
+[[workflows]]
+id = "cloth"
+requirements = [
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_cloth_banner_points",
+    "test_app.py::test_wf_cloth_reduce_motion",
+    "test_app.py::test_wf_cloth_playhead_keyboard_points",
+    "test_app.py::test_wf_cloth_pinned_edge_editor",
+    "test_app.py::test_wf_cloth_reduce_motion_switch_click",
+]
+
+[[workflows]]
+id = "tilt-orbit"
+requirements = [
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_tilt_orbit_cursor_tilt",
+    "test_app.py::test_wf_tilt_orbit_scroll_orbit",
+    "test_app.py::test_wf_tilt_orbit_keyboard_diagonal",
+    "test_app.py::test_wf_tilt_orbit_leave_eases_back",
+    "test_app.py::test_wf_tilt_orbit_scroll_slider_keys",
+]
+
+[[workflows]]
+id = "keyframe-easing"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_keyframe_easing_timeline_keyboard",
+    "test_app.py::test_wf_keyframe_easing_undo_replay",
+    "test_app.py::test_wf_keyframe_easing_arrow_frame_steps",
+    "test_app.py::test_wf_keyframe_easing_drag_snaps_playhead",
+    "test_app.py::test_wf_keyframe_easing_undo_redo_keys",
+]
+
+[[workflows]]
+id = "breakpoints"
+requirements = [
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_breakpoints_override_reset",
+    "test_app.py::test_wf_breakpoints_embed_widths",
+    "test_app.py::test_wf_breakpoints_mobile_override_typed",
+    "test_app.py::test_wf_breakpoints_reset_mobile_by_keyboard",
+    "test_app.py::test_wf_breakpoints_embed_device_sizes",
+]
+
+[[workflows]]
+id = "variables-presets"
+requirements = [
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_variables_presets_bind_delete",
+    "test_app.py::test_wf_variables_presets_live_apply",
+    "test_app.py::test_wf_variables_presets_name_refusals_keyboard",
+    "test_app.py::test_wf_variables_presets_clamp_reaches_viewer",
+    "test_app.py::test_wf_variables_presets_editor_applies_by_keyboard",
+]
+
+[[workflows]]
+id = "compositing"
+requirements = [
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_compositing_blend_sample",
+    "test_app.py::test_wf_compositing_gradients_effects",
+    "test_app.py::test_wf_compositing_opacity_keys_resample",
+    "test_app.py::test_wf_compositing_mask_switch_keyboard_viewer",
+    "test_app.py::test_wf_compositing_gradient_stop_keys",
+]
+
+[[workflows]]
+id = "live-collab"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_live_collab_editor_viewer",
+    "test_app.py::test_wf_live_collab_locks",
+    "test_app.py::test_wf_live_collab_roles_counts",
+    "test_app.py::test_wf_live_collab_lock_refusal_then_timeout",
+    "test_app.py::test_wf_live_collab_presence_both_ways",
+]
+
+[[workflows]]
+id = "publish-embed"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_publish_embed_publish_once",
+    "test_app.py::test_wf_publish_embed_live_swap",
+    "test_app.py::test_wf_publish_embed_notices",
+    "test_app.py::test_wf_publish_embed_keyboard_publish_swaps_embed",
+    "test_app.py::test_wf_publish_embed_republish_by_keyboard",
+]
+
+[[workflows]]
+id = "phone-layers-import"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_phone_layers_import_phone_edit",
+    "test_app.py::test_wf_phone_layers_import_trash_restore",
+    "test_app.py::test_wf_phone_layers_import_json",
+    "test_app.py::test_wf_phone_layers_import_tabs_move_up",
+    "test_app.py::test_wf_phone_layers_import_phone_refusal_then_import",
+]
+checkpoints = [
+    "B12",
+]
+critical_checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_signin_by_keyboard",
+    "test_app.py::test_wf_cross_cutting_invite_accept_in_browser",
+    "test_app.py::test_wf_cross_cutting_unseen_in_browser",
+    "test_app.py::test_wf_cross_cutting_nudges_save_once",
+    "test_app.py::test_wf_cross_cutting_queued_invite_row",
+    "test_app.py::test_wf_cross_cutting_landing_touch_light",
+]

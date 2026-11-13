@@ -1,0 +1,1081 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 52
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "programme-desk",
+    "string-count",
+    "cut-splice",
+    "cut-confirmation",
+    "marked-scans",
+    "bowing-masters",
+    "publish-folders",
+    "player-folder",
+    "rental-sets",
+    "rental-reminders",
+    "store-outage",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 87
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Quirewell Library <library@quirewell.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 5
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 5
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[requirements]]
+id = "DP-01"
+title = "Passcode sign-in"
+text = "Seeded people sign in with email and passcode, receive a session cookie, and land on the screen for their role, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Role-scoped access"
+text = "Every endpoint enforces the role table and the single error order in API, so a role that may not act gets the stated 403 or 404 and nothing changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_role_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Create a programme"
+text = "The principal librarian creates a draft programme with a single-line title, first rehearsal, performances and string count, and it takes the next two-digit season number."
+kind = "behavior"
+primary = "pytest"
+workflow = "programme-desk"
+tests = [
+    "test_app.py::test_programme_create",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Add works from the catalogue"
+text = "The principal librarian adds a catalogue work to a programme, which copies the work's bar map, rehearsal letters and parts with no copies on hand and no cuts."
+kind = "behavior"
+primary = "pytest"
+workflow = "programme-desk"
+tests = [
+    "test_app.py::test_programme_add_works",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Programme status changes"
+text = "A programme moves only along the legal edges in Business rules, and every other change is refused with 409 and leaves the programme unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "programme-desk"
+tests = [
+    "test_app.py::test_programme_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Programme desk breakpoints"
+text = "The programme desk shows three panes at 1280 by 800, the works rail as a drawer at 768 by 1024, and one stacked column at 375 by 812, with no horizontal page scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "programme-desk"
+tests = [
+    "test_app.py::test_wf_programme_desk_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "1280x800",
+    "768x1024",
+    "375x812",
+]
+
+[[requirements]]
+id = "DP-07"
+title = "Build a programme on the desk"
+text = "Using only the desk's dialogs, the principal librarian creates a programme from London wall-clock times, adds a work and starts preparation, and the rail, header and parts table show the result without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "programme-desk"
+tests = [
+    "test_app.py::test_wf_programme_desk_build",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Copies-needed rule"
+text = "Copies needed, copies on hand and shortfall for every part, work and programme follow the desk rule in Business rules and are computed by the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "string-count"
+tests = [
+    "test_app.py::test_copies_rule",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Copies on hand"
+text = "Librarians record copies on hand per part, the response and every later read carry the recomputed figures, and when several saves of one part are in flight the screen shows only the latest request's figures."
+kind = "behavior"
+primary = "pytest"
+workflow = "string-count"
+tests = [
+    "test_app.py::test_holdings_api",
+    "test_app.py::test_wf_string_count_holdings_latest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "String count limits"
+text = "A string count with a non-integer, a negative number or more players than the section's roster is refused with 422 field errors and nothing changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "string-count"
+tests = [
+    "test_app.py::test_string_count_limits",
+]
+criteria = []
+parameter_cases = [
+    "over_roster",
+    "bass_over",
+    "negative",
+    "fraction",
+    "text",
+    "missing",
+]
+
+[[requirements]]
+id = "DP-11"
+title = "Counts agree on every surface"
+text = "After the principal librarian saves a new string count, the works rail, parts table, programme header and Desk status show the same new figures together, matching the API, and of several saves in flight only the latest one's response is rendered."
+kind = "behavior"
+primary = "pytest"
+workflow = "string-count"
+tests = [
+    "test_app.py::test_wf_string_count_surfaces",
+]
+criteria = []
+parameter_cases = [
+    "1280x800",
+    "375x812",
+]
+
+[[requirements]]
+id = "DP-12"
+title = "Stored cuts and running time"
+text = "A cut is stored once as a bar span, and the server derives from it each work's running time, the programme's running time and the cut's saving, all of which survive a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-splice"
+tests = [
+    "test_app.py::test_cuts_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "One cut per bar"
+text = "A cut that shares any bar with an existing cut on the work is refused with 409, and when overlapping cuts are submitted at the same time exactly one is stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-splice"
+tests = [
+    "test_app.py::test_cuts_overlap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Keyboard cut marking"
+text = "On the bar ruler, arrow keys move the caret, Shift with an arrow extends the span, Enter commits the cut, Escape clears the selection, and focus stays on or returns to the ruler."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-splice"
+tests = [
+    "test_app.py::test_wf_cut_splice_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Cut splice motion"
+text = "Committing a cut hatches the span, collapses it to a narrow splice mark labelled with its bars, slides later letters and ticks left and counts the running time down, all within one second."
+kind = "visual"
+primary = "pytest"
+workflow = "cut-splice"
+tests = [
+    "test_app.py::test_wf_cut_splice_motion",
+    "test_app.py::test_wf_cut_splice_mark_lands_before_count",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Reduced-motion splice"
+text = "With reduced motion the ruler redraws already spliced, the new total shows at once, and the Ruler status line carries the cut summary."
+kind = "visual"
+primary = "pytest"
+workflow = "cut-splice"
+tests = [
+    "test_app.py::test_wf_cut_splice_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Restore a cut"
+text = "The principal librarian restores a cut from its splice mark's dialog or with Undo cut, the splice plays back in reverse, the bars, total and flags return, and focus returns to the ruler."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-splice"
+tests = [
+    "test_app.py::test_wf_cut_splice_restore_dialog",
+    "test_app.py::test_wf_cut_splice_restore_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Parts to mark"
+text = "Each part whose printed bars overlap an unmarked cut shows a Mark cut flag, each stored mark shows as one attributed line in the part's Marking cell, and the desk shows the count of parts to mark, all derived from stored cuts and marks."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-confirmation"
+tests = [
+    "test_app.py::test_wf_cut_confirmation_desk_marks",
+    "test_app.py::test_wf_cut_confirmation_flags_clear_first",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Confirm a part carries its cuts"
+text = "Librarians, and section principals for their own section's part, record that a part carries a cut, which clears that part's flag for that cut, and of simultaneous confirmations of one part and cut exactly one stores the mark with 201 and the rest get 200 with the same body."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-confirmation"
+tests = [
+    "test_app.py::test_marks_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Section desk"
+text = "A section principal sees their section's part in each active programme, and confirms its cuts and files its bowing master from one screen."
+kind = "behavior"
+primary = "workflow"
+workflow = "cut-confirmation"
+tests = [
+    "test_app.py::test_wf_cut_confirmation_section_desk",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "File a marked-part scan"
+text = "A marked-part scan counts as filed only after the score store confirms the write, and the catalogue never lists a scan whose object does not exist."
+kind = "behavior"
+primary = "pytest"
+workflow = "marked-scans"
+tests = [
+    "test_app.py::test_scan_upload_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Upload announcements"
+text = "Upload start, completion and failure are each announced in the polite Upload status region with the part label and the result copy from Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "marked-scans"
+tests = [
+    "test_app.py::test_wf_marked_scans_upload",
+    "test_app.py::test_wf_marked_scans_failure",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Scan type and size"
+text = "Only PDF, PNG and JPEG files whose bytes match their type and whose size is within the limit are filed, and others are refused with the API's 413, 415 or 422."
+kind = "behavior"
+primary = "pytest"
+workflow = "marked-scans"
+tests = [
+    "test_app.py::test_scan_type_size",
+]
+criteria = []
+parameter_cases = [
+    "pdf",
+    "png",
+    "jpeg",
+    "at_limit",
+    "pdf_type_png_bytes",
+    "text",
+    "too_large",
+    "empty",
+    "bad_kind",
+    "slash_name",
+    "line_break_name",
+    "long_name",
+]
+
+[[requirements]]
+id = "DP-24"
+title = "Upload replay"
+text = "Repeating an upload with the same Idempotency-Key returns the stored response without a second object, and reusing the key for different content gets 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "marked-scans"
+tests = [
+    "test_app.py::test_scan_idempotency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Bowing master filing status"
+text = "A section principal's bowing master upload reads Uploading until the server confirms filing, then Filed, or Not filed after any failure."
+kind = "behavior"
+primary = "pytest"
+workflow = "bowing-masters"
+tests = [
+    "test_app.py::test_wf_bowing_masters_filed",
+    "test_app.py::test_wf_bowing_masters_not_filed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Every version kept as uploaded"
+text = "Each filed scan keeps its exact bytes, UTF-8 file name and type permanently, a later upload adds a new version, and download returns the original bytes under the Content-Disposition built from the stored name as stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "bowing-masters"
+tests = [
+    "test_app.py::test_bowing_master_versions_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Publish guards"
+text = "Folders publish only from in preparation, while the first rehearsal is in the future by the server's clock, with at least one work and no copies short, and a refused publish answers the 409 of the first failing guard."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-folders"
+tests = [
+    "test_app.py::test_publish_guards_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Folder-ready emails"
+text = "Publishing sends each seated player one email listing only their chair's parts and the first rehearsal time, and players seated later by a string count rise get theirs at that point."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-folders"
+tests = [
+    "test_app.py::test_publish_emails",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "One publish wins"
+text = "A publish replayed with its Idempotency-Key returns the stored result with no new email, and when publishes arrive at the same time exactly one succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-folders"
+tests = [
+    "test_app.py::test_publish_idempotent_concurrent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Notice delivery status"
+text = "A notice reads sent only after the mail server accepts it, and while mail is down publishing still succeeds and notices stay queued and are retried, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-folders"
+tests = [
+    "test_app.py::test_wf_publish_folders_mail_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Folder scope by chair"
+text = "A player reaches only the published folders and parts of their own chair, decided from stored data on every request, and every other programme, part or scan answers 404 by URL and shows the not-in-folder page in the browser."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-folder"
+tests = [
+    "test_app.py::test_folder_scope_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Folder on a phone"
+text = "At 375 by 812 a player's folder shows one part page at a time that swipes with touch, has buttons and arrow keys as equivalents, shows a page position status, and asks the server for its current page again on every page change, status check and tab return."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-folder"
+tests = [
+    "test_app.py::test_wf_player_folder_phone",
+    "test_app.py::test_wf_player_folder_targets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Folder under reduced motion"
+text = "With reduced motion, page changes in the folder are instant and show the same pages, cuts and letters."
+kind = "visual"
+primary = "pytest"
+workflow = "player-folder"
+tests = [
+    "test_app.py::test_wf_player_folder_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Folder empty and unavailable states"
+text = "A player with no published folder, a part with no filed scan, and a folder whose latest folder response or status check says scans are unavailable each show their exact copy from Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-folder"
+tests = [
+    "test_app.py::test_wf_player_folder_empty",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Rental set lifecycle"
+text = "A rental set moves through requested, received, in use, returned and checked in only along the legal edges, and illegal moves are refused with 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "rental-sets"
+tests = [
+    "test_app.py::test_rental_lifecycle_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Return-due date in the business zone"
+text = "Each rental set's return-due date and Overdue status follow the business-zone rule in Business rules and are decided by the server, whatever the browser's time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "rental-sets"
+tests = [
+    "test_app.py::test_rental_due_dates",
+    "test_app.py::test_wf_rental_sets_overdue_zone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Check-in against the slip"
+text = "Librarians record copies checked back in per slip line without losing another line saved at the same moment, a save whose expected count for any named line is stale is refused whole with 409 count_changed, a set is never marked returned while any copy on the slip is missing, and of simultaneous returns exactly one succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "rental-sets"
+tests = [
+    "test_app.py::test_checkin_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Return reminder email"
+text = "Each assistant librarian gets one reminder per rental set from seven days before its due date, with the work and publisher in the subject, queued and retried while mail is down, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "rental-reminders"
+tests = [
+    "test_app.py::test_reminder_emails",
+    "test_app.py::test_wf_rental_reminders_mail_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Score store outage"
+text = "With the score store unreachable, uploads answer 503 with no catalogue row, status reports storage down, librarian and section screens show the outage banner word for word, and catalogue, counts and cuts keep working."
+kind = "behavior"
+primary = "pytest"
+workflow = "store-outage"
+tests = [
+    "test_app.py::test_storage_outage_api",
+    "test_app.py::test_wf_store_outage_banner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Dialogs keep focus"
+text = "Every dialog and the drawer keeps Tab and Shift+Tab inside itself, closes on Escape, and returns focus to the control that opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dialogs_keep_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Health and run manifest"
+text = "The app installs, builds and serves from /app/run.json on the published port and answers the health check with 200 and the stated body."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Server boundary"
+text = "The server answers same-origin requests only, enforces body limits and content types, never serves source or credentials, and starts without the score store or mail."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Engraved look"
+text = "Screens use the warm paper ground, ink text, oxblood accent, hairline rules between every row and tabular mono numbers described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Cut splice craft"
+text = "A spliced ruler shows boxed serif rehearsal letters, per-bar ticks, accent hatching collapsed to a labelled splice mark, and mono bar numbers at each viewport's label interval that stay legible and never overlap."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Service wiring from the environment"
+text = "Database, storage and mail credentials and URLs are read from the environment at start, never hard-coded or sent to the browser, and every displayed figure comes from server data."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Seating changes apply at once"
+text = "When a lower string count unseats a player, their very next folder, page or scan request answers 404 and their open folder shows the not-in-folder page at its next refresh, and raising the count again restores access without a second email."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-folder"
+tests = [
+    "test_app.py::test_seating_changes",
+    "test_app.py::test_wf_player_folder_unseated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Refreshes keep work in progress"
+text = "The Rentals screen's reloads and every screen's status check update figures in place without closing an open dialog, discarding unsaved values, moving focus or clearing the ruler selection, and a changed check-in line keeps the expected count it had when first changed, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "rental-sets"
+tests = [
+    "test_app.py::test_wf_rental_sets_checkin_dialog",
+    "test_app.py::test_wf_rental_sets_checkin_dialog_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "One-line text in mail"
+text = "A publisher or programme title containing a line break or other control character is refused with 422 and its field copy and sends no mail, non-ASCII text reaches mail subjects exactly as typed, and every message has exactly one recipient and no Cc or Bcc."
+kind = "behavior"
+primary = "pytest"
+workflow = "rental-reminders"
+tests = [
+    "test_app.py::test_one_line_text",
+    "test_app.py::test_wf_rental_reminders_new_set",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "London wall-clock times"
+text = "Rehearsal and performance times typed in London time are sent with London's offset for that date, a repeated hour takes the earlier offset, a missing hour is refused in the dialog with its Feedback states copy, and the server orders times as instants."
+kind = "behavior"
+primary = "pytest"
+workflow = "programme-desk"
+tests = [
+    "test_app.py::test_programme_times_as_instants",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Attributed marks"
+text = "Every stored mark records who stored it and when, is never updated, and every simultaneous or later confirmation returns that first attribution, which the desk and the section desk display."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-confirmation"
+tests = [
+    "test_app.py::test_marks_concurrent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Publish blockers from the server clock"
+text = "Every programme read carries the publish blockers the server's own publish check finds at that moment, and the Publish folders dialog lists them and allows Publish only when the list is empty, whatever the browser's clock or time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-folders"
+tests = [
+    "test_app.py::test_wf_publish_folders_wrong_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Storage state updates screens in place"
+text = "Each status check that reports the score store down or back up disables or re-enables upload buttons and swaps a player's Open marked part link for the unavailable copy in place, keeping the page, focus, open dialogs and typed values."
+kind = "behavior"
+primary = "pytest"
+workflow = "store-outage"
+tests = [
+    "test_app.py::test_wf_store_outage_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists, is valid JSON with exactly the keys _schema (value run-manifest-v1), install, build and serve, and every value is a string."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package, meaning the production dependency tree reported by npm ls --omit=dev --all --json, with its version and licence, plus each bundled font and the Lucide icon set."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the production dependency tree reported by npm ls --omit=dev --all --json), font and icon set is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or SIL OFL 1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Application state is stored only in the provided Postgres database and MinIO bucket: no SQLite, Redis, embedded database, or state files on local disk."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration (the compose files and the dev credentials in them) is left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Server and client source is TypeScript. JavaScript files appear only as build output or tool configuration."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The client loads no script, style, font or image from a third-party origin at run time."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "programme-desk"
+requirements = [
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_wf_programme_desk_build",
+    "test_app.py::test_wf_programme_desk_breakpoints",
+    "test_app.py::test_programme_times_as_instants",
+]
+
+[[workflows]]
+id = "string-count"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_wf_string_count_surfaces",
+    "test_app.py::test_wf_string_count_holdings_latest",
+]
+checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "cut-splice"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_cut_splice_keyboard",
+    "test_app.py::test_wf_cut_splice_motion",
+    "test_app.py::test_wf_cut_splice_reduced_motion",
+    "test_app.py::test_wf_cut_splice_restore_keyboard",
+    "test_app.py::test_wf_cut_splice_mark_lands_before_count",
+]
+checkpoints = [
+    "B8",
+    "B9",
+    "B10",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "cut-confirmation"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_cut_confirmation_section_desk",
+    "test_app.py::test_wf_cut_confirmation_desk_marks",
+    "test_app.py::test_marks_api",
+    "test_app.py::test_marks_concurrent",
+    "test_app.py::test_wf_cut_confirmation_flags_clear_first",
+]
+
+[[workflows]]
+id = "marked-scans"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_marked_scans_upload",
+]
+
+[[workflows]]
+id = "bowing-masters"
+requirements = [
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_bowing_masters_filed",
+    "test_app.py::test_wf_bowing_masters_not_filed",
+    "test_app.py::test_bowing_master_versions_api",
+]
+
+[[workflows]]
+id = "publish-folders"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_publish_folders_wrong_clock",
+    "test_app.py::test_wf_publish_folders_mail_down",
+    "test_app.py::test_publish_emails",
+]
+
+[[workflows]]
+id = "player-folder"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_player_folder_phone",
+    "test_app.py::test_wf_player_folder_unseated",
+    "test_app.py::test_wf_player_folder_states",
+    "test_app.py::test_wf_player_folder_empty",
+    "test_app.py::test_folder_scope_api",
+    "test_app.py::test_wf_player_folder_targets",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "rental-sets"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_rental_sets_checkin_dialog",
+    "test_app.py::test_wf_rental_sets_overdue_zone",
+    "test_app.py::test_checkin_api",
+    "test_app.py::test_wf_rental_sets_checkin_dialog_keys",
+]
+
+[[workflows]]
+id = "rental-reminders"
+requirements = [
+    "DP-38",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_rental_reminders_new_set",
+    "test_app.py::test_wf_rental_reminders_mail_down",
+    "test_app.py::test_one_line_text",
+]
+
+[[workflows]]
+id = "store-outage"
+requirements = [
+    "DP-39",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_store_outage_banner",
+    "test_app.py::test_wf_store_outage_in_place",
+    "test_app.py::test_storage_outage_api",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_sign_in",
+    "test_app.py::test_role_access",
+    "test_app.py::test_health",
+]

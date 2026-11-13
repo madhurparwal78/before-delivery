@@ -1,0 +1,1430 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 66
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "cross-cutting",
+    "rushes-upload",
+    "media-library",
+    "place-and-move",
+    "trim-speed-split",
+    "ripple-locked-rows",
+    "clip-groups",
+    "stage-skim-loupe",
+    "keyframes",
+    "captions-srt",
+    "playback-and-zoom",
+    "co-editing",
+    "undo-redo",
+    "cuts-and-restore",
+    "notes-and-mail",
+    "review-link-phone",
+    "exports-queue",
+    "allowance-and-kits",
+    "roles-live",
+    "read-api",
+    "upgrade-and-address",
+    "stage-shaping",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 89
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "valkey", env = {} },
+    { name = "rabbitmq", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Gatecut <notes@gatecut.fennbright.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 5
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 5
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+EXPORT_QUEUE = "gatecut.exports.minio-down"
+
+[[outages]]
+id = "rabbitmq-down"
+port = 4175
+url_env = "APP_RABBITMQ_DOWN_URL"
+
+[outages.env]
+AMQP_URL = "amqp://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4176
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+EXPORT_QUEUE = "gatecut.exports.mailpit-down"
+
+[[outages]]
+id = "tight-allowance"
+port = 4177
+url_env = "APP_TIGHT_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_tight"
+S3_BUCKET = "${S3_BUCKET}-tight"
+STORAGE_ALLOWANCE_BYTES = "41212000000"
+EXPORT_MINUTE_ALLOWANCE = "215"
+EXPORT_QUEUE = "gatecut.exports.tight"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "`/app/run.json` installs, builds and serves the app on port 4173 (or `APP_PUBLIC_PORT`), and `GET /api/health` answers 200 with `{\"status\":\"ok\"}` even when MinIO, RabbitMQ or SMTP is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_every_instance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Services wired from the environment"
+text = "Every service URL and credential is read from the environment at start, the app really stores in Postgres, MinIO, Valkey and RabbitMQ and sends through SMTP, and none of it reaches the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Published routes and one error shape"
+text = "Only the routes in the API section answer; others get 404, a wrong method 405 with `Allow`, a wrong body type 415 and an oversized body 413, all in the one error shape and precedence order of the API section."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_routes_error_shape",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Whole-frame time and timecode"
+text = "Every stored time is a whole frame, every conversion from seconds, MP4 header durations or SRT milliseconds follows the published rounding rule, and every timecode shown or returned uses the published form."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_whole_frame_timecode",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Older projects upgraded to frames"
+text = "The two seeded projects stored in seconds are upgraded to frames once at start by the published rounding rule, stay readable during the upgrade, and are not changed again by a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "upgrade-and-address"
+tests = [
+    "test_app.py::test_wf_upgrade_and_address_upgrade",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Sign-in and sign-out"
+text = "Seeded people sign in with email and password, and signing out ends the session and closes every open socket of that session at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "roles-live"
+tests = [
+    "test_app.py::test_sign_in_and_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Create a project and bring in the team"
+text = "The owner creates a project from the New project dialog, adds an editor and a commenter by email, and each of them finds it on their project list with their role."
+kind = "behavior"
+primary = "workflow"
+workflow = "roles-live"
+tests = [
+    "test_app.py::test_wf_roles_live_create_team",
+    "test_app.py::test_wf_roles_live_invalid_input",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Roles decide every action"
+text = "Each endpoint allows only the roles in the role table, a non-member gets 404 for the project, and a forbidden action changes nothing. A commenter opens the project with every editing control absent."
+kind = "behavior"
+primary = "pytest"
+workflow = "roles-live"
+tests = [
+    "test_app.py::test_wf_roles_live_role_table",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Role changes reach open screens"
+text = "Changing or removing a member's role switches that person's open project screen within one second, closes its socket and sends it no later data."
+kind = "behavior"
+primary = "pytest"
+workflow = "roles-live"
+tests = [
+    "test_app.py::test_wf_roles_live_role_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Upload rushes in resumable chunks"
+text = "The owner uploads files in chunks from the library; after a reload the open upload stays listed and choosing the same file again resumes from the first missing chunk, and the file appears in the library only after storage confirms it."
+kind = "behavior"
+primary = "workflow"
+workflow = "rushes-upload"
+tests = [
+    "test_app.py::test_wf_rushes_upload_resume",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Files judged by their header"
+text = "The server reads MP4 box structure, WAV header and PNG header to decide the type and dimensions, and refuses a damaged, unknown or unsafely named file with the published reason."
+kind = "behavior"
+primary = "pytest"
+workflow = "rushes-upload"
+tests = [
+    "test_app.py::test_wf_rushes_upload_refused",
+]
+criteria = []
+parameter_cases = [
+    "mp4-truncated",
+    "mp4-zero-timescale",
+    "wav-riff-size",
+    "wav-block-align",
+    "png-crc",
+    "svg",
+    "text-named-mp4",
+    "mp4-named-wav",
+    "name-leading-dot",
+    "name-backslash",
+    "name-control",
+]
+
+[[requirements]]
+id = "DP-12"
+title = "One object per checksum"
+text = "A file whose checksum is already stored is never stored or counted twice, and a WAV's waveform peaks are computed once per checksum and dropped when the file is replaced."
+kind = "behavior"
+primary = "pytest"
+workflow = "media-library"
+tests = [
+    "test_app.py::test_wf_media_library_duplicate",
+    "test_app.py::test_media_peaks_replace",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Storage outage holds uploads"
+text = "While MinIO is unreachable, uploads and exports answer 503 with the published copy, the outage banner shows, and no file is half-listed."
+kind = "behavior"
+primary = "pytest"
+workflow = "rushes-upload"
+tests = [
+    "test_app.py::test_wf_rushes_upload_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Bounded library search"
+text = "Library search obeys the published term and length caps, refuses a longer query by name and answers within one second. The library sheet shows its published two columns at 375 px with no sideways page scroll."
+kind = "behavior"
+primary = "workflow"
+workflow = "media-library"
+tests = [
+    "test_app.py::test_wf_media_library_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Files in use stay"
+text = "Deleting a file used by any project is refused with the list of projects that use it, and an unused file is deleted with its stored object."
+kind = "behavior"
+primary = "pytest"
+workflow = "media-library"
+tests = [
+    "test_app.py::test_wf_media_library_delete",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Cut a sequence from the keyboard"
+text = "An editor nudges, splits, hides, removes, groups, reorders rows and moves the playhead entirely from the keyboard on the timeline, and every change is saved. Every clip block's left edge and width read back as its own frames on the canvas scale at every zoom level."
+kind = "behavior"
+primary = "workflow"
+workflow = "place-and-move"
+tests = [
+    "test_app.py::test_wf_place_and_move_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Clips never overlap"
+text = "A move stops at the nearest free frame and says why, a move onto another row needs the target free, and a move that cannot go one frame is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-and-move"
+tests = [
+    "test_app.py::test_wf_place_and_move_blocked",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Ripple edits respect locked rows"
+text = "A ripple remove or trim shifts every later clip, caption and pin on the row by the exact frame count, and a change that would move a locked item is refused whole. A refused ripple leaves every clip, caption and pin frame unchanged on a second open screen."
+kind = "behavior"
+primary = "workflow"
+workflow = "ripple-locked-rows"
+tests = [
+    "test_app.py::test_wf_ripple_locked_rows_shift",
+    "test_app.py::test_wf_ripple_locked_rows_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Groups move as one"
+text = "Moving or trimming a grouped clip moves or trims every member across rows, and if one member cannot go the whole change is refused. The group outline spans every member's rows, and a refused move keeps focus on the member that was the current clip."
+kind = "behavior"
+primary = "workflow"
+workflow = "clip-groups"
+tests = [
+    "test_app.py::test_wf_clip_groups_move",
+    "test_app.py::test_wf_clip_groups_refused",
+    "test_app.py::test_wf_clip_groups_refused_compound",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Per-person undo and redo"
+text = "Undo and redo reverse only the caller's own changes, recomputed against the current timeline, and an undo that would overlap is refused with the reason."
+kind = "behavior"
+primary = "workflow"
+workflow = "undo-redo"
+tests = [
+    "test_app.py::test_wf_undo_redo_own",
+    "test_app.py::test_wf_undo_redo_blocked",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Dialogs keep and return focus"
+text = "Every dialog keeps Tab and Shift+Tab inside itself, closes on Escape and returns focus to the exact control that opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "undo-redo"
+tests = [
+    "test_app.py::test_wf_undo_redo_dialogs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Keyframe curves agree everywhere"
+text = "Values between diamonds follow the published linear or eased curve to two decimals, and the frame endpoint, the stage, the inspector and the Frame Loupe show the same number at every frame. A diamond set by another person reaches every open screen within one second, where the stage and the Inspector agree at that frame."
+kind = "behavior"
+primary = "workflow"
+workflow = "keyframes"
+tests = [
+    "test_app.py::test_wf_keyframes_curves",
+    "test_app.py::test_wf_keyframes_remote",
+    "test_app.py::test_wf_keyframes_split_compound",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Frame Loupe skims without editing"
+text = "Entering the timeline canvas shows the Frame Loupe with nine frame cells within 120 milliseconds and puts the stage in skim view, while the playhead, the address, other playheads and the saved timeline stay unchanged."
+kind = "behavior"
+primary = "workflow"
+workflow = "stage-skim-loupe"
+tests = [
+    "test_app.py::test_wf_stage_skim_loupe_skim",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Loupe snapping and keyboard pinning"
+text = "The loupe centre snaps within the published distance with a white guide line, and L, the arrow keys, Enter and Escape drive it from the keyboard."
+kind = "behavior"
+primary = "pytest"
+workflow = "stage-skim-loupe"
+tests = [
+    "test_app.py::test_wf_stage_skim_loupe_snap_keys",
+    "test_app.py::test_wf_stage_skim_loupe_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Playback follows the page clock"
+text = "During playback the playhead advances with the page clock at the project's frame rate, loops a set range, and never changes the document."
+kind = "behavior"
+primary = "pytest"
+workflow = "playback-and-zoom"
+tests = [
+    "test_app.py::test_wf_playback_and_zoom_playback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Brand kits apply once"
+text = "Applying a brand kit copies its colours and weight into every text layer in one saved change, and later kit edits never change a project."
+kind = "behavior"
+primary = "pytest"
+workflow = "allowance-and-kits"
+tests = [
+    "test_app.py::test_wf_allowance_and_kits_kits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Caption a cut from an SRT file"
+text = "An editor imports an SRT file into a caption row, edits a cue inline and downloads the row again as SRT."
+kind = "behavior"
+primary = "workflow"
+workflow = "captions-srt"
+tests = [
+    "test_app.py::test_wf_captions_srt_import_edit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "SRT files held to published caps"
+text = "An SRT import over the byte, cue, line or line-length caps, or malformed, is refused by name within two seconds and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "captions-srt"
+tests = [
+    "test_app.py::test_wf_captions_srt_caps",
+]
+criteria = []
+parameter_cases = [
+    "over-bytes",
+    "too-many-cues",
+    "long-line",
+    "three-lines",
+    "bad-time",
+    "ends-before",
+    "sub-frame",
+    "overlap",
+    "not-utf8",
+    "at-limit",
+]
+
+[[requirements]]
+id = "DP-29"
+title = "Typed captions held to the same limits"
+text = "Typed cue text meets the same per-line and line-count limits in the browser and on the server, counted in code points."
+kind = "behavior"
+primary = "pytest"
+workflow = "captions-srt"
+tests = [
+    "test_app.py::test_wf_captions_srt_typed_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "SRT round trip byte for byte"
+text = "A canonical SRT file imported and downloaded with no edits comes back byte for byte, and edited cues are written by the published rounding rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "captions-srt"
+tests = [
+    "test_app.py::test_wf_captions_srt_round_trip",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Two editors on one timeline"
+text = "Owner and editor cut the same project in two browsers and each sees the other's changes, playhead and name within one second."
+kind = "behavior"
+primary = "workflow"
+workflow = "co-editing"
+tests = [
+    "test_app.py::test_wf_co_editing_two_browsers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "First save wins"
+text = "When two people change the same clip from the same version, the first save in server order wins, the other gets 412 with the winner's name, and their other changes still save."
+kind = "behavior"
+primary = "pytest"
+workflow = "co-editing"
+tests = [
+    "test_app.py::test_wf_co_editing_first_save",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "One socket per page with replay"
+text = "Each project page holds one WebSocket, sends nothing before it opens, and after a drop replays missed changes with none applied twice and focus kept on the same clip."
+kind = "behavior"
+primary = "pytest"
+workflow = "co-editing"
+tests = [
+    "test_app.py::test_wf_co_editing_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Remote changes announced once in order"
+text = "The hidden Project activity region announces each remote change, export result and allowance change once, in server order, with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "co-editing"
+tests = [
+    "test_app.py::test_wf_co_editing_announce_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Pin notes and approve a cut"
+text = "A commenter pins notes to frames or clips, mentions people, replies and approves a cut, and the notes show on the timeline at their frames."
+kind = "behavior"
+primary = "workflow"
+workflow = "notes-and-mail"
+tests = [
+    "test_app.py::test_wf_notes_and_mail_pin_approve",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Note limits and mentions"
+text = "Note bodies and mention counts meet the published code-point limits in the browser and on the server, and unknown mentions are refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "notes-and-mail"
+tests = [
+    "test_app.py::test_wf_notes_and_mail_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Drafts kept on the server"
+text = "A half-written note is kept on the server per person and project and comes back after a reload or on another device."
+kind = "behavior"
+primary = "pytest"
+workflow = "notes-and-mail"
+tests = [
+    "test_app.py::test_wf_notes_and_mail_drafts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Grouped mention mail and visible outbox"
+text = "Mentions and replies send one grouped mail per person per project per window, and while SMTP is unreachable mail waits in the visible outbox and is never sent twice."
+kind = "behavior"
+primary = "pytest"
+workflow = "notes-and-mail"
+tests = [
+    "test_app.py::test_wf_notes_and_mail_grouped_mail",
+    "test_app.py::test_mail_outbox_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Project page at three widths"
+text = "A project opened at 375, 768 and 1280 px wide shows the review list, the two-pane review and the full editor respectively."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_project_page_widths",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Client review on a phone"
+text = "The client opens a review link on a phone, scrubs the cut, comments and approves without seeing team-only notes or unshared cuts."
+kind = "behavior"
+primary = "workflow"
+workflow = "review-link-phone"
+tests = [
+    "test_app.py::test_wf_review_link_phone_client",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Review link lifecycle"
+text = "A review link only reads, comments and approves, expires on the server clock, and on revoke or regenerate ends its open sessions within one second."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-link-phone"
+tests = [
+    "test_app.py::test_wf_review_link_phone_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Review ETag follows the shared cut"
+text = "The review response carries an ETag that answers 304 while unchanged and changes the moment a different cut is shared on the link."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-link-phone"
+tests = [
+    "test_app.py::test_review_etag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Phone review layout"
+text = "At 375 px the review shows a stacked clip list with a scrubber, 44 px targets, a comment box never covered by the fixed bar, and no loupe motion under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-link-phone"
+tests = [
+    "test_app.py::test_wf_review_link_phone_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Name and compare cuts"
+text = "The owner names a cut, opens it read-only and compares two cuts as lists of added, removed and changed clips by frame."
+kind = "behavior"
+primary = "workflow"
+workflow = "cuts-and-restore"
+tests = [
+    "test_app.py::test_wf_cuts_and_restore_compare",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Late notes follow moved clips"
+text = "A note pinned to a clip in an older cut shows on the live timeline at that clip's current position."
+kind = "behavior"
+primary = "pytest"
+workflow = "notes-and-mail"
+tests = [
+    "test_app.py::test_late_note_follows_clip",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Export a cut"
+text = "The owner exports a named cut at a published size, follows its progress on every open screen and after reload, and downloads the manifest."
+kind = "behavior"
+primary = "workflow"
+workflow = "exports-queue"
+tests = [
+    "test_app.py::test_wf_exports_queue_export",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Export states and cancel"
+text = "An export moves queued, running, then done, cancelled or failed, cancel stops a running job, a done export turns stale after a later edit, and the requester gets an export-finished mail."
+kind = "behavior"
+primary = "pytest"
+workflow = "exports-queue"
+tests = [
+    "test_app.py::test_wf_exports_queue_cancel",
+    "test_app.py::test_wf_exports_queue_cancel_compound",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "One manifest per cut and size"
+text = "A repeated request or a second delivery of the same job yields one manifest, counted once, in the published form with frame totals and checksum."
+kind = "behavior"
+primary = "pytest"
+workflow = "exports-queue"
+tests = [
+    "test_app.py::test_wf_exports_queue_repeat",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Queue outage refuses exports cleanly"
+text = "While RabbitMQ is unreachable an export request answers 503 with the published copy, nothing is queued and no minutes are taken."
+kind = "behavior"
+primary = "pytest"
+workflow = "exports-queue"
+tests = [
+    "test_app.py::test_wf_exports_queue_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Allowance from the shared counter"
+text = "Every screen shows the month's export minutes and storage from the shared counter and updates within one second of a change, and minutes reset at the UTC month boundary."
+kind = "behavior"
+primary = "workflow"
+workflow = "allowance-and-kits"
+tests = [
+    "test_app.py::test_wf_allowance_and_kits_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Allowance never passed in parallel"
+text = "Parallel exports or uploads never take the allowance past its limit, and a refused request answers 409 with the amount used."
+kind = "behavior"
+primary = "pytest"
+workflow = "allowance-and-kits"
+tests = [
+    "test_app.py::test_wf_allowance_and_kits_parallel",
+    "test_app.py::test_wf_allowance_and_kits_edge_compound",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Issue and revoke read tokens"
+text = "The owner issues a named read token shown once, the agency reads with it, and a revoked token stops working at once."
+kind = "behavior"
+primary = "workflow"
+workflow = "read-api"
+tests = [
+    "test_app.py::test_wf_read_api_token",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Read tokens see only the published surface"
+text = "A read token reaches only the read endpoints and fields published for it, with no team-only notes, unshared cuts, write verbs or other routes."
+kind = "behavior"
+primary = "pytest"
+workflow = "read-api"
+tests = [
+    "test_app.py::test_wf_read_api_surface",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Stable capped paging"
+text = "Read-token lists page with opaque cursors at no more than 100 items, and nothing is skipped or repeated while clips are added or removed. Every open Profile screen shows that token's request count for the current window, rising within one second of each call."
+kind = "behavior"
+primary = "pytest"
+workflow = "read-api"
+tests = [
+    "test_app.py::test_wf_read_api_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Per-token rate limit"
+text = "Each read token gets 30 requests per 10-second window, then 429 with the published copy and `Retry-After`, without slowing anyone's session."
+kind = "behavior"
+primary = "pytest"
+workflow = "read-api"
+tests = [
+    "test_app.py::test_wf_read_api_rate_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Contact-sheet project list"
+text = "The project list is the text band over a sheet of procedural frames in the dark-suite contact-sheet direction, with the hover index preview."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Editor and working screens"
+text = "The editor, library, profile and review screens carry the same band, sheet, one type size and gold-only-for-the-main-action language."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Project list at three widths"
+text = "The project list shows the published columns and run layout at 375, 768 and 1280 px without sideways page overflow, with loading frames at their final sizes."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_project_list_widths",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Reduced motion"
+text = "Under reduced motion every effect jumps to its end state with no scale, fade or easing, while the Frame Loupe, snapping and keyboard pinning work the same."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion_effects",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Readable"
+text = "Every control meets WCAG 2.2 AA contrast, is at least 44 by 44 px on touch layouts, and shows a visible focus ring."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_controls_readable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Trims, speed and splits stay exact"
+text = "A trim stops at the source's own edge or the neighbouring clip and says why, a speed change sets the length by the published rounding rule, and a split gives both parts exact source offsets with re-based keyframes. After a split focus stays on the left part, and every other open screen announces it once."
+kind = "behavior"
+primary = "workflow"
+workflow = "trim-speed-split"
+tests = [
+    "test_app.py::test_wf_trim_speed_split_exact",
+    "test_app.py::test_wf_trim_speed_split_speed_limits",
+    "test_app.py::test_wf_trim_speed_split_compound",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Zoom holds the playhead frame, Home and End bring a clip into view"
+text = "Changing zoom keeps the playhead frame centred on the canvas at the published scale, and Home and End move the playhead, scroll the canvas and focus the first or last clip."
+kind = "behavior"
+primary = "workflow"
+workflow = "playback-and-zoom"
+tests = [
+    "test_app.py::test_wf_playback_and_zoom_zoom",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Restore a cut"
+text = "Restoring a named cut replaces the timeline in one saved change that raises the version, every open screen follows within one second, it can be undone, and a locked row refuses the whole restore."
+kind = "behavior"
+primary = "workflow"
+workflow = "cuts-and-restore"
+tests = [
+    "test_app.py::test_wf_cuts_and_restore_restore",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "The address carries the view"
+text = "The project address holds the playhead frame, the zoom level, the selected clip and the open panel, and those four survive a reload, Back and a second tab."
+kind = "behavior"
+primary = "workflow"
+workflow = "upgrade-and-address"
+tests = [
+    "test_app.py::test_wf_upgrade_and_address_reload_back",
+    "test_app.py::test_wf_upgrade_and_address_second_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Shape a layer on the stage"
+text = "A layer box is moved and scaled by pointer or keyboard on the stage, snaps to the frame centre and edges with a guide, saves one change on release, and is refused on a locked row."
+kind = "behavior"
+primary = "workflow"
+workflow = "stage-shaping"
+tests = [
+    "test_app.py::test_wf_stage_shaping_drag",
+    "test_app.py::test_wf_stage_shaping_touch_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Changing the frame refits every layer"
+text = "Changing a project's aspect ratio converts every layer position and position keyframe by the published fit rule in one saved change, and undo restores every value exactly."
+kind = "behavior"
+primary = "pytest"
+workflow = "stage-shaping"
+tests = [
+    "test_app.py::test_wf_stage_shaping_frame_size",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with string `install`, `build` and `serve` and `\"_schema\":\"run-manifest-v1\"`, and the app starts using only those commands."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`/app/THIRD_PARTY_NOTICES.md` names every shipped package, font and icon set, with its licence. Shipped packages means the production dependency tree (`npm ls --omit=dev --all --json`)."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Shipped packages, fonts and icons use only MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0 or OFL-1.1 licences."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses only Postgres, MinIO, Valkey, RabbitMQ and SMTP. There is no other datastore, queue, search engine or hosted service, and no data is written to local files."
+tests = [
+    "test_app.py::test_if_only_published_services",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Server and browser source is TypeScript."
+tests = [
+    "test_app.py::test_if_typescript",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Work Sans, Sometype Mono and the icons are served from the app itself, with no font or icon request to another origin."
+tests = [
+    "test_app.py::test_if_fonts_same_origin",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-39",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_health_every_instance",
+    "test_app.py::test_routes_error_shape",
+    "test_app.py::test_project_page_widths",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B3",
+]
+critical_checkpoints = [
+    "B2",
+]
+
+[[workflows]]
+id = "rushes-upload"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_rushes_upload_resume",
+    "test_app.py::test_wf_rushes_upload_refused",
+    "test_app.py::test_wf_rushes_upload_storage_outage",
+]
+
+[[workflows]]
+id = "media-library"
+requirements = [
+    "DP-12",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_media_library_duplicate",
+    "test_app.py::test_wf_media_library_search",
+    "test_app.py::test_wf_media_library_delete",
+]
+checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "place-and-move"
+requirements = [
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_place_and_move_keyboard",
+    "test_app.py::test_wf_place_and_move_blocked",
+]
+checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "trim-speed-split"
+requirements = [
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_trim_speed_split_exact",
+    "test_app.py::test_wf_trim_speed_split_speed_limits",
+    "test_app.py::test_wf_trim_speed_split_compound",
+]
+checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "ripple-locked-rows"
+requirements = [
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_ripple_locked_rows_shift",
+    "test_app.py::test_wf_ripple_locked_rows_refused",
+]
+checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "clip-groups"
+requirements = [
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_clip_groups_move",
+    "test_app.py::test_wf_clip_groups_refused",
+    "test_app.py::test_wf_clip_groups_refused_compound",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "stage-skim-loupe"
+requirements = [
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_stage_skim_loupe_skim",
+    "test_app.py::test_wf_stage_skim_loupe_snap_keys",
+    "test_app.py::test_wf_stage_skim_loupe_reduced_motion",
+]
+checkpoints = [
+    "B9",
+]
+critical_checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "keyframes"
+requirements = [
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_keyframes_curves",
+    "test_app.py::test_wf_keyframes_remote",
+    "test_app.py::test_wf_keyframes_split_compound",
+]
+
+[[workflows]]
+id = "captions-srt"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_captions_srt_import_edit",
+    "test_app.py::test_wf_captions_srt_caps",
+    "test_app.py::test_wf_captions_srt_typed_limits",
+    "test_app.py::test_wf_captions_srt_round_trip",
+]
+
+[[workflows]]
+id = "playback-and-zoom"
+requirements = [
+    "DP-25",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_playback_and_zoom_playback",
+    "test_app.py::test_wf_playback_and_zoom_zoom",
+]
+
+[[workflows]]
+id = "co-editing"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_co_editing_two_browsers",
+    "test_app.py::test_wf_co_editing_first_save",
+    "test_app.py::test_wf_co_editing_replay",
+    "test_app.py::test_wf_co_editing_announce_order",
+]
+
+[[workflows]]
+id = "undo-redo"
+requirements = [
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_undo_redo_own",
+    "test_app.py::test_wf_undo_redo_blocked",
+    "test_app.py::test_wf_undo_redo_dialogs",
+]
+
+[[workflows]]
+id = "cuts-and-restore"
+requirements = [
+    "DP-44",
+    "DP-63",
+]
+critical = [
+    "test_app.py::test_wf_cuts_and_restore_compare",
+    "test_app.py::test_wf_cuts_and_restore_restore",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "notes-and-mail"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_notes_and_mail_pin_approve",
+    "test_app.py::test_wf_notes_and_mail_limits",
+    "test_app.py::test_wf_notes_and_mail_drafts",
+    "test_app.py::test_wf_notes_and_mail_grouped_mail",
+]
+
+[[workflows]]
+id = "review-link-phone"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_review_link_phone_client",
+    "test_app.py::test_wf_review_link_phone_lifecycle",
+    "test_app.py::test_wf_review_link_phone_layout",
+]
+checkpoints = [
+    "B8",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "exports-queue"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_wf_exports_queue_export",
+    "test_app.py::test_wf_exports_queue_cancel",
+    "test_app.py::test_wf_exports_queue_repeat",
+    "test_app.py::test_wf_exports_queue_outage",
+    "test_app.py::test_wf_exports_queue_cancel_compound",
+]
+
+[[workflows]]
+id = "allowance-and-kits"
+requirements = [
+    "DP-26",
+    "DP-50",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_allowance_and_kits_kits",
+    "test_app.py::test_wf_allowance_and_kits_live",
+    "test_app.py::test_wf_allowance_and_kits_parallel",
+    "test_app.py::test_wf_allowance_and_kits_edge_compound",
+]
+
+[[workflows]]
+id = "roles-live"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+]
+critical = [
+    "test_app.py::test_wf_roles_live_create_team",
+    "test_app.py::test_wf_roles_live_role_table",
+    "test_app.py::test_wf_roles_live_role_change",
+]
+
+[[workflows]]
+id = "read-api"
+requirements = [
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_read_api_token",
+    "test_app.py::test_wf_read_api_surface",
+    "test_app.py::test_wf_read_api_paging",
+    "test_app.py::test_wf_read_api_rate_limit",
+]
+
+[[workflows]]
+id = "upgrade-and-address"
+requirements = [
+    "DP-05",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_upgrade_and_address_upgrade",
+    "test_app.py::test_wf_upgrade_and_address_reload_back",
+    "test_app.py::test_wf_upgrade_and_address_second_tab",
+]
+
+[[workflows]]
+id = "stage-shaping"
+requirements = [
+    "DP-65",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_stage_shaping_drag",
+    "test_app.py::test_wf_stage_shaping_frame_size",
+    "test_app.py::test_wf_stage_shaping_touch_layout",
+]
+checkpoints = [
+    "B10",
+]
+critical_checkpoints = [
+    "B10",
+]

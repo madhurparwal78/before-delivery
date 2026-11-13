@@ -1,0 +1,1243 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "shop-access",
+    "public-rail",
+    "intake-and-tags",
+    "markdown-ladder",
+    "shopper-holds",
+    "till",
+    "payout-runs",
+    "consignor-page",
+    "intake-appointments",
+    "old-spreadsheet",
+    "sales-book",
+    "period-end-and-erasure",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 83
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Atelier Ourlet <desk@atelier-ourlet.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 5
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 1
+S1 = 5
+S2 = 3
+S3 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_storage"
+S3_BUCKET = "${S3_BUCKET}-storage"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+MAILPIT_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_mail"
+S3_BUCKET = "${S3_BUCKET}-mail"
+
+[[outages]]
+id = "short-timers"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+HOLD_SECONDS = "20"
+PORTAL_PAGE_SECONDS = "20"
+APPOINTMENT_RATE_WINDOW_SECONDS = "30"
+BOOK_FILE_RATE_WINDOW_SECONDS = "30"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[outages]]
+id = "short-session"
+port = 4177
+url_env = "APP_SESSION_URL"
+
+[outages.env]
+SESSION_SECONDS = "20"
+DATABASE_URL = "${DATABASE_URL}_session"
+S3_BUCKET = "${S3_BUCKET}-session"
+
+[[outages]]
+id = "spare"
+port = 4178
+url_env = "APP_SPARE_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_spare"
+S3_BUCKET = "${S3_BUCKET}-spare"
+
+[[requirements]]
+id = "DP-01"
+title = "Staff sign-in"
+text = "Signing in with a wrong password and with an email that belongs to no member answer the same status, the right password starts a session, and signing out ends it so the session endpoint answers 401."
+kind = "behavior"
+primary = "pytest"
+workflow = "shop-access"
+tests = [
+    "test_app.py::test_sign_in_no_enumeration",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Members belong to the owner"
+text = "Only the shop owner lists, adds, re-roles and removes members, as set out in API; a removed member can no longer sign in, a role change applies from that member's next request, and an id that is not a current member answers 404 exactly like an unknown id."
+kind = "behavior"
+primary = "pytest"
+workflow = "shop-access"
+tests = [
+    "test_app.py::test_members_owner_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Sign-in journey"
+text = "Filling the sign-in form lands each staff role on its published home route with a live session, and signing out from there ends the session."
+kind = "behavior"
+primary = "workflow"
+workflow = "shop-access"
+tests = [
+    "test_app.py::test_wf_shop_access_sign_in_each_role",
+    "test_app.py::test_wf_shop_access_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Public rail journey"
+text = "A shopper browses the rail with category, size, brand, price band and search in the address, Back and Forward, search that shows the latest input, the published layouts at 1280x800, 1024x768, 768x1024 and 375x812, closed sheets and menus hidden and inert, pieces turning Sold or On hold in place within the 5-second refresh while the filters sheet stays open as typed, and a sold piece's page lifetime; the rail is complete by keyboard and by touch at 375x812, its rare-state copy renders verbatim, the endpoint GET /api/rail answers the earlier error of the ladder and whole-second Z instants, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "public-rail"
+tests = [
+    "test_app.py::test_wf_public_rail_touch",
+    "test_app.py::test_wf_public_rail_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Filters and search in the address"
+text = "Category, size, brand, price band and search live in the rail's address, each change is one history entry that Back and Forward return to, and search runs after the published pause and always shows the results for the latest input, even when an earlier request answers later."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-rail"
+tests = [
+    "test_app.py::test_rail_filters_in_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Rail layouts at the published widths"
+text = "The rail is a filters column beside three columns from 1100 pixels wide, two columns with a filters side sheet at 1024x768 and 768x1024, and one column with a filters bottom sheet at 375x812, and a closed sheet or menu is hidden and inert."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-rail"
+tests = [
+    "test_app.py::test_rail_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Sold and held pieces on the rail"
+text = "A piece sold or held elsewhere turns to Sold or On hold in place on an open rail within the 5-second refresh, and a sold piece's public page shows its sold state until the published day boundary, then answers 410."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-rail"
+tests = [
+    "test_app.py::test_rail_sold_and_held_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Intake journey"
+text = "A shop assistant takes a piece in through the New piece dialog by keyboard alone with the published focus targets, sees its tag code and route, adds photos, and reads the Markdown tag and its stations; the photo outage copy renders verbatim on the MinIO-down copy, the tag code, file-only photo size and metadata removal hold, POST /api/pieces answers the earlier error of the ladder for a request that breaks two rules, every instant is whole-second Z, the 375x812 touch journey keeps closed sheets inert and no bar over the focused control, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "intake-and-tags"
+tests = [
+    "test_app.py::test_wf_intake_and_tags_keyboard",
+    "test_app.py::test_wf_intake_and_tags_problems",
+    "test_app.py::test_wf_intake_and_tags_storage_down",
+    "test_app.py::test_wf_intake_and_tags_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Tag codes"
+text = "Every piece gets a tag code in the published format with a check digit, and lookup accepts lower case and missing dashes, always shows the upper-case dashed form, and refuses a code whose check digit fails."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake-and-tags"
+tests = [
+    "test_app.py::test_tag_codes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Photo checks"
+text = "An intake photo is accepted only when its content is JPEG, PNG or WebP, whatever its file name or declared type, and only when the file itself is at most 5,000,000 bytes; an oversized photo or body answers 413 as JSON before the body is parsed or the caller is authenticated."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake-and-tags"
+tests = [
+    "test_app.py::test_photo_checks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Photo originals and public copies"
+text = "The original photo is stored in MinIO byte for byte and only the owner downloads it; the public copy has the camera orientation applied, every metadata block removed and its longest side at most 1600 pixels; while MinIO is down a photo is refused with nothing stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake-and-tags"
+tests = [
+    "test_app.py::test_photo_originals_and_public_copies",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Markdown stations"
+text = "Every piece page shows four stations with their dates, each exposing its server-given state and whole-second UTC instant, as one keyboard composite with one Tab stop whose station popover opens uncut inside the viewport at 375 and 1280 pixels wide."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake-and-tags"
+tests = [
+    "test_app.py::test_markdown_stations_composite",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Price edits and the tag swing"
+text = "The owner changes a piece's asking price, the markdown prices follow it from that instant, and every open rail, piece page and consignor page shows the new price at its next refresh: the tag swings once while the old price is struck through and the new one slides in, or under reduced motion the price changes at once with no swing."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake-and-tags"
+tests = [
+    "test_app.py::test_price_edit_and_tag_swing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Ladder journey"
+text = "The shop owner changes the ladder through the Change ladder dialog by keyboard alone with the published focus targets, earlier pieces keep their ladder, a second change for the same date is refused with the published copy and the dialog kept open as typed, and prices and stations show as the server says with the page clock hours off; the half-up rounding and Brussels day boundaries hold, POST /api/ladders answers the earlier error of the ladder for a request that breaks two rules, every instant is whole-second Z, the 375x812 touch journey keeps closed sheets inert and no bar over the focused control, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "markdown-ladder"
+tests = [
+    "test_app.py::test_wf_markdown_ladder_keyboard",
+    "test_app.py::test_wf_markdown_ladder_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Markdown prices"
+text = "Each markdown price is the asking price times the ladder's remaining percentage in integer cents, rounded half up, as set in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "markdown-ladder"
+tests = [
+    "test_app.py::test_markdown_prices_half_up",
+]
+criteria = []
+parameter_cases = [
+    "4990",
+    "1990",
+]
+
+[[requirements]]
+id = "DP-16"
+title = "Brussels days"
+text = "Station instants fall at Brussels local midnight of their day, across 23-hour and 25-hour days, as set in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "markdown-ladder"
+tests = [
+    "test_app.py::test_brussels_days",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Ladder changes by date"
+text = "A ladder change takes effect on a chosen Brussels date, every piece keeps the ladder in force on its intake date on every screen, the rail, the sales book and the payouts, and a second change for the same date is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "markdown-ladder"
+tests = [
+    "test_app.py::test_ladder_changes_by_date",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Prices from the server's clock"
+text = "Every price, station state, end time and countdown on every screen comes from the server, also when the device clock is wrong by hours."
+kind = "behavior"
+primary = "pytest"
+workflow = "markdown-ladder"
+tests = [
+    "test_app.py::test_prices_from_server_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Hold journey"
+text = "A shopper holds a piece from its public page and opens the private hold page from the mail; the losing shopper sees the published hold-taken copy with the winning end time, still shown after the next refresh; the hold ends at HOLD_SECONDS on the short-timers copy as the server says with the page clock hours off; the Mailpit-down copy refuses with the published copy; an assistant's Release dialog survives its own closing animation; the hold page works by touch at 375x812 and the flow by keyboard; POST /api/pieces/{id}/holds answers the earlier error of the ladder for a request that breaks two rules, every instant is whole-second Z, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "shopper-holds"
+tests = [
+    "test_app.py::test_wf_shopper_holds_public_hold",
+    "test_app.py::test_wf_shopper_holds_lost_hold",
+    "test_app.py::test_wf_shopper_holds_short_timers",
+    "test_app.py::test_wf_shopper_holds_mail_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "One hold per piece"
+text = "A piece has at most one active hold, and when two shoppers hold one piece at the same moment exactly one wins and the other is refused with the winning hold's end time."
+kind = "behavior"
+primary = "pytest"
+workflow = "shopper-holds"
+tests = [
+    "test_app.py::test_one_hold_per_piece",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Hold end and hold page"
+text = "A hold lasts HOLD_SECONDS and ends exactly at its end instant; its private hold page shows the piece, the shop's address and the end in Brussels time, and lets the shopper let the hold go."
+kind = "behavior"
+primary = "pytest"
+workflow = "shopper-holds"
+tests = [
+    "test_app.py::test_hold_end_and_hold_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Hold mail"
+text = "Placing a hold sends one mail that carries only the piece, the shop's address, the hold's end and the hold page address, and while Mailpit is down a hold is refused with nothing saved."
+kind = "behavior"
+primary = "pytest"
+workflow = "shopper-holds"
+tests = [
+    "test_app.py::test_hold_mail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Release dialog"
+text = "Pressing Release again during the Release hold dialog's closing animation keeps the dialog open for good, and the 5-second refresh never closes it or clears it."
+kind = "behavior"
+primary = "pytest"
+workflow = "shopper-holds"
+tests = [
+    "test_app.py::test_release_dialog_survives_close",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Till journey"
+text = "A shop assistant sells at the till by keyboard alone with the published focus targets, the sale is announced with its exact copy, a piece another member just sold is refused with the published copy naming who and when and the dialog kept open, the address bar shows the sale's route and a reload shows it; share, commission and VAT round half up, POST /api/sales answers the earlier error of the ladder for a request that breaks two rules, every instant is whole-second Z, the 375x812 touch journey keeps closed sheets inert and no bar over the focused control, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "till"
+tests = [
+    "test_app.py::test_wf_till_keyboard",
+    "test_app.py::test_wf_till_already_sold",
+    "test_app.py::test_wf_till_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Repeated till requests"
+text = "A till request repeated with the same request key answers the first response and records one sale, and the same key with a different body is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "till"
+tests = [
+    "test_app.py::test_till_request_key",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Shares, commission and VAT"
+text = "Every sale records the consignor's share, the shop's commission and the VAT inside the commission in integer cents, as set in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "till"
+tests = [
+    "test_app.py::test_shares_commission_vat",
+]
+criteria = []
+parameter_cases = [
+    "31245",
+    "2243",
+    "30000",
+    "30001",
+]
+
+[[requirements]]
+id = "DP-27"
+title = "Pieces sold elsewhere"
+text = "Selling a piece that is already sold is refused with who sold it and when, and nothing is recorded."
+kind = "behavior"
+primary = "pytest"
+workflow = "till"
+tests = [
+    "test_app.py::test_already_sold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Refunds and earlier sales"
+text = "An assistant can record an earlier sale with its past instant and price in force then, a sale can be refunded until the published end of its refund window, and a refund puts the piece back at its price in force."
+kind = "behavior"
+primary = "pytest"
+workflow = "till"
+tests = [
+    "test_app.py::test_refunds_and_earlier_sales",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Payout run journey"
+text = "The shop owner starts the payout run for an ended Brussels month through the Start payout run dialog by keyboard alone; the run shows Ready, the bank file downloads byte for byte, a consignor without a valid IBAN is held back with the published reason, a second start shows who started it and when, and the MinIO-down and Mailpit-down copies refuse with the published copy still shown after the next refresh; the SEPA name rule holds, POST /api/payout-runs answers the earlier error of the ladder for a request that breaks two rules, every instant is whole-second Z, the 375x812 touch journey keeps closed sheets inert and no bar over the focused control, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "payout-runs"
+tests = [
+    "test_app.py::test_wf_payout_runs_keyboard",
+    "test_app.py::test_wf_payout_runs_outages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Bank transfer file"
+text = "Each payout run writes one SEPA credit transfer file with the published elements, creditor names by the SEPA name rule and IBANs checked by MOD-97, and stores it in MinIO."
+kind = "behavior"
+primary = "pytest"
+workflow = "payout-runs"
+tests = [
+    "test_app.py::test_bank_transfer_file",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "One payout run per month"
+text = "Starting the run again for the same month gives the same run, and when two starts arrive at the same moment exactly one creates it and the other is told who started it and when."
+kind = "behavior"
+primary = "pytest"
+workflow = "payout-runs"
+tests = [
+    "test_app.py::test_one_payout_run_per_month",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Payout runs are all or nothing"
+text = "A payout run records its payouts, stores its bank file and sends every statement together or does none of it, also when MinIO or Mailpit is down, and it shows Ready only after MinIO has confirmed the stored file."
+kind = "behavior"
+primary = "pytest"
+workflow = "payout-runs"
+tests = [
+    "test_app.py::test_payout_run_all_or_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Monthly statements"
+text = "Each consignor in a run gets one statement mail with only their own pieces and amounts and at most the last four characters of their IBAN."
+kind = "behavior"
+primary = "pytest"
+workflow = "payout-runs"
+tests = [
+    "test_app.py::test_monthly_statements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Consignor page journey"
+text = "A consignor opens the private consignor page from the mail and sees only their own pieces and earnings; at 375x812 by touch they choose Return to me or Donate with the Save choices bar never covering the focused control, and they can complete the page by keyboard; the ended-page copy renders verbatim on the short-timers copy, prices and stations show as the server says with the page clock hours off, the tag never swings under reduced motion, PUT /api/portal/{token}/choices answers the earlier error of the ladder for a request that breaks two rules, every instant is whole-second Z, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "consignor-page"
+tests = [
+    "test_app.py::test_wf_consignor_page_touch",
+    "test_app.py::test_wf_consignor_page_keyboard_clock",
+    "test_app.py::test_wf_consignor_page_ended",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Consignor page shows only their own"
+text = "The consignor page and every response it reads carry only that consignor's own pieces and earnings, never shopper names or emails, other consignors, the shop's commission or more than the IBAN's last four characters, and another consignor's piece id answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "consignor-page"
+tests = [
+    "test_app.py::test_consignor_page_only_own",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Consignor page address"
+text = "A consignor page address lasts PORTAL_PAGE_SECONDS, a new address ends the old one, the owner can end it, and an ended page answers 410."
+kind = "behavior"
+primary = "pytest"
+workflow = "consignor-page"
+tests = [
+    "test_app.py::test_consignor_page_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Return to me or Donate"
+text = "For each piece in the last 14 Brussels days of its period the consignor chooses Return to me or Donate, and outside that window the choice is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "consignor-page"
+tests = [
+    "test_app.py::test_return_or_donate_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Appointment journey"
+text = "A consignor books a 20-minute intake slot on the public appointment page one week at a time, by touch at 375x812 and by keyboard; the losing booking sees the published slot-taken copy with the real next free slot, and the Mailpit-down copy refuses with the published copy; slot instants keep their wall-clock time across clock changes, POST /api/appointments answers the earlier error of the ladder for a request that breaks two rules, every instant is whole-second Z, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "intake-appointments"
+tests = [
+    "test_app.py::test_wf_intake_appointments_touch",
+    "test_app.py::test_wf_intake_appointments_slot_taken",
+    "test_app.py::test_wf_intake_appointments_mail_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Slots in Brussels time"
+text = "Slots run Tuesday to Saturday from 10:00 to 17:40 Brussels time every 20 minutes, from tomorrow up to 32 weeks ahead, and keep their wall-clock times in the weeks of a clock change."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake-appointments"
+tests = [
+    "test_app.py::test_slots_in_brussels_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "One booking per slot"
+text = "A slot holds one appointment, and when two bookings of one slot arrive at the same moment exactly one wins and the other is told the real next free slot."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake-appointments"
+tests = [
+    "test_app.py::test_one_booking_per_slot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Booking limit"
+text = "One email address, in any letter case, can make at most 3 bookings per APPOINTMENT_RATE_WINDOW_SECONDS, and the next answers 429 with Retry-After."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake-appointments"
+tests = [
+    "test_app.py::test_booking_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Booking confirmation"
+text = "Each booking sends one confirmation mail with the slot in Brussels time and a private address that cancels it, and while Mailpit is down a booking is refused with nothing saved."
+kind = "behavior"
+primary = "pytest"
+workflow = "intake-appointments"
+tests = [
+    "test_app.py::test_booking_confirmation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Spreadsheet journey"
+text = "The shop owner brings a previous-tool spreadsheet through the Preview import dialog by keyboard alone, the preview table at 375x812 scrolls sideways in its own focusable, named frame, and the preview and save results are announced with their exact copy; POST /api/imports/preview answers the earlier error of the ladder for a request that breaks two rules, every instant is whole-second Z, the 375x812 touch journey keeps closed sheets inert and no bar over the focused control, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "old-spreadsheet"
+tests = [
+    "test_app.py::test_wf_old_spreadsheet_keyboard",
+    "test_app.py::test_wf_old_spreadsheet_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Spreadsheet matching"
+text = "Each row's consignor is matched by email in any letter case, then by normalised name, or else created, and a preview lists matched, new, refused and already-brought-over rows with row numbers and reasons before anything is saved."
+kind = "behavior"
+primary = "pytest"
+workflow = "old-spreadsheet"
+tests = [
+    "test_app.py::test_spreadsheet_matching",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Saving a file twice"
+text = "Saving the same spreadsheet twice changes nothing the second time, and pieces brought over keep their original intake dates and the ladder in force on them."
+kind = "behavior"
+primary = "pytest"
+workflow = "old-spreadsheet"
+tests = [
+    "test_app.py::test_spreadsheet_saved_twice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Sales book journey"
+text = "The bookkeeper reads a Brussels month's sales book screen and downloads its file through the Download sales book dialog by keyboard alone; at 375x812 the wide table scrolls in a focusable, named frame, and the limit copy renders verbatim; the cell rule holds, GET /api/sales-book answers the earlier error of the ladder for a request that breaks two rules, every instant is whole-second Z, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "sales-book"
+tests = [
+    "test_app.py::test_wf_sales_book_keyboard",
+    "test_app.py::test_wf_sales_book_limit_and_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Sales book file"
+text = "The sales book file uses the published format and columns, puts an apostrophe before any cell starting with =, +, -, @, a tab or a carriage return, and ends with a totals row equal to the sum of its lines, with shares and VAT exactly as the till recorded them."
+kind = "behavior"
+primary = "pytest"
+workflow = "sales-book"
+tests = [
+    "test_app.py::test_sales_book_file",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Bookkeeper access and download limit"
+text = "The bookkeeper reads the sales book and the payout runs, every write they send is refused with 403, and their 6th sales book download within BOOK_FILE_RATE_WINDOW_SECONDS answers 429 with Retry-After, counted per member."
+kind = "behavior"
+primary = "pytest"
+workflow = "sales-book"
+tests = [
+    "test_app.py::test_bookkeeper_access_and_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Period end and erasure journey"
+text = "The shop owner erases a consignor through the Erase consignor dialog by keyboard alone, the consignor shows Erased only after MinIO has confirmed that no photo of their unsold pieces is left, sold pieces show `Erased consignor`, an archived piece comes back exactly as it was, every state shows as the server says with the page clock hours off, and after each action the address bar shows the published route and a reload shows it; Brussels day boundaries hold, POST /api/consignors/{id}/erase answers the earlier error of the ladder for a request that breaks two rules, every instant is whole-second Z, the 375x812 touch journey keeps closed sheets inert and no bar over the focused control, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "period-end-and-erasure"
+tests = [
+    "test_app.py::test_wf_period_end_and_erasure_keyboard",
+    "test_app.py::test_wf_period_end_and_erasure_storage_down",
+    "test_app.py::test_wf_period_end_and_erasure_archive",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Period end shelves"
+text = "At 00:00 Brussels on the period end day a piece leaves the rail for the Returns shelf or the Donation box by its consignor's choice, with Donate when none was made, and an uncollected Returns shelf piece moves to the Donation box after 14 Brussels days."
+kind = "behavior"
+primary = "pytest"
+workflow = "period-end-and-erasure"
+tests = [
+    "test_app.py::test_period_end_shelves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Consignor erasure"
+text = "Erasing a consignor removes their name, email, phone and IBAN from the database and every response, deletes their unsold pieces' photos from MinIO, and keeps their sales with `Erased consignor`."
+kind = "behavior"
+primary = "pytest"
+workflow = "period-end-and-erasure"
+tests = [
+    "test_app.py::test_consignor_erasure",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Archive and bring back"
+text = "The owner archives a piece and brings it back exactly as it was, with the same tag code, photos, choice and station history."
+kind = "behavior"
+primary = "pytest"
+workflow = "period-end-and-erasure"
+tests = [
+    "test_app.py::test_archive_and_bring_back",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Starting data"
+text = "A fresh copy on its own empty database and bucket starts with exactly the published starting data, and several copies starting at the same moment each read, write and send only for their own data."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_starting_data",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "API conventions"
+text = "Every API path follows the one error-precedence ladder, answers 405 with Allow for a wrong method and 415 for a wrong content type, answers 404 for unpublished paths, uses camelCase keys and the one error body, and gives every instant as UTC in whole seconds with a Z."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_api_conventions",
+    "test_app.py::test_error_ladder_two_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Landing routes"
+text = "After sign-in each staff role lands on its published home route, after saving a new piece, placing a hold, completing a sale or starting a payout run the address bar shows that record's published route, and reloading or opening that address shows the same screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_landing_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Session ended mid-form"
+text = "When the server ends a session while a dialog is open, the dialog stays as typed, the live region announces the published copy, and signing in again returns to the same address with the same dialog open and its typed values."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_session_ended_mid_form",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Layout and accessibility on every screen"
+text = "Every screen shows its published layout at 375x812, 768x1024, 1024x768 and 1280x800 with no sideways page overflow, follows the screen rules, and passes the automated WCAG 2.2 AA check with each of its dialogs, menus and sheets open and with all of them closed."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_screens_layout_and_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Motion system"
+text = "All motion runs as CSS transitions, CSS animations or element animations of exactly 160, 320 or 640 milliseconds, and under reduced motion everything opens, closes and settles at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_system",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Quiet boutique look"
+text = "Every screen uses the warm off-white page, the single black ink, the two published typefaces, generous section spacing and tabular figures on every price, tag code and IBAN, with the procedural garment imagery."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B12",
+    "S1",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Hanging tag craft"
+text = "Every piece card and piece page shows a card price tag hanging on a thin string from a punched hole, with the old price struck through at each markdown."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "S2",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\"."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package with its licence; shipped packages are the production dependency tree, as given by npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package's licence is permissive (MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, or SIL OFL 1.1 for fonts)."
+tests = [
+    "test_app.py::test_if_permissive_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Familjen Grotesk and Hanken Grotesk are shipped inside /app with their SIL OFL notice, no Inter font file or reference is shipped, and icons come only from Lucide."
+tests = [
+    "test_app.py::test_if_fonts_and_icons",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "No credential value (database password, storage keys, member passwords other than the published seed passwords) appears in any file under /app outside the published seed data."
+tests = [
+    "test_app.py::test_if_no_credentials",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The app uses no datastore other than Postgres, MinIO and Mailpit: no SQLite, Redis, embedded database or data files written to disk."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Application source is TypeScript."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "shop-access"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+]
+critical = [
+    "test_app.py::test_wf_shop_access_sign_in_each_role",
+    "test_app.py::test_sign_in_no_enumeration",
+    "test_app.py::test_members_owner_only",
+]
+
+[[workflows]]
+id = "public-rail"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+]
+critical = [
+    "test_app.py::test_wf_public_rail_touch",
+    "test_app.py::test_wf_public_rail_keyboard",
+    "test_app.py::test_rail_filters_in_address",
+    "test_app.py::test_rail_layouts",
+    "test_app.py::test_rail_sold_and_held_in_place",
+]
+checkpoints = [
+    "B8",
+    "B6",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "intake-and-tags"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_intake_and_tags_keyboard",
+    "test_app.py::test_wf_intake_and_tags_storage_down",
+    "test_app.py::test_photo_checks",
+    "test_app.py::test_photo_originals_and_public_copies",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "markdown-ladder"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_markdown_ladder_keyboard",
+    "test_app.py::test_ladder_changes_by_date",
+    "test_app.py::test_brussels_days",
+    "test_app.py::test_prices_from_server_clock",
+    "test_app.py::test_markdown_prices_half_up",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "shopper-holds"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_wf_shopper_holds_public_hold",
+    "test_app.py::test_wf_shopper_holds_lost_hold",
+    "test_app.py::test_one_hold_per_piece",
+    "test_app.py::test_hold_end_and_hold_page",
+    "test_app.py::test_release_dialog_survives_close",
+]
+
+[[workflows]]
+id = "till"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_till_keyboard",
+    "test_app.py::test_wf_till_already_sold",
+    "test_app.py::test_till_request_key",
+    "test_app.py::test_shares_commission_vat",
+]
+
+[[workflows]]
+id = "payout-runs"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_payout_runs_keyboard",
+    "test_app.py::test_wf_payout_runs_outages",
+    "test_app.py::test_payout_run_all_or_nothing",
+    "test_app.py::test_bank_transfer_file",
+    "test_app.py::test_one_payout_run_per_month",
+]
+
+[[workflows]]
+id = "consignor-page"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_consignor_page_touch",
+    "test_app.py::test_wf_consignor_page_keyboard_clock",
+    "test_app.py::test_consignor_page_address",
+    "test_app.py::test_consignor_page_only_own",
+]
+
+[[workflows]]
+id = "intake-appointments"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_intake_appointments_touch",
+    "test_app.py::test_wf_intake_appointments_slot_taken",
+    "test_app.py::test_one_booking_per_slot",
+    "test_app.py::test_slots_in_brussels_time",
+    "test_app.py::test_booking_limit",
+]
+
+[[workflows]]
+id = "old-spreadsheet"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_old_spreadsheet_keyboard",
+    "test_app.py::test_wf_old_spreadsheet_touch",
+    "test_app.py::test_spreadsheet_saved_twice",
+]
+
+[[workflows]]
+id = "sales-book"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_sales_book_keyboard",
+    "test_app.py::test_sales_book_file",
+    "test_app.py::test_bookkeeper_access_and_limit",
+]
+
+[[workflows]]
+id = "period-end-and-erasure"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_period_end_and_erasure_keyboard",
+    "test_app.py::test_wf_period_end_and_erasure_storage_down",
+    "test_app.py::test_consignor_erasure",
+    "test_app.py::test_archive_and_bring_back",
+    "test_app.py::test_period_end_shelves",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_starting_data",
+    "test_app.py::test_api_conventions",
+]
+checkpoints = [
+    "B1",
+    "B3",
+    "B7",
+]

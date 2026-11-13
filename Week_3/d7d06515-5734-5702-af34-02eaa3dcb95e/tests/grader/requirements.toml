@@ -1,0 +1,1231 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "account-trial",
+    "dashboard-files",
+    "command-drafting",
+    "object-properties",
+    "layers",
+    "locked-layer",
+    "blocks-osnap",
+    "dimensions",
+    "layouts-export",
+    "trace-review",
+    "live-sync",
+    "share-links",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B15",
+    "B3",
+    "B4",
+    "B14",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+]
+rubric_total_weight = 89
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Corbel Draft <no-reply@corbelworks.example>" } },
+    { name = "valkey", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B15 = 3
+B3 = 3
+B4 = 3
+B14 = 3
+B5 = 5
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 5
+B12 = 5
+B13 = 3
+S1 = 5
+S2 = 3
+S3 = 5
+S4 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "valkey-down"
+port = 4174
+url_env = "APP_VALKEY_DOWN_URL"
+
+[outages.env]
+VALKEY_URL = "redis://127.0.0.1:9/0"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4176
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "short-timers"
+port = 4177
+url_env = "APP_SHORT_TIMERS_URL"
+
+[outages.env]
+VERIFY_LINK_SECONDS = "20"
+PRESENCE_IDLE_SECONDS = "8"
+SIGNIN_LOCK_SECONDS = "20"
+INVITE_COOLDOWN_SECONDS = "10"
+UPLOAD_MAX_BYTES = "20000"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Account sign-up and confirmation."
+text = "A visitor creates an account from the landing page with the Create account form, opens the confirmation email in Mailpit and, after its link confirms the address, signs in to an empty My Drawings dashboard."
+kind = "behavior"
+primary = "workflow"
+workflow = "account-trial"
+tests = [
+    "test_app.py::test_wf_account_trial_signup",
+    "test_app.py::test_wf_account_trial_invalid_signup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Confirmation link lifetime."
+text = "A confirmation link works until its published lifetime ends on the server clock, an expired or replaced link shows its published page, and Send a new link emails a fresh link that becomes the only working one."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-trial"
+tests = [
+    "test_app.py::test_verify_link_lifetime",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Sign-in refusals and lockout."
+text = "Sign in refuses a wrong email or password and an unconfirmed account with published copy and codes, and locks an address after the published number of failures for the published lock time."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-trial"
+tests = [
+    "test_app.py::test_signin_refusals_and_lockout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Trial countdown and trial end."
+text = "The trial status counts studio-zone calendar days from the confirmation date, and when the trial ends every open tab of the account shows the ended state within the live-update limit while base writes are refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-trial"
+tests = [
+    "test_app.py::test_trial_countdown_and_end",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Pro quote by email."
+text = "The upgrade dialog emails a numbered Pro quote through Mailpit and shows its sent copy only after Mailpit accepts the message, and the product has no checkout or payment."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-trial"
+tests = [
+    "test_app.py::test_pro_quote_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "File browser."
+text = "The dashboard lists a folder in the Files table with folders first, sortable columns, a search that filters as the drafter types, a List and Grid switch and studio-zone dates, all operable by keyboard."
+kind = "behavior"
+primary = "workflow"
+workflow = "dashboard-files"
+tests = [
+    "test_app.py::test_wf_dashboard_files_browse",
+    "test_app.py::test_wf_dashboard_files_new_folder",
+    "test_app.py::test_wf_dashboard_files_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Folders."
+text = "New Folder creates a folder through an inline row under the published name rules, exactly one of several simultaneous same-name creations succeeds, a non-empty folder is never deleted, and creating inside a folder updates its Date Modified."
+kind = "behavior"
+primary = "pytest"
+workflow = "dashboard-files"
+tests = [
+    "test_app.py::test_folder_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "DXF upload and version history."
+text = "An uploaded DXF file reads Stored only after MinIO holds its exact bytes, a same-name upload adds a file version, size and type refusals use published copy, and Version history restores any version as a new one."
+kind = "behavior"
+primary = "pytest"
+workflow = "dashboard-files"
+tests = [
+    "test_app.py::test_upload_and_versions",
+    "test_app.py::test_upload_stored_after_minio",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Live file list across devices."
+text = "New folders, files and Recent changes appear in the account's other open tabs and devices within the live-update limit without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "dashboard-files"
+tests = [
+    "test_app.py::test_live_file_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Command line and coordinate entry."
+text = "The command line accepts every published alias, echoes the full command name, reads absolute, relative and polar coordinates in the drawing's units, and answers invalid points, unknown commands and Escape with published history lines."
+kind = "behavior"
+primary = "pytest"
+workflow = "command-drafting"
+tests = [
+    "test_app.py::test_command_aliases_echo",
+    "test_app.py::test_coordinate_entry_in_units",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Floor plan outline by keyboard."
+text = "Using only the keyboard, a drafter draws a closed outline with LINE, offsets each wall inward with OFFSET and trims the corner tails with TRIM, and the API then holds the exact trimmed inner outline."
+kind = "behavior"
+primary = "workflow"
+workflow = "command-drafting"
+tests = [
+    "test_app.py::test_wf_command_drafting_outline",
+    "test_app.py::test_wf_command_drafting_recovery",
+    "test_app.py::test_wf_command_drafting_ribbon_undo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Ribbon."
+text = "The Ribbon tablist moves between Draw, Annotate and Modify with the arrow keys, and each ribbon button starts its command exactly as its alias does and puts focus in the command line."
+kind = "behavior"
+primary = "pytest"
+workflow = "command-drafting"
+tests = [
+    "test_app.py::test_ribbon_buttons",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Undo, redo and activity."
+text = "UNDO and REDO reverse and replay the actor's last drawing change with published history lines and a new drawing version each, and every drawing change writes exactly one Activity entry that reaches every open tab live."
+kind = "behavior"
+primary = "pytest"
+workflow = "command-drafting"
+tests = [
+    "test_app.py::test_undo_redo_activity",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Object selection."
+text = "Objects are selected by handle, by a typed point or by a click within the published pick distances, and objects on frozen or turned-off layers and xref objects are never selected."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-properties"
+tests = [
+    "test_app.py::test_object_selection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Properties panel edits in place."
+text = "The Properties panel shows the selected object's published fields, and editing a field or dragging a grip updates its derived values in place during the edit and again from the saved result, which the API returns."
+kind = "behavior"
+primary = "workflow"
+workflow = "object-properties"
+tests = [
+    "test_app.py::test_wf_object_properties_edit_field",
+    "test_app.py::test_wf_object_properties_grip_drag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Multiple selection."
+text = "With several objects selected the Properties panel names the count, marks differing values with the published varies marker and applies one change to every selected object in a single drawing version."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-properties"
+tests = [
+    "test_app.py::test_multiple_selection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Version-checked base edits."
+text = "Every base edit carries the drawing version it was made on, exactly one of several edits on the same version wins, and every other is refused as a version conflict listing the changed handles."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-properties"
+tests = [
+    "test_app.py::test_version_conflict_concurrency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "External references."
+text = "A drafter attaches another drawing from the same workspace as an external reference that is drawn faded, can be snapped to but never selected, and shows its published status."
+kind = "behavior"
+primary = "pytest"
+workflow = "object-properties"
+tests = [
+    "test_app.py::test_external_references",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Layer Properties Manager by keyboard."
+text = "Using only the keyboard, a drafter adds, renames, recolours, retypes, sets current, freezes and thaws layers in the Layers grid, and each change is announced with published copy."
+kind = "behavior"
+primary = "workflow"
+workflow = "layers"
+tests = [
+    "test_app.py::test_wf_layers_keyboard",
+    "test_app.py::test_wf_layers_invalid_name",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Layer names."
+text = "New layers take the published default names, and layer names follow the published character, length and case-insensitive uniqueness rules with published errors."
+kind = "behavior"
+primary = "pytest"
+workflow = "layers"
+tests = [
+    "test_app.py::test_layer_names",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Frozen layers."
+text = "Objects on a frozen layer are not drawn, snapped to, selected, counted in the extents or written to exports until the layer is thawed."
+kind = "behavior"
+primary = "pytest"
+workflow = "layers"
+tests = [
+    "test_app.py::test_frozen_layer_effects",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Live per-layer object counts."
+text = "The Objects column of the Layers grid changes in place in every open tab of the drawing when an object is created, erased or moved to another layer."
+kind = "behavior"
+primary = "pytest"
+workflow = "layers"
+tests = [
+    "test_app.py::test_live_layer_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Locked layers refuse edits."
+text = "Commands and Properties changes leave objects on locked layers untouched and say so with published copy, and the Properties fields of such objects are disabled."
+kind = "behavior"
+primary = "pytest"
+workflow = "locked-layer"
+tests = [
+    "test_app.py::test_locked_layer_refusals",
+    "test_app.py::test_lock_and_edit_race",
+    "test_app.py::test_wf_locked_layer_select_locked_object",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Layer deletion refusals."
+text = "Deleting layer 0, the current layer, a locked layer or a layer that holds objects is refused with published copy and its conflict code, checked in the published order."
+kind = "behavior"
+primary = "pytest"
+workflow = "locked-layer"
+tests = [
+    "test_app.py::test_layer_deletion_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Unlock and edit by keyboard."
+text = "A drafter sees a lock made in another tab arrive live, unlocks the layer with Space in its Lock cell, hears the announcement and can then erase its object from the command line."
+kind = "behavior"
+primary = "workflow"
+workflow = "locked-layer"
+tests = [
+    "test_app.py::test_wf_locked_layer_unlock_erase",
+    "test_app.py::test_wf_locked_layer_delete_refusal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Object snap markers."
+text = "With OSNAP on, the winning Endpoint, Midpoint, Center or Intersection candidate inside the aperture shows its named marker centred on the snap point, Tab cycles candidates, and a pick takes the exact server-computed point."
+kind = "behavior"
+primary = "pytest"
+workflow = "blocks-osnap"
+tests = [
+    "test_app.py::test_snap_markers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Drafting aid toggles."
+text = "OSNAP, ORTHO, POLAR, SNAP & GRID and OTRACK toggle by button or function key with a pressed state and published history lines, and ORTHO, POLAR and grid snap constrain picked points as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "blocks-osnap"
+tests = [
+    "test_app.py::test_drafting_aid_toggles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Block library insertion."
+text = "The Blocks tab inserts any published block at its base point with the chosen scale and rotation and announces the insertion with its coordinates."
+kind = "behavior"
+primary = "pytest"
+workflow = "blocks-osnap"
+tests = [
+    "test_app.py::test_block_insertion",
+    "test_app.py::test_wf_blocks_osnap_keyboard_insert_select",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Snapped insertion by pointer and touch."
+text = "A drafter inserts a block on a snapped midpoint with the mouse, copies it with ORTHO on, and on a phone inserts another block by tapping a snapped point."
+kind = "behavior"
+primary = "workflow"
+workflow = "blocks-osnap"
+tests = [
+    "test_app.py::test_wf_blocks_osnap_pointer_insert",
+    "test_app.py::test_wf_blocks_osnap_phone_tap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Dimension measurements."
+text = "DIMLINEAR, DIMALIGNED, DIMRADIUS and DIMANGULAR measure on the server by the published rules, and a text override shows the measurement wherever it holds the measurement placeholder."
+kind = "behavior"
+primary = "pytest"
+workflow = "dimensions"
+tests = [
+    "test_app.py::test_dimension_measurements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Units switch in place."
+text = "Changing Units between Millimeters and Meters reformats every dimension text, Properties value and the coordinate readout in place in every open tab without changing stored geometry."
+kind = "behavior"
+primary = "pytest"
+workflow = "dimensions"
+tests = [
+    "test_app.py::test_units_switch_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Dimension a plan by keyboard."
+text = "A drafter dimensions the studio plan by typed handles and points and by snapped pointer picks, and hears each new dimension announced."
+kind = "behavior"
+primary = "workflow"
+workflow = "dimensions"
+tests = [
+    "test_app.py::test_wf_dimensions_keyboard",
+    "test_app.py::test_wf_dimensions_snapped_pointer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Layouts and viewports."
+text = "The Layouts tablist switches between Model and paper layouts with the space and viewport scale shown, and New layout adds the next numbered layout and focuses its tab."
+kind = "behavior"
+primary = "pytest"
+workflow = "layouts-export"
+tests = [
+    "test_app.py::test_layouts_tablist",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Exports stored before Ready."
+text = "A PDF or DXF export reads Ready with a download link only after MinIO confirms the object, its download serves the stored bytes, and a storage outage ends it as Failed."
+kind = "behavior"
+primary = "pytest"
+workflow = "layouts-export"
+tests = [
+    "test_app.py::test_export_stored_before_ready",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "PDF sheet title block."
+text = "A PDF export is an A3 landscape vector sheet that follows the plot style, leaves out frozen layers and prints the title block with the studio-zone issue date."
+kind = "behavior"
+primary = "pytest"
+workflow = "layouts-export"
+tests = [
+    "test_app.py::test_pdf_title_block",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Title-block revisions by effective date."
+text = "A PDF export uses the title-block revision in effect on its studio-zone issue date, and exports issued earlier keep their stored bytes after a new revision takes effect."
+kind = "behavior"
+primary = "pytest"
+workflow = "layouts-export"
+tests = [
+    "test_app.py::test_title_block_revision_effective_date",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "DXF export and import."
+text = "DXF exports write the published header, layer table and entity subset with the drawing's values, and DXF import reads the same subset and reports what it skipped."
+kind = "behavior"
+primary = "pytest"
+workflow = "layouts-export"
+tests = [
+    "test_app.py::test_dxf_export_and_import",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Issue a sheet by keyboard."
+text = "Using only the keyboard, a drafter opens the Export dialog with Ctrl+P, exports Layout1 as PDF and hears the ready announcement."
+kind = "behavior"
+primary = "workflow"
+workflow = "layouts-export"
+tests = [
+    "test_app.py::test_wf_layouts_export_keyboard",
+    "test_app.py::test_wf_layouts_export_revision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Traces leave base geometry untouched."
+text = "No trace edit, comment, submission or closure changes the drawing version or any base object the API returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "trace-review"
+tests = [
+    "test_app.py::test_traces_leave_base_untouched",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Trace lifecycle, revision clouds and issues."
+text = "Traces move from open to submitted to closed with published refusals for every other move, revision clouds carry the published arc count, and each trace comment becomes a numbered issue when its trace is submitted."
+kind = "behavior"
+primary = "pytest"
+workflow = "trace-review"
+tests = [
+    "test_app.py::test_trace_lifecycle_and_issues",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Trace-submitted notice."
+text = "Submitting a trace emails the drafter through Mailpit, marks the trace Notice sent only after Mailpit accepts, and announces the submission in the drafter's open tabs live."
+kind = "behavior"
+primary = "pytest"
+workflow = "trace-review"
+tests = [
+    "test_app.py::test_trace_submitted_notice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Review a drawing on a phone."
+text = "A reviewer with a mark-up link opens the emailed link on a phone, draws a revision cloud by tapping, adds a comment and submits the trace, and the drafter then plays the trace back."
+kind = "behavior"
+primary = "workflow"
+workflow = "trace-review"
+tests = [
+    "test_app.py::test_wf_trace_review_phone",
+    "test_app.py::test_wf_trace_review_playback_reduced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Live change delivery."
+text = "A base change saved in one tab reaches every other open tab of the drawing through Valkey within the live-update limit without a reload, and every tab then shows the same synced version."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_live_change_delivery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Remote change highlight."
+text = "A change that arrives from another tab or person redraws only the changed objects with the draw-in on overlay elements and holds their grips for the published hold before they fade, or shows them at once under reduced motion."
+kind = "visual"
+primary = "pytest"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_remote_change_highlight",
+]
+criteria = []
+parameter_cases = [
+    "no-preference",
+    "reduce",
+]
+
+[[requirements]]
+id = "DP-45"
+title = "Edit conflict dialog."
+text = "A stale edit opens the Edit conflict alert dialog with the published counted copy and applies nothing, and Load latest loads the current drawing and returns focus to the command line."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_edit_conflict_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Presence and idle."
+text = "The Collaborators list shows each other person with the drawing open as Editing, Viewing or Away, where Away is decided by the server clock after the published idle window and pushed live."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_presence_and_idle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Two-tab editing session."
+text = "A drafter and an edit-link collaborator edit the studio plan together and each sees the other's changes and Activity entries live under the actor's name."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_wf_live_sync_two_tab",
+    "test_app.py::test_wf_live_sync_paused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Share links and invites."
+text = "The Share dialog creates a view, mark-up or edit link and emails it, showing the sent copy only after Mailpit accepts the message, with the published cooldown on repeat invites to one address."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_share_invite_and_cooldown",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Link access levels."
+text = "A view-only link can open and measure but every write, exports included, is refused, a mark-up link can write only its holder's own trace objects, and an edit link can write base geometry."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_link_access_levels",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Link expiry in studio time."
+text = "A link with an expiry date works until the published end-of-day second in the studio time zone and is expired from that second by the server clock, with the zone named on the link page."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_link_expiry_studio_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Revocation takes effect live."
+text = "Revoking a link refuses its next request and turns every open tab on it into the revoked page within the live-update limit."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_revocation_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Measure through a shared link."
+text = "A recipient opens an emailed view-only link on a phone, measures a wall with DIST by tapping two snapped endpoints and hears the result read out with its units."
+kind = "behavior"
+primary = "workflow"
+workflow = "share-links"
+tests = [
+    "test_app.py::test_wf_share_links_phone_measure",
+    "test_app.py::test_wf_share_links_edit_invite",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Grading route."
+text = "The grading endpoints create isolated seeded workspaces with ready sessions and set or clear a per-workspace server clock that every time rule reads, unless the grading switch is off."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_workspaces",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Landing page components."
+text = "The landing page shows every published landing component in the Corbel Works black line-art language with original copy and drawings."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B15",
+    "B3",
+    "B4",
+    "B14",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Hero draw-in and header handoff."
+text = "The hero wireframe draws in path by path with grips popping at endpoints, and the sticky account header slides in when the hero buttons scroll away and leaves when they return, with reduced motion showing each end state at once."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_hero_draw_in_and_header",
+]
+criteria = []
+parameter_cases = [
+    "no-preference",
+    "reduce",
+]
+
+[[requirements]]
+id = "DP-56"
+title = "Editor and working screen look."
+text = "The dashboard, editor, dialogs, empty states and banners carry the same black ground, charcoal panels, thin grey lines and red grips with comfortable touch targets and AA contrast."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B11",
+    "B12",
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Responsive layouts."
+text = "Every screen fits phone, tablet and desktop widths without horizontal scrolling, and on phones the editor's Ribbon and panels move into the Tools and Panels sheets."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_landing_components_responsive",
+    "test_app.py::test_wf_cross_cutting_phone_editor",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Keyboard dialogs and focus."
+text = "Every dialog and sheet keeps Tab and Shift+Tab inside itself, closes on Escape and returns focus to its opener, and editor shortcuts work whichever editor control has focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_keyboard_dialogs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Outage at boot and recovery."
+text = "An instance started with Valkey, MinIO or Mailpit unreachable still serves pages, reports unavailable on health, shows the published banners and outage copy, and resumes without a restart when the service returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_boot_outage_and_recovery",
+]
+criteria = []
+parameter_cases = [
+    "valkey",
+    "minio",
+    "mailpit",
+]
+
+[[requirements]]
+id = "DP-60"
+title = "Server boundary."
+text = "The server serves only the built app and its API on one origin, enforces the published body limits, and never serves source files or sends credentials to the browser."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build, serve and \"_schema\":\"run-manifest-v1\", and nothing else is needed to start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and every bundled font and icon set, with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package, font and icon is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, CC0-1.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses only Postgres, MinIO, Mailpit and Valkey: no SQLite, no other datastore, and no application state kept on the local file system."
+tests = [
+    "test_app.py::test_if_only_published_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The seeded service configuration and dev credentials the workspace provides are left unchanged."
+tests = [
+    "test_app.py::test_if_seeded_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Fonts, icons, block libraries and templates are bundled with the app, and no page loads anything from a CDN or third-party origin."
+tests = [
+    "test_app.py::test_if_no_third_party_origins",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "PDF and DXF exports are generated in-process, with no external render or conversion service."
+tests = [
+    "test_app.py::test_if_exports_in_process",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "package-lock.json is committed and install uses it."
+tests = [
+    "test_app.py::test_if_lockfile_used",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "account-trial"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+]
+critical = [
+    "test_app.py::test_wf_account_trial_signup",
+    "test_app.py::test_verify_link_lifetime",
+    "test_app.py::test_trial_countdown_and_end",
+    "test_app.py::test_pro_quote_email",
+]
+checkpoints = [
+    "B13",
+]
+
+[[workflows]]
+id = "dashboard-files"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+]
+critical = [
+    "test_app.py::test_wf_dashboard_files_browse",
+    "test_app.py::test_wf_dashboard_files_new_folder",
+    "test_app.py::test_wf_dashboard_files_phone",
+    "test_app.py::test_upload_stored_after_minio",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "command-drafting"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_command_drafting_outline",
+    "test_app.py::test_wf_command_drafting_ribbon_undo",
+    "test_app.py::test_undo_redo_activity",
+]
+
+[[workflows]]
+id = "object-properties"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_object_properties_edit_field",
+    "test_app.py::test_wf_object_properties_grip_drag",
+    "test_app.py::test_version_conflict_concurrency",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "layers"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_layers_keyboard",
+    "test_app.py::test_live_layer_counts",
+]
+
+[[workflows]]
+id = "locked-layer"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_locked_layer_unlock_erase",
+    "test_app.py::test_lock_and_edit_race",
+    "test_app.py::test_wf_locked_layer_select_locked_object",
+]
+
+[[workflows]]
+id = "blocks-osnap"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_blocks_osnap_pointer_insert",
+    "test_app.py::test_wf_blocks_osnap_phone_tap",
+    "test_app.py::test_block_insertion",
+    "test_app.py::test_wf_blocks_osnap_keyboard_insert_select",
+]
+
+[[workflows]]
+id = "dimensions"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_dimensions_keyboard",
+    "test_app.py::test_wf_dimensions_snapped_pointer",
+    "test_app.py::test_units_switch_in_place",
+]
+
+[[workflows]]
+id = "layouts-export"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_layouts_export_keyboard",
+    "test_app.py::test_wf_layouts_export_revision",
+    "test_app.py::test_export_stored_before_ready",
+    "test_app.py::test_title_block_revision_effective_date",
+    "test_app.py::test_pdf_title_block",
+]
+
+[[workflows]]
+id = "trace-review"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_trace_review_phone",
+    "test_app.py::test_traces_leave_base_untouched",
+    "test_app.py::test_trace_submitted_notice",
+]
+
+[[workflows]]
+id = "live-sync"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_live_sync_two_tab",
+    "test_app.py::test_edit_conflict_dialog",
+    "test_app.py::test_presence_and_idle",
+    "test_app.py::test_live_change_delivery",
+]
+
+[[workflows]]
+id = "share-links"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_share_links_phone_measure",
+    "test_app.py::test_wf_share_links_edit_invite",
+    "test_app.py::test_link_access_levels",
+    "test_app.py::test_link_expiry_studio_time",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_grading_workspaces",
+    "test_app.py::test_wf_cross_cutting_keyboard_dialogs",
+    "test_app.py::test_wf_cross_cutting_phone_editor",
+    "test_app.py::test_server_boundary",
+]
+checkpoints = [
+    "B1",
+    "B5",
+    "B8",
+]

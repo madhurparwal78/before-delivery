@@ -1,0 +1,1243 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 58
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "team",
+    "score-growth",
+    "note-entry",
+    "concurrent-editing",
+    "staff-holds",
+    "proofread-history",
+    "part-extraction",
+    "pdf-outage",
+    "player-part",
+    "sample-banks",
+    "playback",
+    "live-sync",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 83
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "valkey", env = {} },
+    { name = "gotenberg", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+S4 = 3
+S5 = 3
+S6 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "valkey-down"
+port = 4175
+url_env = "APP_VALKEY_DOWN_URL"
+
+[outages.env]
+VALKEY_URL = "redis://127.0.0.1:9/0"
+
+[[outages]]
+id = "gotenberg-down"
+port = 4176
+url_env = "APP_GOTENBERG_DOWN_URL"
+
+[outages.env]
+GOTENBERG_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-timer"
+port = 4177
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+AWARENESS_TTL_SECONDS = "4"
+PDF_RETRY_SECONDS = "3"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from `/app/run.json` as specified in Deployment, and its health endpoint answers 200 while any of Valkey, MinIO or Gotenberg is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_on_every_instance",
+]
+criteria = []
+parameter_cases = [
+    "primary",
+    "minio-down",
+    "valkey-down",
+    "gotenberg-down",
+]
+
+[[requirements]]
+id = "DP-02"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read from the environment variables named in Configuration and secrets, never written into source and never sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Same-origin server boundary"
+text = "The server enforces the same-origin rule, the body-size limit and the never-served files listed in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_cross_origin_refused",
+    "test_app.py::test_json_body_limit",
+    "test_app.py::test_never_served_files",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "One error shape and precedence"
+text = "Every API error uses the single error body and the single precedence order defined at the top of API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Starts and recovers without its services"
+text = "The app boots and serves the editor while MinIO, Valkey or Gotenberg is unreachable, degrades each feature as stated in Services, and recovers each feature by itself when the service returns, with no restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_boots_degrades_and_recovers",
+]
+criteria = []
+parameter_cases = [
+    "storage",
+    "broadcast",
+    "renderer",
+]
+
+[[requirements]]
+id = "DP-06"
+title = "Three-viewport layout"
+text = "At 1280×800, 768×1024 and 375×812 the workspace arranges the top rail, score and tools as described in Screens and layout, with no page-level sideways scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_three_viewport_layout",
+]
+criteria = []
+parameter_cases = [
+    "desktop",
+    "tablet",
+    "phone",
+]
+
+[[requirements]]
+id = "DP-07"
+title = "Keyboard reach and dialog focus"
+text = "Every control in Public screens and controls works by keyboard with a visible focus ring, Tab and Shift+Tab wrap inside any open dialog or sheet, Escape closes it, and focus returns to the control that opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dialog_focus_wrap_escape_return",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Inked paper look"
+text = "The workspace looks like engraved ink on warm paper set on a night-toned stage, with one vermilion accent reserved for selection, holds and the playhead, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B6",
+    "B7",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Helix view scene"
+text = "In Helix view the server-engraved systems wrap a slowly turning 3D cylinder at the rate in Motion and effects that can be turned by dragging, stands still under reduced motion, and gives way to Pages view with a notice when 3D is unavailable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_helix_idle_turn",
+    "test_app.py::test_helix_drag_and_reduced_motion",
+    "test_app.py::test_helix_without_webgl",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Helix peel craft"
+text = "Extraction in Helix view reads as one continuous score releasing one instrument: its staves visibly lift off in score order, settle into a portrait page, and the rest of the score recedes into soft blur."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+    "S6",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Real engraving, graphics and audio"
+text = "Notation is drawn with the Bravura music font in server-made SVG, the Helix is a real WebGL scene, and playback runs through Web Audio with an AudioWorklet clock and real sample decoding, with no faked or pre-rendered stand-ins."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B5",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Seat links"
+text = "Opening `/s/<seatToken>` admits that collaborator to their score in their role, and an unknown or removed seat token shows the Seat link not valid screen and is refused by the API with 401."
+kind = "behavior"
+primary = "pytest"
+workflow = "team"
+tests = [
+    "test_app.py::test_seat_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Inviting a collaborator"
+text = "The composer creates a copyist or section-player invite with a name and editable staves and receives an invite link, and every other role is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "team"
+tests = [
+    "test_app.py::test_invite_collaborator",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Accepting an invite exactly once"
+text = "Accepting an invite moves the collaborator from invited to active and issues one seat token exactly once, even when two accepts arrive together, and later accepts are refused as stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "team"
+tests = [
+    "test_app.py::test_accept_exactly_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Removing a collaborator"
+text = "Removing a collaborator marks them removed, closes their live session, releases their holds and drops their presence at once, and their seat token stops working."
+kind = "behavior"
+primary = "pytest"
+workflow = "team"
+tests = [
+    "test_app.py::test_remove_collaborator",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Role and staff permissions"
+text = "Each role can do exactly what the permissions table in Business rules allows, and a section player edits only the staves the composer assigned them."
+kind = "behavior"
+primary = "pytest"
+workflow = "team"
+tests = [
+    "test_app.py::test_role_permissions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Composer builds the team"
+text = "From the seed score the composer invites a violist through the Invite collaborator dialog, the violist joins through the link and can edit only the viola staff, and the composer then removes them from the People tab."
+kind = "behavior"
+primary = "workflow"
+workflow = "team"
+tests = [
+    "test_app.py::test_wf_team_violist",
+    "test_app.py::test_wf_team_withdrawn_invite",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Staff cap"
+text = "The composer adds staves with a name, clef, transposition and part up to the published staff cap, and a staff past the cap is refused with the cap message while the score stays unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "score-growth"
+tests = [
+    "test_app.py::test_staff_cap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Measure cap"
+text = "The composer appends measures and note entry extends the score automatically up to the published measure cap, and anything past it is refused with the cap message while the score stays unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "score-growth"
+tests = [
+    "test_app.py::test_measure_cap_append",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Staff settings need a hold"
+text = "Changing a staff's name, clef or transposition succeeds only for the collaborator who holds that staff, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "score-growth"
+tests = [
+    "test_app.py::test_staff_settings_need_hold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Composer grows the orchestra"
+text = "The composer adds a second clarinet staff as a new part, holds and renames it, and appends measures, all by keyboard, and every open screen shows the new staff and measure count."
+kind = "behavior"
+primary = "workflow"
+workflow = "score-growth"
+tests = [
+    "test_app.py::test_wf_score_growth_add_staff",
+    "test_app.py::test_wf_score_growth_invalid_staff_name",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Pitch and duration by keyboard"
+text = "In the score editor, letter keys enter pitches at the caret, digit keys choose durations, the dot key toggles a dot and R enters a rest, following the octave rule in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "note-entry"
+tests = [
+    "test_app.py::test_pitch_and_duration_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Transpose and respell by keyboard"
+text = "Arrow keys move the current note by a semitone or an octave and J cycles its enharmonic spellings in the published order, each saved as a pitch change."
+kind = "behavior"
+primary = "pytest"
+workflow = "note-entry"
+tests = [
+    "test_app.py::test_transpose_and_respell_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Barline-crossing notes become tied notes"
+text = "A note or rest that runs past a barline is shown and returned as tied pieces split at each barline, so no measure of any voice ever holds more than its time signature."
+kind = "behavior"
+primary = "pytest"
+workflow = "note-entry"
+tests = [
+    "test_app.py::test_barline_split_pieces",
+    "test_app.py::test_note_entry_extends_score",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Note entry announcements"
+text = "Each keyboard entry or change is announced in the Entry live region with the exact copy in Feedback states, including the barline split."
+kind = "behavior"
+primary = "pytest"
+workflow = "note-entry"
+tests = [
+    "test_app.py::test_entry_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Composer writes a passage by keyboard"
+text = "The composer selects the oboe staff, enters a phrase whose last note crosses the barline, transposes and respells a note, and hears each step announced, without the mouse."
+kind = "behavior"
+primary = "workflow"
+workflow = "note-entry"
+tests = [
+    "test_app.py::test_wf_note_entry_keyboard_phrase",
+    "test_app.py::test_wf_note_entry_note_pad",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Operation batches and replay"
+text = "Edits are sent as stamped operation batches applied all or nothing, a resent operation is reported as a duplicate with no second effect, and a reused stamp with different content is refused with 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-editing"
+tests = [
+    "test_app.py::test_operation_batches_and_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Convergent order without locks"
+text = "Concurrent inserts into the same measure and voice from different collaborators all survive and land in the same order on every client and the server by the published stamp rule, and no edit is ever blocked by another collaborator's typing or holds."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-editing"
+tests = [
+    "test_app.py::test_concurrent_inserts_converge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Latest stamp wins for note fixes"
+text = "For each note field, the change with the latest stamp wins on every client and the server regardless of arrival order."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-editing"
+tests = [
+    "test_app.py::test_latest_stamp_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Per-collaborator operation throttle"
+text = "Each collaborator's operations are throttled per the rule in Business rules, and a batch over the limit is refused whole with 429 and a Retry-After header in seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-editing"
+tests = [
+    "test_app.py::test_operation_throttle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Queued notes wait visibly"
+text = "When the server throttles, the editor keeps every pending edit in order, shows the wait in the Sync queue region, and sends them after the Retry-After delay without dropping or duplicating any."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-editing"
+tests = [
+    "test_app.py::test_queued_edits_wait_visibly",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Tombstone compaction after causal stability"
+text = "Deleted notes are dropped from storage only after every active collaborator has acknowledged a stamp at or after their deletion, as reported by the sync endpoint."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-editing"
+tests = [
+    "test_app.py::test_tombstone_compaction",
+    "test_app.py::test_compaction_keeps_notes_after_dropped_tombstone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Composer, copyist and player edit the same bars"
+text = "The composer, copyist and oboist type into oboe measure 6 at the same time from three browsers, nobody is blocked, and all three screens and the server end with the same notes in the same order."
+kind = "behavior"
+primary = "workflow"
+workflow = "concurrent-editing"
+tests = [
+    "test_app.py::test_wf_concurrent_editing_same_bars",
+    "test_app.py::test_wf_concurrent_editing_offline_queue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "One hold per staff"
+text = "When several collaborators try to hold overlapping staves at once, exactly one gets every staff it asked for and the others are told who holds them, with nothing partly held."
+kind = "behavior"
+primary = "pytest"
+workflow = "staff-holds"
+tests = [
+    "test_app.py::test_one_hold_per_staff",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Holds end when the live session closes"
+text = "A collaborator's holds are released as soon as their live session closes or drops, as qualified in Business rules, and no server work for that session stays open."
+kind = "behavior"
+primary = "pytest"
+workflow = "staff-holds"
+tests = [
+    "test_app.py::test_holds_end_when_session_closes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Hold race in the editor"
+text = "The composer and copyist both hold Violin I and Violin II at once, one wins, the other sees who won in the Holds region while both keep entering notes that all save, and when the winner closes the tab the other can hold at once."
+kind = "behavior"
+primary = "workflow"
+workflow = "staff-holds"
+tests = [
+    "test_app.py::test_wf_staff_holds_race",
+    "test_app.py::test_wf_staff_holds_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Server-decided presence"
+text = "The presence list and cursors show exactly the entries the server publishes, which expire after the heartbeat-loss window in Business rules and leave every screen when the server says so, whatever the device clock reads."
+kind = "behavior"
+primary = "pytest"
+workflow = "proofread-history"
+tests = [
+    "test_app.py::test_presence_server_decided",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Paged operation history"
+text = "History lists recorded operations newest first in capped pages whose cursors never repeat or skip an entry while new operations keep arriving."
+kind = "behavior"
+primary = "pytest"
+workflow = "proofread-history"
+tests = [
+    "test_app.py::test_history_paging_and_summaries",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Bounded, paged engraving"
+text = "Each engraving request returns a capped number of systems within the published time budget and the editor pages through the rest, so every client shows exactly the server's system breaks."
+kind = "behavior"
+primary = "pytest"
+workflow = "proofread-history"
+tests = [
+    "test_app.py::test_engraving_bounded_and_paged",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Copyist proofreads and traces a tie"
+text = "The copyist respells a note, moves a dynamic above the staff and toggles a tie, then pages back through History filtered to ties to find who last changed it while the composer keeps writing."
+kind = "behavior"
+primary = "workflow"
+workflow = "proofread-history"
+tests = [
+    "test_app.py::test_wf_proofread_history_trace_tie",
+    "test_app.py::test_wf_proofread_history_server_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Hand-placed breaks and page turns"
+text = "The copyist sets system breaks and page turns for a part, the server's part engraving always honours them, and they stay at the same measures after later note edits."
+kind = "behavior"
+primary = "pytest"
+workflow = "part-extraction"
+tests = [
+    "test_app.py::test_part_breaks_honoured",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Part lifecycle"
+text = "Each part moves only along the published part lifecycle, and an extract request in a busy state is refused with 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "part-extraction"
+tests = [
+    "test_app.py::test_part_lifecycle",
+]
+criteria = []
+parameter_cases = [
+    "primary",
+    "storage-down",
+]
+
+[[requirements]]
+id = "DP-43"
+title = "Ready only after the PDF is stored"
+text = "A part shows Ready and offers its PDF only after storage confirms the PDF object, and the PDF has one page per engraved part page."
+kind = "behavior"
+primary = "pytest"
+workflow = "part-extraction"
+tests = [
+    "test_app.py::test_ready_only_after_pdf_stored",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Helix peel extraction"
+text = "On Extract in Helix view the part's staves lift off in score order and spring onto a portrait page with the server's breaks while the rest of the score blurs and dims, and the status chip moves from Rendering to Ready, with the timing in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "part-extraction"
+tests = [
+    "test_app.py::test_helix_peel_extraction",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Extraction without motion and on small screens"
+text = "Under reduced motion extraction is a short crossfade and the playhead is a static measure highlight, and below 768 pixels wide the system strip offers the same Extract action and status chip and ends on the same part page."
+kind = "behavior"
+primary = "pytest"
+workflow = "part-extraction"
+tests = [
+    "test_app.py::test_extraction_reduced_motion_and_phone",
+]
+criteria = []
+parameter_cases = [
+    "reduced-motion",
+    "phone",
+]
+
+[[requirements]]
+id = "DP-46"
+title = "Copyist extracts and downloads the oboe part"
+text = "The copyist adds a page turn to the oboe part, extracts it through the Extract part dialog, watches it become Ready, and downloads a PDF whose pages match the on-screen part."
+kind = "behavior"
+primary = "workflow"
+workflow = "part-extraction"
+tests = [
+    "test_app.py::test_wf_part_extraction_deliver_oboe",
+    "test_app.py::test_wf_part_extraction_stale_chip",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "PDF pending while the renderer is down"
+text = "When Gotenberg is unreachable an extracted part goes to PDF pending with its preview pages readable, never shows Ready or a download, and becomes Ready on the next retry after the renderer returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "pdf-outage"
+tests = [
+    "test_app.py::test_pdf_pending_while_renderer_down",
+    "test_app.py::test_renderer_down_boot_recovers",
+    "test_app.py::test_renderer_down_engraving_bounded",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Copyist works through a renderer outage"
+text = "On the renderer-down instance the copyist extracts the oboe part, reads its preview pages, and sees PDF pending and the renderer notice instead of a download."
+kind = "behavior"
+primary = "workflow"
+workflow = "pdf-outage"
+tests = [
+    "test_app.py::test_wf_pdf_outage_renderer_down",
+    "test_app.py::test_wf_pdf_outage_storage_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Allowlisted expression text"
+text = "Lyrics and expression text keep only the italic, bold and line-break markup published in Business rules, on every screen and in the PDF part."
+kind = "behavior"
+primary = "pytest"
+workflow = "player-part"
+tests = [
+    "test_app.py::test_expression_text_allowlist",
+    "test_app.py::test_player_annotation_flood_throttled",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Section player reads and annotates their part"
+text = "The oboist opens their seat link on a phone, reads the oboe part as a system strip, adds italic expression text to a note, plays their line in context, and extracts their own part."
+kind = "behavior"
+primary = "workflow"
+workflow = "player-part"
+tests = [
+    "test_app.py::test_wf_player_part_phone",
+    "test_app.py::test_wf_player_part_markup_preview",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Sample bank upload checks"
+text = "Sample bank uploads are checked for name, size and content as stated in Server boundary, and a refused file leaves no stored object and no record."
+kind = "behavior"
+primary = "pytest"
+workflow = "sample-banks"
+tests = [
+    "test_app.py::test_sample_bank_checks",
+]
+criteria = []
+parameter_cases = [
+    "limit-wav",
+    "max-name",
+    "sfz-comments",
+    "too-large",
+    "path-name",
+    "bad-extension",
+    "long-name",
+    "unknown-staff",
+    "bad-root",
+    "disguised-wav",
+    "disguised-sfz",
+]
+
+[[requirements]]
+id = "DP-52"
+title = "Loaded only after storage confirms"
+text = "A sample bank is listed and shown as Loaded only after storage confirms the object, and an upload storage cannot take leaves no bank and shows the storage error."
+kind = "behavior"
+primary = "pytest"
+workflow = "sample-banks"
+tests = [
+    "test_app.py::test_bank_loaded_only_after_storage",
+    "test_app.py::test_bank_upload_recovers_with_storage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Composer loads a sample bank"
+text = "The composer uploads a WAV for the oboe staff from the Sample banks tab, sees Uploading and then Loaded, and hears the oboe line played with it."
+kind = "behavior"
+primary = "workflow"
+workflow = "sample-banks"
+tests = [
+    "test_app.py::test_wf_sample_banks_upload_wav",
+    "test_app.py::test_wf_sample_banks_disguised_file",
+    "test_app.py::test_wf_sample_banks_newest_bank_plays",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Playback from the audio clock"
+text = "Playback follows the tempo map with notes scheduled ahead of time, and the playhead and position readout follow the audio clock rather than screen frame timing."
+kind = "behavior"
+primary = "pytest"
+workflow = "playback"
+tests = [
+    "test_app.py::test_playback_follows_audio_clock",
+    "test_app.py::test_playback_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Synth fallback while samples are unreachable"
+text = "When a staff's sample bank cannot be fetched that staff plays with the built-in synth with a visible notice, and it switches back to the samples once they load again."
+kind = "behavior"
+primary = "pytest"
+workflow = "playback"
+tests = [
+    "test_app.py::test_synth_fallback_and_recovery",
+    "test_app.py::test_bank_fetch_unreachable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Composer hears the score through a storage outage"
+text = "On the storage-down instance the composer presses Play, hears the built-in synth with the fallback notice, and playback continues to the end of the score."
+kind = "behavior"
+primary = "workflow"
+workflow = "playback"
+tests = [
+    "test_app.py::test_wf_playback_storage_outage",
+    "test_app.py::test_wf_playback_shortcuts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Live sync paused without the broadcast service"
+text = "When Valkey is unreachable every editor shows the Live sync paused banner, edits still save and reach other collaborators through catch-up within the published delay, and the banner clears when Valkey returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_live_sync_paused_and_restored",
+    "test_app.py::test_catch_up_pages_stable_while_paused",
+    "test_app.py::test_paused_banner_server_decided",
+    "test_app.py::test_paused_banner_survives_restored_timer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Collaborators keep working while live sync is paused"
+text = "On the broadcast-down instance the composer and copyist each enter notes, both see the paused banner, and each sees the other's notes appear without reloading."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-sync"
+tests = [
+    "test_app.py::test_wf_live_sync_paused_editing",
+    "test_app.py::test_wf_live_sync_reload_keeps_edits",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` holds exactly the string keys `_schema` (value `run-manifest-v1`), `install`, `build` and `serve`, and nothing else."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`/app/THIRD_PARTY_NOTICES.md` names every shipped package with its version and licence, plus the Bravura, Fraunces, IBM Plex Sans and IBM Plex Mono fonts with their licences. Shipped packages are the production dependency tree reported by `npm ls --omit=dev --all --json`."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (as defined in IF-02) is licensed MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0 or CC0-1.0, and every bundled font is OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Persistent data lives only in the provided Postgres, MinIO and Valkey. There is no SQLite, no file written to local disk for persistence, and no other service."
+tests = [
+    "test_app.py::test_if_persistence_only_in_services",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service definitions and their environment values are left unmodified."
+tests = [
+    "test_app.py::test_if_services_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "A lockfile `package-lock.json` is committed, and `install` uses `npm ci`."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The browser loads every script, style, font and audio asset from the app's own origin. There are no CDN or third-party URLs."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "All application source, server and browser alike, is TypeScript. Only build tooling configuration may be plain JavaScript."
+tests = [
+    "test_app.py::test_if_typescript_only",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "team"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_team_violist",
+    "test_app.py::test_wf_team_withdrawn_invite",
+    "test_app.py::test_accept_exactly_once",
+    "test_app.py::test_remove_collaborator",
+]
+
+[[workflows]]
+id = "score-growth"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_score_growth_add_staff",
+    "test_app.py::test_staff_cap",
+    "test_app.py::test_staff_settings_need_hold",
+]
+
+[[workflows]]
+id = "note-entry"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_note_entry_keyboard_phrase",
+    "test_app.py::test_entry_announcements",
+    "test_app.py::test_note_entry_extends_score",
+]
+
+[[workflows]]
+id = "concurrent-editing"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_concurrent_editing_same_bars",
+    "test_app.py::test_compaction_keeps_notes_after_dropped_tombstone",
+    "test_app.py::test_operation_throttle",
+    "test_app.py::test_concurrent_inserts_converge",
+    "test_app.py::test_queued_edits_wait_visibly",
+]
+
+[[workflows]]
+id = "staff-holds"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_staff_holds_race",
+    "test_app.py::test_one_hold_per_staff",
+    "test_app.py::test_holds_end_when_session_closes",
+]
+
+[[workflows]]
+id = "proofread-history"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+]
+critical = [
+    "test_app.py::test_wf_proofread_history_trace_tie",
+    "test_app.py::test_history_paging_and_summaries",
+    "test_app.py::test_engraving_bounded_and_paged",
+    "test_app.py::test_presence_server_decided",
+]
+
+[[workflows]]
+id = "part-extraction"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_part_extraction_deliver_oboe",
+    "test_app.py::test_ready_only_after_pdf_stored",
+    "test_app.py::test_extraction_reduced_motion_and_phone",
+]
+checkpoints = [
+    "B8",
+    "B9",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "pdf-outage"
+requirements = [
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_pdf_outage_renderer_down",
+    "test_app.py::test_pdf_pending_while_renderer_down",
+    "test_app.py::test_renderer_down_boot_recovers",
+    "test_app.py::test_renderer_down_engraving_bounded",
+]
+
+[[workflows]]
+id = "player-part"
+requirements = [
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_player_part_phone",
+    "test_app.py::test_expression_text_allowlist",
+    "test_app.py::test_player_annotation_flood_throttled",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "sample-banks"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_sample_banks_upload_wav",
+    "test_app.py::test_wf_sample_banks_newest_bank_plays",
+    "test_app.py::test_sample_bank_checks",
+    "test_app.py::test_bank_loaded_only_after_storage",
+    "test_app.py::test_bank_upload_recovers_with_storage",
+]
+
+[[workflows]]
+id = "playback"
+requirements = [
+    "DP-54",
+    "DP-55",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_playback_storage_outage",
+    "test_app.py::test_synth_fallback_and_recovery",
+    "test_app.py::test_bank_fetch_unreachable",
+    "test_app.py::test_playback_reduced_motion",
+]
+
+[[workflows]]
+id = "live-sync"
+requirements = [
+    "DP-57",
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_wf_live_sync_paused_editing",
+    "test_app.py::test_live_sync_paused_and_restored",
+    "test_app.py::test_catch_up_pages_stable_while_paused",
+    "test_app.py::test_paused_banner_server_decided",
+    "test_app.py::test_paused_banner_survives_restored_timer",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_health_on_every_instance",
+    "test_app.py::test_cross_origin_refused",
+    "test_app.py::test_json_body_limit",
+    "test_app.py::test_never_served_files",
+    "test_app.py::test_error_shape_and_precedence",
+    "test_app.py::test_boots_degrades_and_recovers",
+    "test_app.py::test_three_viewport_layout",
+    "test_app.py::test_dialog_focus_wrap_escape_return",
+    "test_app.py::test_helix_idle_turn",
+    "test_app.py::test_helix_drag_and_reduced_motion",
+    "test_app.py::test_helix_without_webgl",
+]
+checkpoints = [
+    "B8",
+    "B1",
+]
+critical_checkpoints = [
+    "B8",
+]
