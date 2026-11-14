@@ -1,0 +1,1451 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "build-skip-keyboard",
+    "back-hides-page",
+    "calculated-total",
+    "answer-insertion",
+    "cross-checks-summary",
+    "grid-ranking-keyboard",
+    "phone-date-upload",
+    "resume-second-device",
+    "resume-after-change",
+    "live-summary-export",
+    "close-limit-midform",
+    "co-edit-conflict",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+    "B13",
+    "B14",
+    "B21",
+]
+rubric_total_weight = 92
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 5
+B5 = 5
+B6 = 5
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+B13 = 3
+B14 = 3
+B21 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+GRADING_KEY = "gk-nightform-7c41e2"
+APP_TZ = "Europe/London"
+RESUME_TTL_HOURS = "720"
+INVITE_TTL_HOURS = "72"
+SHUFFLE_SEED = "nightform-1"
+FORMULA_MAX_CHARS = "500"
+FORMULA_MAX_DEPTH = "16"
+EXPORT_LINK_TTL_MINUTES = "60"
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Nightform <no-reply@nightform.test>"
+
+[[services]]
+name = "minio"
+
+[services.env]
+UPLOAD_MAX_BYTES = "2097152"
+
+[[services]]
+name = "valkey"
+
+[services.env]
+RESUME_EMAIL_PER_HOUR = "20"
+SUBMIT_PER_MINUTE = "60"
+
+[[outages]]
+id = "valkey-down"
+port = 4174
+url_env = "APP_VALKEY_DOWN_URL"
+
+[outages.env]
+VALKEY_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4176
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+MAILPIT_URL = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Form definition"
+text = "The owner API stores, returns and validates forms in the published form definition shape, and refuses a malformed definition with 422 as listed in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-skip-keyboard"
+tests = [
+    "test_app.py::test_form_definition_owner_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Builder by keyboard"
+text = "An owner adds questions through the Add question dialog and reorders them with Alt+ArrowUp and Alt+ArrowDown using only the keyboard, with the focus moves and announcements given in Interactions."
+kind = "behavior"
+primary = "workflow"
+workflow = "build-skip-keyboard"
+tests = [
+    "test_app.py::test_wf_build_skip_keyboard_happy",
+    "test_app.py::test_wf_build_skip_keyboard_add_dialog_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Rules and jumps"
+text = "The Logic pane saves named show rules and jumps for the selected page or question, and a refused formula shows its exact refusal in `#formula-error` with focus kept in the box."
+kind = "behavior"
+primary = "workflow"
+workflow = "build-skip-keyboard"
+tests = [
+    "test_app.py::test_wf_build_skip_keyboard_formula_refused",
+    "test_app.py::test_formula_refusal_keeps_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Formula refusals and bounds"
+text = "Every formula and insertion is checked at save time against the published refusal list, including the 500-character, 16-level and earlier-questions-only limits, and the answer arrives within one second."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-skip-keyboard"
+tests = [
+    "test_app.py::test_formula_refusals_and_bounds",
+]
+criteria = []
+parameter_cases = [
+    "empty",
+    "ends_early",
+    "bracket",
+    "sum_bracket",
+    "dollar",
+    "quote",
+    "round_args",
+    "if_args",
+    "no_function",
+    "two_numbers",
+    "bare_word",
+    "today_args",
+    "sum_empty",
+    "floor_args",
+    "close_paren",
+    "process_exit",
+    "constructor",
+    "too_long",
+    "too_deep",
+    "chars_at_cap",
+    "depth_at_cap",
+    "unknown_ref",
+    "later_ref",
+    "self_ref",
+    "checkbox_ref",
+    "ranking_ref",
+    "own_rule",
+    "jump_back",
+    "insert_later",
+    "insert_unknown",
+    "insert_ranking",
+]
+
+[[requirements]]
+id = "DP-05"
+title = "Lit path"
+text = "Trial answers in the builder light and skip page-map items, and show `Skipped by` lines, trial values and the path announcement exactly as the server's trial evaluation returns them, discarding any older reply."
+kind = "behavior"
+primary = "workflow"
+workflow = "build-skip-keyboard"
+tests = [
+    "test_app.py::test_wf_build_skip_keyboard_lit_path",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Publishing editions"
+text = "Publish turns the draft into the next numbered edition, is refused while the draft has formula problems, and never changes what live respondents see until it succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-skip-keyboard"
+tests = [
+    "test_app.py::test_publish_editions",
+    "test_app.py::test_wf_build_skip_keyboard_publish_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Page walk"
+text = "The server decides which pages and questions are shown, in which order and with which page count, by the walk in Respondent rules, matching the Supper club table."
+kind = "behavior"
+primary = "pytest"
+workflow = "back-hides-page"
+tests = [
+    "test_app.py::test_supper_walk_table",
+]
+criteria = []
+parameter_cases = [
+    "yes_3",
+    "guests_1",
+    "attending_no",
+    "meal_fish",
+    "guests_blank",
+]
+
+[[requirements]]
+id = "DP-08"
+title = "Hidden answers"
+text = "An answer on a hidden page or question is kept in the part-done response, counts as blank everywhere, returns when shown again and is discarded on submit."
+kind = "behavior"
+primary = "pytest"
+workflow = "back-hides-page"
+tests = [
+    "test_app.py::test_hidden_answers_kept_and_discarded",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Path notice"
+text = "When a commit hides or brings back answered questions, the respondent sees and hears the counted path notice."
+kind = "behavior"
+primary = "workflow"
+workflow = "back-hides-page"
+tests = [
+    "test_app.py::test_wf_back_hides_page_notice",
+    "test_app.py::test_wf_back_hides_page_keyboard_restore",
+    "test_app.py::test_wf_back_hides_page_counts_this_commit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Page moves"
+text = "Next, Back and Submit replace the page at once, move focus to the page heading, announce the page and set the document title."
+kind = "behavior"
+primary = "pytest"
+workflow = "back-hides-page"
+tests = [
+    "test_app.py::test_page_moves_focus_announce_title",
+    "test_app.py::test_wf_back_hides_page_submit_announces_error_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Submit once"
+text = "Submit carries an idempotency key, so a double activation or a replay creates one response and one email copy, and a reused key with another body is refused with 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "back-hides-page"
+tests = [
+    "test_app.py::test_submit_idempotent",
+    "test_app.py::test_wf_back_hides_page_double_submit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Email copy"
+text = "A submitted response with a copy address queues one email copy in the same transaction, listing shown questions with filled-in labels and leaving out hidden calculated fields and internal notes."
+kind = "behavior"
+primary = "pytest"
+workflow = "back-hides-page"
+tests = [
+    "test_app.py::test_email_copy_contents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Supper club walk"
+text = "A respondent walks the Supper club form forward and back, sees pages appear and disappear with the right page counts and notices, and submits, and the owner's response view lists only the answers that count."
+kind = "behavior"
+primary = "workflow"
+workflow = "back-hides-page"
+tests = [
+    "test_app.py::test_wf_back_hides_page_walk",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Exact arithmetic"
+text = "Formulas compute with exact decimals, the published operator precedence and the published rounding, matching every arithmetic and rounding table in Formula language."
+kind = "behavior"
+primary = "pytest"
+workflow = "calculated-total"
+tests = [
+    "test_app.py::test_formula_arithmetic",
+]
+criteria = []
+parameter_cases = [
+    "add",
+    "mul",
+    "round_2675",
+    "round_1005",
+    "round_neg",
+    "round_tens",
+    "precedence",
+    "unary",
+    "power_right",
+    "brackets",
+    "mod",
+    "mod_neg",
+    "div",
+    "div_twelve",
+    "power_fraction",
+    "div_zero",
+    "mod_zero",
+    "power_big",
+    "too_large",
+    "floor",
+    "ceil",
+    "bad_date",
+    "text_plus",
+    "places_7_3",
+    "places_one",
+    "places_0125",
+    "places_25",
+    "places_19999",
+]
+
+[[requirements]]
+id = "DP-15"
+title = "Functions and blank answers"
+text = "Every published function, the blank rules and the truth rule give the published results, and a failure shows its published reason."
+kind = "behavior"
+primary = "pytest"
+workflow = "calculated-total"
+tests = [
+    "test_app.py::test_formula_functions_and_blanks",
+]
+criteria = []
+parameter_cases = [
+    "upper",
+    "lower",
+    "trim",
+    "len",
+    "text_eq",
+    "join",
+    "kinds_eq",
+    "days",
+    "days_neg",
+    "add_days",
+    "add_days_feb",
+    "date_cmp",
+    "today",
+    "days_today",
+    "due",
+    "blank_plus",
+    "blank_times",
+    "blank_join",
+    "blank_eq_zero",
+    "blank_eq_empty",
+    "blank_gt",
+    "blank_lt",
+    "blank_ne",
+    "blank_fn",
+    "sum",
+    "avg",
+    "min",
+    "max_blank",
+    "count",
+    "round_blank",
+    "ref_blank",
+    "days_blank",
+    "not_blank",
+    "if_blank",
+    "len_blank",
+]
+
+[[requirements]]
+id = "DP-16"
+title = "Calculated display"
+text = "A calculated field shows its value with its places, prefix and suffix, or the not-calculated text when blank, and later formulas use the unrounded value."
+kind = "behavior"
+primary = "pytest"
+workflow = "calculated-total"
+tests = [
+    "test_app.py::test_calculated_display_and_unrounded",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Live calculated fields"
+text = "On the Bakery form each commit updates every shown calculated field, announces changed values and applies rules that use them, while a hidden field never appears and a late reply is ignored."
+kind = "behavior"
+primary = "workflow"
+workflow = "calculated-total"
+tests = [
+    "test_app.py::test_wf_calculated_total_live",
+    "test_app.py::test_wf_calculated_total_late_reply",
+    "test_app.py::test_wf_calculated_total_joined_announcement",
+    "test_app.py::test_wf_calculated_total_blank_answers",
+    "test_app.py::test_wf_calculated_total_phone_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Answer insertion"
+text = "`{{key}}` in labels, help, page titles and check messages inserts the effective answer as plain text by the published display rules, or the not-answered text when the answer is blank or hidden."
+kind = "behavior"
+primary = "pytest"
+workflow = "answer-insertion"
+tests = [
+    "test_app.py::test_answer_insertion_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Inserted text on screen"
+text = "Inserted text updates on each commit, changes everywhere when an earlier answer changes, and appears in accessible names and error messages."
+kind = "behavior"
+primary = "workflow"
+workflow = "answer-insertion"
+tests = [
+    "test_app.py::test_wf_answer_insertion_live",
+    "test_app.py::test_wf_answer_insertion_error_message",
+    "test_app.py::test_wf_answer_insertion_page_title_keyboard",
+    "test_app.py::test_wf_answer_insertion_same_page_keyboard",
+    "test_app.py::test_wf_answer_insertion_kinds_keyboard",
+    "test_app.py::test_wf_answer_insertion_enter_slow_commit",
+    "test_app.py::test_wf_answer_insertion_failed_calculation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Field checks"
+text = "Next and Submit run the published checks in order and report only the first failing check per question with its exact message."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-checks-summary"
+tests = [
+    "test_app.py::test_field_checks_first_failure",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Cross-answer checks"
+text = "A form-level check reports its message against its target only when all its inputs are shown, answered and free of errors, and exact decimals decide it."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-checks-summary"
+tests = [
+    "test_app.py::test_cross_answer_checks_budget",
+]
+criteria = []
+parameter_cases = [
+    "sum_333_334",
+    "sum_101_202",
+    "sum_01_02",
+    "sum_999",
+    "sum_101",
+    "sum_701",
+    "sum_11_22",
+    "other_blank",
+    "rent_blank",
+]
+
+[[requirements]]
+id = "DP-22"
+title = "Error summary"
+text = "A failed Next or Submit shows the focused error summary with one link per error in page order, inline messages, the title prefix and the alert, and each link moves focus to its field as published."
+kind = "behavior"
+primary = "workflow"
+workflow = "cross-checks-summary"
+tests = [
+    "test_app.py::test_wf_cross_checks_summary_errors",
+    "test_app.py::test_wf_cross_checks_summary_keyboard_phone",
+    "test_app.py::test_wf_cross_checks_summary_rebuilds_keyboard",
+    "test_app.py::test_wf_cross_checks_summary_submit_opens_first_error_page",
+    "test_app.py::test_wf_cross_checks_summary_link_focus_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Grid keyboard"
+text = "On wide screens a grid question is one tab stop that arrow, Home, End and Ctrl keys move through, and only Space or Enter selects."
+kind = "behavior"
+primary = "pytest"
+workflow = "grid-ranking-keyboard"
+tests = [
+    "test_app.py::test_grid_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Ranking keyboard"
+text = "A ranking item is picked up, moved, dropped or put back by keyboard, or moved by its buttons, with the exact announcements and focus kept on the item."
+kind = "behavior"
+primary = "pytest"
+workflow = "grid-ranking-keyboard"
+tests = [
+    "test_app.py::test_ranking_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Scale keyboard"
+text = "A scale question is one radio group in which arrow, Home, End and digit keys choose a number without wrapping."
+kind = "behavior"
+primary = "pytest"
+workflow = "grid-ranking-keyboard"
+tests = [
+    "test_app.py::test_scale_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Date picker"
+text = "The Choose a date dialog opens on the right day, moves by the published keys, refuses days outside the allowed range, keeps focus inside and returns focus to its button."
+kind = "behavior"
+primary = "pytest"
+workflow = "grid-ranking-keyboard"
+tests = [
+    "test_app.py::test_date_picker",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Shuffled options"
+text = "Shuffled choice and checkbox options appear in the published hash order for every respondent, while the summary and exports keep definition order."
+kind = "behavior"
+primary = "pytest"
+workflow = "grid-ranking-keyboard"
+tests = [
+    "test_app.py::test_shuffled_options",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Keyboard-only fill"
+text = "A respondent completes grid, ranking, scale and date questions and the error summary using only the keyboard, and the stored answers match what was chosen."
+kind = "behavior"
+primary = "workflow"
+workflow = "grid-ranking-keyboard"
+tests = [
+    "test_app.py::test_wf_grid_ranking_keyboard_fill",
+    "test_app.py::test_wf_grid_ranking_keyboard_error_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Phone respondent layout"
+text = "At 767 pixels wide or less a grid becomes one card per row, the date picker becomes a full-width sheet, every target is at least 44 by 44 pixels and nothing scrolls sideways."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-date-upload"
+tests = [
+    "test_app.py::test_phone_layout",
+    "test_app.py::test_wf_phone_date_upload_date_sheet_narrow",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "File answers"
+text = "A file answer counts as attached only after storage confirms the object, is stored byte for byte, and can be downloaded only by the form's owner and co-editors."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-date-upload"
+tests = [
+    "test_app.py::test_file_answers",
+    "test_app.py::test_file_size_limit",
+    "test_app.py::test_file_size_text_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Storage outage"
+text = "When storage is unreachable, an upload shows the published failure and attaches nothing, other answers stay, a required file blocks Next, and Export CSV shows its own failure."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-date-upload"
+tests = [
+    "test_app.py::test_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Phone fill with upload"
+text = "A respondent on a phone fills the date, grid, ranking and file questions by touch and submits, and the owner downloads the same file."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone-date-upload"
+tests = [
+    "test_app.py::test_wf_phone_date_upload_touch",
+    "test_app.py::test_wf_phone_date_upload_outage",
+    "test_app.py::test_wf_phone_date_upload_progress_and_remove",
+    "test_app.py::test_wf_phone_date_upload_sheet_limits_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Save and finish later"
+text = "Save and finish later commits the page, emails one resume link with its expiry and shows the published status, or the queued notice when mail cannot be delivered."
+kind = "behavior"
+primary = "workflow"
+workflow = "resume-second-device"
+tests = [
+    "test_app.py::test_wf_resume_second_device_handover",
+    "test_app.py::test_wf_resume_second_device_mail_down",
+    "test_app.py::test_wf_resume_second_device_save_dialog_keyboard",
+    "test_app.py::test_wf_resume_second_device_save_dialog_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Resume window"
+text = "A resume link works until exactly the resume window after the last save, is refused one second later with the expired page, and each save moves the expiry."
+kind = "behavior"
+primary = "pytest"
+workflow = "resume-second-device"
+tests = [
+    "test_app.py::test_resume_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "One device at a time"
+text = "Opening a resume link moves the part-done response to that browser, and the browser that lost it is refused with 409 and disabled controls without overwriting anything."
+kind = "behavior"
+primary = "pytest"
+workflow = "resume-second-device"
+tests = [
+    "test_app.py::test_one_device_at_a_time",
+    "test_app.py::test_wf_resume_second_device_phone_takeover",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Private part-done responses"
+text = "A part-done response can be read only through its own device or link, never by the form's owner or anyone else, and its link stops working once it is submitted."
+kind = "behavior"
+primary = "pytest"
+workflow = "resume-second-device"
+tests = [
+    "test_app.py::test_part_done_private",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Resume onto a newer edition"
+text = "A link opened after a newer edition went live moves the response to that edition, keeps only answers that are still valid, and shows the published change notice on the published page."
+kind = "behavior"
+primary = "pytest"
+workflow = "resume-after-change"
+tests = [
+    "test_app.py::test_resume_onto_newer_edition",
+    "test_app.py::test_resume_drops_text_over_new_cap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Responses pinned to editions"
+text = "Every submitted response always shows the wording, options and calculated results of the edition it was submitted against."
+kind = "behavior"
+primary = "pytest"
+workflow = "resume-after-change"
+tests = [
+    "test_app.py::test_response_pinned_to_edition",
+    "test_app.py::test_wf_resume_after_change_pinned_response_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Edition change journey"
+text = "An owner publishes a changed edition while one respondent is mid-form and another holds a resume link, and each respondent sees and submits the edition the rules give them."
+kind = "behavior"
+primary = "workflow"
+workflow = "resume-after-change"
+tests = [
+    "test_app.py::test_wf_resume_after_change_two_respondents",
+    "test_app.py::test_wf_resume_after_change_link_after_submit",
+    "test_app.py::test_wf_resume_after_change_opens_dropped_page",
+    "test_app.py::test_wf_resume_after_change_out_of_range_answer",
+    "test_app.py::test_wf_resume_after_change_enter_slow_commit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Summary numbers"
+text = "The summary's counts, percentages, means and mean positions match the stored submitted responses under the published rounding, across all editions and after deletions."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-summary-export"
+tests = [
+    "test_app.py::test_summary_numbers",
+    "test_app.py::test_wf_live_summary_export_table_chart_phone",
+    "test_app.py::test_summary_counts_are_number_text",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Live summary"
+text = "An open summary updates its count, tables, chart bars and announcement within 2 seconds of a submit or delete without a reload, and agrees with itself after a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-summary-export"
+tests = [
+    "test_app.py::test_wf_live_summary_export_live",
+    "test_app.py::test_wf_live_summary_export_two_browsers",
+    "test_app.py::test_wf_live_summary_export_keyboard_delete",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "CSV export"
+text = "Export CSV stores the file in object storage and serves it with the published columns, row order, encoding and cell formats."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-summary-export"
+tests = [
+    "test_app.py::test_csv_export",
+    "test_app.py::test_wf_live_summary_export_csv",
+    "test_app.py::test_csv_text_calculation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "CSV formula neutralising"
+text = "Text cells beginning with `=`, `+`, `-`, `@`, tab or carriage return get a leading `'` in every export, as qualified in CSV export."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-summary-export"
+tests = [
+    "test_app.py::test_csv_formula_neutralising",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Closing rules"
+text = "The server clock and the submitted count decide whether a form is open, so a submit at or after the closing time is refused whatever the browser shows, and closing and reopening follow the form state machine."
+kind = "behavior"
+primary = "pytest"
+workflow = "close-limit-midform"
+tests = [
+    "test_app.py::test_closing_time_and_state_machine",
+    "test_app.py::test_wf_close_limit_midform_owner_badge_reopen",
+    "test_app.py::test_wf_close_limit_midform_settings_dialog_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Response limit"
+text = "Submissions for the last places are settled one at a time in one transaction, so concurrent submits never accept more responses than the limit."
+kind = "behavior"
+primary = "pytest"
+workflow = "close-limit-midform"
+tests = [
+    "test_app.py::test_response_limit_concurrency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Closed panel"
+text = "A respondent who opens a closed form, or has it open when it closes, sees the closed panel with focus on its heading and the published texts, arriving live within 2 seconds."
+kind = "behavior"
+primary = "workflow"
+workflow = "close-limit-midform"
+tests = [
+    "test_app.py::test_wf_close_limit_midform_time",
+    "test_app.py::test_wf_close_limit_midform_limit",
+    "test_app.py::test_wf_close_limit_midform_last_place_race",
+    "test_app.py::test_wf_close_limit_midform_close_now_message",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Invitations"
+text = "An owner invites a co-editor by email with a single-use link that expires after the invitation window, and the reply never reveals whether the email has an account."
+kind = "behavior"
+primary = "pytest"
+workflow = "co-edit-conflict"
+tests = [
+    "test_app.py::test_invitations",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Live co-editing"
+text = "Every co-editing change gets one server order from the form's sequence, every open builder on any app instance applies changes in that order within 2 seconds, and presence is shown."
+kind = "behavior"
+primary = "pytest"
+workflow = "co-edit-conflict"
+tests = [
+    "test_app.py::test_live_coediting_order_and_presence",
+    "test_app.py::test_wf_co_edit_conflict_two_builders",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Same-field conflicts"
+text = "When two editors change the same field from the same revision, the later change in server order wins, and the earlier editor sees the value replaced and the published notice with focus unmoved."
+kind = "behavior"
+primary = "workflow"
+workflow = "co-edit-conflict"
+tests = [
+    "test_app.py::test_wf_co_edit_conflict_same_field",
+    "test_app.py::test_wf_co_edit_conflict_typing_kept",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Co-editor access"
+text = "Co-editors can edit, try out and read a form but cannot publish, change settings, invite or delete, and a closed form's builder answers 404 to them while the owner keeps it."
+kind = "behavior"
+primary = "pytest"
+workflow = "co-edit-conflict"
+tests = [
+    "test_app.py::test_coeditor_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Accounts"
+text = "People sign up, sign in and sign out with email and password, a wrong email or password gets one message, and owner pages require a session."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_accounts",
+    "test_app.py::test_wf_cross_cutting_signup_new_form",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Owner pages and not-found"
+text = "Anything a person may not open answers 404 with the not-found copy, never 403, following the one error precedence in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_not_found_and_precedence",
+    "test_app.py::test_wf_cross_cutting_not_found_page",
+    "test_app.py::test_wf_cross_cutting_signed_out_builder_not_found",
+    "test_app.py::test_too_large_before_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Live regions and landmarks"
+text = "Every page has one main landmark, one h1, the two named live regions and the published navigation, and every announcement uses its exact published sentence."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_landmarks_and_live_regions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Published layouts"
+text = "At 375 by 812, 768 by 1024 and 1280 by 800 each screen shows its published layout and order, and no width from 320 to 1440 scrolls sideways."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_published_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Motion and reduced motion"
+text = "Page changes and the Lit path run their named animations with the published timing, and with reduced motion none of them run while text, focus and announcements stay the same."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_and_reduced_motion",
+    "test_app.py::test_wf_cross_cutting_loading_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Valkey and Mailpit outages"
+text = "With Valkey down, submissions still work and the builder and summary show their paused texts, and with Mailpit down, mail waits in a durable outbox and the queued notice shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_valkey_down",
+    "test_app.py::test_mailpit_down_outbox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Grading routes"
+text = "The grading seed and clock routes create the published records and set the server clock only when given the grading key, and answer 404 without it."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Platform and health"
+text = "The app installs, builds and serves from the run manifest on the published port, answers the health and services routes, and serves live updates only over `/ws` on the same port."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_services_and_ws",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Configuration from the environment"
+text = "Every variable listed in Configuration and secrets is read from the environment at start and never hard-coded, and no credential, service URL or grading key reaches the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Dark-room look"
+text = "The marketing page, builder, summary, responses and respondent screens carry the dark-room design of Visual design: one plum-black ground, a single lit item and hot pink only on the primary action, chart bars, path marker and error markers."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S3",
+    "B13",
+    "B14",
+    "B21",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\", and the app runs from it alone."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) with its version and licence, plus the Work Sans font."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0, and the font is under OFL-1.1, with its licence file committed."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in the provided Postgres, Valkey and MinIO and sends mail only through the provided SMTP server: no SQLite, no other database or queue, and no files written for app data."
+tests = [
+    "test_app.py::test_if_datastores_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "All app source is TypeScript, package-lock.json is committed, and install uses npm ci."
+tests = [
+    "test_app.py::test_if_typescript_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The browser loads nothing from another origin at runtime, and no service worker is registered."
+tests = [
+    "test_app.py::test_if_no_external_runtime_loads",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The provided service configuration files (the dev compose services and their environment) are left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "No grading-only behaviour exists outside the published grading routes and the GRADING_KEY they require."
+tests = [
+    "test_app.py::test_if_no_grading_only_behaviour",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "build-skip-keyboard"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+]
+critical = [
+    "test_app.py::test_wf_build_skip_keyboard_happy",
+    "test_app.py::test_wf_build_skip_keyboard_formula_refused",
+    "test_app.py::test_wf_build_skip_keyboard_lit_path",
+    "test_app.py::test_formula_refusals_and_bounds",
+    "test_app.py::test_formula_refusal_keeps_focus",
+    "test_app.py::test_wf_build_skip_keyboard_publish_refused",
+    "test_app.py::test_wf_build_skip_keyboard_add_dialog_tab",
+]
+checkpoints = [
+    "B6",
+    "B7",
+    "B14",
+]
+critical_checkpoints = [
+    "B14",
+]
+
+[[workflows]]
+id = "back-hides-page"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_back_hides_page_walk",
+    "test_app.py::test_wf_back_hides_page_notice",
+    "test_app.py::test_wf_back_hides_page_double_submit",
+    "test_app.py::test_page_moves_focus_announce_title",
+    "test_app.py::test_wf_back_hides_page_keyboard_restore",
+    "test_app.py::test_wf_back_hides_page_counts_this_commit",
+    "test_app.py::test_wf_back_hides_page_submit_announces_error_page",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "calculated-total"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_calculated_total_live",
+    "test_app.py::test_wf_calculated_total_late_reply",
+    "test_app.py::test_formula_arithmetic",
+    "test_app.py::test_wf_calculated_total_joined_announcement",
+    "test_app.py::test_wf_calculated_total_blank_answers",
+    "test_app.py::test_wf_calculated_total_phone_reduced_motion",
+]
+
+[[workflows]]
+id = "answer-insertion"
+requirements = [
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_answer_insertion_live",
+    "test_app.py::test_wf_answer_insertion_error_message",
+    "test_app.py::test_wf_answer_insertion_page_title_keyboard",
+    "test_app.py::test_wf_answer_insertion_same_page_keyboard",
+    "test_app.py::test_wf_answer_insertion_kinds_keyboard",
+    "test_app.py::test_wf_answer_insertion_enter_slow_commit",
+    "test_app.py::test_wf_answer_insertion_failed_calculation",
+]
+
+[[workflows]]
+id = "cross-checks-summary"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_cross_checks_summary_errors",
+    "test_app.py::test_wf_cross_checks_summary_keyboard_phone",
+    "test_app.py::test_wf_cross_checks_summary_rebuilds_keyboard",
+    "test_app.py::test_wf_cross_checks_summary_submit_opens_first_error_page",
+    "test_app.py::test_wf_cross_checks_summary_link_focus_touch",
+]
+checkpoints = [
+    "B5",
+    "B13",
+]
+critical_checkpoints = [
+    "B13",
+]
+
+[[workflows]]
+id = "grid-ranking-keyboard"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_grid_ranking_keyboard_fill",
+    "test_app.py::test_wf_grid_ranking_keyboard_error_links",
+    "test_app.py::test_grid_keyboard",
+    "test_app.py::test_ranking_keyboard",
+    "test_app.py::test_scale_keyboard",
+    "test_app.py::test_date_picker",
+]
+
+[[workflows]]
+id = "phone-date-upload"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_phone_date_upload_touch",
+    "test_app.py::test_wf_phone_date_upload_outage",
+    "test_app.py::test_file_answers",
+    "test_app.py::test_phone_layout",
+    "test_app.py::test_wf_phone_date_upload_progress_and_remove",
+    "test_app.py::test_wf_phone_date_upload_sheet_limits_touch",
+    "test_app.py::test_wf_phone_date_upload_date_sheet_narrow",
+    "test_app.py::test_file_size_text_exact",
+]
+
+[[workflows]]
+id = "resume-second-device"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_resume_second_device_handover",
+    "test_app.py::test_wf_resume_second_device_mail_down",
+    "test_app.py::test_resume_window",
+    "test_app.py::test_part_done_private",
+    "test_app.py::test_wf_resume_second_device_phone_takeover",
+    "test_app.py::test_wf_resume_second_device_save_dialog_keyboard",
+    "test_app.py::test_wf_resume_second_device_save_dialog_tab",
+]
+
+[[workflows]]
+id = "resume-after-change"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_resume_after_change_two_respondents",
+    "test_app.py::test_wf_resume_after_change_link_after_submit",
+    "test_app.py::test_response_pinned_to_edition",
+    "test_app.py::test_wf_resume_after_change_opens_dropped_page",
+    "test_app.py::test_wf_resume_after_change_out_of_range_answer",
+    "test_app.py::test_wf_resume_after_change_pinned_response_page",
+    "test_app.py::test_wf_resume_after_change_enter_slow_commit",
+    "test_app.py::test_resume_drops_text_over_new_cap",
+]
+
+[[workflows]]
+id = "live-summary-export"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_live_summary_export_live",
+    "test_app.py::test_wf_live_summary_export_csv",
+    "test_app.py::test_csv_formula_neutralising",
+    "test_app.py::test_csv_export",
+    "test_app.py::test_wf_live_summary_export_two_browsers",
+    "test_app.py::test_wf_live_summary_export_table_chart_phone",
+    "test_app.py::test_wf_live_summary_export_keyboard_delete",
+    "test_app.py::test_summary_counts_are_number_text",
+    "test_app.py::test_csv_text_calculation",
+]
+checkpoints = [
+    "B10",
+    "B11",
+    "B21",
+]
+critical_checkpoints = [
+    "B21",
+]
+
+[[workflows]]
+id = "close-limit-midform"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_close_limit_midform_time",
+    "test_app.py::test_wf_close_limit_midform_limit",
+    "test_app.py::test_response_limit_concurrency",
+    "test_app.py::test_wf_close_limit_midform_last_place_race",
+    "test_app.py::test_wf_close_limit_midform_owner_badge_reopen",
+    "test_app.py::test_wf_close_limit_midform_close_now_message",
+    "test_app.py::test_wf_close_limit_midform_settings_dialog_tab",
+]
+
+[[workflows]]
+id = "co-edit-conflict"
+requirements = [
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_co_edit_conflict_same_field",
+    "test_app.py::test_wf_co_edit_conflict_two_builders",
+    "test_app.py::test_coeditor_access",
+    "test_app.py::test_live_coediting_order_and_presence",
+    "test_app.py::test_wf_co_edit_conflict_typing_kept",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_signup_new_form",
+    "test_app.py::test_wf_cross_cutting_not_found_page",
+    "test_app.py::test_health_services_and_ws",
+    "test_app.py::test_landmarks_and_live_regions",
+    "test_app.py::test_published_layouts",
+    "test_app.py::test_motion_and_reduced_motion",
+    "test_app.py::test_valkey_down",
+    "test_app.py::test_wf_cross_cutting_signed_out_builder_not_found",
+    "test_app.py::test_too_large_before_not_found",
+    "test_app.py::test_wf_cross_cutting_loading_state",
+]
+checkpoints = [
+    "B1",
+    "B4",
+]
