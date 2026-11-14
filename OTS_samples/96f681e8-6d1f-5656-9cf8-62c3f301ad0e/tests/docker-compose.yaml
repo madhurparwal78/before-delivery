@@ -1,0 +1,106 @@
+services:
+  main:
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    security_opt:
+    - seccomp=unconfined
+    - systempaths=unconfined
+    - apparmor=unconfined
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      wiremock:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+      ntfy:
+        condition: service_healthy
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-5c1e8a37
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.7@sha256:4388e2379b7e870a447adbe7b80bd61f5fbf04e925832b19669fda4957f05a81
+    command:
+    - start-dev
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: gf-kc-boot
+      KC_BOOTSTRAP_ADMIN_PASSWORD: gf-kc-boot-4f81a2c7
+      KC_HEALTH_ENABLED: 'true'
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\r\n\r\n' >&3 && timeout 5 cat <&3
+        | grep -q UP
+      interval: 5s
+      timeout: 10s
+      retries: 36
+      start_period: 30s
+  wiremock:
+    image: wiremock/wiremock:3.13.2@sha256:0d4ecb3e4dc8213fd7a4d37d6a78f6e6b553a6d2e15bd51b0999781282ac61b3
+    entrypoint:
+    - sh
+    - -c
+    - if [ -n "$$WIREMOCK_STUBS" ]; then printf '%s' "$$WIREMOCK_STUBS" > /home/wiremock/mappings/baseline.json;
+      fi; exec /docker-entrypoint.sh --port 8080 --disable-banner --max-request-journal-entries 20000 --admin-api-basic-auth
+      gfkit-admin:gfkit-wm-4fce2a657cbe2442
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -sf
+      - -u
+      - gfkit-admin:gfkit-wm-4fce2a657cbe2442
+      - http://127.0.0.1:8080/__admin/health
+      interval: 2s
+      timeout: 5s
+      retries: 60
+    environment:
+      WIREMOCK_STUBS: '{"mappings": [{"request": {"method": "POST", "urlPath": "/v1/authorizations"}, "response":
+        {"jsonBody": {"id": "auth_demo_0001", "status": "authorized"}, "status": 201}}, {"request": {"method": "POST",
+        "urlPathPattern": "/v1/authorizations/[^/]+/void"}, "response": {"jsonBody": {"id": "auth_demo_0001", "status":
+        "voided"}, "status": 200}}, {"request": {"method": "POST", "urlPath": "/v1/captures"}, "response": {"jsonBody":
+        {"id": "cap_demo_0001", "status": "captured"}, "status": 201}}, {"request": {"method": "POST", "urlPath":
+        "/v1/charges"}, "response": {"jsonBody": {"id": "chg_demo_0001", "status": "captured"}, "status": 201}}]}'
+  mailpit:
+    image: axllent/mailpit:v1.27@sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68
+    healthcheck:
+      test:
+      - CMD
+      - /mailpit
+      - readyz
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  ntfy:
+    image: binwiederhier/ntfy:v2.36.0@sha256:fb48c413eb11d50339962b5d62cddce0f800e7f77c626d638a7c20cb7e9c4465
+    command:
+    - serve
+    environment:
+      NTFY_AUTH_FILE: /tmp/ntfy-auth.db
+      NTFY_AUTH_DEFAULT_ACCESS: deny-all
+      NTFY_VISITOR_REQUEST_LIMIT_EXEMPT_HOSTS: 0.0.0.0/0
+      NTFY_VISITOR_TOPIC_CREATION_LIMIT_BURST: '100000'
+      NTFY_AUTH_USERS: gfkit-admin:$$2a$$10$$X2Y40pdk5bhKVAWqN8CUuezX42K2J7bOmFECanwYwJCuYu7v/h.SG:admin
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - --spider
+      - http://127.0.0.1/v1/health
+      interval: 2s
+      timeout: 5s
+      retries: 30

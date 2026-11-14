@@ -1,0 +1,1557 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 77
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "hold-and-pay",
+    "payment-outage",
+    "split-shares",
+    "hold-expiry",
+    "open-match",
+    "match-cutoff",
+    "cancel-booking",
+    "desk-day",
+    "coach-lessons",
+    "manager-settings",
+    "grid-browse",
+    "notice-outage",
+    "history-credits",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B16",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 95
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "keycloak", env = {} },
+    { name = "wiremock", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Marlowe Yard Padel Club <desk@marloweyard.test>" } },
+    { name = "ntfy", env = {} },
+]
+
+[criterion_weights]
+B1 = 3
+B2 = 3
+B16 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+B13 = 5
+B14 = 3
+B15 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 5
+Q5 = 3
+Q6 = 3
+Q7 = 5
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "courtpay-down"
+port = 4174
+url_env = "APP_COURTPAY_DOWN_URL"
+
+[outages.env]
+WIREMOCK_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_courtpay_down"
+
+[[outages]]
+id = "mail-down"
+port = 4175
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+NOTICE_RETRY_SECONDS = "1,1,1,1"
+DATABASE_URL = "${DATABASE_URL}_mail_down"
+
+[[outages]]
+id = "push-down"
+port = 4176
+url_env = "APP_PUSH_DOWN_URL"
+
+[outages.env]
+NTFY_URL = "http://127.0.0.1:9"
+NOTICE_RETRY_SECONDS = "1,1,1,1"
+DATABASE_URL = "${DATABASE_URL}_push_down"
+
+[[outages]]
+id = "short-timer"
+port = 4177
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+HOLD_SECONDS = "8"
+MATCH_CUTOFF_SECONDS = "90"
+FREE_CANCEL_SECONDS = "120"
+SHARE_SETTLE_SECONDS = "60"
+AUTH_REFRESH_SECONDS = "20"
+NO_SHOW_GRACE_SECONDS = "30"
+SLOT_STEP_MINUTES = "1"
+OPENING_HOURS = "00:00-24:00"
+NOTICE_RETRY_SECONDS = "1,1,1,1"
+DATABASE_URL = "${DATABASE_URL}_short"
+
+[[outages]]
+id = "short-timer-east"
+port = 4178
+url_env = "APP_SHORT_EAST_URL"
+
+[outages.env]
+HOLD_SECONDS = "8"
+MATCH_CUTOFF_SECONDS = "90"
+FREE_CANCEL_SECONDS = "120"
+SHARE_SETTLE_SECONDS = "60"
+AUTH_REFRESH_SECONDS = "20"
+NO_SHOW_GRACE_SECONDS = "30"
+SLOT_STEP_MINUTES = "1"
+OPENING_HOURS = "00:00-24:00"
+NOTICE_RETRY_SECONDS = "1,1,1,1"
+CLUB_TIMEZONE = "Pacific/Auckland"
+DATABASE_URL = "${DATABASE_URL}_short_east"
+
+[[requirements]]
+id = "DP-01"
+title = "Slot hold"
+text = "A signed-in player holds a free court slot with POST /api/holds, which creates a held booking only after the payment provider authorises the organiser's guarantee for the full total, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-and-pay"
+tests = [
+    "test_app.py::test_hold_needs_authorisation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Per-minute pricing"
+text = "Every quote, hold, match and lesson total is priced minute by minute, in whole cents, at the off-peak or peak rate in club time of the pricing version in force on the slot's club date."
+kind = "behavior"
+primary = "pytest"
+workflow = "grid-browse"
+tests = [
+    "test_app.py::test_quote_per_minute",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Paid only on provider capture"
+text = "A held booking becomes paid only when the provider's capture of the organiser's amount (the total as a final capture, or the first share as a non-final capture on a split booking) answers captured while the hold is still live, and any other answer leaves it held, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-and-pay"
+tests = [
+    "test_app.py::test_paid_only_on_capture",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "One winner per slot"
+text = "Of several players holding overlapping slots on the same court at once, exactly one gets the hold, and every other gets 409 SLOT_TAKEN and has its authorisation voided."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-and-pay"
+tests = [
+    "test_app.py::test_one_winner_per_slot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Idempotent payments"
+text = "Holds, payments, share payments, match creation and joins sent with an Idempotency-Key replay a stored 2xx, 402, 409 or 502 answer for the same body, run afresh after a 503 or any other unstored answer, and answer 409 IDEMPOTENCY_CONFLICT for a different body, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "payment-outage"
+tests = [
+    "test_app.py::test_idempotent_payment_actions",
+    "test_app.py::test_idempotent_repeat_while_running_runs_afresh",
+    "test_app.py::test_idempotent_repeat_waits_for_slow_first",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Hold survives a closed tab"
+text = "A player who closes the tab while the payment provider is still answering leaves no database work open once the request ends, and a hold the provider accepted still runs its full length."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-and-pay"
+tests = [
+    "test_app.py::test_hold_survives_closed_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Hold and pay journey"
+text = "A player picks a free cell, holds it, pays in full and sees the cell read Your booking with the paid announcement."
+kind = "behavior"
+primary = "workflow"
+workflow = "hold-and-pay"
+tests = [
+    "test_app.py::test_wf_hold_and_pay_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Payment outage"
+text = "With the payment provider unreachable, no hold starts and every payment action answers 503 PAYMENT_UNAVAILABLE with its published copy, leaving confirmed payments untouched, and the first action after the provider returns, including a retry with the same Idempotency-Key, succeeds with no restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "payment-outage"
+tests = [
+    "test_app.py::test_wf_payment_outage_recovers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Four-way split"
+text = "A booking with three co-players splits its total into four shares of floor(total/4) cents, with the 0 to 3 cent remainder on the organiser's share."
+kind = "behavior"
+primary = "pytest"
+workflow = "split-shares"
+tests = [
+    "test_app.py::test_four_way_split",
+]
+criteria = []
+parameter_cases = [
+    "60",
+    "90",
+    "120",
+]
+
+[[requirements]]
+id = "DP-10"
+title = "Share emails"
+text = "When a split booking becomes paid, each of the three co-players receives one email naming their own share and carrying their own pay-your-share link, with no other co-player's name or email and no organiser email."
+kind = "behavior"
+primary = "pytest"
+workflow = "split-shares"
+tests = [
+    "test_app.py::test_share_emails",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Pay your share"
+text = "A co-player pays their share only through their pay-your-share link before the settlement instant, a signed-out visit to the link returns to that share page after sign-in, and the share becomes paid only when the provider confirms the charge while the share is still due, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "split-shares"
+tests = [
+    "test_app.py::test_share_pay_only_on_charge",
+    "test_app.py::test_wf_split_shares_return_path",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Private bookings and shares"
+text = "A booking opened by a player other than its organiser, or a share link opened by a player other than its payer, answers 404 with no payment details, only the organiser and the manager read a booking, and a caller outside a route's roles gets 403 FORBIDDEN with no payment details, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "split-shares"
+tests = [
+    "test_app.py::test_private_bookings_and_shares",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Split payment journey"
+text = "An organiser holds a slot with three co-players under a full-total guarantee and pays their own share; two co-players pay from their emailed links, one after signing in from the link and landing back on it, the third does not, and after the settlement instant the open booking page shows that share Covered and the other three Paid without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "split-shares"
+tests = [
+    "test_app.py::test_wf_split_shares_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Hold ends on the server clock"
+text = "A hold is released at exactly its creation instant plus the hold length on the database clock, and a payment decided at or after that instant answers 409 HOLD_EXPIRED."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-expiry"
+tests = [
+    "test_app.py::test_hold_released_on_server_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Countdown halo"
+text = "The held cell and the white dialog badge carry a lime ring on their outer edge that empties clockwise from 12 o'clock in step with the server's remaining time, turns ink in the last minute and vanishes at zero, as described in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-expiry"
+tests = [
+    "test_app.py::test_countdown_halo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Countdown halo under reduced motion"
+text = "Under reduced motion the ring is ten still segments that drop one per elapsed minute starting from 12 o'clock clockwise, while the badge still counts every second and the hold still ends at zero, as described in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-expiry"
+tests = [
+    "test_app.py::test_countdown_halo_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Server time on screen"
+text = "The hold badge, the hold state and the match status come from the server, so a device clock set hours wrong neither shortens nor extends what the screen shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-expiry"
+tests = [
+    "test_app.py::test_server_time_on_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Hold release journey"
+text = "A player lets a hold run out or presses Release hold, and the cell returns to Free with the released announcement and the released email and push."
+kind = "behavior"
+primary = "workflow"
+workflow = "hold-expiry"
+tests = [
+    "test_app.py::test_wf_hold_expiry_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Open match creation"
+text = "A player opens a match on a free slot with a level range that includes their own level and pays their share at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "open-match"
+tests = [
+    "test_app.py::test_open_match_creation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Join by level"
+text = "A player whose level lies inside a match's range joins it by paying their share, and a player outside the range gets 422."
+kind = "behavior"
+primary = "pytest"
+workflow = "open-match"
+tests = [
+    "test_app.py::test_join_by_level",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "One winner for the last place"
+text = "Of several players taking the last place at once, exactly one reserves it and is charged, and every other gets 409 MATCH_FULL and is never sent to the provider."
+kind = "behavior"
+primary = "pytest"
+workflow = "open-match"
+tests = [
+    "test_app.py::test_one_winner_last_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Join attempt limit"
+text = "A player gets at most 6 join attempts per rolling minute, and the next attempt answers 429 with Retry-After and the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "open-match"
+tests = [
+    "test_app.py::test_join_attempt_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Match full notice"
+text = "When a match reaches 4 paid players it becomes full, a paid match booking appears in the desk's day list, and the desk's push topic receives the Match full notice."
+kind = "behavior"
+primary = "pytest"
+workflow = "open-match"
+tests = [
+    "test_app.py::test_match_full_notice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Open match cards carousel"
+text = "The open match cards carousel pages by arrow, dot or swipe, fills a player dot when someone joins, and updates every card in place from the server every 10 seconds while keeping its page and focus, as described in Interactions, Motion and effects, and Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "open-match"
+tests = [
+    "test_app.py::test_open_match_carousel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Join match journey"
+text = "A player finds a match at their level with the level and day search pill, joins it, and hears the joined announcement, followed by the full announcement when they are the fourth player."
+kind = "behavior"
+primary = "workflow"
+workflow = "open-match"
+tests = [
+    "test_app.py::test_wf_open_match_join_journey",
+    "test_app.py::test_wf_open_match_home_sections",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Cut-off cancellation"
+text = "An open match whose players, reserved places included, are fewer than 4 is cancelled at exactly its start minus the cut-off lead, and a join at or after that instant answers 409 MATCH_CLOSED."
+kind = "behavior"
+primary = "pytest"
+workflow = "match-cutoff"
+tests = [
+    "test_app.py::test_cutoff_cancellation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Cut-off credits and notices"
+text = "Each player of a match cancelled at the cut-off is credited their full paid share and receives the cancellation push on their own private topic with no money in it, and the cancellation email naming the credit."
+kind = "behavior"
+primary = "pytest"
+workflow = "match-cutoff"
+tests = [
+    "test_app.py::test_cutoff_credits_and_notices",
+    "test_app.py::test_cutoff_credits_place_paid_after_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Cut-off journey"
+text = "A player with Matches open in a stalled match hears the match-cancelled announcement once at the cut-off, sees its card read Cancelled in place without the carousel page or focus moving, gets the push and email, and finds the credit in their balance."
+kind = "behavior"
+primary = "workflow"
+workflow = "match-cutoff"
+tests = [
+    "test_app.py::test_wf_match_cutoff_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Booking states"
+text = "Bookings move only from held to paid or released and from paid to checked-in, no-show or cancelled, and every other move answers its published 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancel-booking"
+tests = [
+    "test_app.py::test_booking_state_machine",
+    "test_app.py::test_concurrent_cancels_credit_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Cancellation credits"
+text = "Cancelling a paid booking credits each payer in full up to and including the free-cancellation cut-off and keeps the late fee from the next millisecond, with covered shares credited to the organiser and the answer naming the rule version used, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancel-booking"
+tests = [
+    "test_app.py::test_cancellation_credits",
+]
+criteria = []
+parameter_cases = [
+    "free",
+    "late",
+    "covered",
+]
+
+[[requirements]]
+id = "DP-31"
+title = "Cancel booking journey"
+text = "An organiser cancels a paid booking from My bookings, hears the cancelled announcement and sees the credit in their balance."
+kind = "behavior"
+primary = "workflow"
+workflow = "cancel-booking"
+tests = [
+    "test_app.py::test_wf_cancel_booking_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Desk day list"
+text = "The desk pages through today's bookings with a stable cursor, 20 rows by default and at most 50, never repeating or skipping a row while bookings change."
+kind = "behavior"
+primary = "pytest"
+workflow = "desk-day"
+tests = [
+    "test_app.py::test_desk_day_list_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Check-in and no-show today"
+text = "The desk checks in or marks no-show only on paid bookings that start on today's Europe/Madrid club date, a no-show needs the grace time after start to have passed, and check-in closes at the booking's end."
+kind = "behavior"
+primary = "pytest"
+workflow = "desk-day"
+tests = [
+    "test_app.py::test_checkin_noshow_today",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Desk check-in journey"
+text = "The desk, under a heading naming today's club date, pages to a later page of today's list, checks in one booking and marks another no-show after its grace time with buttons named for each row's organiser, court and time while the list refreshes, and each row shows its new state with loaded rows and focus kept."
+kind = "behavior"
+primary = "workflow"
+workflow = "desk-day"
+tests = [
+    "test_app.py::test_wf_desk_day_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Lesson blocks on own coach id"
+text = "A coach books lesson blocks and lists them only on their own coach id, and any other coach id answers 403 NOT_YOUR_COACH_ID."
+kind = "behavior"
+primary = "pytest"
+workflow = "coach-lessons"
+tests = [
+    "test_app.py::test_lessons_own_coach_id",
+    "test_app.py::test_lesson_weeks_validation_and_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Lesson shares"
+text = "Each student of a lesson block gets a share email and pays through their link, and only the owning coach and the manager see which students have paid."
+kind = "behavior"
+primary = "pytest"
+workflow = "coach-lessons"
+tests = [
+    "test_app.py::test_lesson_shares",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Coach journey"
+text = "A coach books a two-week lesson series for two students across the spring clock change, one student pays, and the coach's list shows each week at the same club time with Paid and Due per student."
+kind = "behavior"
+primary = "workflow"
+workflow = "coach-lessons"
+tests = [
+    "test_app.py::test_wf_coach_lessons_dst_series",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Versioned prices"
+text = "The manager edits rates and peak hours with a version and an effective date, a stale version answers 412 VERSION_STALE, and each saved version records who saved it from the token and when and never changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "manager-settings"
+tests = [
+    "test_app.py::test_versioned_prices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Versioned cancellation rule"
+text = "The manager edits the late fee percentage and the rule description with a version, with the same stale-version rejection and attribution, and the next cancellation uses the saved fee and names its rule version."
+kind = "behavior"
+primary = "pytest"
+workflow = "manager-settings"
+tests = [
+    "test_app.py::test_versioned_cancellation_rule",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Note and description limit"
+text = "A booking note and a rule description accept up to 280 Unicode code points and answer 422 beyond that."
+kind = "behavior"
+primary = "pytest"
+workflow = "manager-settings"
+tests = [
+    "test_app.py::test_note_and_description_limit",
+]
+criteria = []
+parameter_cases = [
+    "note_280",
+    "note_281",
+    "note_280_emoji",
+    "note_282_flags",
+    "desc_280",
+    "desc_281",
+]
+
+[[requirements]]
+id = "DP-41"
+title = "Utilisation"
+text = "The manager reads one club date's booked minutes per court against its opening minutes, with whole-number percentages, and the date lives in the Club settings address so reload and Back keep it."
+kind = "behavior"
+primary = "pytest"
+workflow = "manager-settings"
+tests = [
+    "test_app.py::test_utilisation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Manager journey"
+text = "The manager schedules a peak-rate rise from a future date, meets the stale-version band after a second tab's save, reloads, saves, sees the price schedule with who saved each version and when, and reads the utilisation for a chosen date that survives a page reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "manager-settings"
+tests = [
+    "test_app.py::test_wf_manager_settings_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Grid range bounds"
+text = "The slot grid answers at most 7 days and 8 court entries per request and refuses anything beyond that with 422."
+kind = "behavior"
+primary = "pytest"
+workflow = "grid-browse"
+tests = [
+    "test_app.py::test_grid_range_bounds",
+]
+criteria = []
+parameter_cases = [
+    "7_days_ok",
+    "8_days",
+    "9_courts",
+    "duplicate",
+    "court_8",
+    "to_before",
+]
+
+[[requirements]]
+id = "DP-44"
+title = "Opening hours and DST"
+text = "Slots start only inside opening hours on the slot step in Europe/Madrid time, and on 2027-03-28 no slot starts in the missing hour."
+kind = "behavior"
+primary = "pytest"
+workflow = "grid-browse"
+tests = [
+    "test_app.py::test_opening_hours_and_dst",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Keyboard grid"
+text = "Arrow keys move one cell at a time across the court schedule grid, Home and End jump within the row, and Enter or Space opens the slot dialog."
+kind = "behavior"
+primary = "pytest"
+workflow = "grid-browse"
+tests = [
+    "test_app.py::test_keyboard_grid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Slot dialog focus"
+text = "Tab and Shift+Tab wrap inside the slot dialog, Escape closes it, and focus returns to the cell that opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "grid-browse"
+tests = [
+    "test_app.py::test_slot_dialog_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Grid layout by viewport"
+text = "All seven court columns fit from 800 px wide up, narrower screens scroll the grid sideways under a pinned time column, and no page scrolls sideways at 320 px."
+kind = "behavior"
+primary = "pytest"
+workflow = "grid-browse"
+tests = [
+    "test_app.py::test_grid_layout_by_viewport",
+]
+criteria = []
+parameter_cases = [
+    "320",
+    "375",
+    "390",
+    "768",
+    "834",
+    "1280",
+]
+
+[[requirements]]
+id = "DP-48"
+title = "Grid browse journey"
+text = "A player on a phone-width screen steps through days and cells by keyboard and touch with the day kept in the Courts address, opens a slot, reads its price and closes the dialog back to the same cell."
+kind = "behavior"
+primary = "workflow"
+workflow = "grid-browse"
+tests = [
+    "test_app.py::test_wf_grid_browse_phone_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Notice outbox"
+text = "Every notice counts as sent only after Mailpit accepts the email or ntfy accepts the push, and its state, naming the recipient's email or username but never a push topic, is readable by the desk."
+kind = "behavior"
+primary = "pytest"
+workflow = "notice-outage"
+tests = [
+    "test_app.py::test_notice_outbox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Notice retries"
+text = "An undelivered notice is retried on the published schedule and marked failed after the fourth retry fails, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "notice-outage"
+tests = [
+    "test_app.py::test_notice_retries",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Failed notices journey"
+text = "With mail down, a player still gets the held announcement, and the desk later finds the held email listed under Failed notices."
+kind = "behavior"
+primary = "workflow"
+workflow = "notice-outage"
+tests = [
+    "test_app.py::test_wf_notice_outage_failed_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Booking history paging"
+text = "A player pages through their booking history with a stable cursor, 20 rows by default and at most 50, never repeating or skipping a row while bookings change."
+kind = "behavior"
+primary = "pytest"
+workflow = "history-credits"
+tests = [
+    "test_app.py::test_history_paging_stable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Credits balance"
+text = "A player's credit balance is the sum of their credit ledger entries, each naming the booking or match it came from."
+kind = "behavior"
+primary = "pytest"
+workflow = "history-credits"
+tests = [
+    "test_app.py::test_credits_balance_is_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "History and credits journey"
+text = "A player pages through My bookings, keeps it open while a match they are in is cancelled at the cut-off, sees the row and the credit balance change without reloading, and after they sign out the next player on that browser never sees their data."
+kind = "behavior"
+primary = "workflow"
+workflow = "history-credits"
+tests = [
+    "test_app.py::test_wf_history_credits_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Sign-in and roles"
+text = "People sign in through Keycloak and return only to a same-origin path, the app trusts only the token's realm roles, a logout ends access on the next request, and signed-in reads are never cached, so the next person on the same browser never sees the previous person's data, as qualified in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_sign_in_and_roles",
+    "test_app.py::test_header_account_pill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Error order and shape"
+text = "Every error answers one JSON shape with a stable code and message, in the published order of checks."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_order_and_shape",
+]
+criteria = []
+parameter_cases = [
+    "415_before_401",
+    "413_before_401",
+    "401",
+    "403_before_404",
+    "404_before_422",
+    "422_before_slot_taken",
+    "limit_allowed",
+    "413_chunked_before_401",
+    "malformed_json_named_fields",
+    "mistyped_court_field",
+    "412_before_mistyped_422",
+    "not_your_coach_id_before_mistyped_422",
+]
+
+[[requirements]]
+id = "DP-57"
+title = "Verbatim status announcements"
+text = "The status region announces the seven published booking and match announcements character for character, each on the screens and moments the brief names."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_verbatim_open_match_announcement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Health and run manifest"
+text = "The app starts from /app/run.json, listens on port 4173 and answers GET /api/health with 200 {\"status\":\"ok\"} once ready."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_boot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Floodlit court look"
+text = "Every screen uses the cobalt, white and lime palette, the two named typefaces, flat cards and pill controls described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B16",
+    "B6",
+    "B11",
+    "B12",
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Home page sections"
+text = "The home page shows the club sticky header bar, club hero headline, level and day search pill, stepped-mask court illustration, how a hold works step cards, open match cards carousel, house rules highlighter block, coach profile lesson cards and club footer as described."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B16",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Working screens"
+text = "The schedule, desk list, coach blocks and manager editor keep the same type, palette, card shape, empty states and lime error bands."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B13",
+    "B14",
+    "B15",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Service wiring from environment"
+text = "Every service URL and credential is read from the environment at start, and every state a provider confirms is stored only from the provider's real answer."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Share guarantee"
+text = "A split hold authorises the full total on the organiser as the guarantee, paying captures only the organiser's first share against it as a non-final capture, and every live guarantee not closed by a final capture is voided once no co-player share is due, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "split-shares"
+tests = [
+    "test_app.py::test_share_guarantee",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Share settlement"
+text = "At the settlement instant each still-due co-player share of a paid split booking is captured from the organiser's current guarantee one at a time in position order, with only the last capture final, and becomes covered, the organiser gets the shares-covered notices, and a share payment at or after that instant answers 409 SHARE_SETTLED."
+kind = "behavior"
+primary = "pytest"
+workflow = "split-shares"
+tests = [
+    "test_app.py::test_share_settlement",
+    "test_app.py::test_covered_notice_when_rest_void_at_start",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Reserved place survives the cut-off"
+text = "A join whose place reservation commits before the cut-off holds that place while its charge runs, every surface counts it as a player, and the match is never cancelled at the cut-off unless that charge then fails, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "match-cutoff"
+tests = [
+    "test_app.py::test_wf_match_cutoff_reserved_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Late share charge becomes credit"
+text = "A share charge that captures after the share stopped being due answers 409 SHARE_VOID or SHARE_SETTLED and becomes a late_capture credit for the payer with its credit notices, never a paid share."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancel-booking"
+tests = [
+    "test_app.py::test_wf_cancel_booking_share_in_flight",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Weekly lesson series"
+text = "A coach books 1 to 8 weekly lesson blocks at the same Europe/Madrid wall time each week, all written or none, and of a series and any overlapping hold, match or other series exactly one wins."
+kind = "behavior"
+primary = "pytest"
+workflow = "coach-lessons"
+tests = [
+    "test_app.py::test_weekly_series",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Effective-dated prices"
+text = "A pricing version applies from 00:00 club time on its effective date, which must be tomorrow or later, and each slot is priced by the version in force on its club date."
+kind = "behavior"
+primary = "pytest"
+workflow = "manager-settings"
+tests = [
+    "test_app.py::test_effective_dated_prices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Desk refresh keeps place"
+text = "The desk list's 10-second refresh keeps every loaded row, adds new rows in sort order without duplicates, keeps focus on the same row's control and keeps pending row labels."
+kind = "behavior"
+primary = "pytest"
+workflow = "desk-day"
+tests = [
+    "test_app.py::test_desk_refresh_keeps_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "My bookings updates in place"
+text = "My bookings re-reads the server every 10 seconds and updates the credit balance and each loaded row's status and share in place, without reload and without losing loaded pages."
+kind = "behavior"
+primary = "pytest"
+workflow = "history-credits"
+tests = [
+    "test_app.py::test_my_bookings_update_in_place",
+    "test_app.py::test_my_bookings_refresh_keeps_loaded_position",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Exactly one delivery per notice"
+text = "Every notice yields exactly one Mailpit message or one ntfy push on its recipient's own topic, even under bursts, with attempts 1 on first success and 5 when failed, and no player push carries money or another person's name."
+kind = "behavior"
+primary = "pytest"
+workflow = "notice-outage"
+tests = [
+    "test_app.py::test_exactly_one_delivery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Guarantee refresh"
+text = "A paid split booking with a co-player share still due re-authorises the sum of its due co-player shares on the organiser's card at the refresh interval, and voids the previous guarantee only after the new one is authorised, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "split-shares"
+tests = [
+    "test_app.py::test_guarantee_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Honest payment state"
+text = "While Pay now waits on the provider or after it fails, the cell keeps reading Your hold with the server-timed countdown, the band shows the catalogue copy with Pay now enabled again, nothing is announced until a 200, and a retry reuses the Idempotency-Key only after a 503 or no answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-and-pay"
+tests = [
+    "test_app.py::test_wf_hold_and_pay_declined",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Latest quote wins"
+text = "The slot dialog always shows the quote for the currently checked length, and a slower answer for an earlier choice never replaces it."
+kind = "behavior"
+primary = "pytest"
+workflow = "grid-browse"
+tests = [
+    "test_app.py::test_latest_quote_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Owed voids reach the provider"
+text = "Every void the club owes, including a guarantee still open at start but never one closed by a final capture, is retried every 30 seconds until the provider accepts it, with at most one accepted void per authorisation."
+kind = "behavior"
+primary = "pytest"
+workflow = "payment-outage"
+tests = [
+    "test_app.py::test_owed_voids_reach_provider",
+    "test_app.py::test_lost_slot_void_sent_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Session draft restore"
+text = "A player whose session ends during Hold slot, Open match or Pay now signs in again as the same user and finds the same cell's slot dialog restored with the draft or the server-timed hold and nothing re-sent, while any other user signing in on that browser sees no draft."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-and-pay"
+tests = [
+    "test_app.py::test_session_draft_restore",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Notice order per recipient"
+text = "For one recipient and channel, notices are delivered in the order they were created, and a newer notice is not attempted while an older one for the same recipient and channel is still pending."
+kind = "behavior"
+primary = "pytest"
+workflow = "notice-outage"
+tests = [
+    "test_app.py::test_notice_order_per_recipient",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve fields and \"_schema\":\"run-manifest-v1\", and serve runs the built Go program."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package with its licence; shipped packages are the Go modules the program imports, the npm production dependency tree (npm ls --omit=dev --all --json) and every bundled font."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font uses one of these licences: MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC, MPL-2.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores state only in the provided PostgreSQL database: no SQLite, no files written for state, and no other database, cache or queue."
+tests = [
+    "test_app.py::test_if_postgres_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration (compose files, realm seed and service credentials) is left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "go.sum and package-lock.json are committed, and the build needs no network access beyond what install fetches."
+tests = [
+    "test_app.py::test_if_lockfiles_committed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The app applies its schema and seed on every serve start without harm to existing data, never only during build."
+tests = [
+    "test_app.py::test_if_schema_on_every_start",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "hold-and-pay"
+requirements = [
+    "DP-01",
+    "DP-03",
+    "DP-04",
+    "DP-06",
+    "DP-07",
+    "DP-73",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_wf_hold_and_pay_happy",
+    "test_app.py::test_wf_hold_and_pay_declined",
+    "test_app.py::test_paid_only_on_capture",
+    "test_app.py::test_hold_survives_closed_tab",
+    "test_app.py::test_one_winner_per_slot",
+    "test_app.py::test_session_draft_restore",
+]
+
+[[workflows]]
+id = "payment-outage"
+requirements = [
+    "DP-05",
+    "DP-08",
+    "DP-75",
+]
+critical = [
+    "test_app.py::test_wf_payment_outage_recovers",
+    "test_app.py::test_idempotent_payment_actions",
+    "test_app.py::test_owed_voids_reach_provider",
+    "test_app.py::test_idempotent_repeat_while_running_runs_afresh",
+    "test_app.py::test_idempotent_repeat_waits_for_slow_first",
+    "test_app.py::test_lost_slot_void_sent_once",
+]
+
+[[workflows]]
+id = "split-shares"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-63",
+    "DP-64",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_split_shares_journey",
+    "test_app.py::test_wf_split_shares_return_path",
+    "test_app.py::test_share_settlement",
+    "test_app.py::test_private_bookings_and_shares",
+    "test_app.py::test_share_pay_only_on_charge",
+    "test_app.py::test_covered_notice_when_rest_void_at_start",
+]
+
+[[workflows]]
+id = "hold-expiry"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_hold_expiry_release",
+    "test_app.py::test_server_time_on_screen",
+    "test_app.py::test_countdown_halo_reduced_motion",
+    "test_app.py::test_hold_released_on_server_clock",
+]
+
+[[workflows]]
+id = "open-match"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_open_match_join_journey",
+    "test_app.py::test_wf_open_match_home_sections",
+    "test_app.py::test_join_attempt_limit",
+    "test_app.py::test_one_winner_last_place",
+    "test_app.py::test_open_match_carousel",
+]
+checkpoints = [
+    "B6",
+    "B7",
+]
+critical_checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "match-cutoff"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_match_cutoff_journey",
+    "test_app.py::test_wf_match_cutoff_reserved_place",
+    "test_app.py::test_cutoff_cancellation",
+    "test_app.py::test_cutoff_credits_and_notices",
+    "test_app.py::test_cutoff_credits_place_paid_after_cancel",
+]
+
+[[workflows]]
+id = "cancel-booking"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_cancel_booking_journey",
+    "test_app.py::test_wf_cancel_booking_share_in_flight",
+    "test_app.py::test_cancellation_credits",
+    "test_app.py::test_concurrent_cancels_credit_once",
+]
+
+[[workflows]]
+id = "desk-day"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-69",
+]
+critical = [
+    "test_app.py::test_wf_desk_day_journey",
+    "test_app.py::test_desk_refresh_keeps_place",
+    "test_app.py::test_desk_day_list_paging",
+    "test_app.py::test_checkin_noshow_today",
+]
+checkpoints = [
+    "B15",
+]
+
+[[workflows]]
+id = "coach-lessons"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_coach_lessons_dst_series",
+    "test_app.py::test_weekly_series",
+    "test_app.py::test_lesson_shares",
+    "test_app.py::test_lesson_weeks_validation_and_order",
+]
+
+[[workflows]]
+id = "manager-settings"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-68",
+]
+critical = [
+    "test_app.py::test_wf_manager_settings_journey",
+    "test_app.py::test_effective_dated_prices",
+    "test_app.py::test_note_and_description_limit",
+    "test_app.py::test_versioned_prices",
+    "test_app.py::test_utilisation",
+]
+checkpoints = [
+    "B14",
+]
+
+[[workflows]]
+id = "grid-browse"
+requirements = [
+    "DP-02",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-74",
+]
+critical = [
+    "test_app.py::test_wf_grid_browse_phone_journey",
+    "test_app.py::test_grid_range_bounds",
+    "test_app.py::test_slot_dialog_focus",
+    "test_app.py::test_grid_layout_by_viewport",
+    "test_app.py::test_latest_quote_wins",
+]
+checkpoints = [
+    "B13",
+]
+
+[[workflows]]
+id = "notice-outage"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-71",
+    "DP-77",
+]
+critical = [
+    "test_app.py::test_wf_notice_outage_failed_list",
+    "test_app.py::test_exactly_one_delivery",
+    "test_app.py::test_notice_outbox",
+]
+
+[[workflows]]
+id = "history-credits"
+requirements = [
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-70",
+]
+critical = [
+    "test_app.py::test_wf_history_credits_journey",
+    "test_app.py::test_history_paging_stable",
+    "test_app.py::test_my_bookings_update_in_place",
+    "test_app.py::test_credits_balance_is_ledger",
+    "test_app.py::test_my_bookings_refresh_keeps_loaded_position",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-61",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_sign_in_and_roles",
+    "test_app.py::test_error_order_and_shape",
+    "test_app.py::test_health_and_boot",
+]
+checkpoints = [
+    "B2",
+    "B16",
+    "B11",
+]
