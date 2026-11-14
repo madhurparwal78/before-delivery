@@ -1,0 +1,1320 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 61
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "class-setup",
+    "ground-flow",
+    "command-line",
+    "handoff",
+    "wake-spacing",
+    "arrival-go-around",
+    "route-preview",
+    "incursion",
+    "readback",
+    "instructor-events",
+    "debrief-replay",
+    "records-reports",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B13",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B14",
+    "B15",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 88
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B13 = 3
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 3
+B14 = 3
+B15 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Runup Bay <training@runupbay.test>"
+GRADING_KEY = "gf-grading-5e2a71"
+SIM_CLOCK = "stepped"
+APP_TODAY = "2027-04-12"
+APP_TIME_ZONE = "Europe/London"
+PUSH_SECONDS = "30"
+LINEUP_SECONDS = "20"
+TAKEOFF_ROLL_SECONDS = "30"
+LANDING_ROLL_SECONDS = "40"
+CROSS_SECONDS = "30"
+HANDOFF_OFFER_SECONDS = "60"
+ARRIVAL_PROTECT_SECONDS = "120"
+GO_AROUND_SECONDS = "300"
+READBACK_CORRECT_SECONDS = "15"
+READBACK_ERROR_EVERY = "0"
+SIM_SEED_OFFSET = "0"
+SLOT_TOLERANCE_SECONDS = "300"
+WIND_CHANGE_DELAY_SECONDS = "120"
+SEAT_GRACE_SECONDS = "5"
+INVITE_TTL_HOURS = "168"
+VERIFY_TTL_HOURS = "24"
+COMMANDS_PER_MINUTE = "600"
+LAYOUT_MAX_BYTES = "20000"
+
+[[outages]]
+id = "storage-down"
+port = 4174
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_storage_down"
+
+[[requirements]]
+id = "DP-01"
+title = "Accounts, schools and classes."
+text = "A person signs up and must open the emailed verification link before signing in, and a verified instructor creates a school and classes and lands on the class page."
+kind = "behavior"
+primary = "workflow"
+workflow = "class-setup"
+tests = [
+    "test_app.py::test_wf_class_setup_account_opening",
+    "test_app.py::test_wf_class_setup_assign_dialog_form_status",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Class invitations."
+text = "An instructor sends invitations from the class page, and an address counts as invited only after Mailpit accepts its mail."
+kind = "behavior"
+primary = "workflow"
+workflow = "class-setup"
+tests = [
+    "test_app.py::test_invitations_reach_mailpit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Joining a class."
+text = "A student opening a live invitation joins and lands on the class page at its published address, which survives a reload, and an expired or used invitation shows its published text instead."
+kind = "behavior"
+primary = "workflow"
+workflow = "class-setup"
+tests = [
+    "test_app.py::test_wf_class_setup_invitation_join",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Layout import refusals."
+text = "A layout file is judged only by its content, and an oversized or faulty file is refused with its published lines and nothing is kept."
+kind = "behavior"
+primary = "pytest"
+workflow = "class-setup"
+tests = [
+    "test_app.py::test_layout_import_refusals",
+]
+criteria = []
+parameter_cases = [
+    "oversized",
+    "at_limit",
+    "plain_text",
+    "svg",
+    "syntax_error",
+    "not_an_object",
+    "missing_keys",
+    "worked_file",
+    "duplicate_node",
+    "unknown_from",
+    "zero_length",
+    "unknown_serves",
+    "several_faults",
+]
+
+[[requirements]]
+id = "DP-05"
+title = "Stored layouts."
+text = "A valid layout is stored byte for byte, opens a map carrying every published object id, and `Download original` returns exactly the submitted bytes."
+kind = "behavior"
+primary = "workflow"
+workflow = "class-setup"
+tests = [
+    "test_app.py::test_wf_class_setup_layout_map",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Scenario editor."
+text = "An instructor builds timed traffic in the scenario editor, and a repeated callsign or a stand that is not on the aerodrome is refused with the published text."
+kind = "behavior"
+primary = "workflow"
+workflow = "class-setup"
+tests = [
+    "test_app.py::test_wf_class_setup_scenario_assign",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "School boundaries."
+text = "All data stays inside one school, and another school's class, scenario, aerodrome or session answers not found."
+kind = "behavior"
+primary = "pytest"
+workflow = "class-setup"
+tests = [
+    "test_app.py::test_school_boundaries",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Flight strips."
+text = "Each strip sits in its published bay list with the published attributes, the exact accessible label and DEP or ARR in written text."
+kind = "behavior"
+primary = "workflow"
+workflow = "ground-flow"
+tests = [
+    "test_app.py::test_flight_strip_attributes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Pre-filled clearances."
+text = "Dropping or pushing a strip toward a bay that takes a clearance changes nothing until the pre-filled command is accepted, and focus then returns to that strip in its new bay."
+kind = "behavior"
+primary = "workflow"
+workflow = "ground-flow"
+tests = [
+    "test_app.py::test_wf_ground_flow_keyboard_run",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Pending and refused moves."
+text = "A strip waiting for the server is marked pending in its old bay, and a refused move leaves it there with the reason shown and no second copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "ground-flow"
+tests = [
+    "test_app.py::test_pending_and_refused_moves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Taxi movement."
+text = "Aircraft move along their routes by the published metres per tick and match the worked example on every client."
+kind = "behavior"
+primary = "workflow"
+workflow = "ground-flow"
+tests = [
+    "test_app.py::test_wf_ground_flow_taxi_worked_example",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Live shared boards."
+text = "Boards, map and console on every client change in place as the server pushes each update, with no reload and no scroll jump."
+kind = "behavior"
+primary = "workflow"
+workflow = "ground-flow"
+tests = [
+    "test_app.py::test_wf_ground_flow_live_boards",
+    "test_app.py::test_wf_ground_flow_live_move_keeps_focus_put",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Drag and shortcut moves."
+text = "A mouse or one-finger drag has the same effect as the keyboard move, and the `/` key focuses the command line from anywhere on the board."
+kind = "behavior"
+primary = "workflow"
+workflow = "ground-flow"
+tests = [
+    "test_app.py::test_wf_ground_flow_drag_and_slash",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Command grammar."
+text = "Every published command, in any letter case and spacing, has its published position, allowed states, exact readback and effect."
+kind = "behavior"
+primary = "pytest"
+workflow = "command-line"
+tests = [
+    "test_app.py::test_command_grammar",
+    "test_app.py::test_wf_command_line_normalised_input",
+    "test_app.py::test_wf_command_line_send_button_keeps_line_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Ordered refusals."
+text = "A command failing a check is refused with the exact text of the first failing check, the field is marked invalid, the text stays, and nothing is logged or changed."
+kind = "behavior"
+primary = "workflow"
+workflow = "command-line"
+tests = [
+    "test_app.py::test_wf_command_line_ordered_refusals",
+    "test_app.py::test_wf_command_line_phone_send",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Callsign completion and history."
+text = "Tab completes and cycles callsigns on the seat's frequency, and Up and Down walk the last 50 sent lines, also after a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "command-line"
+tests = [
+    "test_app.py::test_wf_command_line_completion_history",
+    "test_app.py::test_wf_command_line_tab_on_complete_word",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Drafts survive updates."
+text = "A half-typed command, a half-filled event form, a shown refusal and focus all survive ticks and pushed updates."
+kind = "behavior"
+primary = "workflow"
+workflow = "command-line"
+tests = [
+    "test_app.py::test_wf_command_line_drafts_survive",
+    "test_app.py::test_wf_command_line_phone_dialog_touch",
+    "test_app.py::test_wf_command_line_push_keeps_focus_put",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Handoff offers."
+text = "`CONTACT TOWER` opens an offer shown on both boards with its timer, while the aircraft stays on Ground frequency and keeps moving."
+kind = "behavior"
+primary = "workflow"
+workflow = "handoff"
+tests = [
+    "test_app.py::test_wf_handoff_offer_open",
+    "test_app.py::test_wf_handoff_offer_keeps_tower_focus_put",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Handoff acceptance and recall."
+text = "Tower accepts an offered strip or Ground recalls it while the offer is open, and each leaves exactly the published copies, labels and log rows."
+kind = "behavior"
+primary = "workflow"
+workflow = "handoff"
+tests = [
+    "test_app.py::test_wf_handoff_accept_and_recall",
+    "test_app.py::test_wf_handoff_phone_touch",
+    "test_app.py::test_wf_handoff_touch_drag_accept",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Handoff timing alerts."
+text = "An offer that runs out and a departure stopping at its holding point on Ground frequency each raise their published R6 alert, as qualified in Business rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "handoff"
+tests = [
+    "test_app.py::test_wf_handoff_timing_alerts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Strip version conflicts."
+text = "When two seats act on the same strip version the server's order decides, exactly one wins, and the loser sees the published notice and the strip as the server has it."
+kind = "behavior"
+primary = "pytest"
+workflow = "handoff"
+tests = [
+    "test_app.py::test_strip_version_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Server-counted strip timers."
+text = "Wake, offer, due and slot timers show only the server's values, so pausing, reloading or a wrong device clock cannot move them."
+kind = "behavior"
+primary = "workflow"
+workflow = "wake-spacing"
+tests = [
+    "test_app.py::test_wf_wake_spacing_server_timers",
+    "test_app.py::test_wf_wake_spacing_exact_minimum",
+    "test_app.py::test_wf_wake_spacing_ticks_keep_focus_put",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Wake spacing rule."
+text = "A takeoff clearance inside the published wake minimum is accepted, raises the exact R2 alert and combines with R1 and R3 in the published order."
+kind = "behavior"
+primary = "pytest"
+workflow = "wake-spacing"
+tests = [
+    "test_app.py::test_wake_spacing_rule",
+    "test_app.py::test_wf_wake_spacing_keyboard_takeoff",
+    "test_app.py::test_wf_wake_spacing_pair_in_debrief",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Alert list and announcements."
+text = "Every alert appears in the alert list for both seats and the instructor, and its text is announced only in the live region published for its rule."
+kind = "behavior"
+primary = "workflow"
+workflow = "wake-spacing"
+tests = [
+    "test_app.py::test_wf_wake_spacing_alert_everywhere",
+    "test_app.py::test_wf_wake_spacing_ticks_stay_quiet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Arrival spacing rule."
+text = "A line-up or takeoff clearance inside the arrival protection window is accepted and raises the exact R3 alert, with the limit itself alerting and one second above it not."
+kind = "behavior"
+primary = "pytest"
+workflow = "arrival-go-around"
+tests = [
+    "test_app.py::test_arrival_spacing_rule",
+    "test_app.py::test_wf_arrival_go_around_phone_alert",
+    "test_app.py::test_wf_arrival_go_around_alert_slides_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Landing sequence."
+text = "A cleared arrival stays in Arrivals showing its clearance, lands when `Due` reaches zero and moves to Landed by itself on `vacated`."
+kind = "behavior"
+primary = "workflow"
+workflow = "arrival-go-around"
+tests = [
+    "test_app.py::test_wf_arrival_go_around_landing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Go-arounds."
+text = "An injected event, a typed command or an uncleared arrival reaching the threshold each send the arrival around with the published strip state, live on the Tower board with focus kept."
+kind = "behavior"
+primary = "workflow"
+workflow = "arrival-go-around"
+tests = [
+    "test_app.py::test_wf_arrival_go_around_three_ways",
+    "test_app.py::test_wf_arrival_go_around_lifts_spacing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Centreline Run preview."
+text = "As the student types, the strip and aircraft symbol are marked and the route preview list names the same segments in the same order as the parsed route."
+kind = "behavior"
+primary = "workflow"
+workflow = "route-preview"
+tests = [
+    "test_app.py::test_wf_route_preview_typing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Lit run timing."
+text = "Route segments light one at a time at the published interval, the stop bar follows the last segment, the run retracts when the route shrinks, and reduced motion reaches each end state in one frame."
+kind = "behavior"
+primary = "pytest"
+workflow = "route-preview"
+tests = [
+    "test_app.py::test_lit_run_timing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Taxi conflict preview."
+text = "A segment that would raise R4 shows hatched with its rule ID in the preview list, and sending the clearance raises the exact R4 alert on all clients."
+kind = "behavior"
+primary = "workflow"
+workflow = "route-preview"
+tests = [
+    "test_app.py::test_wf_route_preview_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Latest text wins."
+text = "Only the reply for the latest command line text is ever shown, and a slower reply for earlier text never repaints the lit route."
+kind = "behavior"
+primary = "pytest"
+workflow = "route-preview"
+tests = [
+    "test_app.py::test_latest_text_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Accepted route goes dark."
+text = "An accepted taxi route stays lit for that seat and each segment goes dark for good as the aircraft leaves it, while a refused one retracts."
+kind = "behavior"
+primary = "workflow"
+workflow = "route-preview"
+tests = [
+    "test_app.py::test_wf_route_preview_goes_dark",
+    "test_app.py::test_wf_route_preview_accepted_route_keeps_focus_put",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Runway incursion."
+text = "An `overrunsHold` departure reaching its holding point raises R5 on that tick, occupies the runway, and a later clearance raises R1 against it."
+kind = "behavior"
+primary = "workflow"
+workflow = "incursion"
+tests = [
+    "test_app.py::test_wf_incursion_overrun",
+    "test_app.py::test_wf_incursion_keeps_draft_and_focus",
+    "test_app.py::test_wf_incursion_debrief_by_keyboard",
+    "test_app.py::test_wf_incursion_touch_drag_after",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Incursion effects."
+text = "An incursion flashes the board for the published time, and reduced motion swaps every flash and pulse for the static outline with the same announcements."
+kind = "behavior"
+primary = "pytest"
+workflow = "incursion"
+tests = [
+    "test_app.py::test_wf_incursion_effects",
+    "test_app.py::test_wf_incursion_phone_reduced",
+    "test_app.py::test_wf_incursion_flash_not_replayed_on_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Seeded readback errors."
+text = "The published formula decides which eligible readbacks carry an error and what the error says, while the aircraft still follows the real clearance."
+kind = "behavior"
+primary = "pytest"
+workflow = "readback"
+tests = [
+    "test_app.py::test_seeded_readback_errors",
+    "test_app.py::test_wf_readback_seen_by_sender_and_instructor",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Readback correction."
+text = "A correct `NEGATIVE` inside the published window closes a readback error, and an error left open raises R7 on the published tick."
+kind = "behavior"
+primary = "workflow"
+workflow = "readback"
+tests = [
+    "test_app.py::test_wf_readback_correction",
+    "test_app.py::test_wf_readback_wrong_correction_by_keyboard",
+    "test_app.py::test_wf_readback_tower_missed",
+    "test_app.py::test_wf_readback_rows_on_phone_debrief",
+    "test_app.py::test_wf_readback_log_uses_mono",
+    "test_app.py::test_wf_readback_push_keeps_focus_put",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Repeatable exercises."
+text = "The same scenario, seed and commands at the same sim times give an identical log, breakdown and score."
+kind = "behavior"
+primary = "pytest"
+workflow = "readback"
+tests = [
+    "test_app.py::test_wf_readback_repeatable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Instructor console."
+text = "The instructor's console shows both boards, the map, alerts and every control, and on a phone it follows the published tabs with touch-sized controls."
+kind = "behavior"
+primary = "workflow"
+workflow = "instructor-events"
+tests = [
+    "test_app.py::test_wf_instructor_events_phone_console",
+    "test_app.py::test_wf_instructor_events_phone_boards_no_stale_flash",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Pause and speed."
+text = "Pause stops the sim clock and refuses commands and moves on every client at once, and Resume and the speed radios take effect the same way."
+kind = "behavior"
+primary = "workflow"
+workflow = "instructor-events"
+tests = [
+    "test_app.py::test_wf_instructor_events_pause_speed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Runway closure."
+text = "A closure shows the published notice on every client and later clearances are accepted with R8, until a reopen clears it."
+kind = "behavior"
+primary = "workflow"
+workflow = "instructor-events"
+tests = [
+    "test_app.py::test_wf_instructor_events_runway_closure",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Wind change."
+text = "A wind change that favours the other threshold counts down the published notice on each tick, then moves the runway in use, arrival strips and pre-filled clearances."
+kind = "behavior"
+primary = "workflow"
+workflow = "instructor-events"
+tests = [
+    "test_app.py::test_wind_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Emergency."
+text = "An emergency stops every other taxiing aircraft, marks the strip and symbol, and refuses the published commands until it ends and aircraft are told to continue."
+kind = "behavior"
+primary = "workflow"
+workflow = "instructor-events"
+tests = [
+    "test_app.py::test_wf_instructor_events_emergency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Instructor-only actions."
+text = "A student calling an instructor route or a seat they do not hold is answered not found and the exercise does not change."
+kind = "behavior"
+primary = "pytest"
+workflow = "instructor-events"
+tests = [
+    "test_app.py::test_instructor_only_actions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Seats and reconnection."
+text = "Students take free seats, a taken seat is refused, and a disconnected seat holder returns to the same seat within the grace period, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "instructor-events"
+tests = [
+    "test_app.py::test_seats_and_reconnection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Debrief address."
+text = "Finishing an exercise offers `Open debrief` on every client, which lands on the published address, and a reload shows the same screen."
+kind = "behavior"
+primary = "workflow"
+workflow = "debrief-replay"
+tests = [
+    "test_app.py::test_wf_debrief_replay_open_debrief",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Score, breakdown and timeline."
+text = "The debrief shows the score, result, breakdown and every timeline row, all derived once from the log with the published penalties."
+kind = "behavior"
+primary = "workflow"
+workflow = "debrief-replay"
+tests = [
+    "test_app.py::test_wf_debrief_replay_score_timeline",
+    "test_app.py::test_wf_debrief_replay_phone_reflow",
+    "test_app.py::test_wf_debrief_replay_pinned_note",
+    "test_app.py::test_wf_debrief_replay_phone_touch_exports",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Replay."
+text = "The replay slider moves by the published keys and shows the map, mirror and current timeline row of that exact sim second, snapping with no animation."
+kind = "behavior"
+primary = "workflow"
+workflow = "debrief-replay"
+tests = [
+    "test_app.py::test_wf_debrief_replay_scrub",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Student record."
+text = "A student's record shows attempts, best score, status and timing for each assignment, with late attempts listed but never setting the best score or status."
+kind = "behavior"
+primary = "workflow"
+workflow = "records-reports"
+tests = [
+    "test_app.py::test_wf_records_reports_student_record",
+    "test_app.py::test_wf_records_reports_phone_record",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Record privacy."
+text = "A student opens only their own record and the debriefs and reports of exercises they sat in, while the class's instructor sees all of them."
+kind = "behavior"
+primary = "pytest"
+workflow = "records-reports"
+tests = [
+    "test_app.py::test_record_privacy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "CSV and PDF reports."
+text = "A finished exercise exports to the published CSV and PDF formats."
+kind = "behavior"
+primary = "workflow"
+workflow = "records-reports"
+tests = [
+    "test_app.py::test_wf_records_reports_exports",
+    "test_app.py::test_wf_records_reports_phone_tap_export",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Report storage and notices."
+text = "A report is answered only after MinIO confirms the object, a repeat export returns the stored bytes, and one notice per file kind reaches Mailpit."
+kind = "behavior"
+primary = "pytest"
+workflow = "records-reports"
+tests = [
+    "test_app.py::test_report_storage_and_notices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Storage outage."
+text = "With MinIO unreachable an export gives the published alert with no file and no notice, while the rest of the app and the health route keep working."
+kind = "behavior"
+primary = "pytest"
+workflow = "records-reports"
+tests = [
+    "test_app.py::test_wf_records_reports_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Layout modes."
+text = "Student and console pages use the published layout at each published width and never scroll sideways."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_layout_modes",
+    "test_app.py::test_wf_cross_cutting_layout_boundaries",
+    "test_app.py::test_wf_cross_cutting_touch_forms",
+]
+criteria = []
+parameter_cases = [
+    "desktop",
+    "tablet",
+    "phone",
+]
+
+[[requirements]]
+id = "DP-54"
+title = "Focus, dialogs and accessibility."
+text = "Focus is always visible, a board is one tab stop with the published arrow keys, dialogs keep Tab inside and return focus, and the board, console and debrief pass an automated accessibility scan."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_keyboard_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Motion."
+text = "Strip, aircraft, alert and offer motion runs for the published times with the published markers, and reduced motion shows each end state at once with the same function."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_markers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Training-only notice."
+text = "Every page shows the published notice in its footer landmark."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_training_notice_every_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Health and public config."
+text = "The health route answers ok in every instance, and the config route reports today, the time zone, the clock mode and every timer as read from the environment."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_config",
+    "test_app.py::test_main_health_and_config_placeholder_guard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Grading routes."
+text = "The published grading routes build people, scenarios and sessions, advance the clock and hold updates, and answer not found without the right key."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Landing page."
+text = "The signed-out landing page follows the published grid hero, second screen and closing sheet in one pink and one burgundy."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B13",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Working screens."
+text = "Boards, map, tables, forms, empty states and error states keep the guide grid and tell every state apart by shape, hatch, inversion and written words, never by a second hue."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B7",
+    "B8",
+    "B9",
+    "B14",
+    "B15",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Source integrity."
+text = "Only the server keeps the sim clock and every piece of state, one rule engine and one grammar drive preview, execution, alerts and scores, and credentials come only from the environment."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` holds string `install`, `build` and `serve` commands and `\"_schema\":\"run-manifest-v1\"`."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` names every shipped package with its licence, where shipped packages means the production dependency tree (`npm ls --omit=dev --all --json`)."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and bundled font uses an MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0 or OFL-1.1 licence."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Postgres, MinIO and Mailpit are the only external services, with no other datastore, queue, cache or PDF service."
+tests = [
+    "test_app.py::test_if_only_named_services",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The PDF is built inside the app with open-licensed libraries, with no headless browser among the shipped packages."
+tests = [
+    "test_app.py::test_if_pdf_inside_app",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "No source file or built asset loads a font, script, style or image from another host."
+tests = [
+    "test_app.py::test_if_no_external_hosts",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The app registers no service worker."
+tests = [
+    "test_app.py::test_if_no_service_worker",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "class-setup"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+]
+critical = [
+    "test_app.py::test_wf_class_setup_account_opening",
+    "test_app.py::test_wf_class_setup_invitation_join",
+    "test_app.py::test_wf_class_setup_layout_map",
+    "test_app.py::test_wf_class_setup_scenario_assign",
+    "test_app.py::test_layout_import_refusals",
+    "test_app.py::test_school_boundaries",
+    "test_app.py::test_wf_class_setup_assign_dialog_form_status",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "ground-flow"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_ground_flow_keyboard_run",
+    "test_app.py::test_wf_ground_flow_taxi_worked_example",
+    "test_app.py::test_wf_ground_flow_live_boards",
+    "test_app.py::test_wf_ground_flow_drag_and_slash",
+    "test_app.py::test_flight_strip_attributes",
+    "test_app.py::test_pending_and_refused_moves",
+    "test_app.py::test_wf_ground_flow_live_move_keeps_focus_put",
+]
+checkpoints = [
+    "B8",
+    "B9",
+    "B14",
+]
+
+[[workflows]]
+id = "command-line"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_command_line_ordered_refusals",
+    "test_app.py::test_wf_command_line_completion_history",
+    "test_app.py::test_wf_command_line_drafts_survive",
+    "test_app.py::test_wf_command_line_normalised_input",
+    "test_app.py::test_wf_command_line_phone_send",
+    "test_app.py::test_wf_command_line_phone_dialog_touch",
+    "test_app.py::test_wf_command_line_push_keeps_focus_put",
+    "test_app.py::test_wf_command_line_tab_on_complete_word",
+    "test_app.py::test_wf_command_line_send_button_keeps_line_focus",
+]
+
+[[workflows]]
+id = "handoff"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_handoff_offer_open",
+    "test_app.py::test_wf_handoff_accept_and_recall",
+    "test_app.py::test_wf_handoff_timing_alerts",
+    "test_app.py::test_strip_version_conflict",
+    "test_app.py::test_wf_handoff_phone_touch",
+    "test_app.py::test_wf_handoff_touch_drag_accept",
+    "test_app.py::test_wf_handoff_offer_keeps_tower_focus_put",
+]
+
+[[workflows]]
+id = "wake-spacing"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_wake_spacing_server_timers",
+    "test_app.py::test_wf_wake_spacing_alert_everywhere",
+    "test_app.py::test_wf_wake_spacing_keyboard_takeoff",
+    "test_app.py::test_wf_wake_spacing_pair_in_debrief",
+    "test_app.py::test_wf_wake_spacing_exact_minimum",
+    "test_app.py::test_wf_wake_spacing_ticks_keep_focus_put",
+]
+
+[[workflows]]
+id = "arrival-go-around"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_arrival_go_around_landing",
+    "test_app.py::test_wf_arrival_go_around_three_ways",
+    "test_app.py::test_arrival_spacing_rule",
+    "test_app.py::test_wf_arrival_go_around_phone_alert",
+    "test_app.py::test_wf_arrival_go_around_lifts_spacing",
+    "test_app.py::test_wf_arrival_go_around_alert_slides_once",
+]
+
+[[workflows]]
+id = "route-preview"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_route_preview_typing",
+    "test_app.py::test_wf_route_preview_conflict",
+    "test_app.py::test_wf_route_preview_goes_dark",
+    "test_app.py::test_latest_text_wins",
+    "test_app.py::test_lit_run_timing",
+    "test_app.py::test_wf_route_preview_accepted_route_keeps_focus_put",
+]
+
+[[workflows]]
+id = "incursion"
+requirements = [
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_incursion_overrun",
+    "test_app.py::test_wf_incursion_effects",
+    "test_app.py::test_wf_incursion_keeps_draft_and_focus",
+    "test_app.py::test_wf_incursion_debrief_by_keyboard",
+    "test_app.py::test_wf_incursion_phone_reduced",
+    "test_app.py::test_wf_incursion_touch_drag_after",
+    "test_app.py::test_wf_incursion_flash_not_replayed_on_tab",
+]
+
+[[workflows]]
+id = "readback"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_readback_correction",
+    "test_app.py::test_wf_readback_repeatable",
+    "test_app.py::test_wf_readback_wrong_correction_by_keyboard",
+    "test_app.py::test_wf_readback_tower_missed",
+    "test_app.py::test_wf_readback_seen_by_sender_and_instructor",
+    "test_app.py::test_wf_readback_rows_on_phone_debrief",
+    "test_app.py::test_wf_readback_log_uses_mono",
+    "test_app.py::test_wf_readback_push_keeps_focus_put",
+]
+
+[[workflows]]
+id = "instructor-events"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+]
+critical = [
+    "test_app.py::test_wf_instructor_events_phone_console",
+    "test_app.py::test_wf_instructor_events_pause_speed",
+    "test_app.py::test_wf_instructor_events_runway_closure",
+    "test_app.py::test_wf_instructor_events_emergency",
+    "test_app.py::test_instructor_only_actions",
+    "test_app.py::test_wind_change",
+    "test_app.py::test_wf_instructor_events_phone_boards_no_stale_flash",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "debrief-replay"
+requirements = [
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_debrief_replay_open_debrief",
+    "test_app.py::test_wf_debrief_replay_score_timeline",
+    "test_app.py::test_wf_debrief_replay_scrub",
+    "test_app.py::test_wf_debrief_replay_phone_reflow",
+    "test_app.py::test_wf_debrief_replay_pinned_note",
+    "test_app.py::test_wf_debrief_replay_phone_touch_exports",
+]
+
+[[workflows]]
+id = "records-reports"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_records_reports_student_record",
+    "test_app.py::test_wf_records_reports_exports",
+    "test_app.py::test_wf_records_reports_storage_outage",
+    "test_app.py::test_report_storage_and_notices",
+    "test_app.py::test_record_privacy",
+    "test_app.py::test_wf_records_reports_phone_record",
+    "test_app.py::test_wf_records_reports_phone_tap_export",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_layout_modes",
+    "test_app.py::test_wf_cross_cutting_keyboard_access",
+    "test_app.py::test_motion_markers",
+    "test_app.py::test_training_notice_every_page",
+    "test_app.py::test_wf_cross_cutting_layout_boundaries",
+    "test_app.py::test_wf_cross_cutting_touch_forms",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B7",
+]
+critical_checkpoints = [
+    "B1",
+]
