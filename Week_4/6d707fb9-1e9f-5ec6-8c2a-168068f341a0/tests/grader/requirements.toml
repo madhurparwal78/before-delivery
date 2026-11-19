@@ -1,0 +1,1359 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "desk-access",
+    "public-site",
+    "labels-and-styles",
+    "bill-of-materials",
+    "supplier-requests",
+    "answer-page",
+    "factory-visits",
+    "footprint-and-factors",
+    "scenarios",
+    "textile-score",
+    "product-passports",
+    "dossier-and-sign-off",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 90
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Fio Contado Desk <desk@fio-contado.example>" } },
+    { name = "gotenberg", env = {} },
+    { name = "wiremock", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 5
+S4 = 3
+S5 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 5
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_storage"
+S3_BUCKET = "${S3_BUCKET}-storage"
+
+[[outages]]
+id = "gotenberg-down"
+port = 4175
+url_env = "APP_GOTENBERG_DOWN_URL"
+
+[outages.env]
+GOTENBERG_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_render"
+S3_BUCKET = "${S3_BUCKET}-render"
+
+[[outages]]
+id = "short-timers"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+ANSWER_PAGE_SECONDS = "20"
+SIGN_OFF_PAGE_SECONDS = "20"
+REMINDER_AFTER_SECONDS = "10"
+REQUEST_RATE_WINDOW_SECONDS = "30"
+FILE_RATE_WINDOW_SECONDS = "30"
+CLOSURE_WAIT_SECONDS = "20"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[outages]]
+id = "short-session"
+port = 4177
+url_env = "APP_SESSION_URL"
+
+[outages.env]
+SESSION_SECONDS = "20"
+DATABASE_URL = "${DATABASE_URL}_session"
+S3_BUCKET = "${S3_BUCKET}-session"
+
+[[outages]]
+id = "spare"
+port = 4178
+url_env = "APP_SPARE_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_spare"
+S3_BUCKET = "${S3_BUCKET}-spare"
+
+[[requirements]]
+id = "DP-01"
+title = "Starting a desk, signing in and out, changing the password."
+text = "A new desk signs up, a wrong password gets 401, the right one signs in, signing out ends the session with 401 from the session endpoint, and changing the password ends that person's other sessions while the new password signs in."
+kind = "behavior"
+primary = "workflow"
+workflow = "desk-access"
+tests = [
+    "test_app.py::test_wf_desk_access_passwords",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Labels on one desk."
+text = "The assessor creates, reads, renames and deletes a label, a deleted label answers 404 from then on, and a label of another desk answers 404 exactly like an unknown id in the same shape."
+kind = "behavior"
+primary = "pytest"
+workflow = "desk-access"
+tests = [
+    "test_app.py::test_labels_on_one_desk",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Sign-in form."
+text = "Filling the sign-in form lands on `/styles` with a live session, and signing out there leaves the session endpoint answering 401."
+kind = "behavior"
+primary = "workflow"
+workflow = "desk-access"
+tests = [
+    "test_app.py::test_wf_desk_access_sign_in_form",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Public site journey."
+text = "A shopper walks `/`, `/method` and `/questions` through the intro, the label strip, the mega menu, the questions and Try one garment, checked by a screen-rules check on `/` with the mega menu and on `/questions` with an accordion where `POST /api/estimate` with an over-limit body answers the earlier 405, a keyboard-only journey, a 375x812 touch journey, the not-found copy verbatim and Try one garment's figure as its precision rule, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_wf_public_site_screen_rules",
+    "test_app.py::test_wf_public_site_keyboard",
+    "test_app.py::test_wf_public_site_touch",
+    "test_app.py::test_wf_public_site_copy_precision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "First-visit intro."
+text = "A first visit to `/` plays the intro described in Motion and effects once in that browser with `Skip intro` holding focus and the page behind inert, ending by itself, by Escape or by that button with focus on the level-one heading, and never on another address or under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_intro",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Label strip, header, underline and mega menu."
+text = "The label-name strip, the header, the navigation underline and the mega menu behave as published in Interactions, with a closed menu's tiles out of the Tab order."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_label_strip_header_underline",
+    "test_app.py::test_mega_menu",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Questions page."
+text = "Questions start closed, open by height one at a time, and hold the open question in the address with each change one history entry that Back and Forward return to."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_questions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Try one garment."
+text = "Choosing a garment, fibre and country answers the climate figure from the server in place after the published pause, always for the latest choice even when an earlier request answers later, with rolling numerals and the choices in the address."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_try_one_garment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Method page layout."
+text = "The method page shows its stages side by side from 1100 px wide, in two columns at 1099 px, 1024x768 and 768x1024, and in one column at 375x812."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_method_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Styles journey."
+text = "The assessor filters, sorts, searches and pages Styles, returns with Back, uses the row menu and brings in a catalogue file, checked by a screen-rules check on `/styles` with the `New style` dialog and the row menu where an oversized `POST /api/styles` without a session answers 413 as JSON, a keyboard-only journey, a 375x812 touch journey, the GTIN and catalogue refusal copy verbatim and the GTIN check digit and folding table as its precision rule, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "labels-and-styles"
+tests = [
+    "test_app.py::test_wf_labels_and_styles_screen_rules",
+    "test_app.py::test_wf_labels_and_styles_keyboard",
+    "test_app.py::test_wf_labels_and_styles_touch",
+    "test_app.py::test_wf_labels_and_styles_copy_precision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Style records and the GTIN check digit."
+text = "A style keeps its published details and states, and a GTIN with a wrong mod-10 check digit is refused with copy naming the right digit."
+kind = "behavior"
+primary = "pytest"
+workflow = "labels-and-styles"
+tests = [
+    "test_app.py::test_style_records",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Styles list held in the address."
+text = "The list filters by label, season and state, sorts by name or climate figure, searches with the folding table, pages 25 at a time with a cursor that never repeats or skips a style while new ones arrive, holds it all in the address with each committed change one history entry, and restores filters, sort, page, scroll and focus on Back."
+kind = "behavior"
+primary = "pytest"
+workflow = "labels-and-styles"
+tests = [
+    "test_app.py::test_styles_list_api",
+    "test_app.py::test_styles_list_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Row action menu, Duplicate and Archive."
+text = "Each row's action menu opens uncut inside the viewport on the last row of a table scrolling in its frame at 375 and 1280 with each item pressable where it shows, Duplicate opens the copy, and Archive removes the row with focus on the level-one heading."
+kind = "behavior"
+primary = "pytest"
+workflow = "labels-and-styles"
+tests = [
+    "test_app.py::test_row_menu",
+    "test_app.py::test_duplicate_and_archive",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Catalogue file."
+text = "A catalogue file with or without a byte order mark and with LF or CRLF previews new, matched and refused rows with row numbers and reasons before anything is saved, and saving the same file twice changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "labels-and-styles"
+tests = [
+    "test_app.py::test_catalogue",
+]
+criteria = []
+parameter_cases = [
+    "lf",
+    "crlf",
+    "bom_lf",
+    "bom_crlf",
+]
+
+[[requirements]]
+id = "DP-15"
+title = "Bill of materials journey."
+text = "The assessor adds, edits and reorders material lines and transport legs on the Materials screen, checked by a screen-rules check with the `Add material` dialog where an oversized `POST /api/styles/<id>/lines` without a session answers 413 as JSON, a keyboard-only journey, a 375x812 touch journey with the dialog as a full-height sheet, the fibres and stale-save copy verbatim with the name and local time, and exact half-up mass as its precision rule, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "bill-of-materials"
+tests = [
+    "test_app.py::test_wf_bill_of_materials_screen_rules",
+    "test_app.py::test_wf_bill_of_materials_keyboard",
+    "test_app.py::test_wf_bill_of_materials_touch",
+    "test_app.py::test_wf_bill_of_materials_copy_precision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Exact mass and fibre shares."
+text = "Mass is computed in exact decimals and shown half up to 0.1 g, and a line's fibre shares of one decimal must add up to exactly 100.0 or are refused with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "bill-of-materials"
+tests = [
+    "test_app.py::test_exact_mass_and_fibres",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Add material combobox."
+text = "The `Add material` dialog searches the published materials through an ARIA combobox with a listbox, using Up, Down and Enter, and the latest input wins even when an earlier search answers later."
+kind = "behavior"
+primary = "pytest"
+workflow = "bill-of-materials"
+tests = [
+    "test_app.py::test_add_material_combobox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Reordering lines."
+text = "Move up, Move down, Alt+Up and Alt+Down reorder lines, keep focus on the moved line's control, keep end controls focusable with aria-disabled, persist the order and announce the new position."
+kind = "behavior"
+primary = "pytest"
+workflow = "bill-of-materials"
+tests = [
+    "test_app.py::test_reordering_lines",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Stale saves on a style."
+text = "Saving over a style changed elsewhere meanwhile answers 412 and the dialog stays open as typed with the published copy naming the time and the change."
+kind = "behavior"
+primary = "pytest"
+workflow = "bill-of-materials"
+tests = [
+    "test_app.py::test_stale_saves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Supplier requests journey."
+text = "The assessor sends, re-addresses and ends requests from `/requests`, checked by a screen-rules check with the `New request` dialog where an oversized `POST /api/requests` without a session answers 413 as JSON, a keyboard-only journey, a 375x812 touch journey, the rate-limit and answer-arrived copy verbatim with the name and local time, and the page's edge instant and local due date as its precision rule, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "supplier-requests"
+tests = [
+    "test_app.py::test_wf_supplier_requests_screen_rules",
+    "test_app.py::test_wf_supplier_requests_keyboard",
+    "test_app.py::test_wf_supplier_requests_touch",
+    "test_app.py::test_wf_supplier_requests_copy_precision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Request mail."
+text = "The request mail arrives in the chosen language with the private address and the due date in the supplier's local wall time, and holds no footprint figure and no other label's or supplier's name."
+kind = "behavior"
+primary = "pytest"
+workflow = "supplier-requests"
+tests = [
+    "test_app.py::test_request_mail",
+]
+criteria = []
+parameter_cases = [
+    "en",
+    "fr",
+    "tr",
+    "ar",
+]
+
+[[requirements]]
+id = "DP-22"
+title = "Private page lifetime and one reminder."
+text = "An answer page ends at the published instant, a request at that instant finds it ended, a new address ends the old one, the assessor can end it, an ended page answers 410 with the ended copy in its language, and exactly one reminder goes if still unanswered."
+kind = "behavior"
+primary = "pytest"
+workflow = "supplier-requests"
+tests = [
+    "test_app.py::test_page_ends_at_edge",
+    "test_app.py::test_page_lifetime_and_reminder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Request rate limit."
+text = "A desk sends at most the published number of requests in a window, and the next answers 429 with Retry-After and the published copy, keyed on the desk and never the network address."
+kind = "behavior"
+primary = "pytest"
+workflow = "supplier-requests"
+tests = [
+    "test_app.py::test_request_rate_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Answers reach open screens."
+text = "An answer reaches the assessor's open screens within the 5-second refresh, in place, and is announced with the supplier's name and local time."
+kind = "behavior"
+primary = "pytest"
+workflow = "supplier-requests"
+tests = [
+    "test_app.py::test_answers_reach_open_screens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Answer page journey."
+text = "A supplier opens `/a/<token>` at 375x812 and answers through the steps without an account, checked by a screen-rules check with the Unit sheet where an oversized `POST /api/a/<token>/evidence` without a session answers 413 as JSON, a keyboard-only journey, a 375x812 touch journey, the whole copy table verbatim in all four languages, and local number typing, MJ conversion and file-only size as its precision rule, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "answer-page"
+tests = [
+    "test_app.py::test_wf_answer_page_screen_rules",
+    "test_app.py::test_wf_answer_page_keyboard",
+    "test_app.py::test_wf_answer_page_touch",
+    "test_app.py::test_wf_answer_page_copy_precision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Four languages, Arabic mirrored."
+text = "The page renders in the request's language with the matching `lang`, and Arabic adds `dir=\"rtl\"`, a mirrored step rail and arrow keys, a Unit sheet from the left edge and number fields left to right."
+kind = "behavior"
+primary = "pytest"
+workflow = "answer-page"
+tests = [
+    "test_app.py::test_arabic_mirrored",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Local numbers and exact megajoules."
+text = "Numbers typed the local way are stored as the exact value they mean, anything else is refused with that language's number copy, and energy is kept in exact MJ."
+kind = "behavior"
+primary = "pytest"
+workflow = "answer-page"
+tests = [
+    "test_app.py::test_local_numbers",
+]
+criteria = []
+parameter_cases = [
+    "en_group",
+    "en_plain",
+    "en_dot",
+    "fr_space",
+    "fr_nbsp",
+    "fr_narrow",
+    "tr_group",
+    "tr_dot",
+    "tr_float",
+    "ar_indic",
+    "ar_plain",
+    "gas",
+    "refuse_en_comma",
+    "refuse_en_group",
+    "refuse_fr",
+    "refuse_tr",
+    "refuse_ar",
+]
+
+[[requirements]]
+id = "DP-28"
+title = "Evidence files."
+text = "An evidence file is judged by its content as PDF, JPEG or PNG, is held to 5,000,000 bytes counted on the file alone with 413 as JSON before anything else, and is kept in MinIO byte for byte."
+kind = "behavior"
+primary = "pytest"
+workflow = "answer-page"
+tests = [
+    "test_app.py::test_evidence_files",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Sent once, drafts kept."
+text = "The page shows Sent only after MinIO has confirmed any file, while MinIO is down the file is refused in that language with nothing half-written, a draft survives a reload, and pressing Send answers twice sends once."
+kind = "behavior"
+primary = "pytest"
+workflow = "answer-page"
+tests = [
+    "test_app.py::test_sent_once_and_drafts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Factory visits journey."
+text = "The assessor books visits on `/visits` and records readings on `/visits/<id>`, checked by a screen-rules check with the `Book visit` dialog where an oversized `POST /api/visits` without a session answers 413 as JSON, a keyboard-only journey, a 375x812 touch journey, the offline, sign-out and lower-reading copy verbatim with the name and local time, and local wall time across a clock change as its precision rule, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "factory-visits"
+tests = [
+    "test_app.py::test_wf_factory_visits_screen_rules",
+    "test_app.py::test_wf_factory_visits_keyboard",
+    "test_app.py::test_wf_factory_visits_touch",
+    "test_app.py::test_wf_factory_visits_copy_precision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Visit times across clock changes."
+text = "A visit keeps its wall-clock time, moves in the Lisbon diary, shows both times, refuses a time the change skips, takes the first of a time that happens twice, and the diary counts 23-hour and 25-hour Lisbon days correctly."
+kind = "behavior"
+primary = "pytest"
+workflow = "factory-visits"
+tests = [
+    "test_app.py::test_visit_clock_changes",
+    "test_app.py::test_visit_screen_ignores_device_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Readings wait on the device."
+text = "With no network the page stays in place and counts waiting readings, then sends them in the order taken within the next 5-second refresh, each with its own request key so a repeat answers the first response and changes nothing, with `takenAt` stamped by the server, and sign-out refused while any wait."
+kind = "behavior"
+primary = "pytest"
+workflow = "factory-visits"
+tests = [
+    "test_app.py::test_reading_keys",
+    "test_app.py::test_readings_wait_on_device",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "A lower reading."
+text = "A reading lower than the meter's last one opens the published dialog with Keep mine and Keep recorded while the other waiting readings keep going."
+kind = "behavior"
+primary = "pytest"
+workflow = "factory-visits"
+tests = [
+    "test_app.py::test_lower_reading",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Footprint journey."
+text = "The assessor works out a footprint on `/styles/<id>` and reads it through the Stage strata, checked by a screen-rules check with the factors popover where an oversized `POST /api/styles/<id>/results` without a session answers 413 as JSON, a keyboard-only journey including the measures composite, a 375x812 touch journey, the library-unavailable and newer-factors copy verbatim, and the three-significant-figures rule and library call count in the WireMock journal as its precision rule, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "footprint-and-factors"
+tests = [
+    "test_app.py::test_wf_footprint_and_factors_screen_rules",
+    "test_app.py::test_wf_footprint_and_factors_keyboard",
+    "test_app.py::test_wf_footprint_and_factors_touch",
+    "test_app.py::test_wf_footprint_and_factors_copy_precision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Library reading and exact sums."
+text = "`Work out footprint` reads the edition list and every page of the newest edition in effect, keeps those rows with the new result, and works out the published sums in exact decimals shown by the published display rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "footprint-and-factors"
+tests = [
+    "test_app.py::test_library_reading_and_sums",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Results kept for good."
+text = "Each result keeps its edition on every screen and file, working out again or a supplier's answer makes a new result, every earlier result stays readable exactly as it was, and hotspot, shares and data quality follow the published rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "footprint-and-factors"
+tests = [
+    "test_app.py::test_results_kept_for_good",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Stage strata."
+text = "Each result shows five strata exposing stage and share, and choosing a measure or receiving an answer moves the same elements as published in Motion and effects, while a refresh with no new data starts no motion and replaces no element."
+kind = "behavior"
+primary = "pytest"
+workflow = "footprint-and-factors"
+tests = [
+    "test_app.py::test_stage_strata",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Measures composite and factors popover."
+text = "The measures are one keyboard composite with a single Tab stop, and Enter opens a factors popover uncut inside the viewport at 375 and 1280, with Up and Down also moving at 375."
+kind = "behavior"
+primary = "pytest"
+workflow = "footprint-and-factors"
+tests = [
+    "test_app.py::test_measures_composite",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Newer factors."
+text = "`Check for newer factors` reads only the edition list, and the style shows the newer-factors copy, decided by the server, only once a newer edition takes effect on or before today's Lisbon date."
+kind = "behavior"
+primary = "pytest"
+workflow = "footprint-and-factors"
+tests = [
+    "test_app.py::test_newer_factors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Scenarios journey."
+text = "The assessor tries changes on `/styles/<id>/scenarios` without touching the result, checked by a screen-rules check with the `Save scenario` dialog where an oversized `POST /api/styles/<id>/scenarios` without a session answers 413 as JSON, a keyboard-only journey, a 375x812 touch journey with the comparison table in its own focusable, named frame, the stale-baseline copy verbatim with the local time, and half-up differences with no library call in the WireMock journal as its precision rule, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "scenarios"
+tests = [
+    "test_app.py::test_wf_scenarios_screen_rules",
+    "test_app.py::test_wf_scenarios_keyboard",
+    "test_app.py::test_wf_scenarios_touch",
+    "test_app.py::test_wf_scenarios_copy_precision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Live scenario totals and saving."
+text = "Totals and differences answer from the server in place after the published pause with the latest input winning and a ghost baseline band behind, the scenario is held in the address with each committed change one history entry, and saving over a re-worked baseline answers 412 with the dialog open as typed."
+kind = "behavior"
+primary = "pytest"
+workflow = "scenarios"
+tests = [
+    "test_app.py::test_live_scenario_totals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Textile score journey."
+text = "The assessor asks for the score on `/styles/<id>`, checked by a screen-rules check with the factors popover and the score panel where an oversized `POST /api/styles/<id>/score` without a session answers 413 as JSON, a keyboard-only journey, a 375x812 touch journey, the missing-origin, worst-case, busy and unavailable copy verbatim with the local time, and the provider call count in the WireMock journal as its precision rule, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "textile-score"
+tests = [
+    "test_app.py::test_wf_textile_score_screen_rules",
+    "test_app.py::test_wf_textile_score_keyboard",
+    "test_app.py::test_wf_textile_score_touch",
+    "test_app.py::test_wf_textile_score_copy_precision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Score rules."
+text = "The score shows only after the service has answered, missing origin refuses before any call, same inputs never call twice, a busy answer blocks calls until a server-held instant, a connection failure keeps the old score, and changed inputs show `Outdated` as decided by the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "textile-score"
+tests = [
+    "test_app.py::test_score_rules",
+    "test_app.py::test_score_busy_held_by_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Product passports journey."
+text = "The assessor publishes, corrects and withdraws from the style screen and `/passports`, checked by a screen-rules check with the `Withdraw passport` dialog where an oversized `POST /api/styles/<id>/passport` without a session answers 413 as JSON, a keyboard-only journey, a 375x812 touch journey, the withdrawn, corrected and taken-GTIN copy verbatim with the date, and the unchanged edition page as its precision rule, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "product-passports"
+tests = [
+    "test_app.py::test_wf_product_passports_screen_rules",
+    "test_app.py::test_wf_product_passports_keyboard",
+    "test_app.py::test_wf_product_passports_touch",
+    "test_app.py::test_wf_product_passports_copy_precision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Published fields only."
+text = "`/p/<gtin>` reads with no sign-in in all four languages and shows only the published fields, never a supplier contact's name or mail and never the assessor's notes, in the page or its JSON."
+kind = "behavior"
+primary = "pytest"
+workflow = "product-passports"
+tests = [
+    "test_app.py::test_published_fields_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Editions, corrections and withdrawal."
+text = "A published edition never changes, a correction makes a new edition while earlier editions stay readable exactly as they were, withdrawing answers 410 with the published copy, and a GTIN is unique across every desk once published."
+kind = "behavior"
+primary = "pytest"
+workflow = "product-passports"
+tests = [
+    "test_app.py::test_editions_and_withdrawal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Dossier and sign-off journey."
+text = "The assessor makes a dossier, sends the sign-off page and closes a label, checked by a screen-rules check on `/styles/<id>` and `/labels/<id>` with the `Close label` dialog where an oversized `POST /api/styles/<id>/dossiers` without a session answers 413 as JSON, a keyboard-only journey, a 375x812 touch journey, the outage, replaced-dossier and download-limit copy verbatim with the local time, and the results file cell and PDF text as its precision rule, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "dossier-and-sign-off"
+tests = [
+    "test_app.py::test_wf_dossier_and_sign_off_screen_rules",
+    "test_app.py::test_wf_dossier_and_sign_off_keyboard",
+    "test_app.py::test_wf_dossier_and_sign_off_touch",
+    "test_app.py::test_wf_dossier_and_sign_off_copy_precision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Dossier PDF."
+text = "A dossier shows Ready only after Gotenberg has answered and MinIO has confirmed, its text holds the published facts and no supplier contact details, and nothing is half-written when either service is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "dossier-and-sign-off"
+tests = [
+    "test_app.py::test_dossier_pdf",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Private sign-off page."
+text = "The label contact signs by typing a name without an account on a page with the published lifetime, a new address ends the old one, and signing a replaced dossier answers 409 with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "dossier-and-sign-off"
+tests = [
+    "test_app.py::test_private_sign_off",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Results file and download limit."
+text = "The results file is UTF-8, every field quoted, CRLF, with published columns and the apostrophe rule on risky cells, and downloads are limited per desk with 429 and Retry-After, keyed on the desk and never the network address."
+kind = "behavior"
+primary = "pytest"
+workflow = "dossier-and-sign-off"
+tests = [
+    "test_app.py::test_results_file",
+    "test_app.py::test_download_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Closing, bringing back and erasing a label."
+text = "A closed label comes back exactly as it was within the wait, and after the wait its contacts, supplier contacts and files are erased everywhere, Erased shows only after MinIO has confirmed each deletion, its addresses answer 404 and its passports 410."
+kind = "behavior"
+primary = "pytest"
+workflow = "dossier-and-sign-off"
+tests = [
+    "test_app.py::test_delete_label_takes_everything",
+    "test_app.py::test_close_and_bring_back",
+    "test_app.py::test_reminder_waits_for_bring_back",
+    "test_app.py::test_label_erased",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Exact starting state."
+text = "An untouched copy holds exactly the published seed data and nothing else."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_exact_seed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Route sweep at 375x812."
+text = "Every signed-in screen and private page meets SR4, SR5 and SR6 at 375x812, and SR14, SR15, SR16 and SR17 as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_route_sweep",
+]
+criteria = []
+parameter_cases = [
+    "styles",
+    "style",
+    "materials",
+    "scenarios",
+    "labels",
+    "label",
+    "requests",
+    "visits",
+    "visit",
+    "passports",
+    "answer",
+    "signoff",
+]
+
+[[requirements]]
+id = "DP-54"
+title = "Motion system."
+text = "Every motion the app runs is a CSS transition, CSS animation or element animation of exactly 160, 320 or 640 ms, plus 64 seconds for one pass of the label-name strip."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_system",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Addresses, headings, titles and the Menu sheet."
+text = "Each create action lands on its published address with its heading, title and focus target, and below 1100 px wide the closed Menu sheet is hidden and inert."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_addresses_and_menu_sheet",
+    "test_app.py::test_sign_in_form_strict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "A session that ends mid-form."
+text = "A session the server has ended answers 401 session_ended for that cookie, keeps the open dialog as typed, announces the published copy, and signing in again returns to the same address with the draft kept."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_session_ends_mid_form",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "One API convention."
+text = "Every endpoint uses camelCase keys and enum values, whole-second UTC instants with a Z, one error shape, one precedence ladder and the published session cookie attributes, and answers 503 rather than 500 for a provider failure."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_one_api_convention",
+    "test_app.py::test_sign_up_and_sessions_strict",
+    "test_app.py::test_labels_strict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "The public face."
+text = "The home page carries the dealt composition: a light left-aligned headline on flat bone, a green stage with a shirt-collar cut, the working Try one garment panel on it, and cropped picture fragments down one off-centre edge."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "The working screens."
+text = "Working screens carry the same type and palette as the home page, with flat bone ground, stone panels, one green button per screen, plain tables with tabular figures, strata told apart by weave and printed name as well as colour, and outage copy as flat text in a stone band."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Real wiring."
+text = "The source reads every service credential and address from the environment, calls the two providers, MinIO, Mailpit and Gotenberg for real, works every published sum in exact decimals, and bundles its typefaces and generated imagery."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` holds string `install`, `build` and `serve` and `\"_schema\":\"run-manifest-v1\"`."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at the repository root lists every shipped package and bundled font with its licence; shipped packages means the production dependency tree (`npm ls --omit=dev --all --json`)."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Shipped packages and bundled fonts use only MIT, Apache-2.0, BSD, ISC or OFL licences."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastore other than Postgres and MinIO, and no external service beyond those this brief names."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The app loads no font, script, style or image from another origin at runtime."
+tests = [
+    "test_app.py::test_if_same_origin_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The seeded service configuration is left untouched: the app never calls WireMock's admin API or changes its stubs, and all brand, copy and imagery are this brief's own or generated."
+tests = [
+    "test_app.py::test_if_wiremock_untouched",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "desk-access"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+]
+critical = [
+    "test_app.py::test_wf_desk_access_passwords",
+    "test_app.py::test_labels_on_one_desk",
+    "test_app.py::test_wf_desk_access_sign_in_form",
+]
+
+[[workflows]]
+id = "public-site"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+]
+critical = [
+    "test_app.py::test_wf_public_site_screen_rules",
+    "test_app.py::test_wf_public_site_keyboard",
+    "test_app.py::test_wf_public_site_touch",
+    "test_app.py::test_wf_public_site_copy_precision",
+    "test_app.py::test_intro",
+    "test_app.py::test_label_strip_header_underline",
+    "test_app.py::test_mega_menu",
+    "test_app.py::test_questions",
+    "test_app.py::test_try_one_garment",
+    "test_app.py::test_method_layout",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B3",
+]
+critical_checkpoints = [
+    "B2",
+]
+
+[[workflows]]
+id = "labels-and-styles"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_labels_and_styles_screen_rules",
+    "test_app.py::test_wf_labels_and_styles_keyboard",
+    "test_app.py::test_wf_labels_and_styles_touch",
+    "test_app.py::test_wf_labels_and_styles_copy_precision",
+    "test_app.py::test_style_records",
+    "test_app.py::test_styles_list_api",
+    "test_app.py::test_styles_list_address",
+    "test_app.py::test_row_menu",
+    "test_app.py::test_duplicate_and_archive",
+    "test_app.py::test_catalogue",
+]
+checkpoints = [
+    "B6",
+    "B11",
+]
+
+[[workflows]]
+id = "bill-of-materials"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_bill_of_materials_screen_rules",
+    "test_app.py::test_wf_bill_of_materials_keyboard",
+    "test_app.py::test_wf_bill_of_materials_touch",
+    "test_app.py::test_wf_bill_of_materials_copy_precision",
+    "test_app.py::test_exact_mass_and_fibres",
+    "test_app.py::test_add_material_combobox",
+    "test_app.py::test_reordering_lines",
+    "test_app.py::test_stale_saves",
+]
+
+[[workflows]]
+id = "supplier-requests"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_supplier_requests_screen_rules",
+    "test_app.py::test_wf_supplier_requests_keyboard",
+    "test_app.py::test_wf_supplier_requests_touch",
+    "test_app.py::test_wf_supplier_requests_copy_precision",
+    "test_app.py::test_request_mail",
+    "test_app.py::test_page_ends_at_edge",
+    "test_app.py::test_page_lifetime_and_reminder",
+    "test_app.py::test_request_rate_limit",
+    "test_app.py::test_answers_reach_open_screens",
+]
+
+[[workflows]]
+id = "answer-page"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_answer_page_screen_rules",
+    "test_app.py::test_wf_answer_page_keyboard",
+    "test_app.py::test_wf_answer_page_touch",
+    "test_app.py::test_wf_answer_page_copy_precision",
+    "test_app.py::test_arabic_mirrored",
+    "test_app.py::test_local_numbers",
+    "test_app.py::test_evidence_files",
+    "test_app.py::test_sent_once_and_drafts",
+]
+
+[[workflows]]
+id = "factory-visits"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_factory_visits_screen_rules",
+    "test_app.py::test_wf_factory_visits_keyboard",
+    "test_app.py::test_wf_factory_visits_touch",
+    "test_app.py::test_wf_factory_visits_copy_precision",
+    "test_app.py::test_visit_clock_changes",
+    "test_app.py::test_visit_screen_ignores_device_clock",
+    "test_app.py::test_reading_keys",
+    "test_app.py::test_readings_wait_on_device",
+    "test_app.py::test_lower_reading",
+]
+
+[[workflows]]
+id = "footprint-and-factors"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_footprint_and_factors_screen_rules",
+    "test_app.py::test_wf_footprint_and_factors_keyboard",
+    "test_app.py::test_wf_footprint_and_factors_touch",
+    "test_app.py::test_wf_footprint_and_factors_copy_precision",
+    "test_app.py::test_library_reading_and_sums",
+    "test_app.py::test_results_kept_for_good",
+    "test_app.py::test_stage_strata",
+    "test_app.py::test_measures_composite",
+    "test_app.py::test_newer_factors",
+]
+checkpoints = [
+    "B9",
+    "B10",
+]
+critical_checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "scenarios"
+requirements = [
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_scenarios_screen_rules",
+    "test_app.py::test_wf_scenarios_keyboard",
+    "test_app.py::test_wf_scenarios_touch",
+    "test_app.py::test_wf_scenarios_copy_precision",
+    "test_app.py::test_live_scenario_totals",
+]
+
+[[workflows]]
+id = "textile-score"
+requirements = [
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_textile_score_screen_rules",
+    "test_app.py::test_wf_textile_score_keyboard",
+    "test_app.py::test_wf_textile_score_touch",
+    "test_app.py::test_wf_textile_score_copy_precision",
+    "test_app.py::test_score_rules",
+    "test_app.py::test_score_busy_held_by_server",
+]
+
+[[workflows]]
+id = "product-passports"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_product_passports_screen_rules",
+    "test_app.py::test_wf_product_passports_keyboard",
+    "test_app.py::test_wf_product_passports_touch",
+    "test_app.py::test_wf_product_passports_copy_precision",
+    "test_app.py::test_published_fields_only",
+    "test_app.py::test_editions_and_withdrawal",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "dossier-and-sign-off"
+requirements = [
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_dossier_and_sign_off_screen_rules",
+    "test_app.py::test_wf_dossier_and_sign_off_keyboard",
+    "test_app.py::test_wf_dossier_and_sign_off_touch",
+    "test_app.py::test_wf_dossier_and_sign_off_copy_precision",
+    "test_app.py::test_dossier_pdf",
+    "test_app.py::test_private_sign_off",
+    "test_app.py::test_results_file",
+    "test_app.py::test_download_limit",
+    "test_app.py::test_delete_label_takes_everything",
+    "test_app.py::test_close_and_bring_back",
+    "test_app.py::test_reminder_waits_for_bring_back",
+    "test_app.py::test_label_erased",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_exact_seed",
+    "test_app.py::test_route_sweep",
+    "test_app.py::test_motion_system",
+    "test_app.py::test_addresses_and_menu_sheet",
+    "test_app.py::test_sign_in_form_strict",
+    "test_app.py::test_session_ends_mid_form",
+    "test_app.py::test_one_api_convention",
+    "test_app.py::test_sign_up_and_sessions_strict",
+    "test_app.py::test_labels_strict",
+]
+checkpoints = [
+    "B4",
+    "B5",
+    "B7",
+]

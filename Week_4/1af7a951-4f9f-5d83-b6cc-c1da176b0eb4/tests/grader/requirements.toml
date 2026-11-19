@@ -1,0 +1,1568 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 84
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "enroll-and-pay",
+    "first-night",
+    "night-travel",
+    "offline-capture",
+    "voice-memo",
+    "sign-condensation",
+    "reality-drill",
+    "technique-week",
+    "coach-cohorts",
+    "coach-roster",
+    "digest",
+    "refunds",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 80
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "killbill", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Saltmoon Practice <hello@saltmoon.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+B13 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4176
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[requirements]]
+id = "DP-01"
+title = "Open cohort listing"
+text = "GET /api/cohorts and the Cohorts screen list every cohort in its enrolling or baseline phase with its price, nights and seats left in the published forms."
+kind = "behavior"
+primary = "pytest"
+workflow = "enroll-and-pay"
+tests = [
+    "test_app.py::test_open_cohort_listing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Enrollment request"
+text = "An applicant's enrollment is created in pending_payment with a one-time access code, as specified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "enroll-and-pay"
+tests = [
+    "test_app.py::test_enrollment_request",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Provider-confirmed seat"
+text = "An enrollment becomes active, and the page reads Enrolled, only after Kill Bill records a successful PURCHASE on the account keyed by that enrollment, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "enroll-and-pay"
+tests = [
+    "test_app.py::test_provider_confirmed_seat",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Last-seat race"
+text = "When several applicants pay for a cohort's last seat at once, exactly one becomes active and Kill Bill holds exactly one PURCHASE among them."
+kind = "behavior"
+primary = "pytest"
+workflow = "enroll-and-pay"
+tests = [
+    "test_app.py::test_last_seat_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Payment replay"
+text = "Paying again for an already active enrollment from the app's own origin returns it unchanged without contacting Kill Bill and never records a second PURCHASE."
+kind = "behavior"
+primary = "pytest"
+workflow = "enroll-and-pay"
+tests = [
+    "test_app.py::test_payment_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Receipt after confirmation"
+text = "The applicant's receipt reaches Mailpit only after the payment is confirmed and carries enrollment facts only, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "enroll-and-pay"
+tests = [
+    "test_app.py::test_receipt_after_confirmation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Applicant enrollment journey"
+text = "An applicant goes from the Cohorts screen to an Enrolled page showing their first night, bedtime and wake alarm in home time."
+kind = "behavior"
+primary = "workflow"
+workflow = "enroll-and-pay"
+tests = [
+    "test_app.py::test_wf_enroll_and_pay_happy",
+    "test_app.py::test_wf_enroll_and_pay_field_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Billing outage"
+text = "With Kill Bill unreachable, paying returns the billing outage response, the enrollment stays pending and the page shows the published payment-outage notice."
+kind = "behavior"
+primary = "pytest"
+workflow = "enroll-and-pay"
+tests = [
+    "test_app.py::test_billing_outage",
+    "test_app.py::test_wf_enroll_and_pay_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Access-code sign-in"
+text = "A dreamer or coach signs in with their access code and gets a session; a pending or refunded code is refused with its status and the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "first-night"
+tests = [
+    "test_app.py::test_access_code_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Night key"
+text = "Every entry is filed under the night key the server derives from its own clock, the dreamer's home time zone and bedtime, so an entry at 03:40 belongs to the previous evening's night, as qualified by DP-69."
+kind = "behavior"
+primary = "pytest"
+workflow = "first-night"
+tests = [
+    "test_app.py::test_night_key_from_server_clock",
+]
+criteria = []
+parameter_cases = [
+    "etc-0340",
+    "kathmandu",
+    "eucla",
+    "st-johns",
+]
+
+[[requirements]]
+id = "DP-11"
+title = "Server-published night status"
+text = "The Tonight panel shows the night number, night key, bedtime, wake alarm and capture-window status exactly as the server publishes them, whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "first-night"
+tests = [
+    "test_app.py::test_tonight_panel_server_values",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Late recall"
+text = "Entries the server receives after the night's capture window has closed are saved and flagged late recall."
+kind = "behavior"
+primary = "pytest"
+workflow = "first-night"
+tests = [
+    "test_app.py::test_capture_window_and_late_recall",
+]
+criteria = []
+parameter_cases = [
+    "open-window",
+    "closed-window",
+]
+
+[[requirements]]
+id = "DP-13"
+title = "Wake alarm"
+text = "The suggested Wake-Back-to-Bed alarm is the bedtime plus five hours, shown in the dreamer's home time."
+kind = "behavior"
+primary = "pytest"
+workflow = "first-night"
+tests = [
+    "test_app.py::test_wake_alarm",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Night settings"
+text = "A dreamer can change home time zone and bedtime within the published limits, and the change applies only to entries and checks saved afterwards, as qualified by DP-69 and DP-72."
+kind = "behavior"
+primary = "pytest"
+workflow = "night-travel"
+tests = [
+    "test_app.py::test_night_settings",
+    "test_app.py::test_wf_night_travel_settings_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "First-night empty state"
+text = "A night with no entries shows the published empty-state copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "first-night"
+tests = [
+    "test_app.py::test_first_night_empty_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "First-night journey"
+text = "A dreamer signs in, sees the Tonight panel and empty state, writes an entry and sees it Saved under the right night."
+kind = "behavior"
+primary = "workflow"
+workflow = "first-night"
+tests = [
+    "test_app.py::test_wf_first_night_happy",
+    "test_app.py::test_wf_first_night_wrong_code",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Idempotent entry save"
+text = "Saving an entry under its device-made id creates it once; an identical replay returns the stored entry and a different body under the same id is rejected."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-capture"
+tests = [
+    "test_app.py::test_entry_idempotent_save",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Concurrent retries"
+text = "Simultaneous saves of the same entry id leave exactly one stored entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-capture"
+tests = [
+    "test_app.py::test_entry_concurrent_retries",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Entry validation"
+text = "Entries outside the published field limits or with values of the wrong JSON type are rejected with field errors and nothing is stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-capture"
+tests = [
+    "test_app.py::test_entry_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Device state until acknowledged"
+text = "A new entry reads Kept on this device until the server acknowledges it, and only then reads Saved."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-capture"
+tests = [
+    "test_app.py::test_entry_kept_until_acknowledged",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Rejected sync rollback"
+text = "When the server rejects a kept entry, it returns to Kept on this device with the reason shown and is never shown as Saved."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-capture"
+tests = [
+    "test_app.py::test_wf_offline_capture_rejected",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Offline banner"
+text = "While the browser is offline the logbook shows the published offline banner and keeps new entries on the device."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-capture"
+tests = [
+    "test_app.py::test_offline_banner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Sync announcement"
+text = "Each sync attempt on reconnect or page load is announced in the Sync live region with the published counts copy, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-capture"
+tests = [
+    "test_app.py::test_sync_announcement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Offline capture journey"
+text = "An entry written offline survives a reload, syncs on reconnect, and appears once as Saved."
+kind = "behavior"
+primary = "workflow"
+workflow = "offline-capture"
+tests = [
+    "test_app.py::test_wf_offline_capture_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Memo stored as submitted"
+text = "A voice memo is stored in MinIO byte for byte with its submitted content type and duration."
+kind = "behavior"
+primary = "pytest"
+workflow = "voice-memo"
+tests = [
+    "test_app.py::test_memo_stored_as_submitted",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Memo playback"
+text = "Memo playback returns the stored bytes with the original content type, length and duration, in full or as an exact byte range, with malformed ranges answered in full, and no text is ever shown in its place."
+kind = "behavior"
+primary = "pytest"
+workflow = "voice-memo"
+tests = [
+    "test_app.py::test_memo_playback_ranges",
+    "test_app.py::test_wf_voice_memo_record_and_play",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Memo limits"
+text = "Memos over the size limit, of an unlisted type, empty or without a valid duration are rejected, and a second different memo for the same entry is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "voice-memo"
+tests = [
+    "test_app.py::test_memo_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Memo access"
+text = "Only the owning dreamer can fetch a memo, plus the cohort's coach for an entry the dreamer has shared while holding their seat."
+kind = "behavior"
+primary = "pytest"
+workflow = "voice-memo"
+tests = [
+    "test_app.py::test_memo_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Memo storage outage"
+text = "With MinIO unreachable the entry text still saves, the memo upload returns the storage outage response and the memo stays on the device with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "voice-memo"
+tests = [
+    "test_app.py::test_memo_storage_outage",
+    "test_app.py::test_wf_voice_memo_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Tag a dream sign"
+text = "Tagging a character range of a saved entry with one of the four categories stores one sign and returns the server-confirmed tallies, unless the range is refused as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-condensation"
+tests = [
+    "test_app.py::test_tag_dream_sign",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Derived constellations"
+text = "Star counts, tagged nights and halo radius for each category are derived from stored signs, and the dreamscape, legend and coach tally agree after a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-condensation"
+tests = [
+    "test_app.py::test_derived_constellations",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Keyboard tagging"
+text = "A dreamer can select a phrase, open the tag dialog, choose a category and confirm with the keyboard alone, with focus kept in the dialog and returned on close."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-condensation"
+tests = [
+    "test_app.py::test_keyboard_tagging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Tag shortcut"
+text = "Pressing T tags the current selection whichever control in that entry has focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-condensation"
+tests = [
+    "test_app.py::test_tag_shortcut",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Sign condensation"
+text = "Confirming a tag underlines the phrase, flies it into its category's constellation, settles a new star, grows the halo and then updates the legend and announces the count, on the published timeline."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-condensation"
+tests = [
+    "test_app.py::test_wf_sign_condensation_timeline",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Reduced-motion condensation"
+text = "With reduced motion the flight and fog are skipped, the star fades in at its final place and the legend count and announcement are unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-condensation"
+tests = [
+    "test_app.py::test_reduced_motion_condensation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Tagging journey"
+text = "A dreamer tags a phrase and sees the legend count for its category rise by one, and the same count after a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "sign-condensation"
+tests = [
+    "test_app.py::test_wf_sign_condensation_tag_and_reload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Drill target"
+text = "The reality-check drill targets the dreamer's most frequent dream-sign category by the published tie rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "reality-drill"
+tests = [
+    "test_app.py::test_drill_target",
+    "test_app.py::test_wf_reality_drill_no_target",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Keyboard drill"
+text = "The drill dialog is stepped through, logged and closed by keyboard alone, with focus kept in the dialog and returned to its opener."
+kind = "behavior"
+primary = "pytest"
+workflow = "reality-drill"
+tests = [
+    "test_app.py::test_wf_reality_drill_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Reality-check log"
+text = "Logging a drill stores one reality check per device-made id under the server's night key and returns the number of checks with that key."
+kind = "behavior"
+primary = "pytest"
+workflow = "reality-drill"
+tests = [
+    "test_app.py::test_reality_check_log",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Cohort phase from server date"
+text = "A cohort's phase follows the server's date in the coach's time zone, and screens show the phase the server publishes."
+kind = "behavior"
+primary = "pytest"
+workflow = "technique-week"
+tests = [
+    "test_app.py::test_cohort_phase_from_server_date",
+    "test_app.py::test_wf_technique_week_coach_phase",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Technique unlock on night 8"
+text = "Wake-Back-to-Bed and technique fields appear from the dreamer's own night 8 as the server publishes it, within 60 seconds of the night changing."
+kind = "behavior"
+primary = "pytest"
+workflow = "technique-week"
+tests = [
+    "test_app.py::test_wf_technique_week_unlock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Technique before night 8"
+text = "Entries that report technique practice before the dreamer's night 8 are rejected with the published field error."
+kind = "behavior"
+primary = "pytest"
+workflow = "technique-week"
+tests = [
+    "test_app.py::test_technique_before_night_8",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Cohort creation"
+text = "A coach creates a cohort in draft with a name, first night, seat price and seat count, as qualified by DP-76 and DP-77."
+kind = "behavior"
+primary = "pytest"
+workflow = "coach-cohorts"
+tests = [
+    "test_app.py::test_cohort_creation",
+    "test_app.py::test_wf_coach_cohorts_create_publish",
+    "test_app.py::test_wf_coach_cohorts_new_form_opener",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Cohort transitions"
+text = "Publish and close are allowed only from draft and technique respectively, and every other request is rejected with the illegal-transition response."
+kind = "behavior"
+primary = "pytest"
+workflow = "coach-cohorts"
+tests = [
+    "test_app.py::test_cohort_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Coach tenancy"
+text = "A coach sees and acts on their own cohorts only; another coach's cohort answers as not found."
+kind = "behavior"
+primary = "pytest"
+workflow = "coach-cohorts"
+tests = [
+    "test_app.py::test_coach_tenancy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Roster projection"
+text = "Roster rows carry only the published aggregate fields and never dream titles, text or memo keys of unshared entries."
+kind = "behavior"
+primary = "pytest"
+workflow = "coach-roster"
+tests = [
+    "test_app.py::test_roster_projection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Shared entry exception"
+text = "An entry the dreamer shares while holding their seat appears in the coach's roster with its title and text, and disappears when unshared or when the seat is refunded."
+kind = "behavior"
+primary = "pytest"
+workflow = "coach-roster"
+tests = [
+    "test_app.py::test_shared_entry_exception",
+    "test_app.py::test_wf_coach_roster_read_shared",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Adherence counts by night key"
+text = "Roster nights logged, recall rate, technique minutes and WBTB nights use the stored night keys."
+kind = "behavior"
+primary = "pytest"
+workflow = "coach-roster"
+tests = [
+    "test_app.py::test_roster_adherence_by_night_key",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Roster layout"
+text = "The coach screen switches from stacked cards below 768 pixels to a table with cohort tabs, and to split panes at 1200 pixels and wider."
+kind = "behavior"
+primary = "pytest"
+workflow = "coach-roster"
+tests = [
+    "test_app.py::test_roster_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Weekly digest"
+text = "Sending the weekly digest delivers one Mailpit message to the coach with per-dreamer aggregates that match the roster and no dream content, as qualified by DP-67."
+kind = "behavior"
+primary = "pytest"
+workflow = "digest"
+tests = [
+    "test_app.py::test_weekly_digest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Digest mail outage"
+text = "With mail unreachable the digest returns the mail outage response and the coach sees the published copy; success copy appears only after the message is accepted."
+kind = "behavior"
+primary = "pytest"
+workflow = "digest"
+tests = [
+    "test_app.py::test_wf_digest_mail_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Refund before technique"
+text = "A coach refunds an active paid seat during enrolling or baseline, Kill Bill records one full REFUND and the enrollment becomes refunded."
+kind = "behavior"
+primary = "pytest"
+workflow = "refunds"
+tests = [
+    "test_app.py::test_refund_before_technique",
+    "test_app.py::test_wf_refunds_coach_refund",
+    "test_app.py::test_wf_refunds_dialog_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Refund window"
+text = "Refunds once the technique weeks start, of non-active enrollments, of comped seats, or with Kill Bill unreachable are rejected and change nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "refunds"
+tests = [
+    "test_app.py::test_refund_window",
+    "test_app.py::test_wf_refunds_outage",
+    "test_app.py::test_wf_refunds_comped",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Workspace breakpoints"
+text = "The dreamer workspace shows a stacked horizon strip below 768 pixels, a pinned band from 768 to 1199 pixels and split panes at 1200 pixels and wider."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_workspace_breakpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Mobile dreamscape sheet"
+text = "On a phone the horizon strip opens a full-screen dreamscape sheet that touch pans, closes with Escape and is unreachable when collapsed."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_phone_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Dreamscape scene and fallback"
+text = "The dreamscape draws one star per stored sign and names each category's drawn star count in the sky's accessible description, with a slow fog drift as its only idle motion, pans by drag and arrow keys, and falls back to a still picture without WebGL."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dreamscape_scene",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Night-sky visual design"
+text = "Every screen uses the deep indigo ground, hushed light ink, violet actions and teal reserved for dream signs and the current night, with the published type and airy spacing."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Health and run manifest"
+text = "The app runs from /app/run.json and answers the health check on the published port."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Server boundary"
+text = "The server enforces same-origin writes, body size limits, JSON parsing and content types in the published order, and never serves source files or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Credentials from environment"
+text = "Every service URL and credential is read from the environment at start and never reaches the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Payment reconciliation"
+text = "Paying reuses any Kill Bill account and successful PURCHASE already keyed by the enrollment id, so repeated or concurrent pays record at most one account, one PURCHASE and one receipt."
+kind = "behavior"
+primary = "pytest"
+workflow = "enroll-and-pay"
+tests = [
+    "test_app.py::test_concurrent_pays_reconcile",
+    "test_app.py::test_wf_enroll_and_pay_double_press",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Memo signature check"
+text = "A voice memo whose leading bytes do not match its declared audio type is refused with the published field error and nothing reaches MinIO."
+kind = "behavior"
+primary = "pytest"
+workflow = "voice-memo"
+tests = [
+    "test_app.py::test_memo_signature_check",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "No overlapping dream signs"
+text = "No two stored dream signs in one entry overlap, and simultaneous overlapping tags store exactly one sign while the others get the overlap response, or the conflict or replay response when their range is identical to the winner's."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-condensation"
+tests = [
+    "test_app.py::test_overlapping_tags_concurrent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Open work survives refreshes"
+text = "Timed refreshes, syncs and after-save updates never close an open dialog or sheet, reset the drill step, move focus, change typed input or re-announce an unchanged result, except that every sync attempt is announced as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "reality-drill"
+tests = [
+    "test_app.py::test_open_work_survives_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Cohort selection in the address"
+text = "The coach's selected cohort lives in the address, so reload, Back and Forward restore it, and an unavailable cohort falls back to the earliest one with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "coach-cohorts"
+tests = [
+    "test_app.py::test_wf_coach_cohorts_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Live roster refresh"
+text = "The open roster refreshes in place every 30 seconds while visible, keeping focus, open dialogs and scroll, and closes a shared-entry dialog whose entry was unshared with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "coach-roster"
+tests = [
+    "test_app.py::test_wf_coach_roster_live_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "One digest per cohort week"
+text = "Each cohort week gets at most one digest message, and every later or simultaneous send replays the stored digest with the published already-sent copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "digest"
+tests = [
+    "test_app.py::test_one_digest_per_week",
+    "test_app.py::test_wf_digest_send_and_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Freed seats agree everywhere"
+text = "A refund frees its seat on every seats-left surface and the pay check at once, and simultaneous refunds of one enrollment record exactly one REFUND."
+kind = "behavior"
+primary = "pytest"
+workflow = "refunds"
+tests = [
+    "test_app.py::test_freed_seats_agree",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Night key never moves back"
+text = "A dreamer's published and stored night key is never earlier than their latest stored entry's night key, even after a time-zone or bedtime change."
+kind = "behavior"
+primary = "pytest"
+workflow = "night-travel"
+tests = [
+    "test_app.py::test_night_key_never_moves_back",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Cross-site pay refused"
+text = "A pay press arriving with a foreign or null Origin, or with no Origin and Sec-Fetch-Site cross-site, is refused with the cross-origin response before Kill Bill is contacted, so no account or charge is made."
+kind = "behavior"
+primary = "pytest"
+workflow = "enroll-and-pay"
+tests = [
+    "test_app.py::test_cross_site_pay_refused",
+]
+criteria = []
+parameter_cases = [
+    "foreign-origin",
+    "null-origin",
+    "cross-site-fetch",
+]
+
+[[requirements]]
+id = "DP-71"
+title = "Sign-in landing"
+text = "After sign-in the browser lands on next only when it passes every published landing rule, and otherwise on the signed-in role's own screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "first-night"
+tests = [
+    "test_app.py::test_sign_in_landing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Held night is explained"
+text = "Saving night settings that would move the night earlier reports night_held and shows the published held-night copy with the unchanged night number."
+kind = "behavior"
+primary = "pytest"
+workflow = "night-travel"
+tests = [
+    "test_app.py::test_wf_night_travel_held",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Kept entries belong to their dreamer"
+text = "Entries and memos kept on a shared browser are shown, counted and synced only under the dreamer who wrote them, and a server write to another dreamer's entry or reality-check id answers 404 and stores nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-capture"
+tests = [
+    "test_app.py::test_wf_offline_capture_shared_device",
+    "test_app.py::test_foreign_ids_answer_404",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "One memo per entry under racing uploads"
+text = "Simultaneous different memo uploads for one entry store exactly the winner's bytes in MinIO, losers never write there, and a failed MinIO write releases the claim."
+kind = "behavior"
+primary = "pytest"
+workflow = "voice-memo"
+tests = [
+    "test_app.py::test_memo_upload_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Results reachable while the sky is collapsed"
+text = "On a phone the Dream signs status stays outside the collapsed sheet and is announced while the sheet's legend, sky and drill button stay inert, and sign offsets are whole-text UTF-16 offsets."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-condensation"
+tests = [
+    "test_app.py::test_phone_collapsed_sky",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Cohort names are exact and unique"
+text = "Cohort links, tabs and options are named exactly by the cohort name with the phase label as their description, and a coach can never hold two cohorts whose names match case-insensitively."
+kind = "behavior"
+primary = "pytest"
+workflow = "coach-cohorts"
+tests = [
+    "test_app.py::test_cohort_names_exact_and_unique",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Names never break mail"
+text = "Applicant and cohort names are stored exactly as entered, any control character or line separator is refused, and every message carries exactly its published subject and one recipient."
+kind = "behavior"
+primary = "pytest"
+workflow = "digest"
+tests = [
+    "test_app.py::test_names_never_break_mail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "A refund ends access now"
+text = "A successful refund ends every session of that dreamer at once, so their next request answers 401, the open logbook returns to sign-in and their shares leave the roster."
+kind = "behavior"
+primary = "pytest"
+workflow = "refunds"
+tests = [
+    "test_app.py::test_refund_ends_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Instants and money across layers"
+text = "The API carries instants as UTC with a Z suffix and no fractional seconds and money as integer cents, while screens show the dreamer's home wall-clock time and dollars with two decimals."
+kind = "behavior"
+primary = "pytest"
+workflow = "first-night"
+tests = [
+    "test_app.py::test_instants_and_money",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Error precedence"
+text = "Every API request that breaks several rules gets the response of the earliest rung of the published precedence ladder."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "System-only transitions"
+text = "Phase and status changes that only the server or a provider may make follow the published transition table, and a manual request for one answers 409 with nothing changed."
+kind = "behavior"
+primary = "pytest"
+workflow = "technique-week"
+tests = [
+    "test_app.py::test_system_only_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Roster scroll area"
+text = "The roster table scrolls sideways and down inside its own area with its header row and Dreamer column pinned, while the page never scrolls sideways."
+kind = "behavior"
+primary = "pytest"
+workflow = "coach-roster"
+tests = [
+    "test_app.py::test_roster_scroll_area",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Motion phase and reduced motion"
+text = "The dreamscape publishes the current condensation phase, and with reduced motion no transition or animation runs and the flight and settle phases never occur."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-condensation"
+tests = [
+    "test_app.py::test_motion_phase_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Verbatim copy characters"
+text = "Every published string renders with the exact straight apostrophes and en dashes it is written with."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve keys and _schema run-manifest-v1, and nothing else is needed to start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package (the production tree from npm ls --omit=dev --all --json) and every bundled font with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and bundled font is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "No datastore beyond the provided Postgres and MinIO is used for application state; browser storage for entries kept on the device is allowed."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration files for Postgres, Kill Bill, MinIO and Mailpit are left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The application source is TypeScript compiled with strict enabled."
+tests = [
+    "test_app.py::test_if_typescript_strict",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "/app/package-lock.json is committed and install uses it."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "enroll-and-pay"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-61",
+    "DP-70",
+]
+critical = [
+    "test_app.py::test_wf_enroll_and_pay_happy",
+    "test_app.py::test_wf_enroll_and_pay_field_errors",
+    "test_app.py::test_wf_enroll_and_pay_outage",
+    "test_app.py::test_wf_enroll_and_pay_double_press",
+    "test_app.py::test_provider_confirmed_seat",
+    "test_app.py::test_cross_site_pay_refused",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "first-night"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-15",
+    "DP-16",
+    "DP-71",
+    "DP-79",
+]
+critical = [
+    "test_app.py::test_wf_first_night_happy",
+    "test_app.py::test_tonight_panel_server_values",
+    "test_app.py::test_sign_in_landing",
+    "test_app.py::test_first_night_empty_state",
+]
+checkpoints = [
+    "B2",
+    "B12",
+]
+
+[[workflows]]
+id = "night-travel"
+requirements = [
+    "DP-14",
+    "DP-69",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_night_travel_held",
+    "test_app.py::test_wf_night_travel_settings_keyboard",
+    "test_app.py::test_night_key_never_moves_back",
+]
+
+[[workflows]]
+id = "offline-capture"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_offline_capture_happy",
+    "test_app.py::test_wf_offline_capture_rejected",
+    "test_app.py::test_wf_offline_capture_shared_device",
+    "test_app.py::test_entry_concurrent_retries",
+    "test_app.py::test_sync_announcement",
+]
+
+[[workflows]]
+id = "voice-memo"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-62",
+    "DP-74",
+]
+critical = [
+    "test_app.py::test_wf_voice_memo_record_and_play",
+    "test_app.py::test_wf_voice_memo_storage_outage",
+    "test_app.py::test_memo_stored_as_submitted",
+    "test_app.py::test_memo_signature_check",
+    "test_app.py::test_memo_upload_race",
+]
+
+[[workflows]]
+id = "sign-condensation"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-63",
+    "DP-75",
+    "DP-83",
+]
+critical = [
+    "test_app.py::test_wf_sign_condensation_tag_and_reload",
+    "test_app.py::test_wf_sign_condensation_timeline",
+    "test_app.py::test_overlapping_tags_concurrent",
+    "test_app.py::test_phone_collapsed_sky",
+    "test_app.py::test_reduced_motion_condensation",
+    "test_app.py::test_keyboard_tagging",
+]
+checkpoints = [
+    "B3",
+    "B10",
+]
+critical_checkpoints = [
+    "B3",
+]
+
+[[workflows]]
+id = "reality-drill"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_reality_drill_keyboard",
+    "test_app.py::test_wf_reality_drill_no_target",
+    "test_app.py::test_open_work_survives_refresh",
+    "test_app.py::test_reality_check_log",
+]
+
+[[workflows]]
+id = "technique-week"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-81",
+]
+critical = [
+    "test_app.py::test_wf_technique_week_unlock",
+    "test_app.py::test_wf_technique_week_coach_phase",
+    "test_app.py::test_cohort_phase_from_server_date",
+]
+
+[[workflows]]
+id = "coach-cohorts"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-65",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_wf_coach_cohorts_create_publish",
+    "test_app.py::test_wf_coach_cohorts_new_form_opener",
+    "test_app.py::test_wf_coach_cohorts_address",
+    "test_app.py::test_cohort_names_exact_and_unique",
+    "test_app.py::test_cohort_creation",
+]
+
+[[workflows]]
+id = "coach-roster"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-66",
+    "DP-82",
+]
+critical = [
+    "test_app.py::test_wf_coach_roster_live_refresh",
+    "test_app.py::test_wf_coach_roster_read_shared",
+    "test_app.py::test_roster_projection",
+    "test_app.py::test_roster_layout",
+]
+checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "digest"
+requirements = [
+    "DP-50",
+    "DP-51",
+    "DP-67",
+    "DP-77",
+]
+critical = [
+    "test_app.py::test_wf_digest_send_and_replay",
+    "test_app.py::test_wf_digest_mail_outage",
+    "test_app.py::test_one_digest_per_week",
+    "test_app.py::test_weekly_digest",
+    "test_app.py::test_names_never_break_mail",
+]
+
+[[workflows]]
+id = "refunds"
+requirements = [
+    "DP-52",
+    "DP-53",
+    "DP-68",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_refunds_coach_refund",
+    "test_app.py::test_wf_refunds_dialog_keyboard",
+    "test_app.py::test_wf_refunds_outage",
+    "test_app.py::test_wf_refunds_comped",
+    "test_app.py::test_freed_seats_agree",
+    "test_app.py::test_refund_ends_access",
+    "test_app.py::test_refund_before_technique",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-80",
+    "DP-84",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_phone_sheet",
+    "test_app.py::test_wf_cross_cutting_not_found",
+]
+checkpoints = [
+    "B1",
+    "B9",
+]
+critical_checkpoints = [
+    "B1",
+]

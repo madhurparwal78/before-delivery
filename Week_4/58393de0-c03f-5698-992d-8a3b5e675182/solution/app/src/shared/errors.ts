@@ -1,0 +1,41 @@
+import { copy } from "./copy";
+
+/** Every API error code: its HTTP status and default copy. Parameterised copy (removed, dst gap) is passed in by the thrower. */
+export const ERROR_CATALOG = {
+  unsupported_media: { status: 415, message: copy.unsupportedMedia },
+  too_large: { status: 413, message: copy.tooLarge },
+  signed_out: { status: 401, message: copy.signedOut },
+  bad_credentials: { status: 401, message: copy.badCredentials },
+  removed: { status: 401, message: "You were removed from your classroom." },
+  too_many_attempts: { status: 429, message: copy.tooManyAttempts },
+  rate_limited: { status: 429, message: copy.rateLimited },
+  not_found: { status: 404, message: copy.notFound },
+  unknown_code: { status: 404, message: copy.joinClosed },
+  forbidden: { status: 403, message: copy.forbidden },
+  email_unverified: { status: 403, message: copy.unverifiedSave },
+  join_closed: { status: 409, message: copy.joinClosed },
+  classroom_full: { status: 409, message: copy.classroomFull },
+  nickname_taken: { status: 409, message: copy.nicknameTaken },
+  email_taken: { status: 409, message: copy.emailTaken },
+  already_verified: { status: 409, message: copy.alreadyVerified },
+  classroom_not_started: { status: 409, message: copy.classroomNotStarted },
+  classroom_handed_in: { status: 409, message: copy.classroomHandedIn },
+  classroom_archived: { status: 409, message: copy.classroomArchived },
+  not_handed_in: { status: 409, message: copy.notHandedIn },
+  project_handed_in: { status: 409, message: copy.projectHandedIn },
+  not_a_classroom_project: { status: 409, message: copy.notAClassroomProject },
+  stale_revision: { status: 409, message: copy.staleRevision },
+  idempotency_conflict: { status: 409, message: copy.idempotencyConflict },
+  already_added: { status: 409, message: copy.alreadyAdded },
+  owner_cannot_leave: { status: 409, message: copy.ownerCannotLeave },
+  link_expired: { status: 410, message: copy.linkExpired },
+  validation: { status: 422, message: copy.validation },
+  no_such_educator: { status: 422, message: copy.noSuchEducator },
+  mesh_not_closed: { status: 422, message: copy.meshNotClosed },
+  storage_unavailable: { status: 503, message: copy.openStorage },
+  mail_unavailable: { status: 503, message: copy.mailUnavailable },
+  database_unavailable: { status: 503, message: copy.databaseDown },
+  internal: { status: 500, message: copy.serverError },
+} as const;
+
+export type ErrorCode = keyof typeof ERROR_CATALOG;

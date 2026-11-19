@@ -1,0 +1,1521 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 85
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "join-membership",
+    "holds",
+    "checkout",
+    "shadow-board-checkin",
+    "partial-returns",
+    "late-fees",
+    "fee-settlement",
+    "photo-evidence",
+    "storage-outage",
+    "billing-outage",
+    "opening-calendar",
+    "mobile-board",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 78
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "killbill", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Pegworth Desk <desk@pegworth.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 1
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "storage-down"
+port = 4174
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "billing-down"
+port = 4175
+url_env = "APP_BILLING_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-session"
+port = 4176
+url_env = "APP_SHORT_SESSION_URL"
+
+[outages.env]
+SESSION_IDLE_SECONDS = "20"
+
+[[requirements]]
+id = "DP-01"
+title = "Sliding-scale join"
+text = "A visitor joins by choosing one of the three published tiers, which creates their account and exactly one Kill Bill account, annual subscription and first-year payment for that email."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-membership"
+tests = [
+    "test_app.py::test_join_kill_bill_records",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Active only once Kill Bill confirms"
+text = "A new membership stays pending payment, and its member cannot place holds, until Kill Bill shows the subscription active and its first invoice paid, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-membership"
+tests = [
+    "test_app.py::test_join_waits_for_kill_bill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Cancel at end of term"
+text = "An active member can cancel at end of term and stays active until the billing end date Kill Bill reports, which the account page shows unchanged across refreshes and reloads."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-membership"
+tests = [
+    "test_app.py::test_cancel_at_end_of_term",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Join journey"
+text = "A visitor picks a tier, pays, watches the account page move from pending to active with a single announcement, and can then place a hold."
+kind = "behavior"
+primary = "workflow"
+workflow = "join-membership"
+tests = [
+    "test_app.py::test_wf_join_membership_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Hold queue"
+text = "An active member places at most one hold per tool on a tool that is not available on the wall, joins the back of its queue, and can cancel the hold."
+kind = "behavior"
+primary = "pytest"
+workflow = "holds"
+tests = [
+    "test_app.py::test_hold_queue_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Hold-ready notice"
+text = "When a returned tool is fully hung back, the first queued hold whose member is active becomes ready and that member gets exactly one hold-ready email, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "holds"
+tests = [
+    "test_app.py::test_hold_ready_notice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Hold journey"
+text = "A member finds a tool that is out, places a hold and sees their queue position, and a tool with no queue shows the published empty-queue line."
+kind = "behavior"
+primary = "workflow"
+workflow = "holds"
+tests = [
+    "test_app.py::test_wf_holds_pegboard_hold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Reserve and check out"
+text = "Desk staff reserve available tools for an active member and check the loan out with a condition photo, which sets its due date."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_reserve_checkout_due_date",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "One winner per tool"
+text = "When reservations or checkouts race for the same tool, or check-ins or finishes race for the same loan, exactly one succeeds across all app processes and the rest get the published conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_wf_checkout_race_reservations",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Checkout journey"
+text = "A desk volunteer scans a member's tools into a new loan, takes the checkout photo, and sees those tools' outlines turn to dashed empties on the board."
+kind = "behavior"
+primary = "workflow"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_wf_checkout_scan_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Hanging parts on the board"
+text = "During a check-in each part hangs only on its own outline, a wrong outline is refused with the published message, and a hung part can be taken down before confirming."
+kind = "behavior"
+primary = "pytest"
+workflow = "shadow-board-checkin"
+tests = [
+    "test_app.py::test_hang_rules_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Check-in outcome"
+text = "Confirming a check-in grades each tool and records the loan as returned complete when every part is hung, or as returned partial naming each unhung part."
+kind = "behavior"
+primary = "pytest"
+workflow = "shadow-board-checkin"
+tests = [
+    "test_app.py::test_checkin_outcome",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Keyboard-only check-in"
+text = "A desk volunteer can find a loan, hang every part, grade condition and confirm using only the keyboard, with the published shortcuts and a confirm dialog that keeps focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "shadow-board-checkin"
+tests = [
+    "test_app.py::test_wf_shadow_board_checkin_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Announced check-in results"
+text = "Every hang, refusal and check-in outcome, including any fee raised, is announced in the desk announcements region with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "shadow-board-checkin"
+tests = [
+    "test_app.py::test_checkin_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Shadow-board hang motion"
+text = "Dragging a tag card thickens, springs and fills its own outline with the published timings and snap radius, and springs back when dropped anywhere else."
+kind = "behavior"
+primary = "pytest"
+workflow = "shadow-board-checkin"
+tests = [
+    "test_app.py::test_wf_shadow_board_checkin_drag_reduced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Check-in journey"
+text = "A volunteer scans a returned kit, hangs its parts, grades and photographs it and confirms, and the board, header counts and announcement show the result."
+kind = "behavior"
+primary = "workflow"
+workflow = "shadow-board-checkin"
+tests = [
+    "test_app.py::test_wf_shadow_board_checkin_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Late parts complete a return"
+text = "Hanging the last missing part of a partially returned loan makes it returned complete exactly once and frees the tool for lending and holds."
+kind = "behavior"
+primary = "pytest"
+workflow = "partial-returns"
+tests = [
+    "test_app.py::test_late_parts_complete_return",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Board counts match loans"
+text = "The on-the-wall, out-on-loan and missing counts, on every read and in every hang response, equal the counts recomputed from every part's state."
+kind = "behavior"
+primary = "pytest"
+workflow = "partial-returns"
+tests = [
+    "test_app.py::test_board_counts_match_parts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Partial return journey"
+text = "A volunteer confirms a kit with parts unhung, those outlines stay dashed and labelled missing after a reload, and a later hang completes the return."
+kind = "behavior"
+primary = "workflow"
+workflow = "partial-returns"
+tests = [
+    "test_app.py::test_wf_partial_returns_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Fee and inventory settings"
+text = "The coordinator sets the library time zone, which every date and cutoff uses from then on, and the late fee per open day, damage fee, loan period and each tool's replacement cost, which apply to loans checked out from then on, and adds tools with their parts."
+kind = "behavior"
+primary = "pytest"
+workflow = "late-fees"
+tests = [
+    "test_app.py::test_fee_and_inventory_settings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Open-day lateness"
+text = "Lateness counts only open days after the due date in the library time zone, ignores closures, and treats a return by the closing time currently set for the due date's weekday as on time."
+kind = "behavior"
+primary = "pytest"
+workflow = "late-fees"
+tests = [
+    "test_app.py::test_open_day_lateness",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Exact fee lines"
+text = "A check-in raises at most one fee whose lines are exact cents computed from the loan's recorded fee rules, with each tool's late fee capped at the replacement cost recorded for that tool at checkout, recorded once as Kill Bill charges on the member's account."
+kind = "behavior"
+primary = "pytest"
+workflow = "late-fees"
+tests = [
+    "test_app.py::test_fee_lines_caps_and_receipt",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Late return journey"
+text = "A volunteer checks in an overdue loan, and the member sees the itemised fee on their fee page with the same lines and total that Kill Bill holds."
+kind = "behavior"
+primary = "workflow"
+workflow = "late-fees"
+tests = [
+    "test_app.py::test_wf_late_fees_drop_box",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Paying a fee"
+text = "A member pays a raised fee, and it becomes settled only after Kill Bill records exactly one payment against its invoice, however often Pay is pressed."
+kind = "behavior"
+primary = "pytest"
+workflow = "fee-settlement"
+tests = [
+    "test_app.py::test_pay_fee_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Waiver decisions"
+text = "A member requests a waiver with a reason, and the coordinator either declines it or approves it, which posts exactly one Kill Bill credit that clears the fee's invoice."
+kind = "behavior"
+primary = "pytest"
+workflow = "fee-settlement"
+tests = [
+    "test_app.py::test_waiver_decisions_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Fee receipt email"
+text = "Once Kill Bill records a fee's charges, the member gets exactly one itemised receipt email."
+kind = "behavior"
+primary = "pytest"
+workflow = "fee-settlement"
+tests = [
+    "test_app.py::test_fee_receipt_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Fee settlement journey"
+text = "A member opens a raised fee from their account, pays it, and sees it settled on the fee page and account page."
+kind = "behavior"
+primary = "workflow"
+workflow = "fee-settlement"
+tests = [
+    "test_app.py::test_wf_fee_settlement_pay_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Photos kept as submitted"
+text = "Every checkout and check-in photo is stored byte for byte with its submitted type and capture time, and served back unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "photo-evidence"
+tests = [
+    "test_app.py::test_photos_kept_as_submitted",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Members see only their own"
+text = "A member's requests for any loan, fee, hold or photo that is not theirs answer not found."
+kind = "behavior"
+primary = "pytest"
+workflow = "photo-evidence"
+tests = [
+    "test_app.py::test_wf_photo_evidence_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Damage dispute journey"
+text = "A member disputes a damage fee, and the coordinator compares the checkout and check-in photos with capture times and fingerprints before deciding."
+kind = "behavior"
+primary = "workflow"
+workflow = "photo-evidence"
+tests = [
+    "test_app.py::test_wf_photo_evidence_dispute",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Pending photo during a storage outage"
+text = "When photo storage is down a check-in is held as pending photo with nothing charged, and it can be finished once storage is back without restarting the app."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_pending_photo_during_outage",
+    "test_app.py::test_wf_storage_outage_recover",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Storage outage journey"
+text = "During a storage outage every desk shows the published banner, a check-in becomes pending photo on both desks' screens, and a volunteer finishes it after storage returns."
+kind = "behavior"
+primary = "workflow"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_wf_storage_outage_two_desks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Billing outage leaves nothing half-done"
+text = "When Kill Bill is down, joins, payments, waiver approvals and fee-raising check-ins are refused with nothing created in Pegworth or Kill Bill while other desk work continues, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-outage"
+tests = [
+    "test_app.py::test_wf_billing_outage_retry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Due dates land on open days"
+text = "A loan is due on the first open day on or after its checkout date plus the loan period in the library time zone, by the closing time currently set for that day's weekday."
+kind = "behavior"
+primary = "pytest"
+workflow = "opening-calendar"
+tests = [
+    "test_app.py::test_due_date_first_open_day",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Calendar changes move due dates"
+text = "Declaring a closure or closing a weekday moves every out loan due on a day that is no longer open to the next open day."
+kind = "behavior"
+primary = "pytest"
+workflow = "opening-calendar"
+tests = [
+    "test_app.py::test_closure_moves_due_dates",
+    "test_app.py::test_closing_weekday_moves_due_dates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Due-tomorrow reminders"
+text = "Each out loan gets one reminder email on the calendar day before its due date in the library time zone, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "opening-calendar"
+tests = [
+    "test_app.py::test_due_tomorrow_reminder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Opening calendar journey"
+text = "The coordinator declares a closure and shortens a weekday's hours, and sees the affected loans' due dates and closing times change on the desk and on the members' loan pages."
+kind = "behavior"
+primary = "workflow"
+workflow = "opening-calendar"
+tests = [
+    "test_app.py::test_wf_opening_calendar_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Published breakpoints"
+text = "The desk and pegboard screens show three, two and one panes at the published widths in the published order, with no sideways scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_mobile_board_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Touch and reduced motion"
+text = "On touch screens every board control is a comfortable tap target, and with reduced motion on, hanging a part fills its outline instantly with the same results."
+kind = "behavior"
+primary = "pytest"
+workflow = "mobile-board"
+tests = [
+    "test_app.py::test_wf_mobile_board_touch_reduced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Phone browse journey"
+text = "A member on a phone at the shop door browses the pegboard, taps a tool that is out and places a hold."
+kind = "behavior"
+primary = "workflow"
+workflow = "mobile-board"
+tests = [
+    "test_app.py::test_wf_mobile_board_phone_hold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Sign-in and roles"
+text = "Coordinator, volunteers and members sign in with email and password, and each role reaches only its own screens and endpoints."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_roles_reach_own_screens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Health and run manifest"
+text = "The app installs, builds and serves from its run manifest and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_shell",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Server boundary"
+text = "The server is same-origin only, enforces its body limits, never serves source or credentials, and starts and recovers when a provider is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read from the environment at start and is never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Workshop look"
+text = "Every screen sits on the kraft pegboard with heavy headings, ruled ledgers, and statuses shown as a word plus an outline shape."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Account page keeps what the member sees"
+text = "On the account and fee pages, the page's own pending check and refresh never clear or repeat an announcement, close a dialog, move focus or discard typed text, and the pending check stops once the membership is active."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-membership"
+tests = [
+    "test_app.py::test_account_page_keeps_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Last parts hung at two desks"
+text = "When hangs of a returned-partial loan's last missing parts run at the same moment on different app processes, all succeed, exactly one response reports returned complete, and exactly one hold promotion and hold-ready email follow, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "partial-returns"
+tests = [
+    "test_app.py::test_wf_partial_returns_concurrent_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Fee rules fixed at checkout"
+text = "Each loan records the late fee, damage fee and each tool's replacement cost in force when its checkout succeeds, and every fee line, cap and overdue figure for that loan uses them however the settings or tools change later."
+kind = "behavior"
+primary = "pytest"
+workflow = "late-fees"
+tests = [
+    "test_app.py::test_settings_and_fee_rules_fixed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Other desks follow in place"
+text = "A loan status change or service-status change made elsewhere shows on every open Desk screen within the published delays, with no reload and without losing the scan text, focus, dialog, grades or picked photo there."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_other_desks_follow_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "One Kill Bill write per fee and per join"
+text = "Repeated or simultaneous pays, waiver approvals and joins across app processes produce exactly one Kill Bill payment, credit, or account with one subscription and first payment, reusing one that an earlier unfinished attempt left in Kill Bill, and the rest get the published conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-outage"
+tests = [
+    "test_app.py::test_join_race_one_kill_bill_account",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Hours edits change every due-by"
+text = "Changing a still-open weekday's hours moves no loan but changes the closing time shown and enforced for every out loan due on that weekday, while raised fee lines and sent reminders stay as they were."
+kind = "behavior"
+primary = "pytest"
+workflow = "opening-calendar"
+tests = [
+    "test_app.py::test_hours_edits_change_due_by",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Keyboard-only join and cancel"
+text = "A visitor joins using only the keyboard, and the cancel-membership dialog keeps Tab inside it, returns focus to its opener on Escape, and moves focus to the membership heading after a confirmed cancel."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-membership"
+tests = [
+    "test_app.py::test_wf_join_membership_cancel_term",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Simultaneous holds"
+text = "Simultaneous holds from one member on one tool give exactly one hold across all app processes, and simultaneous holds from different members get distinct, gap-free queue positions that renumber after any cancel."
+kind = "behavior"
+primary = "pytest"
+workflow = "holds"
+tests = [
+    "test_app.py::test_wf_holds_queue_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Return-time edges in library time"
+text = "The on-time cutoff is inclusive to the second at the closing time in library time for a return time sent in any offset, the desk's Return time is typed as library-local time whatever the browser's time zone, and the cap wording appears only when the late fee strictly exceeds the recorded replacement cost."
+kind = "behavior"
+primary = "pytest"
+workflow = "late-fees"
+tests = [
+    "test_app.py::test_open_day_cutoff_and_overdue_so_far",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Keyboard-only fee settlement"
+text = "A member pays a fee or requests a waiver, and the coordinator decides it, using only the keyboard, with Tab wrapping inside the waiver dialog and focus landing on the published control after each action."
+kind = "behavior"
+primary = "pytest"
+workflow = "fee-settlement"
+tests = [
+    "test_app.py::test_wf_fee_settlement_waiver_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Photo comparison at every width"
+text = "On Fee and Loan pages the checkout and check-in photos sit side by side at 1280 and 768 and stack at 375, with scaled images, wrapping fingerprints, the published empty-slot copy and no sideways scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "photo-evidence"
+tests = [
+    "test_app.py::test_photo_comparison_widths",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Rival desk wins honestly"
+text = "A hang or confirm the server refuses because another desk changed the loan first leaves the board, counts and status as the server says, announces the refusal, and shows the loan's current controls within 2 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_rival_desk_wins_honestly",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Office keeps unsaved edits"
+text = "The Office's own refresh never discards hours, closure or fee-rule text edited since the last save, a validation message, an announcement or focus, while untouched hour rows pick up changes saved elsewhere."
+kind = "behavior"
+primary = "pytest"
+workflow = "opening-calendar"
+tests = [
+    "test_app.py::test_office_keeps_unsaved_edits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Live tool filter"
+text = "Typing in Find a tool filters the tools table in place on every input, announces the published match count, and keeps the filter through the pegboard's refresh."
+kind = "behavior"
+primary = "pytest"
+workflow = "mobile-board"
+tests = [
+    "test_app.py::test_live_tool_filter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Server-decided overdue line"
+text = "Every loan read carries the open days late and late fee so far that the server decides from its own clock and the library time zone, and every overdue line on Account, Loan and Desk shows those values whatever the browser's clock or time zone, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "late-fees"
+tests = [
+    "test_app.py::test_server_decided_overdue_figures",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Back to the record after sign-in"
+text = "A visitor sent to sign in from a protected screen, or by a screen's Sign in again link, returns to that screen after signing in only when its path is the Pegboard or a published screen their role may use, and otherwise lands on their role's landing path."
+kind = "behavior"
+primary = "pytest"
+workflow = "fee-settlement"
+tests = [
+    "test_app.py::test_signin_next_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Photo comparison survives refresh"
+text = "On Loan and Fee pages the refresh never reloads or blanks a photo already shown, keeps focus and scroll position, and fills a newly stored check-in photo into its empty slot in place within 10 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "photo-evidence"
+tests = [
+    "test_app.py::test_wf_photo_evidence_compare",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Racing photo saves leave one object"
+text = "Racing finishes, check-ins or checkouts of one loan across app processes leave exactly one photo object and photo record, and at most one fee and receipt, for that event, and a refused or losing request stores nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_wf_storage_outage_finish_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Billing refusals stay on screen"
+text = "After a billing-down refusal of Pay, Approve waiver or Cancel membership, the refusal copy, the re-enabled button, focus and any open dialog stay through every poll while the billing banner appears."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-outage"
+tests = [
+    "test_app.py::test_wf_billing_outage_refusals_stay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Opening hours on every width"
+text = "The Opening hours table shows one aligned line per weekday at 768 and 1280 and a stacked block per weekday at 375 with 44-pixel controls, validation messages under the right field, and no sideways scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "opening-calendar"
+tests = [
+    "test_app.py::test_opening_hours_on_every_width",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Keyboard join on a phone"
+text = "At 375 by 812 and every other width a visitor completes the join by keyboard alone in the published Tab order, a refused join moves focus to the problems summary, and pressing Enter or the button again while the join is pending sends nothing more."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-membership"
+tests = [
+    "test_app.py::test_wf_join_membership_keyboard_join",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Join refusal order"
+text = "A join request that breaks several rules at once gets the first refusal that applies in the published order: cross-site, content type, size, validation, email taken, then billing down."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-membership"
+tests = [
+    "test_app.py::test_join_refusal_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Holds follow across desks and accounts"
+text = "A hold placed or cancelled through any app process updates another Desk's Queued holds line within 10 seconds without moving its focus, and a member whose hold becomes ready while their Account page is open is told once."
+kind = "behavior"
+primary = "pytest"
+workflow = "holds"
+tests = [
+    "test_app.py::test_wf_holds_desk_and_account",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "New loan dialog keeps focus and contents"
+text = "The New loan dialog keeps focus inside it starting on Member, asks before discarding entered work, returns focus to its opener, keeps its contents with focus on Member when a rival desk wins the tool, and fills a phone screen with 44-pixel controls."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_wf_checkout_rival_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Two desks finish a partial return"
+text = "When one desk drags and another hangs by keyboard the last missing parts at once, each desk announces only its own hang, exactly one reports returned complete, both show the server's counts within 3 seconds, and under reduced motion the fills are instant."
+kind = "behavior"
+primary = "pytest"
+workflow = "partial-returns"
+tests = [
+    "test_app.py::test_wf_partial_returns_two_desks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Return times across the clock change"
+text = "A return time in the hour the library's clocks repeat is read as the first occurrence unless the second is ticked, lateness and cutoffs use library wall-clock dates, and returned times are echoed in the offset in force at that instant."
+kind = "behavior"
+primary = "pytest"
+workflow = "late-fees"
+tests = [
+    "test_app.py::test_return_times_across_clock_change",
+    "test_app.py::test_second_hour_checkbox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Storage return reaches every desk"
+text = "Every Desk with a pending-photo loan selected keeps Finish check-in disabled while its status reads storage down and enables it within 3 seconds of the status reading storage up, or of selecting the loan when it already does, keeping its picked photo and focus, and racing finishes give one success and one conflict whose announcement replaces the previous one."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_storage_return_reaches_every_desk",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Open desks follow hours edits"
+text = "An hours change saved through any app process updates the due line of a selected loan on every open Desk within 10 seconds with no reload and no loss of focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "opening-calendar"
+tests = [
+    "test_app.py::test_wf_opening_calendar_desks_follow",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Hours refusal order and quarter hours"
+text = "Saving hours gets the first refusal that applies in the published order, and every opening and closing time must be on the quarter hour, with field errors listed in weekday and field order."
+kind = "behavior"
+primary = "pytest"
+workflow = "opening-calendar"
+tests = [
+    "test_app.py::test_hours_refusal_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Keyboard checkout on a phone"
+text = "At 375 by 812 and every other width a desk volunteer completes New loan by keyboard alone, picking the member from the filtered list with the arrow keys and Enter, adding tools by tag with Enter, picking the photo and checking out, with an unknown tag refused under its field."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_wf_checkout_keyboard_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Other desks see a checkout"
+text = "A checkout made through any app process turns that loan's outlines to dashed out outlines on every other open Desk within 3 seconds, with no reload and no change to focus or scan text."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_other_desks_see_checkout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Loan request refusal order"
+text = "A loan request that breaks several rules at once gets the first refusal that applies in the published order, with field errors listed as member, tools, then checked-out time."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_loan_request_refusal_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Completed return reaches the waiting member"
+text = "When two desks hang a partial loan's last missing parts at once on different app processes, the first active queued holder's open Account page on any process shows the hold ready within 10 seconds and announces it once, and exactly one hold-ready email is sent."
+kind = "behavior"
+primary = "pytest"
+workflow = "partial-returns"
+tests = [
+    "test_app.py::test_completed_return_reaches_waiting_member",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Keyboard finishing hang on a phone"
+text = "At 375 by 812 a desk volunteer hangs a late part by keyboard alone with Space, the arrow keys and Enter, with the outline under the card kept in view, and focus moves to the next unhung card or back to the scan field."
+kind = "behavior"
+primary = "pytest"
+workflow = "partial-returns"
+tests = [
+    "test_app.py::test_keyboard_finishing_hang_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Overdue line follows the server"
+text = "Every open overdue line on Account, Loan and Desk changes in place within 10 seconds when the server's open days late or late fee so far changes, announces nothing, and never changes because the browser's clock or date moves."
+kind = "behavior"
+primary = "pytest"
+workflow = "late-fees"
+tests = [
+    "test_app.py::test_wf_late_fees_overdue_line",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Waiver reaches the member's open fee page"
+text = "When the coordinator approves a waiver through any app process, the member's open Fee page shows the fee as waived within 10 seconds, announces it once, removes Pay, and moves focus from a removed button to the fee heading."
+kind = "behavior"
+primary = "pytest"
+workflow = "late-fees"
+tests = [
+    "test_app.py::test_waiver_reaches_member_fee_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Desks follow a moved due date"
+text = "When a closure or a closed weekday moves the due date of a loan selected on any open Desk, that Desk's due line shows the new date within 10 seconds and announces the move once, keeping focus and scan text."
+kind = "behavior"
+primary = "pytest"
+workflow = "opening-calendar"
+tests = [
+    "test_app.py::test_desks_follow_moved_due_date",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Keyboard hours editor on a phone"
+text = "The opening hours editor works by keyboard alone at every width, 375 by 812 included, in the published Tab order, with Space toggling a weekday and a refused save moving focus to the problems summary, whose links reach each field in weekday order."
+kind = "behavior"
+primary = "pytest"
+workflow = "opening-calendar"
+tests = [
+    "test_app.py::test_wf_opening_calendar_office_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Sessions end after idle time"
+text = "A session ends after the idle time set by SESSION_IDLE_SECONDS, the next write answers the published 401, and signing in again from the screen's link returns to that screen with the typed text restored, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_sessions_end_after_idle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "One refusal order for every write"
+text = "Every write endpoint answers a request that breaks several rules at once with the first refusal in the one published order: cross-site, sign-in, unknown record, role, content type, size, validation, conflict, then provider down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_write_refusal_order",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json holds exactly the string fields install, build, serve and \"_schema\":\"run-manifest-v1\", and serve starts the app with no interactive steps."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package with its version and licence, and every bundled font; shipped packages are the production dependency tree reported by npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package is licensed MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0 or 0BSD; fonts are OFL-1.1, and icons are ISC or MIT."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores state only in the provided Postgres database, Kill Bill tenant and object-storage bucket, with no SQLite, Redis, in-process persistence file or other datastore; the browser's session storage holding a sign-in draft is the only browser-side store."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service compose files, their seeded credentials, and the tenant and bucket settings are left unchanged."
+tests = [
+    "test_app.py::test_if_providers_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "/app/package-lock.json is committed, and install uses it."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The browser loads nothing from another origin; fonts, scripts, styles and icons are all served by the app."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "join-membership"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-46",
+    "DP-52",
+    "DP-66",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_join_membership_keyboard_join",
+    "test_app.py::test_wf_join_membership_journey",
+    "test_app.py::test_wf_join_membership_cancel_term",
+    "test_app.py::test_cancel_at_end_of_term",
+    "test_app.py::test_account_page_keeps_state",
+]
+
+[[workflows]]
+id = "holds"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-53",
+    "DP-68",
+]
+critical = [
+    "test_app.py::test_wf_holds_queue_race",
+    "test_app.py::test_wf_holds_desk_and_account",
+    "test_app.py::test_wf_holds_pegboard_hold",
+]
+
+[[workflows]]
+id = "checkout"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-69",
+    "DP-75",
+    "DP-76",
+    "DP-77",
+]
+critical = [
+    "test_app.py::test_wf_checkout_keyboard_phone",
+    "test_app.py::test_wf_checkout_scan_journey",
+    "test_app.py::test_wf_checkout_rival_dialog",
+    "test_app.py::test_wf_checkout_race_reservations",
+    "test_app.py::test_other_desks_see_checkout",
+]
+
+[[workflows]]
+id = "shadow-board-checkin"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_wf_shadow_board_checkin_keyboard",
+    "test_app.py::test_wf_shadow_board_checkin_journey",
+    "test_app.py::test_checkin_announcements",
+    "test_app.py::test_wf_shadow_board_checkin_drag_reduced",
+]
+
+[[workflows]]
+id = "partial-returns"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-47",
+    "DP-70",
+    "DP-78",
+    "DP-79",
+]
+critical = [
+    "test_app.py::test_wf_partial_returns_concurrent_api",
+    "test_app.py::test_wf_partial_returns_two_desks",
+    "test_app.py::test_wf_partial_returns_journey",
+    "test_app.py::test_board_counts_match_parts",
+    "test_app.py::test_completed_return_reaches_waiting_member",
+]
+
+[[workflows]]
+id = "late-fees"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-48",
+    "DP-54",
+    "DP-60",
+    "DP-71",
+    "DP-80",
+    "DP-81",
+]
+critical = [
+    "test_app.py::test_wf_late_fees_overdue_line",
+    "test_app.py::test_wf_late_fees_drop_box",
+    "test_app.py::test_fee_lines_caps_and_receipt",
+    "test_app.py::test_settings_and_fee_rules_fixed",
+    "test_app.py::test_open_day_cutoff_and_overdue_so_far",
+    "test_app.py::test_server_decided_overdue_figures",
+]
+
+[[workflows]]
+id = "fee-settlement"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-55",
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_fee_settlement_pay_keyboard",
+    "test_app.py::test_wf_fee_settlement_waiver_keyboard",
+    "test_app.py::test_signin_next_rules",
+]
+
+[[workflows]]
+id = "photo-evidence"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-56",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_photo_evidence_isolation",
+    "test_app.py::test_photos_kept_as_submitted",
+    "test_app.py::test_wf_photo_evidence_dispute",
+    "test_app.py::test_wf_photo_evidence_compare",
+    "test_app.py::test_photo_comparison_widths",
+]
+
+[[workflows]]
+id = "storage-outage"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-49",
+    "DP-57",
+    "DP-63",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_storage_outage_two_desks",
+    "test_app.py::test_wf_storage_outage_finish_race",
+    "test_app.py::test_wf_storage_outage_recover",
+    "test_app.py::test_rival_desk_wins_honestly",
+    "test_app.py::test_other_desks_follow_in_place",
+    "test_app.py::test_storage_return_reaches_every_desk",
+]
+
+[[workflows]]
+id = "billing-outage"
+requirements = [
+    "DP-33",
+    "DP-50",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_billing_outage_retry",
+    "test_app.py::test_wf_billing_outage_refusals_stay",
+    "test_app.py::test_join_race_one_kill_bill_account",
+]
+
+[[workflows]]
+id = "opening-calendar"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-51",
+    "DP-58",
+    "DP-65",
+    "DP-73",
+    "DP-74",
+    "DP-82",
+    "DP-83",
+]
+critical = [
+    "test_app.py::test_wf_opening_calendar_journey",
+    "test_app.py::test_wf_opening_calendar_desks_follow",
+    "test_app.py::test_wf_opening_calendar_office_phone",
+    "test_app.py::test_office_keeps_unsaved_edits",
+    "test_app.py::test_opening_hours_on_every_width",
+]
+
+[[workflows]]
+id = "mobile-board"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-59",
+]
+critical = [
+    "test_app.py::test_wf_mobile_board_phone_hold",
+    "test_app.py::test_wf_mobile_board_touch_reduced",
+    "test_app.py::test_live_tool_filter",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-38",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-84",
+    "DP-85",
+]
+critical = [
+    "test_app.py::test_health_and_shell",
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_wf_mobile_board_layouts",
+]

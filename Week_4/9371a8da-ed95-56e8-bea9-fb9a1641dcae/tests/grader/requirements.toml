@@ -1,0 +1,1524 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 79
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "project-start",
+    "chapter-editing",
+    "figure-upload",
+    "storage-outage",
+    "reviewer-suggest",
+    "resolve-suggestions",
+    "invite-collaborator",
+    "role-change",
+    "committee-share",
+    "labels-restore",
+    "citations-export",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 86
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Marginalia <no-reply@marginalia.test>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 3
+B11 = 5
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mail-down"
+port = 4175
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "short-timers"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+SHARE_LINK_TTL_SECONDS = "5"
+INVITE_TTL_SECONDS = "5"
+INVITE_WINDOW_SECONDS = "5"
+IDEMPOTENCY_TTL_SECONDS = "5"
+MENTION_RETRY_SECONDS = "5"
+
+[[outages]]
+id = "short-mail-down"
+port = 4177
+url_env = "APP_SHORT_MAIL_DOWN_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+SHARE_LINK_TTL_SECONDS = "5"
+INVITE_TTL_SECONDS = "5"
+INVITE_WINDOW_SECONDS = "5"
+IDEMPOTENCY_TTL_SECONDS = "5"
+MENTION_RETRY_SECONDS = "5"
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[requirements]]
+id = "DP-01"
+title = "Sign-in and project list"
+text = "Seeded and invited people sign in with email and password to receive a session cookie, every API call without a valid session answers the unauthenticated error in API, and the project list shows exactly the projects where the person currently holds a membership, each with their role."
+kind = "behavior"
+primary = "pytest"
+workflow = "project-start"
+tests = [
+    "test_app.py::test_sign_in_and_project_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Projects start from a template"
+text = "A workspace owner creates a project from one of the two published templates and becomes its owner, and the server refuses anyone else, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "project-start"
+tests = [
+    "test_app.py::test_projects_start_from_template",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Exact thesis template"
+text = "A project created from the thesis template holds exactly the published file tree and file text as its first ledger revision and reports only the documented citation warning."
+kind = "behavior"
+primary = "pytest"
+workflow = "project-start"
+tests = [
+    "test_app.py::test_exact_thesis_template",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Start a thesis"
+text = "A PI owner signs in, creates a thesis project from the New project dialog and lands in its editor on main.tex showing the template's file tree and citation status."
+kind = "behavior"
+primary = "workflow"
+workflow = "project-start"
+tests = [
+    "test_app.py::test_wf_project_start_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Files only for project members"
+text = "A file, figure or revision requested by ID is returned only to members of the project it belongs to, and everyone else gets the same answer as for a missing one."
+kind = "behavior"
+primary = "pytest"
+workflow = "chapter-editing"
+tests = [
+    "test_app.py::test_files_only_for_members",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Saves carry a base revision"
+text = "Every save names the file revision it was based on, and a stale base is refused with the current file instead of being merged or overwritten."
+kind = "behavior"
+primary = "pytest"
+workflow = "chapter-editing"
+tests = [
+    "test_app.py::test_saves_carry_a_base_revision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Save retries replay once"
+text = "A save repeated with the same retry key and body returns the original answer without a second revision, and the same key with a different body is refused, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "chapter-editing"
+tests = [
+    "test_app.py::test_save_retries_replay_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Unstorable text and malformed bodies are refused exactly"
+text = "Text holding a NUL character or a broken surrogate is refused on its field before anything is written, an unparseable body gets the malformed-body error, and no answer ever carries more than the published error shape."
+kind = "behavior"
+primary = "pytest"
+workflow = "chapter-editing"
+tests = [
+    "test_app.py::test_unstorable_text_and_malformed_bodies",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Edit and save a chapter"
+text = "A student author edits a chapter and saves it by keyboard or button, the browser retries a save that lost its connection under the same key, an unstorable paste is refused with the text kept, and after a stale save the unsaved text is kept while the newer version loads."
+kind = "behavior"
+primary = "workflow"
+workflow = "chapter-editing"
+tests = [
+    "test_app.py::test_wf_chapter_editing_happy",
+    "test_app.py::test_wf_chapter_editing_stale",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Uploads judged by content"
+text = "Figures and .bib files are accepted only when their content matches an allowed type and their extension and are stored under server-chosen object keys, and oversized, disallowed, mismatched, scripted or unsafely named files are refused with the statuses in API, with SVG judged as parsed XML as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "figure-upload"
+tests = [
+    "test_app.py::test_uploads_judged_by_content",
+]
+criteria = []
+parameter_cases = [
+    "png",
+    "jpeg",
+    "pdf",
+    "svg-safe",
+    "png-exact-max",
+    "bib-fffd",
+    "png-too-large",
+    "bib-too-large",
+    "png-as-jpg",
+    "pdf-as-png",
+    "gif",
+    "bib-invalid-utf8",
+    "bib-nul",
+    "svg-script",
+    "svg-prefixed-script",
+    "svg-foreign-object",
+    "svg-onload",
+    "svg-js-charref",
+    "svg-js-tab",
+    "svg-js-space-case",
+    "svg-outside-href",
+    "svg-data-href",
+    "svg-style-url",
+    "svg-doctype",
+    "svg-not-svg-root",
+    "svg-malformed",
+    "name-space",
+    "name-dot",
+    "name-traversal",
+    "folder-traversal",
+    "extra-part",
+]
+
+[[requirements]]
+id = "DP-11"
+title = "One upload wins each path"
+text = "Of several simultaneous uploads to one path exactly one succeeds, a file record and its stored object exist together or not at all, and every refused upload leaves no object behind."
+kind = "behavior"
+primary = "pytest"
+workflow = "figure-upload"
+tests = [
+    "test_app.py::test_one_upload_wins_each_path",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Deleted files are gone from every live surface"
+text = "A deleted file answers not-found on every member and share read route and is absent from lists and exports, its path is free at once, and it returns with its original ID only through a restore, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "figure-upload"
+tests = [
+    "test_app.py::test_deleted_files_gone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Add and replace a figure"
+text = "A student author uploads a PNG figure into the figures folder and sees it in the file tree with a preview, then deletes the outdated figure after confirming and uploads a corrected one to the same path."
+kind = "behavior"
+primary = "workflow"
+workflow = "figure-upload"
+tests = [
+    "test_app.py::test_wf_figure_upload_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Figure storage outage"
+text = "While object storage is unreachable, uploads, figure downloads and exports answer the storage error and show the storage copy while text editing and saving keep working, and they work again once storage returns without a restart, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_figure_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "No phantom figures"
+text = "An upload the server refuses never adds the figure to the file tree, and the Upload file dialog stays open with the chosen file and folder kept for a retry, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_wf_storage_outage_no_phantom",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Suggestions and threads on exact passages"
+text = "Owners, editors and reviewers propose tracked replacements, open comment threads anchored to an exact passage and reply to open threads, and owners and editors resolve threads."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-suggest"
+tests = [
+    "test_app.py::test_suggestions_and_threads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Reviewer seat limits"
+text = "The server refuses a reviewer's direct save, accept, reject, file rename, file delete, upload, thread resolve or role change with the forbidden error, and refuses any suggestion or comment from a viewer."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-suggest"
+tests = [
+    "test_app.py::test_reviewer_seat_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Emails only for owners"
+text = "Member lists, comment and suggestion authors and ledger actors carry only ID, display name and handle, and member email addresses go only to the project's owners, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-suggest"
+tests = [
+    "test_app.py::test_emails_only_for_owners",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Mention notifications"
+text = "An @handle of a current project member in a new thread or reply sends that member one email holding only that comment, its quoted passage and a link to the thread, and handles of non-members send nothing, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-collaborator"
+tests = [
+    "test_app.py::test_mention_notifications",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Links open the exact passage"
+text = "Project URLs carry the open file, line and focused thread so that a mention link, reload, Back or Forward reopens exactly that view, a line past the end opens the last line, and sign-in returns only to same-origin paths."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-suggest"
+tests = [
+    "test_app.py::test_links_open_exact_passage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Review a chapter"
+text = "A co-author reviewer selects a passage, adds a suggestion and a comment, and sees both as margin cards level with their lines, with no Accept or Reject controls and no member emails on screen."
+kind = "behavior"
+primary = "workflow"
+workflow = "reviewer-suggest"
+tests = [
+    "test_app.py::test_wf_reviewer_suggest_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Suggestion resolved exactly once"
+text = "An open suggestion moves to accepted or rejected exactly once, and when several requests act on one suggestion together exactly one succeeds and every other receives the conflict carrying the winning state."
+kind = "behavior"
+primary = "pytest"
+workflow = "resolve-suggestions"
+tests = [
+    "test_app.py::test_suggestion_resolved_exactly_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Resolutions commit one at a time"
+text = "Accepts and rejects of different suggestions in one project apply one after another, each answer reports the open count and project revision right after its own commit, and no two accepts share a revision."
+kind = "behavior"
+primary = "pytest"
+workflow = "resolve-suggestions"
+tests = [
+    "test_app.py::test_resolutions_commit_one_at_a_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Anchors follow every edit"
+text = "Every saved, accepted or restored change moves open suggestion and thread anchors by the anchor rules and turns those whose text is gone into orphans that keep their original quote."
+kind = "behavior"
+primary = "pytest"
+workflow = "resolve-suggestions"
+tests = [
+    "test_app.py::test_anchors_follow_every_edit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Outcomes decided elsewhere are shown truthfully"
+text = "The accept and reject sequence starts only after the server's success answer, a conflict folds the card to the real winner's stub without ever showing the losing outcome, and a dropped connection leaves the card open and unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "resolve-suggestions"
+tests = [
+    "test_app.py::test_outcomes_shown_truthfully",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Work through supervisor suggestions"
+text = "A student author accepts one suggestion from the margin, watches its card fold to its stub while the cards below close up and hears the remaining open count, and when the owner has already rejected a second suggestion in another tab, the student's Accept on it folds the card to the owner's stub with no success count."
+kind = "behavior"
+primary = "workflow"
+workflow = "resolve-suggestions"
+tests = [
+    "test_app.py::test_wf_resolve_suggestions_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Collaborator invite email"
+text = "An owner's invite delivers one email to the invitee within the delivery band in Services carrying the published subject and a single-use accept link, worded the same whether or not the invitee already has an account."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-collaborator"
+tests = [
+    "test_app.py::test_collaborator_invite_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Sender names cannot forge headers"
+text = "Line breaks and control characters in a display name or project title never add, split or alter email headers and arrive as single spaces inside the subject."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-collaborator"
+tests = [
+    "test_app.py::test_sender_names_cannot_forge_headers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Invite lifecycle"
+text = "An invite moves from pending to accepted, revoked or expired only along the legal edges, with one winner when two accepts race, and expires after the configured lifetime evaluated on the server in UTC."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-collaborator"
+tests = [
+    "test_app.py::test_invite_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Hourly invite limit"
+text = "A project records at most 10 invitations within the configured window counting every status, and the next one is refused with the exact wait and sends no email, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-collaborator"
+tests = [
+    "test_app.py::test_hourly_invite_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Mail outage records nothing and blocks nothing else"
+text = "While mail is unreachable an invite is refused with the mail error and leaves no record, count or pending block, comments with mentions still post at once, and sending works again once mail returns without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-collaborator"
+tests = [
+    "test_app.py::test_wf_invite_collaborator_mail_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Invite a co-author"
+text = "A PI owner invites a co-author as reviewer, and the co-author follows the emailed link, sets a display name and password, and opens the project as a reviewer."
+kind = "behavior"
+primary = "workflow"
+workflow = "invite-collaborator"
+tests = [
+    "test_app.py::test_wf_invite_collaborator_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Role management"
+text = "Only owners change or remove memberships, changes in one project commit one at a time so that owners demoting or removing each other together leave exactly one success and one last-owner refusal, and a project always keeps at least one owner."
+kind = "behavior"
+primary = "pytest"
+workflow = "role-change"
+tests = [
+    "test_app.py::test_role_management",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Downgrades apply on the next request"
+text = "A role change or removal governs the affected person's very next request in an already open session, and after the refusal their screen switches to the new role or, after a removal, returns them to Projects."
+kind = "behavior"
+primary = "pytest"
+workflow = "role-change"
+tests = [
+    "test_app.py::test_wf_role_change_downgrade",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Only published fields can be written"
+text = "A JSON body may carry only the keys listed for its endpoint, and any other key such as a crafted status, author, email, handle or user ID is refused naming that key with nothing changed."
+kind = "behavior"
+primary = "pytest"
+workflow = "role-change"
+tests = [
+    "test_app.py::test_only_published_fields",
+]
+criteria = []
+parameter_cases = [
+    "me-email",
+    "me-handle",
+    "suggestion-status",
+    "suggestion-author",
+    "thread-user-id",
+    "member-email",
+    "project-role",
+    "label-created-by",
+    "accept-status",
+]
+
+[[requirements]]
+id = "DP-36"
+title = "Read-only share link"
+text = "An owner's share link lets anyone holding it read that one project's files, figures, suggestions and threads without an account, every attempt to change anything through it is refused, regenerating it kills the previous link at once, and revoking it leaves no working link."
+kind = "behavior"
+primary = "pytest"
+workflow = "committee-share"
+tests = [
+    "test_app.py::test_read_only_share_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Share links expire on the server clock"
+text = "A share link stops working on every share route at its expiry instant judged by the server in UTC, regenerating it issues a fresh token with a fresh lifetime, an open shared draft drops all project content on its next refresh after the token dies, and expiry state on screen follows the server and never the browser's clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "committee-share"
+tests = [
+    "test_app.py::test_wf_committee_share_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Share copies carry names only"
+text = "Everything served through a share link names people by display name alone, with no member IDs, handles, emails or download links, and is marked never to be cached or passed on as a referrer."
+kind = "behavior"
+primary = "pytest"
+workflow = "committee-share"
+tests = [
+    "test_app.py::test_share_copies_carry_names_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Committee reads a draft"
+text = "A committee viewer opens the share link, reads chapters and the margin discussion, and finds no control that edits, suggests or comments."
+kind = "behavior"
+primary = "workflow"
+workflow = "committee-share"
+tests = [
+    "test_app.py::test_wf_committee_share_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Ledger with fixed attribution"
+text = "Every change to a project's files appends one numbered ledger entry naming its actor as they were named at that moment, and owners give revisions labels that are unique ignoring case and can never be renamed, moved or removed."
+kind = "behavior"
+primary = "pytest"
+workflow = "labels-restore"
+tests = [
+    "test_app.py::test_ledger_with_fixed_attribution",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Byte-identical restore"
+text = "Restoring a label makes every file's ID, path and bytes identical to the labelled revision and appends a new ledger entry without altering earlier ones."
+kind = "behavior"
+primary = "pytest"
+workflow = "labels-restore"
+tests = [
+    "test_app.py::test_byte_identical_restore",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Roll back to a submitted version"
+text = "A PI owner labels the revision shown at the top of the History ledger as Submitted v1, later restores it from the ledger after confirming, and sees the restore as the newest ledger row."
+kind = "behavior"
+primary = "workflow"
+workflow = "labels-restore"
+tests = [
+    "test_app.py::test_wf_labels_restore_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Citation warnings from the include graph"
+text = "Undefined citation keys, unused bibliography entries and duplicate keys are computed once per project revision from the files reachable from main.tex and the bibliographies they name, and every view shows that same result."
+kind = "behavior"
+primary = "pytest"
+workflow = "citations-export"
+tests = [
+    "test_app.py::test_citations_from_include_graph",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "The citation scan is linear and path-exact"
+text = "Unclosed citations contribute nothing, include paths are normalised and never leave the project root, and the citation report and export check answer within the budget in Business rules for any project within the published sizes."
+kind = "behavior"
+primary = "pytest"
+workflow = "citations-export"
+tests = [
+    "test_app.py::test_citation_scan_linear_and_path_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Submission export"
+text = "An export succeeds only when the project has no open suggestions, open threads, undefined citations or duplicate keys, and it produces a zip in object storage whose entries are exactly the project's current files."
+kind = "behavior"
+primary = "pytest"
+workflow = "citations-export"
+tests = [
+    "test_app.py::test_submission_export",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "One export per revision"
+text = "Repeated or simultaneous export requests at one project revision return the same single export, and its zip is byte-for-byte reproducible, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "citations-export"
+tests = [
+    "test_app.py::test_one_export_per_revision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Clear citations before submission"
+text = "A student author fixes an undefined citation, hears the undefined count drop to none, runs the submission check and downloads the export."
+kind = "behavior"
+primary = "workflow"
+workflow = "citations-export"
+tests = [
+    "test_app.py::test_wf_citations_export_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from the run manifest, listens on the published port and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_run_manifest_and_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Server boundary"
+text = "The server accepts state changes only from its own origin, caps request bodies, never serves source, configuration or credentials, and starts and recovers without a restart when a dependency is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Credentials from the environment"
+text = "Every service address, credential and time setting is read from the environment at start, and none is hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Responsive layout"
+text = "The project view takes the published phone, tablet or desktop layout for its exact width with no horizontal scrolling, and crossing a breakpoint by resizing keeps the open file, unsaved text and focused card."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Margin card alignment and stacking"
+text = "Each margin card lines up with its anchor's first line unless that would cause an overlap, in which case cards stack around the focused card in document order with a fixed gap, and gutter numbers and cards re-align within one second whenever the source column changes width."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_margin_alignment_and_stacking",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Accept and reject motion"
+text = "Accepting or rejecting a suggestion plays the described collapse, fade, fold and close-up sequence within the stated times, and edits above anchors make cards glide to their new places."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_accept_and_glide_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Reduced-motion substitute"
+text = "With the reduced-motion setting on, cards and accept or reject outcomes jump to their final state with no motion, and a status line states the outcome."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion_substitute",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Announced outcomes"
+text = "Save, accept, reject, upload, delete, invite, citation-count and storage outcomes appear on screen and are announced through the named polite live regions with the exact copy in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_announced_outcomes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Keyboard flow"
+text = "Every action is reachable by keyboard in the described Tab order, every dialog opens on its published first control, holds Tab and returns focus to its opener, Escape closes only the topmost dialog, the file tree is one Tab stop with Home and End, and after an accept or reject focus moves to the next open card of the open file or, when none remain, to the source."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Scholarly visual design"
+text = "The screens read as a scholarly paper workspace, with serif headings over hairline rules, a warm paper ground, one oxblood accent used only on active review marks, and monospaced revision numbers."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "The refresh never disturbs the editor"
+text = "The 5-second refresh leaves caret, selection, scroll position, focus, open dialogs, drafts and an open mention list untouched while nothing is newer, loads newer text with caret and selection carried through the replaced span, keeps text typed during a pending save, and discards late answers, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "chapter-editing"
+tests = [
+    "test_app.py::test_refresh_never_disturbs_editor",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Uploads stored as submitted"
+text = "An uploaded .bib keeps its exact bytes, byte order mark, CRLF line breaks and missing final newline included, on raw reads, revisions, the stored object and the export, and a browser edit or suggestion on it changes only the chosen text."
+kind = "behavior"
+primary = "pytest"
+workflow = "figure-upload"
+tests = [
+    "test_app.py::test_uploads_stored_as_submitted",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Storage confirms what the record claims"
+text = "A present asset whose object is missing answers the storage error and blocks export, an existing export is returned only after storage confirms its zip, a lost zip is rewritten with the same ID, key and digest, and an unreachable store is never answered from the database alone."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_storage_confirms_record",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Reviewing by keyboard"
+text = "A reviewer selects a passage, adds a suggestion and picks an @handle from the mention list with the keyboard alone, Escape closes only the mention list, and the whole list stays inside the viewport and on top of the rail on desktop and on a phone."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-suggest"
+tests = [
+    "test_app.py::test_reviewing_by_keyboard_mention_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Folded and closed surfaces are out of reach"
+text = "Inactive phone tab panels, closed menus, closed dialogs, closed folders and the controls of folded cards leave the accessibility tree and Tab order at once, a folded card keeps its stub text readable but is never a Tab stop, and focus after the last card lands on the visible source, never on a hidden element."
+kind = "behavior"
+primary = "pytest"
+workflow = "resolve-suggestions"
+tests = [
+    "test_app.py::test_wf_resolve_suggestions_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Landing after accepting an invitation"
+text = "A successful accept lands on the project with main.tex open and the invited role applied, ends any session sent with it on the server and replaces the invitation in browser history, and emails compare ignoring case."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-collaborator"
+tests = [
+    "test_app.py::test_wf_invite_collaborator_landing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Roles update in place"
+text = "Each refresh rereads the person's role and changes controls in place in both directions with unsaved text kept, and an open People and sharing dialog refreshes its tables without losing typed text."
+kind = "behavior"
+primary = "pytest"
+workflow = "role-change"
+tests = [
+    "test_app.py::test_wf_role_change_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Reviewing on a touch phone"
+text = "On touch layouts Suggest edit and Comment follow the source selection however the browser reports it, every interactive control is at least 44 by 44 pixels, the phone More button follows the published menu keyboard model with disabled items kept focusable and the source selection kept, and after Add suggestion or Post comment on a phone the Margin tab is selected with focus on the new card, which appears with no motion under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "reviewer-suggest"
+tests = [
+    "test_app.py::test_wf_reviewer_suggest_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "The shared draft follows the published layouts"
+text = "The shared draft takes the project view's phone, tablet or desktop layout for its exact width, with the Files dialog and a Source and Margin tab list that is one Tab stop worked by arrow keys, never scrolls sideways, and resizing keeps the open file and the focused card."
+kind = "behavior"
+primary = "pytest"
+workflow = "committee-share"
+tests = [
+    "test_app.py::test_wf_committee_share_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Invite state follows the server clock"
+text = "The Invitations table status and the invitation page come only from the server's status whatever the browser clock says, and an invite the server reports expired reads expired in an open People and sharing dialog within one refresh."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-collaborator"
+tests = [
+    "test_app.py::test_invite_state_follows_server_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "The role picker shows the latest answered change"
+text = "A role picker is disabled and busy while its change is pending, members and invites answers older than the latest role-change answer are discarded, and a refused change returns the picker to the server's current role at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "role-change"
+tests = [
+    "test_app.py::test_wf_role_change_picker",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Storage notices survive the refresh"
+text = "The Storage status copy and a refused Upload file dialog stay as they are through every refresh until a storage action succeeds, a refused Submission check stays open with no download link, and a figure preview showing its unavailable fallback retries on each refresh and replaces the fallback in place once its object loads."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_wf_storage_outage_notices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Pending mention emails live in the database"
+text = "A mention email is recorded with its comment, attempted at once and then by any instance on the shared database, sent at most once, never sent to someone who stopped being a member, and dropped after the configured retry period, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-collaborator"
+tests = [
+    "test_app.py::test_pending_mention_emails",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "A new project lands at its own address"
+text = "Creating a project closes the New project dialog and pushes the new project's address with main.tex open and the source focused, reload keeps that view, Back returns to Projects listing the new project as owner at r1 with the dialog closed, sign-in without a return address lands on Projects, and sign-out ends the session on the server and lands on Sign in."
+kind = "behavior"
+primary = "pytest"
+workflow = "project-start"
+tests = [
+    "test_app.py::test_wf_project_start_landing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Upload and delete by keyboard alone"
+text = "The Upload file dialog opens on its File field and wraps Tab through File, Folder, Upload and Cancel, the delete confirmation opens on Cancel, Escape or Cancel returns focus to the opener, and a confirmed delete moves focus to the source of main.tex with main.tex as the tree's selected item and single Tab stop."
+kind = "behavior"
+primary = "pytest"
+workflow = "figure-upload"
+tests = [
+    "test_app.py::test_wf_figure_upload_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "The newest storage answer wins"
+text = "Every storage action is stamped when sent, an answer is ignored for Storage status, figure previews and the Upload file and Submission check dialogs once a storage action sent after it has answered, and at most one preview read per figure is in flight, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_wf_storage_outage_newest_answer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "The History ledger stays live"
+text = "An open History dialog adds new ledger rows and labels in place every 5 seconds and after the owner's own actions without touching typed label text, focus, scroll or an open restore confirmation, and Label current revision labels the newest revision shown."
+kind = "behavior"
+primary = "pytest"
+workflow = "labels-restore"
+tests = [
+    "test_app.py::test_wf_labels_restore_live_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Citation warnings are addresses"
+text = "Choosing a citation warning closes the dialog, pushes the address of that file and line as a new history entry, puts the line at the top with the caret at its start and focuses the source, and reload, Back and Forward reopen exactly those files and lines."
+kind = "behavior"
+primary = "pytest"
+workflow = "citations-export"
+tests = [
+    "test_app.py::test_wf_citations_export_warnings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Overlapping resolutions keep the newest state"
+text = "Only the pressed card's Accept and Reject wait on its answer, each card plays its own sequence on its own answer without cutting another short, the source shows the text of the highest file revision any answer carried, the status line follows the most recently sent resolution, and a refresh mid-sequence never reopens or snaps back a card, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "resolve-suggestions"
+tests = [
+    "test_app.py::test_wf_resolve_suggestions_quick_succession",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Invitation and mention copy is exact"
+text = "The invitation page sentence, the invite email body and the mention email body read exactly as published with names made header-safe, a wrong password on the invitation page keeps the typed display name and focuses Password, and an already-member answer swaps the form in place for the published copy and project link."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-collaborator"
+tests = [
+    "test_app.py::test_wf_invite_collaborator_invitation_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "History works from the keyboard alone"
+text = "History opens on Label name for owners, Enter in Label name labels, Tab wraps through the published order, Escape in a restore confirmation closes only the confirmation and leaves History open, and after a restore focus lands on the newest ledger row's revision cell."
+kind = "behavior"
+primary = "pytest"
+workflow = "labels-restore"
+tests = [
+    "test_app.py::test_wf_labels_restore_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Open check dialogs stay current"
+text = "An open Submission check refreshes its four readiness counts and Export source in place and drops a download link once the project revision moves on, and an open Citation warnings dialog refreshes its lists within one refresh while keeping focus on the same warning when it remains."
+kind = "behavior"
+primary = "pytest"
+workflow = "citations-export"
+tests = [
+    "test_app.py::test_wf_citations_export_live_dialogs",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve and \"_schema\":\"run-manifest-v1\", and the app runs only through it."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at the app root names every shipped package with its version and licence, plus each font and icon set; shipped packages means the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package, font and icon set is licensed under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0 or 0BSD, or, for fonts only, SIL OFL 1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "No datastore other than the provided PostgreSQL and MinIO is used: no SQLite, Redis, in-process memory as the record of saves, invites, rate windows, share links, exports or pending mention emails, or files on local disk as persistent state."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and its credentials are left unchanged."
+tests = [
+    "test_app.py::test_if_services_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The running app makes no requests to hosts other than its configured services; fonts and icons are served from the app."
+tests = [
+    "test_app.py::test_if_no_outside_hosts",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Server and browser source is written in TypeScript."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "project-start"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_wf_project_start_happy",
+    "test_app.py::test_wf_project_start_landing",
+    "test_app.py::test_exact_thesis_template",
+    "test_app.py::test_projects_start_from_template",
+]
+checkpoints = [
+    "B1",
+]
+
+[[workflows]]
+id = "chapter-editing"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_wf_chapter_editing_happy",
+    "test_app.py::test_wf_chapter_editing_stale",
+    "test_app.py::test_save_retries_replay_once",
+    "test_app.py::test_unstorable_text_and_malformed_bodies",
+    "test_app.py::test_refresh_never_disturbs_editor",
+    "test_app.py::test_files_only_for_members",
+    "test_app.py::test_saves_carry_a_base_revision",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "figure-upload"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-59",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_figure_upload_happy",
+    "test_app.py::test_wf_figure_upload_keyboard",
+    "test_app.py::test_one_upload_wins_each_path",
+    "test_app.py::test_deleted_files_gone",
+    "test_app.py::test_uploads_stored_as_submitted",
+    "test_app.py::test_uploads_judged_by_content",
+]
+
+[[workflows]]
+id = "storage-outage"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-60",
+    "DP-69",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_storage_outage_no_phantom",
+    "test_app.py::test_wf_storage_outage_notices",
+    "test_app.py::test_wf_storage_outage_newest_answer",
+    "test_app.py::test_storage_confirms_record",
+    "test_app.py::test_figure_storage_outage",
+]
+
+[[workflows]]
+id = "reviewer-suggest"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-20",
+    "DP-21",
+    "DP-61",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_reviewer_suggest_happy",
+    "test_app.py::test_wf_reviewer_suggest_phone",
+    "test_app.py::test_links_open_exact_passage",
+    "test_app.py::test_emails_only_for_owners",
+    "test_app.py::test_reviewing_by_keyboard_mention_list",
+    "test_app.py::test_reviewer_seat_limits",
+]
+checkpoints = [
+    "B8",
+    "B4",
+]
+
+[[workflows]]
+id = "resolve-suggestions"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-62",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_wf_resolve_suggestions_happy",
+    "test_app.py::test_wf_resolve_suggestions_quick_succession",
+    "test_app.py::test_wf_resolve_suggestions_phone",
+    "test_app.py::test_resolutions_commit_one_at_a_time",
+    "test_app.py::test_suggestion_resolved_exactly_once",
+]
+checkpoints = [
+    "B11",
+    "B3",
+]
+
+[[workflows]]
+id = "invite-collaborator"
+requirements = [
+    "DP-19",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-63",
+    "DP-67",
+    "DP-70",
+    "DP-77",
+]
+critical = [
+    "test_app.py::test_wf_invite_collaborator_happy",
+    "test_app.py::test_wf_invite_collaborator_landing",
+    "test_app.py::test_wf_invite_collaborator_mail_down",
+    "test_app.py::test_wf_invite_collaborator_invitation_page",
+    "test_app.py::test_hourly_invite_limit",
+    "test_app.py::test_invite_state_follows_server_clock",
+    "test_app.py::test_pending_mention_emails",
+    "test_app.py::test_sender_names_cannot_forge_headers",
+]
+
+[[workflows]]
+id = "role-change"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-64",
+    "DP-68",
+]
+critical = [
+    "test_app.py::test_wf_role_change_downgrade",
+    "test_app.py::test_wf_role_change_in_place",
+    "test_app.py::test_wf_role_change_picker",
+    "test_app.py::test_only_published_fields",
+    "test_app.py::test_role_management",
+]
+
+[[workflows]]
+id = "committee-share"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_committee_share_happy",
+    "test_app.py::test_wf_committee_share_layouts",
+    "test_app.py::test_wf_committee_share_expiry",
+    "test_app.py::test_share_copies_carry_names_only",
+    "test_app.py::test_read_only_share_link",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "labels-restore"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-74",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_labels_restore_happy",
+    "test_app.py::test_wf_labels_restore_live_ledger",
+    "test_app.py::test_wf_labels_restore_keyboard",
+    "test_app.py::test_ledger_with_fixed_attribution",
+    "test_app.py::test_byte_identical_restore",
+]
+checkpoints = [
+    "B6",
+    "B7",
+]
+
+[[workflows]]
+id = "citations-export"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-75",
+    "DP-79",
+]
+critical = [
+    "test_app.py::test_wf_citations_export_happy",
+    "test_app.py::test_wf_citations_export_warnings",
+    "test_app.py::test_wf_citations_export_live_dialogs",
+    "test_app.py::test_citation_scan_linear_and_path_exact",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_layout",
+    "test_app.py::test_wf_cross_cutting_keyboard",
+    "test_app.py::test_announced_outcomes",
+]
+checkpoints = [
+    "B2",
+    "B5",
+    "B12",
+]

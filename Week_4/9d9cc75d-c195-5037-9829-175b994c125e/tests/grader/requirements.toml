@@ -1,0 +1,1098 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "build-view",
+    "query-order",
+    "dashboard-actions",
+    "phone-dashboard",
+    "calc-editor",
+    "table-calcs",
+    "row-security",
+    "extracts-alerts",
+    "params-sets",
+    "data-upload",
+    "related-tables",
+    "publishing",
+    "exports",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B14",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B15",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 93
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 5
+B6 = 3
+B14 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 5
+B12 = 3
+B13 = 3
+B15 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+LOZ_GRADING = "1"
+LOZ_FORMULA_MAX_CHARS = "2000"
+LOZ_FORMULA_MAX_DEPTH = "16"
+LOZ_MARK_MAX = "2000"
+LOZ_QUERY_WORK_MAX = "5000000"
+LOZ_QUERY_BUDGET_MS = "5000"
+LOZ_ROW_MAX = "50000"
+LOZ_CSV_MAX_BYTES = "20000000"
+LOZ_FORMULA_DEBOUNCE_MS = "100"
+LOZ_STALE_MS = "7200000"
+LOZ_EXPORT_STEP_MS = "20"
+LOZ_SSE_HEARTBEAT_MS = "2000"
+LOZ_LOGIN_RATE = "1000"
+LOZ_FORMULA_RATE = "100000"
+LOZ_QUERY_RATE = "100000"
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Uploading a source"
+text = "A creator chooses a CSV file on the upload page, sees a preview of its first 20 rows with each column's inferred type, uploads it, and adds a second table to the same source, as qualified in Data sources."
+kind = "behavior"
+primary = "workflow"
+workflow = "data-upload"
+tests = [
+    "test_app.py::test_wf_data_upload_happy",
+    "test_app.py::test_wf_data_upload_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Published type inference"
+text = "Every column gets the type the published inference rule gives, and that type is identical in the preview, in the stored source and after every later refresh of the same bytes."
+kind = "behavior"
+primary = "pytest"
+workflow = "data-upload"
+tests = [
+    "test_app.py::test_type_inference",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Upload errors at their line"
+text = "An empty, malformed, oversized or overlong file stores nothing and lists every published upload error with its line, in line order."
+kind = "behavior"
+primary = "pytest"
+workflow = "data-upload"
+tests = [
+    "test_app.py::test_upload_errors",
+]
+criteria = []
+parameter_cases = [
+    "empty",
+    "header_only",
+    "malformed",
+    "no_name",
+    "oversized",
+    "overlong",
+]
+
+[[requirements]]
+id = "DP-04"
+title = "Files kept as submitted"
+text = "Each uploaded table file is stored in object storage byte for byte under its published key, and a download returns exactly the bytes submitted."
+kind = "behavior"
+primary = "pytest"
+workflow = "data-upload"
+tests = [
+    "test_app.py::test_files_kept_as_submitted",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Upload during a storage outage"
+text = "When object storage is unreachable, an upload stores nothing and shows the published outage copy with the preview kept, and Try again succeeds once storage returns, with no restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "data-upload"
+tests = [
+    "test_app.py::test_wf_data_upload_outage",
+    "test_app.py::test_upload_storage_unreachable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Left join without double counting"
+text = "Relating two tables is a left join that keeps unmatched left rows, keeps the first of any duplicated right keys with the published join notice, and aggregates a right-table measure once per distinct right key in each mark."
+kind = "behavior"
+primary = "pytest"
+workflow = "related-tables"
+tests = [
+    "test_app.py::test_left_join",
+    "test_app.py::test_join_notice_first_key_in_file_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Shaping a related source"
+text = "A creator relates the sample tables, creates bins and a group, renames one field and hides another, and the source and its sheets show the published results and notices."
+kind = "behavior"
+primary = "workflow"
+workflow = "related-tables"
+tests = [
+    "test_app.py::test_wf_related_tables_happy",
+    "test_app.py::test_wf_related_tables_key_mismatch",
+    "test_app.py::test_renamed_field_keeps_its_data",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Field kinds, dates, bins and groups"
+text = "Field kinds, date levels, date parts and truncation in UTC with weeks starting on Monday, bins and groups follow the published rules and their worked examples."
+kind = "behavior"
+primary = "pytest"
+workflow = "related-tables"
+tests = [
+    "test_app.py::test_fields_bins_groups_dates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Building a sheet by pointer and keyboard"
+text = "A creator builds a sheet by dragging field chips and by keyboard alone, and the chart, its data table, ticks, colours and tooltips match the published sample values."
+kind = "behavior"
+primary = "workflow"
+workflow = "build-view"
+tests = [
+    "test_app.py::test_wf_build_view_happy",
+    "test_app.py::test_wf_build_view_heat_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Keyboard shelf editing and drill"
+text = "The field list, the Add to shelf menu, removing and reordering pills, and drill expand and collapse all work by keyboard with the published focus moves and announcements."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-view"
+tests = [
+    "test_app.py::test_keyboard_shelves_and_drill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Automatic chart type and refusals"
+text = "Automatic picks the chart by the published table, and an invalid shelf combination shows the first applicable published refusal while the last good chart stays."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-view"
+tests = [
+    "test_app.py::test_chart_type_and_refusals",
+    "test_app.py::test_wf_build_view_refusal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Axis ticks, colours and sort"
+text = "Axis ticks, categorical and sequential colours, the legend and sorting follow the published chart rules and worked examples."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-view"
+tests = [
+    "test_app.py::test_ticks_colours_sort",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Marks, tooltips and the data table"
+text = "Every mark is a focusable SVG element with the published attributes, label, keyboard movement, selection and tooltip, and every view has a data table twin with one row per mark."
+kind = "behavior"
+primary = "pytest"
+workflow = "build-view"
+tests = [
+    "test_app.py::test_marks_tooltips_twin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Writing a calculation"
+text = "An explorer writes a calculation in their own copy of a sheet using keyboard suggestions, sees the published check result, saves it, and sees a field rename carried into the formula."
+kind = "behavior"
+primary = "workflow"
+workflow = "calc-editor"
+tests = [
+    "test_app.py::test_wf_calc_editor_happy",
+    "test_app.py::test_wf_calc_editor_typo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Calculation language"
+text = "Formulas follow the published grammar, null rules and exactly 27 functions, and each function matches its worked example."
+kind = "behavior"
+primary = "pytest"
+workflow = "calc-editor"
+tests = [
+    "test_app.py::test_calculation_language",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Formula errors at line and column"
+text = "An invalid formula reports the first error in the published check order, with its exact text, line and column, and saving a cycle is refused with the chain."
+kind = "behavior"
+primary = "pytest"
+workflow = "calc-editor"
+tests = [
+    "test_app.py::test_formula_errors",
+]
+criteria = []
+parameter_cases = [
+    "too_long",
+    "ended_early",
+    "unknown_field",
+    "argument_type",
+    "mixed",
+    "unexpected",
+    "second_line",
+    "too_deep",
+    "lower_case",
+    "argument_count",
+    "cycle",
+]
+
+[[requirements]]
+id = "DP-17"
+title = "Bounded query work"
+text = "Formulas over the length or depth limit, and views over the work, time or mark limit, answer with the published text within the query time budget, while another user's view keeps answering."
+kind = "behavior"
+primary = "pytest"
+workflow = "calc-editor"
+tests = [
+    "test_app.py::test_bounded_query_work",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Level-of-detail expressions"
+text = "AT, PLUS, MINUS and whole-table expressions compute at their published level and match their worked examples."
+kind = "behavior"
+primary = "pytest"
+workflow = "query-order"
+tests = [
+    "test_app.py::test_level_of_detail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Published query order"
+text = "Every query applies row-level security and then the published steps in order, and matches each worked example for neighbouring steps."
+kind = "behavior"
+primary = "pytest"
+workflow = "query-order"
+tests = [
+    "test_app.py::test_query_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Filters, top N and totals in the view"
+text = "A creator adds dimension, context, top N, measure and table calculation filters and totals through the view's dialogs, with the published focus moves and announcements, and the data table shows the published values."
+kind = "behavior"
+primary = "workflow"
+workflow = "query-order"
+tests = [
+    "test_app.py::test_wf_query_order_happy",
+    "test_app.py::test_wf_query_order_measure",
+    "test_app.py::test_wf_query_order_top_n_context",
+    "test_app.py::test_wf_query_order_plus_dimension",
+    "test_app.py::test_wf_query_order_share_after_measure",
+    "test_app.py::test_wf_query_order_rank_totals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Table calculation rules"
+text = "Running total, difference from previous, percent of total and rank follow the published partitioning, addressing, null and tie rules and their worked examples."
+kind = "behavior"
+primary = "pytest"
+workflow = "table-calcs"
+tests = [
+    "test_app.py::test_table_calculation_rules",
+    "test_app.py::test_calc_naming_a_table_calc",
+    "test_app.py::test_formula_share_shows_percent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Choosing how a table calculation computes"
+text = "A creator sets a table calculation and its compute-using choice on a pill, and the data table shows the published values for each choice."
+kind = "behavior"
+primary = "workflow"
+workflow = "table-calcs"
+tests = [
+    "test_app.py::test_wf_table_calcs_happy",
+    "test_app.py::test_wf_table_calcs_filter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Parameters and sets"
+text = "Parameters and sets follow the published types, controls and Top N rule, and one parameter drives a calculation, a set and a constant line together."
+kind = "behavior"
+primary = "pytest"
+workflow = "params-sets"
+tests = [
+    "test_app.py::test_parameters_and_sets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Reference and trend lines"
+text = "Average, median and constant reference lines and the least-squares trend line give the published values and text."
+kind = "behavior"
+primary = "pytest"
+workflow = "params-sets"
+tests = [
+    "test_app.py::test_reference_and_trend_lines",
+    "test_app.py::test_reference_lines_on_a_share",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Driving a view with a parameter"
+text = "A viewer changes a parameter control, and the calculation, the set members and the constant line all update to the published values with the published announcement."
+kind = "behavior"
+primary = "workflow"
+workflow = "params-sets"
+tests = [
+    "test_app.py::test_wf_params_sets_enter",
+    "test_app.py::test_wf_params_sets_blur",
+    "test_app.py::test_parameter_announcement_display",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Dashboard layout"
+text = "Dashboard objects get the published desktop positions and sizes from the container sizing rule, and hiding or showing an object reflows the layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-dashboard"
+tests = [
+    "test_app.py::test_dashboard_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Phone dashboard"
+text = "Below 768 pixels wide a viewer gets the dashboard's phone layout with no horizontal scroll at 360 pixels, taps marks to open their details in a bottom sheet, opens filters in a bottom sheet, and sees every end state at once under reduced motion."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone-dashboard"
+tests = [
+    "test_app.py::test_wf_phone_dashboard_happy",
+    "test_app.py::test_wf_phone_dashboard_reduced_motion",
+    "test_app.py::test_wf_phone_dashboard_breakpoints",
+    "test_app.py::test_wf_phone_tap_filter_geometry",
+    "test_app.py::test_wf_phone_hide_show",
+    "test_app.py::test_wf_phone_mark_glide_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Dashboard actions in published order"
+text = "Filter, highlight, set parameter and change set actions run in the published order with the published effects, action log and clearing rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "dashboard-actions"
+tests = [
+    "test_app.py::test_dashboard_actions_order",
+    "test_app.py::test_dashboard_two_filter_actions",
+    "test_app.py::test_dashboard_filter_from_day_mark",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Latest selection wins"
+text = "A response for an older selection is dropped and never overwrites a newer one, and each affected sheet stays busy until its newest answer is applied."
+kind = "behavior"
+primary = "pytest"
+workflow = "dashboard-actions"
+tests = [
+    "test_app.py::test_selection_latest_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Selecting across a dashboard"
+text = "A viewer selects marks on a dashboard, and the target sheets filter, highlight and update with the published loading text and announcements."
+kind = "behavior"
+primary = "workflow"
+workflow = "dashboard-actions"
+tests = [
+    "test_app.py::test_wf_dashboard_actions_happy",
+    "test_app.py::test_wf_dashboard_actions_keyboard",
+    "test_app.py::test_wf_dashboard_two_contexts",
+    "test_app.py::test_wf_dashboard_busy_every_target",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Accounts, sessions and access checks"
+text = "Local accounts, the session cookie, rate limits and the published error order hold on every route, and an id in a private project answers exactly like an id that does not exist."
+kind = "behavior"
+primary = "pytest"
+workflow = "publishing"
+tests = [
+    "test_app.py::test_accounts_and_access_checks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Projects, roles and certification"
+text = "A creator publishes a workbook to a project, adds members with roles and certifies the workbook, a second user sees exactly what their role allows, and a later publish removes the certification."
+kind = "behavior"
+primary = "workflow"
+workflow = "publishing"
+tests = [
+    "test_app.py::test_wf_publishing_happy",
+    "test_app.py::test_wf_publishing_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Row-level security on every surface"
+text = "A secured source shows each user only their entitled rows on marks, totals, filter lists, tooltips, set members, level-of-detail values, reference and trend lines, alerts and exports, with no exception for any role."
+kind = "behavior"
+primary = "pytest"
+workflow = "row-security"
+tests = [
+    "test_app.py::test_row_level_security_surfaces",
+    "test_app.py::test_entitlement_number_field",
+    "test_app.py::test_entitlement_date_field",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Two readers, one workbook"
+text = "Two viewers with different entitlements open the same published dashboard and export it, and each sees and downloads only their own rows."
+kind = "behavior"
+primary = "workflow"
+workflow = "row-security"
+tests = [
+    "test_app.py::test_wf_row_security_two_readers",
+    "test_app.py::test_wf_row_security_by_id",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Scheduled extract refresh"
+text = "Extract refreshes run on the server clock at the published interval, swap in one transaction, append or replace rows according to their kind, and keep the last good snapshot when a refresh fails."
+kind = "behavior"
+primary = "pytest"
+workflow = "extracts-alerts"
+tests = [
+    "test_app.py::test_scheduled_extract_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Threshold alerts and inbox"
+text = "After each successful refresh, an armed alert whose value for the subscriber's rows is above its threshold creates exactly one inbox item and disarms, and it rearms once the value is at or below the threshold."
+kind = "behavior"
+primary = "pytest"
+workflow = "extracts-alerts"
+tests = [
+    "test_app.py::test_alerts_and_inbox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Watching an extract from two tabs"
+text = "A scheduled refresh, a failed refresh and staleness show the server-reported extract state live in a second user's open tab, and the inbox link count updates live, whatever the device clock says."
+kind = "behavior"
+primary = "workflow"
+workflow = "extracts-alerts"
+tests = [
+    "test_app.py::test_wf_extracts_alerts_live",
+    "test_app.py::test_wf_extracts_alerts_stale_inbox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Export jobs confirmed by storage"
+text = "Export jobs move through the published states, show Ready with a download only after object storage confirms the file, fail with a retry during a storage outage, and return the running job when the same request is repeated."
+kind = "behavior"
+primary = "pytest"
+workflow = "exports"
+tests = [
+    "test_app.py::test_export_jobs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Export contents"
+text = "PDF, PNG and crosstab exports hold the published content for the requesting user's rows and filters and never include a hidden field, and the crosstab neutralises text that looks like a formula."
+kind = "behavior"
+primary = "pytest"
+workflow = "exports"
+tests = [
+    "test_app.py::test_export_contents",
+    "test_app.py::test_hidden_field_leaves_pdf_filter_lines",
+    "test_app.py::test_hidden_measure_line_leaves_crosstab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Exporting a view"
+text = "A viewer exports a filtered sheet as PDF, PNG and crosstab, follows the export state and progress, and downloads each file."
+kind = "behavior"
+primary = "workflow"
+workflow = "exports"
+tests = [
+    "test_app.py::test_wf_exports_happy",
+    "test_app.py::test_wf_exports_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Regions, dialogs, focus and announcements"
+text = "F6 and Tab move between regions without traps, every dialog keeps Tab inside it and returns focus to its opener on Escape, and every published result is announced in its named polite live region."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_regions_dialogs_focus",
+    "test_app.py::test_cross_dashboard_regions",
+    "test_app.py::test_cross_source_dialogs",
+    "test_app.py::test_cross_announcements_ascii",
+    "test_app.py::test_cross_phone_sheet_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Mark Glide"
+text = "After a shelf, filter or selection change, each mark that stays runs one 240 ms animation with id mark-glide that ends at its published place, new and gone marks run none, and reduced motion creates none."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_mark_glide",
+    "test_app.py::test_mark_glide_final_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Platform, settings and grading routes"
+text = "The run manifest, health path, configuration and time endpoints, server events, published settings and grading routes behave as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_platform_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Settings and credentials from the environment"
+text = "Every service URL, credential and published setting is read from the environment at start, and none is hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Visual design and home page"
+text = "Every screen carries the candy-shift look with the published palette roles, typefaces, round pills and depth colour fields, and the home page shows the published hero."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B14",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B15",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\"."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md names every shipped package and bundled font with its licence; shipped packages are the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package is licensed MIT, Apache-2.0, BSD or ISC, and the bundled fonts are SIL OFL."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The only datastores are the provided PostgreSQL and MinIO; there is no SQLite, embedded database, cache server, queue or state kept in local files."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The browser loads nothing from another origin; fonts, scripts, styles and images are served by the app."
+tests = [
+    "test_app.py::test_if_same_origin",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service configuration and its credentials are left as given."
+tests = [
+    "test_app.py::test_if_service_config",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Server and browser source is written in TypeScript."
+tests = [
+    "test_app.py::test_if_typescript",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "The PDF and PNG exports are produced by npm libraries inside the app, with no external renderer service."
+tests = [
+    "test_app.py::test_if_export_libraries",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "build-view"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_build_view_happy",
+    "test_app.py::test_wf_build_view_refusal",
+    "test_app.py::test_keyboard_shelves_and_drill",
+    "test_app.py::test_ticks_colours_sort",
+    "test_app.py::test_marks_tooltips_twin",
+    "test_app.py::test_wf_build_view_heat_keyboard",
+]
+checkpoints = [
+    "B5",
+    "B6",
+    "B7",
+]
+critical_checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "query-order"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_query_order_happy",
+    "test_app.py::test_wf_query_order_measure",
+    "test_app.py::test_wf_query_order_top_n_context",
+    "test_app.py::test_wf_query_order_plus_dimension",
+    "test_app.py::test_wf_query_order_share_after_measure",
+    "test_app.py::test_wf_query_order_rank_totals",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "dashboard-actions"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_dashboard_actions_happy",
+    "test_app.py::test_selection_latest_wins",
+    "test_app.py::test_dashboard_actions_order",
+    "test_app.py::test_wf_dashboard_actions_keyboard",
+    "test_app.py::test_wf_dashboard_two_contexts",
+    "test_app.py::test_wf_dashboard_busy_every_target",
+    "test_app.py::test_dashboard_two_filter_actions",
+    "test_app.py::test_dashboard_filter_from_day_mark",
+]
+checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "phone-dashboard"
+requirements = [
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_phone_dashboard_happy",
+    "test_app.py::test_wf_phone_dashboard_reduced_motion",
+    "test_app.py::test_wf_phone_dashboard_breakpoints",
+    "test_app.py::test_wf_phone_tap_filter_geometry",
+    "test_app.py::test_wf_phone_hide_show",
+    "test_app.py::test_wf_phone_mark_glide_motion",
+]
+checkpoints = [
+    "B11",
+]
+critical_checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "calc-editor"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_calc_editor_happy",
+    "test_app.py::test_wf_calc_editor_typo",
+    "test_app.py::test_bounded_query_work",
+]
+
+[[workflows]]
+id = "table-calcs"
+requirements = [
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_table_calcs_happy",
+    "test_app.py::test_wf_table_calcs_filter",
+    "test_app.py::test_calc_naming_a_table_calc",
+    "test_app.py::test_formula_share_shows_percent",
+]
+
+[[workflows]]
+id = "row-security"
+requirements = [
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_row_security_two_readers",
+    "test_app.py::test_wf_row_security_by_id",
+    "test_app.py::test_row_level_security_surfaces",
+    "test_app.py::test_entitlement_number_field",
+    "test_app.py::test_entitlement_date_field",
+]
+
+[[workflows]]
+id = "extracts-alerts"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_extracts_alerts_live",
+    "test_app.py::test_wf_extracts_alerts_stale_inbox",
+    "test_app.py::test_alerts_and_inbox",
+]
+
+[[workflows]]
+id = "params-sets"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_params_sets_enter",
+    "test_app.py::test_wf_params_sets_blur",
+    "test_app.py::test_reference_lines_on_a_share",
+    "test_app.py::test_parameter_announcement_display",
+]
+
+[[workflows]]
+id = "data-upload"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+]
+critical = [
+    "test_app.py::test_wf_data_upload_happy",
+    "test_app.py::test_wf_data_upload_outage",
+    "test_app.py::test_files_kept_as_submitted",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "related-tables"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_wf_related_tables_happy",
+    "test_app.py::test_wf_related_tables_key_mismatch",
+    "test_app.py::test_renamed_field_keeps_its_data",
+    "test_app.py::test_join_notice_first_key_in_file_order",
+]
+
+[[workflows]]
+id = "publishing"
+requirements = [
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_publishing_happy",
+    "test_app.py::test_wf_publishing_conflict",
+    "test_app.py::test_accounts_and_access_checks",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "exports"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+]
+critical = [
+    "test_app.py::test_wf_exports_happy",
+    "test_app.py::test_wf_exports_outage",
+    "test_app.py::test_export_jobs",
+    "test_app.py::test_export_contents",
+    "test_app.py::test_hidden_field_leaves_pdf_filter_lines",
+    "test_app.py::test_hidden_measure_line_leaves_crosstab",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_regions_dialogs_focus",
+    "test_app.py::test_mark_glide",
+    "test_app.py::test_platform_routes",
+    "test_app.py::test_cross_dashboard_regions",
+    "test_app.py::test_cross_source_dialogs",
+    "test_app.py::test_cross_announcements_ascii",
+    "test_app.py::test_cross_phone_sheet_tab",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B4",
+]
+critical_checkpoints = [
+    "B1",
+]

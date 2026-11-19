@@ -1,0 +1,1055 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "vessel-setup-and-clock",
+    "crew-daily-log",
+    "offline-sync",
+    "day-closure-and-signing",
+    "rota-planning",
+    "rule-sets-and-verdicts",
+    "hour-fold",
+    "record-integrity",
+    "month-sealing",
+    "inspection-link",
+    "voyage-review-layout",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 103
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 5
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 5
+B10 = 5
+B11 = 5
+B12 = 3
+B13 = 3
+B14 = 3
+B15 = 3
+B16 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "archive-down"
+port = 4174
+url_env = "APP_ARCHIVE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_archive"
+S3_BUCKET = "${S3_BUCKET}-archive"
+
+[[outages]]
+id = "short-close"
+port = 4175
+url_env = "APP_SHORT_CLOSE_URL"
+
+[outages.env]
+DAY_CLOSE_SECONDS = "5"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Named sign-in."
+text = "Let owner-masters sign up and let owner-masters and crew sign in with an email and passcode, with every protected page and endpoint refused without a session as stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "vessel-setup-and-clock"
+tests = [
+    "test_app.py::test_sign_up_and_sign_in_api",
+    "test_app.py::test_protected_pages_and_endpoints_refused_signed_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Fleet and crew."
+text = "Let an owner-master run up to the published vessel limit and add crew to each vessel, and keep every vessel and crew record invisible to any other owner-master."
+kind = "behavior"
+primary = "pytest"
+workflow = "vessel-setup-and-clock"
+tests = [
+    "test_app.py::test_vessel_limit_and_crew",
+    "test_app.py::test_owner_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Clock changes and fixes."
+text = "Let an owner-master log a clock change with its position fix, rejecting the illegal changes listed in Business rules and warning without blocking when the new offset is far from the nautical zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "vessel-setup-and-clock"
+tests = [
+    "test_app.py::test_clock_change_accepted_with_fix_and_zone",
+    "test_app.py::test_clock_change_illegal_rejected",
+    "test_app.py::test_wf_vessel_setup_and_clock_unaligned_change",
+    "test_app.py::test_wf_vessel_setup_and_clock_offset_step",
+    "test_app.py::test_wf_vessel_setup_and_clock_earlier_change",
+    "test_app.py::test_wf_vessel_setup_and_clock_repeated_fix",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Set up a vessel."
+text = "An owner-master completes Journey 1 in the browser, from sign-up to a logged clock change shown on the vessel page."
+kind = "behavior"
+primary = "workflow"
+workflow = "vessel-setup-and-clock"
+tests = [
+    "test_app.py::test_wf_vessel_setup_and_clock_happy",
+    "test_app.py::test_wf_vessel_setup_and_clock_recovery",
+    "test_app.py::test_wf_vessel_setup_and_clock_ship_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Ship's day filing."
+text = "File every entry under the ship's day set by the vessel's logged offset, never by the phone's zone or the server's, with the day's length following any clock change."
+kind = "behavior"
+primary = "pytest"
+workflow = "crew-daily-log"
+tests = [
+    "test_app.py::test_ships_day_filing_uses_vessel_offset",
+    "test_app.py::test_wf_crew_daily_log_phone_zone",
+    "test_app.py::test_wf_crew_daily_log_booked_clock_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Rolling totals."
+text = "Show a crew member their rolling rest totals for the last 24 and 168 elapsed hours, taken from the server and updated after every saved entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "crew-daily-log"
+tests = [
+    "test_app.py::test_rolling_totals_server_values",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Keyboard watch grid."
+text = "Let a crew member fill the half-hour watch grid and sign the day with the keyboard alone, with a visible focus mark throughout."
+kind = "behavior"
+primary = "pytest"
+workflow = "crew-daily-log"
+tests = [
+    "test_app.py::test_keyboard_watch_grid",
+    "test_app.py::test_keyboard_sign_closed_day",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Log a day."
+text = "A crew member completes Journey 2 in the browser, from sign-in to saved cells and updated rolling totals."
+kind = "behavior"
+primary = "workflow"
+workflow = "crew-daily-log"
+tests = [
+    "test_app.py::test_wf_crew_daily_log_happy",
+    "test_app.py::test_wf_crew_daily_log_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Offline logging."
+text = "While the connection is down, keep the log usable even after a reload, show the published offline banner with a live count of queued entries, and send the queue when the connection returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-sync"
+tests = [
+    "test_app.py::test_offline_log_earlier_days_after_reload",
+    "test_app.py::test_offline_actions_stay_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "One entry per replay."
+text = "Apply a replayed entry once, so the crew member ends with one entry and unchanged rolling totals, and reject a reused key with different contents as stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-sync"
+tests = [
+    "test_app.py::test_replay_applies_once_and_conflicts_reject",
+    "test_app.py::test_concurrent_replays_store_one",
+    "test_app.py::test_wf_offline_sync_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Late entries."
+text = "Keep an entry that syncs after its day has closed and mark it Late entry, as qualified in Business rules for signed and sealed days."
+kind = "behavior"
+primary = "pytest"
+workflow = "offline-sync"
+tests = [
+    "test_app.py::test_late_entries_kept_and_marked",
+    "test_app.py::test_wf_offline_sync_late",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Log at sea and reconnect."
+text = "A crew member completes Journey 3 in the browser, from a dropped connection to an emptied queue and updated totals."
+kind = "behavior"
+primary = "workflow"
+workflow = "offline-sync"
+tests = [
+    "test_app.py::test_wf_offline_sync_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Server closes the day."
+text = "Decide from the server's clock alone when a ship's day closes, show that decision on the page whatever the device clock says, and refuse direct edits once it has closed."
+kind = "behavior"
+primary = "pytest"
+workflow = "day-closure-and-signing"
+tests = [
+    "test_app.py::test_server_closes_day_by_server_clock",
+    "test_app.py::test_wf_day_closure_and_signing_drifted_clock",
+    "test_app.py::test_wf_day_closure_and_signing_closing_time_after_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Signature order."
+text = "Allow a crew member's signature only on a closed day and an owner-master's countersignature only on a signed day, rejecting every other order with the status in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "day-closure-and-signing"
+tests = [
+    "test_app.py::test_signature_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Sign and countersign."
+text = "A crew member and an owner-master complete Journey 4 in the browser, ending on a Countersigned day with unchanged hours."
+kind = "behavior"
+primary = "workflow"
+workflow = "day-closure-and-signing"
+tests = [
+    "test_app.py::test_wf_day_closure_and_signing_happy",
+    "test_app.py::test_wf_day_closure_and_signing_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Recurring watches."
+text = "Keep a recurring rota watch at its ship's-time hours across a clock change, with its elapsed hours and the day's planned rest recomputed for the longer or shorter day."
+kind = "behavior"
+primary = "pytest"
+workflow = "rota-planning"
+tests = [
+    "test_app.py::test_recurring_watch_keeps_ship_time",
+    "test_app.py::test_wf_rota_planning_clock_change",
+    "test_app.py::test_wf_rota_planning_invalid_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Plan verdict."
+text = "Show an owner-master whether a planned rota passes the rules before sailing, naming each planned window that would breach them."
+kind = "behavior"
+primary = "pytest"
+workflow = "rota-planning"
+tests = [
+    "test_app.py::test_plan_verdict_names_breaching_windows",
+    "test_app.py::test_wf_rota_planning_happy",
+    "test_app.py::test_plan_judged_under_rule_set_by_window_end",
+    "test_app.py::test_wf_rota_planning_plan_range_error",
+    "test_app.py::test_wf_rota_planning_plan_date_error",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Rest rules."
+text = "Judge every rolling window on elapsed time at half-hour steps under the rules in Business rules, never counting a break shorter than the published minimum as rest."
+kind = "behavior"
+primary = "pytest"
+workflow = "rule-sets-and-verdicts"
+tests = [
+    "test_app.py::test_rest_rules",
+]
+criteria = []
+parameter_cases = [
+    "exact_ten_passes",
+    "below_ten",
+    "three_periods",
+    "no_six_hour_block",
+    "six_hour_block_past_edge",
+    "gap_over_fourteen",
+    "gap_exact_fourteen",
+    "short_break_not_rest",
+    "one_hour_counts",
+    "not_fully_logged",
+    "week_below_limit",
+    "week_exact_limit",
+]
+
+[[requirements]]
+id = "DP-19"
+title = "Flag exception rules."
+text = "Judge windows under a flag exception rule set by its own published limits, including the limit on how long it may run."
+kind = "behavior"
+primary = "pytest"
+workflow = "rule-sets-and-verdicts"
+tests = [
+    "test_app.py::test_flag_exception_limits",
+    "test_app.py::test_wf_rule_sets_and_verdicts_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Effective-dated rule sets."
+text = "Apply a scheduled rule set only to windows ending at or after its start, so every earlier window keeps the verdict of the rule set then in force on every surface."
+kind = "behavior"
+primary = "pytest"
+workflow = "rule-sets-and-verdicts"
+tests = [
+    "test_app.py::test_effective_dated_rule_set_keeps_earlier_verdicts",
+    "test_app.py::test_wf_rule_sets_and_verdicts_old_and_new",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Window values."
+text = "Expose the Hour Fold window's start, end, rest hours, verdict, longitude and fold state in the page, each matching the server's computed values."
+kind = "behavior"
+primary = "pytest"
+workflow = "hour-fold"
+tests = [
+    "test_app.py::test_window_values_match_server",
+    "test_app.py::test_wf_hour_fold_drag_review",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Gap and crease."
+text = "Open a labelled gap for a retard and a labelled crease for an advance when the window covers a logged clock change, keeping its elapsed span exact while its clock-face span changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "hour-fold"
+tests = [
+    "test_app.py::test_hour_fold_gap_and_crease",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Globe follows the window."
+text = "Turn the canvas globe to the great-circle position interpolated between position fixes at the window's end, with no idle spin."
+kind = "behavior"
+primary = "pytest"
+workflow = "hour-fold"
+tests = [
+    "test_app.py::test_globe_follows_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Fold sequence."
+text = "Play the ordered sequence in Motion and effects when the window moves, ending in a hatched magenta frame with the word Breach for a breaching window."
+kind = "behavior"
+primary = "pytest"
+workflow = "hour-fold"
+tests = [
+    "test_app.py::test_fold_sequence_plays",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Reduced motion."
+text = "With reduced motion on, draw folds and creases static at full size, change numerals at once and jump the globe to position, with the same values, labels, verdict and slider behaviour."
+kind = "behavior"
+primary = "pytest"
+workflow = "hour-fold"
+tests = [
+    "test_app.py::test_reduced_motion_same_values",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Touch dragging."
+text = "Let a crew member on a phone log hours and drag the rolling window by touch, with the window snapping to half-hour steps."
+kind = "behavior"
+primary = "pytest"
+workflow = "hour-fold"
+tests = [
+    "test_app.py::test_touch_log_and_drag_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Keyboard window control."
+text = "Let a crew member move and resize the rolling window with the slider keys, the width radios and the published shortcuts, with a visible focus mark throughout."
+kind = "behavior"
+primary = "pytest"
+workflow = "hour-fold"
+tests = [
+    "test_app.py::test_keyboard_window_control",
+    "test_app.py::test_wf_hour_fold_keyboard_and_globe",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Crew-only hours."
+text = "Let only the crew member write their own hours, and give the owner-master a dated disagreement note beside them that changes no hours."
+kind = "behavior"
+primary = "pytest"
+workflow = "record-integrity"
+tests = [
+    "test_app.py::test_crew_only_hours_and_notes",
+    "test_app.py::test_wf_record_integrity_note_changes_no_hours",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Breaches stay on record."
+text = "Keep every recorded breach visible with the published wording and reject any attempt to remove it, even after a later edit on an open day changes the hours."
+kind = "behavior"
+primary = "pytest"
+workflow = "record-integrity"
+tests = [
+    "test_app.py::test_breach_stays_on_record",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Record mismatch."
+text = "Show the published notice to both people when a master-logged drill or call-out overlaps hours logged as rest, until one of them adds a note to it."
+kind = "behavior"
+primary = "pytest"
+workflow = "record-integrity"
+tests = [
+    "test_app.py::test_record_mismatch_api",
+    "test_app.py::test_wf_record_integrity_mismatch_ships_day",
+    "test_app.py::test_wf_record_integrity_event_start_error",
+    "test_app.py::test_wf_record_integrity_event_end_error",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Seal conditions."
+text = "Let an owner-master request sealing only when every condition in Business rules is met, and reject the request with the status in API otherwise."
+kind = "behavior"
+primary = "pytest"
+workflow = "month-sealing"
+tests = [
+    "test_app.py::test_seal_conditions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Sealed after archive confirms."
+text = "Show a month as Sealed only after the object store holds the record PDF and its checksum is verified, and as Awaiting archive until then."
+kind = "behavior"
+primary = "pytest"
+workflow = "month-sealing"
+tests = [
+    "test_app.py::test_sealed_after_archive_confirms",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Archive outage recovery."
+text = "Start and keep logging with the archive unreachable, show the owner-master the published archive banner, and resume sealing when the archive returns with no restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "month-sealing"
+tests = [
+    "test_app.py::test_wf_month_sealing_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Sealed month and copy."
+text = "Make a sealed month's hours immutable and give the crew member a downloadable copy of the sealed record."
+kind = "behavior"
+primary = "pytest"
+workflow = "month-sealing"
+tests = [
+    "test_app.py::test_sealed_month_immutable_and_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Seal a month."
+text = "An owner-master and a crew member complete Journey 5 in the browser, ending on a Sealed month and a downloaded copy."
+kind = "behavior"
+primary = "workflow"
+workflow = "month-sealing"
+tests = [
+    "test_app.py::test_wf_month_sealing_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Scoped inspection links."
+text = "Let an owner-master create a link limited to one vessel and date range that shows sealed records only and opens nothing outside that scope."
+kind = "behavior"
+primary = "pytest"
+workflow = "inspection-link"
+tests = [
+    "test_app.py::test_scoped_inspection_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Server-judged expiry."
+text = "Decide inspection link expiry by the server's clock with the published edge, so that an expired link shows the expired page and no record data whatever the browser's clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "inspection-link"
+tests = [
+    "test_app.py::test_wf_inspection_link_expired",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Revoke, replace and read-only."
+text = "Let an owner-master revoke a link or replace it so the old one dies, and refuse any change made through a link."
+kind = "behavior"
+primary = "pytest"
+workflow = "inspection-link"
+tests = [
+    "test_app.py::test_revoke_replace_and_read_only",
+    "test_app.py::test_wf_inspection_link_replace",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Inspect a vessel."
+text = "An owner-master and a port inspector complete Journey 6 in the browser, from link creation to a revoked link showing no record data."
+kind = "behavior"
+primary = "workflow"
+workflow = "inspection-link"
+tests = [
+    "test_app.py::test_wf_inspection_link_happy",
+    "test_app.py::test_wf_inspection_link_past_expiry",
+    "test_app.py::test_wf_inspection_link_reversed_range",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Published layouts."
+text = "Lay out the voyage review exactly as Screens and layout states at each published viewport, with no sideways page scroll."
+kind = "behavior"
+primary = "pytest"
+workflow = "voyage-review-layout"
+tests = [
+    "test_app.py::test_wf_voyage_review_layout_published",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Dialog keyboard handling."
+text = "Keep Tab and Shift+Tab inside every open dialog, close it on Escape and return focus to the control that opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "voyage-review-layout"
+tests = [
+    "test_app.py::test_wf_voyage_review_layout_dialogs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Published copy."
+text = "Render every backticked string in Feedback states character for character, in the named live region where one is given."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Paper-chart look."
+text = "Present the product as a paper-chart sheet with hairline-ruled panes, a faint graticule, and magenta used for breaches alone, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Server boundary."
+text = "Enforce the same-origin rule, the request limits and the refusal to serve source files or credentials, and answer the health check at all times, as stated in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Server-held secrets and verdicts."
+text = "Read every credential from the environment, and decide every verdict, ship's day, closure, expiry and seal state on the server only."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "Keep /app/run.json in the format Deployment states, and start the product only through it."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "Write all application source in TypeScript."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Add THIRD_PARTY_NOTICES.md at the repository root, listing every shipped package and bundled font with its licence; shipped packages means the production dependency tree (npm ls --omit=dev --all --json)."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Use only shipped packages and fonts under MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC or SIL OFL-1.1 licences."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Use only Postgres and the object store for storage on the server: no SQLite, Redis, or files on disk as a datastore."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Leave the provided service configuration untouched, and never commit a credential value to the source."
+tests = [
+    "test_app.py::test_if_no_committed_credentials",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "vessel-setup-and-clock"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_vessel_setup_and_clock_happy",
+    "test_app.py::test_wf_vessel_setup_and_clock_ship_time",
+]
+checkpoints = [
+    "B13",
+]
+critical_checkpoints = [
+    "B13",
+]
+
+[[workflows]]
+id = "crew-daily-log"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_wf_crew_daily_log_happy",
+    "test_app.py::test_wf_crew_daily_log_phone_zone",
+    "test_app.py::test_keyboard_watch_grid",
+    "test_app.py::test_wf_crew_daily_log_touch",
+]
+checkpoints = [
+    "B10",
+]
+critical_checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "offline-sync"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_offline_sync_happy",
+    "test_app.py::test_wf_offline_sync_replay",
+    "test_app.py::test_wf_offline_sync_late",
+]
+checkpoints = [
+    "B8",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "day-closure-and-signing"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_day_closure_and_signing_happy",
+    "test_app.py::test_wf_day_closure_and_signing_drifted_clock",
+    "test_app.py::test_wf_day_closure_and_signing_keyboard",
+]
+checkpoints = [
+    "B14",
+]
+critical_checkpoints = [
+    "B14",
+]
+
+[[workflows]]
+id = "rota-planning"
+requirements = [
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_rota_planning_happy",
+    "test_app.py::test_wf_rota_planning_clock_change",
+    "test_app.py::test_plan_judged_under_rule_set_by_window_end",
+]
+checkpoints = [
+    "B6",
+]
+critical_checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "rule-sets-and-verdicts"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_rule_sets_and_verdicts_old_and_new",
+    "test_app.py::test_wf_rule_sets_and_verdicts_refused",
+]
+checkpoints = [
+    "B15",
+]
+critical_checkpoints = [
+    "B15",
+]
+
+[[workflows]]
+id = "hour-fold"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_hour_fold_drag_review",
+    "test_app.py::test_wf_hour_fold_keyboard_and_globe",
+    "test_app.py::test_hour_fold_gap_and_crease",
+    "test_app.py::test_reduced_motion_same_values",
+]
+checkpoints = [
+    "B3",
+    "B9",
+    "B11",
+]
+critical_checkpoints = [
+    "B3",
+]
+
+[[workflows]]
+id = "record-integrity"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_record_integrity_note_changes_no_hours",
+    "test_app.py::test_wf_record_integrity_mismatch_ships_day",
+    "test_app.py::test_breach_stays_on_record",
+]
+checkpoints = [
+    "B4",
+]
+critical_checkpoints = [
+    "B4",
+]
+
+[[workflows]]
+id = "month-sealing"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_month_sealing_happy",
+    "test_app.py::test_wf_month_sealing_outage",
+    "test_app.py::test_sealed_after_archive_confirms",
+]
+checkpoints = [
+    "B16",
+]
+critical_checkpoints = [
+    "B16",
+]
+
+[[workflows]]
+id = "inspection-link"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_inspection_link_happy",
+    "test_app.py::test_wf_inspection_link_replace",
+    "test_app.py::test_wf_inspection_link_expired",
+    "test_app.py::test_revoke_replace_and_read_only",
+]
+checkpoints = [
+    "B12",
+]
+critical_checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "voyage-review-layout"
+requirements = [
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_voyage_review_layout_published",
+    "test_app.py::test_wf_voyage_review_layout_dialogs",
+]
+checkpoints = [
+    "B1",
+    "B7",
+]
+critical_checkpoints = [
+    "B1",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_boundary",
+]
+checkpoints = [
+    "B2",
+    "B5",
+]
+critical_checkpoints = [
+    "B2",
+]

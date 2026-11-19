@@ -1,0 +1,168 @@
+services:
+  main:
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    security_opt:
+    - seccomp=unconfined
+    - systempaths=unconfined
+    - apparmor=unconfined
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+      gotenberg:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+      wiremock:
+        condition: service_healthy
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-5c1e8a37
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  minio:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-root-6d29b4
+      MINIO_ROOT_PASSWORD: gf-root-secret-a83f17c5
+    command: server /data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - MC_HOST_local=http://gf-root-6d29b4:gf-root-secret-a83f17c5@localhost:9000 mc ready local >/dev/null
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  mailpit:
+    image: axllent/mailpit:v1.27@sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68
+    healthcheck:
+      test:
+      - CMD
+      - /mailpit
+      - readyz
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  gotenberg:
+    image: gotenberg/gotenberg:8.39.0@sha256:13672f317b443c793e972b1bd2155ec62a3e7b6891b411e8196442cc053ee5f5
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - -o
+      - /dev/null
+      - http://127.0.0.1:3000/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  meilisearch:
+    image: getmeili/meilisearch:v1.56.0@sha256:1f578fa865f8251894b3bf38d6668d6209a3f451f8f65ab953e129d4c1db5ef4
+    environment:
+      MEILI_MASTER_KEY: gfkit-meilisearch-master-key-7f3a9c
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: 'true'
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - -o
+      - /dev/null
+      - http://127.0.0.1:7700/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  wiremock:
+    image: wiremock/wiremock:3.13.2@sha256:0d4ecb3e4dc8213fd7a4d37d6a78f6e6b553a6d2e15bd51b0999781282ac61b3
+    entrypoint:
+    - sh
+    - -c
+    - if [ -n "$$WIREMOCK_STUBS" ]; then printf '%s' "$$WIREMOCK_STUBS" > /home/wiremock/mappings/baseline.json;
+      fi; exec /docker-entrypoint.sh --port 8080 --disable-banner --max-request-journal-entries 20000 --admin-api-basic-auth
+      gfkit-admin:gfkit-wm-4fce2a657cbe2442
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -sf
+      - -u
+      - gfkit-admin:gfkit-wm-4fce2a657cbe2442
+      - http://127.0.0.1:8080/__admin/health
+      interval: 2s
+      timeout: 5s
+      retries: 60
+    environment:
+      WIREMOCK_STUBS: '{"mappings": [{"request": {"method": "GET", "queryParameters": {"cursor": {"absent": true}},
+        "urlPath": "/v2/materials"}, "response": {"jsonBody": {"materials": [{"code": "VM-2041", "family": "Aniline",
+        "name": "Tabacco", "prices": {"aed": "54.40", "eur": "13.70", "gbp": "11.90", "jpy": "1990", "usd": "14.80"},
+        "unit": "sqFt"}, {"code": "VM-2042", "family": "Aniline", "name": "Ruggine", "prices": {"aed": "60.40",
+        "eur": "15.20", "gbp": "13.20", "jpy": "2210", "usd": "16.40"}, "unit": "sqFt"}, {"code": "VM-2043", "family":
+        "Aniline", "name": "Inchiostro", "prices": {"aed": "66.90", "eur": "16.85", "gbp": "14.60", "jpy": "2450",
+        "usd": "18.20"}, "unit": "sqFt"}, {"code": "VM-2044", "family": "Semi-aniline", "name": "Salvia", "prices":
+        {"aed": "24.20", "eur": "6.10", "gbp": "5.30", "jpy": "885", "usd": "6.60"}, "unit": "sqFt"}, {"code": "VM-2045",
+        "family": "Semi-aniline", "name": "Avena", "prices": {"aed": "29.20", "eur": "7.35", "gbp": "6.40", "jpy":
+        "1070", "usd": "7.95"}, "unit": "sqFt"}, {"code": "VM-2046", "family": "Semi-aniline", "name": "Prugna",
+        "prices": {"aed": "35.30", "eur": "8.90", "gbp": "7.70", "jpy": "1295", "usd": "9.60"}, "unit": "sqFt"},
+        {"code": "VM-2047", "family": "Pull-up", "name": "Cuoio", "prices": {"aed": "44.65", "eur": "11.25", "gbp":
+        "9.75", "jpy": "1635", "usd": "12.15"}, "unit": "sqFt"}, {"code": "VM-2048", "family": "Pull-up", "name":
+        "Noce", "prices": {"aed": "49.25", "eur": "12.40", "gbp": "10.75", "jpy": "1800", "usd": "13.40"}, "unit":
+        "sqFt"}, {"code": "VM-2049", "family": "Pull-up", "name": "Grafite", "prices": {"aed": "42.10", "eur": "10.60",
+        "gbp": "9.20", "jpy": "1540", "usd": "11.45"}, "unit": "sqFt"}, {"code": "VM-3051", "family": "Wool", "name":
+        "Loden", "prices": {"aed": "254.00", "eur": "64.00", "gbp": "55.50", "jpy": "9300", "usd": "69.10"}, "unit":
+        "metre"}], "nextCursor": "p2"}, "status": 200}}, {"request": {"method": "GET", "queryParameters": {"cursor":
+        {"equalTo": "p2"}}, "urlPath": "/v2/materials"}, "response": {"jsonBody": {"materials": [{"code": "VM-3052",
+        "family": "Wool", "name": "Feltro", "prices": {"aed": "232.20", "eur": "58.50", "gbp": "50.75", "jpy": "8500",
+        "usd": "63.20"}, "unit": "metre"}, {"code": "VM-3053", "family": "Wool", "name": "Boucl\u00e9", "prices":
+        {"aed": "286.80", "eur": "72.25", "gbp": "62.65", "jpy": "10500", "usd": "78.00"}, "unit": "metre"}, {"code":
+        "VM-3054", "family": "Wool", "name": "Tweed", "prices": {"aed": "245.10", "eur": "61.75", "gbp": "53.55",
+        "jpy": "8975", "usd": "66.70"}, "unit": "metre"}, {"code": "VM-3055", "family": "Wool", "name": "Panno",
+        "prices": {"aed": "219.90", "eur": "55.40", "gbp": "48.05", "jpy": "8050", "usd": "59.85"}, "unit": "metre"},
+        {"code": "VM-3061", "family": "Linen", "name": "Canapa", "prices": {"aed": "169.10", "eur": "42.60", "gbp":
+        "36.95", "jpy": "6190", "usd": "46.00"}, "unit": "metre"}, {"code": "VM-3062", "family": "Linen", "name":
+        "Lino grezzo", "prices": {"aed": "151.65", "eur": "38.20", "gbp": "33.15", "jpy": "5550", "usd": "41.25"},
+        "unit": "metre"}, {"code": "VM-3063", "family": "Linen", "name": "Juta", "prices": {"aed": "118.70", "eur":
+        "29.90", "gbp": "25.95", "jpy": "4345", "usd": "32.30"}, "unit": "metre"}, {"code": "VM-3064", "family":
+        "Linen", "name": "Rafia", "prices": {"aed": "137.95", "eur": "34.75", "gbp": "30.15", "jpy": "5050", "usd":
+        "37.55"}, "unit": "metre"}, {"code": "VM-2050", "family": "Aniline", "name": "Mogano", "prices": {"aed":
+        "68.70", "eur": "17.30", "gbp": "15.00", "jpy": "2515", "usd": "18.70"}, "unit": "sqFt"}, {"code": "VM-2051",
+        "family": "Semi-aniline", "name": "Sabbia", "prices": {"aed": "30.95", "eur": "7.80", "gbp": "6.75", "jpy":
+        "1135", "usd": "8.40"}, "unit": "sqFt"}], "nextCursor": "p3"}, "status": 200}}, {"request": {"method": "GET",
+        "queryParameters": {"cursor": {"equalTo": "p3"}}, "urlPath": "/v2/materials"}, "response": {"jsonBody":
+        {"materials": [{"code": "VM-2052", "family": "Semi-aniline", "name": "Ardesia", "prices": {"aed": "36.35",
+        "eur": "9.15", "gbp": "7.95", "jpy": "1330", "usd": "9.90"}, "unit": "sqFt"}, {"code": "VM-2053", "family":
+        "Pull-up", "name": "Miele", "prices": {"aed": "47.45", "eur": "11.95", "gbp": "10.35", "jpy": "1735", "usd":
+        "12.90"}, "unit": "sqFt"}, {"code": "VM-2054", "family": "Pull-up", "name": "Corteccia", "prices": {"aed":
+        "51.00", "eur": "12.85", "gbp": "11.15", "jpy": "1865", "usd": "13.90"}, "unit": "sqFt"}, {"code": "VM-2055",
+        "family": "Pull-up", "name": "Fumo", "prices": {"aed": "40.30", "eur": "10.15", "gbp": "8.80", "jpy": "1475",
+        "usd": "10.95"}, "unit": "sqFt"}]}, "status": 200}}, {"request": {"method": "GET", "urlPath": "/v2/materials/VM-2041/lots"},
+        "response": {"jsonBody": {"lots": [{"averageSqFt": "48.25", "hides": 2, "lot": "L-2041-A"}, {"averageSqFt":
+        "52.75", "hides": 1, "lot": "L-2041-B"}]}, "status": 200}}, {"request": {"method": "GET", "urlPath": "/v2/materials/VM-2044/lots"},
+        "response": {"jsonBody": {"lots": [{"averageSqFt": "30.25", "hides": 5, "lot": "L-2044-A"}]}, "status":
+        200}}, {"priority": 9, "request": {"method": "GET", "urlPathPattern": "/v2/materials/VM-2[0-9]{3}/lots"},
+        "response": {"jsonBody": {"lots": [{"averageSqFt": "48.25", "hides": 6, "lot": "L-2000-A"}]}, "status":
+        200}}, {"priority": 9, "request": {"method": "GET", "urlPathPattern": "/v2/materials/VM-3[0-9]{3}/lots"},
+        "response": {"jsonBody": {"lots": [{"lot": "L-3000-A", "metres": "40.00"}]}, "status": 200}}, {"request":
+        {"method": "POST", "urlPath": "/v2/holds"}, "response": {"jsonBody": {"holdId": "H-7001"}, "status": 201}},
+        {"request": {"method": "POST", "urlPath": "/v1/quotes"}, "response": {"jsonBody": {"amount": "412.50", "currency":
+        "EUR", "quoteId": "Q-5001"}, "status": 200}}, {"request": {"method": "POST", "urlPath": "/v1/collections"},
+        "response": {"jsonBody": {"id": "C-9001", "labelPath": "/v1/labels/C-9001", "state": "booked"}, "status":
+        201}}, {"request": {"method": "GET", "urlPath": "/v1/collections/C-9001"}, "response": {"jsonBody": {"id":
+        "C-9001", "labelPath": "/v1/labels/C-9001", "state": "booked"}, "status": 200}}, {"request": {"method":
+        "GET", "urlPath": "/v1/labels/C-9001"}, "response": {"body": "%PDF-1.4 portico label\n", "headers": {"Content-Type":
+        "application/pdf"}, "status": 200}}]}'

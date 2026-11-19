@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="earshot-time-zone" content="UTC" data-zone>
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#121409">
+  <title>Console · Earshot</title>
+  <link rel="preload" href="./fonts/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="./fonts/inter-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="./fonts/bricolage-grotesque-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="./fonts/bricolage-grotesque-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="./fonts/jetbrains-mono-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <script type="module" src="./console/main.ts"></script>
+</head>
+<body class="console-page">
+  <div class="console-app" id="app">
+    <header class="console-header">
+      <span class="wordmark">Earshot <span class="label">Console</span></span>
+      <nav class="console-nav" aria-label="Console" id="console-nav" hidden>
+        <a href="#projects" data-view="projects">Projects</a>
+        <a href="#enquiries" data-view="enquiries">Enquiries</a>
+        <a href="#months" data-view="months">Months</a>
+        <a href="#settings" data-view="settings">Settings</a>
+      </nav>
+      <button class="button" type="button" id="sign-out" hidden>Sign out</button>
+      <p class="console-status" role="status" aria-label="Console status" id="console-status"></p>
+    </header>
+
+    <main class="console-main" id="console-main">
+      <section class="signin" id="signin-view" hidden>
+        <form class="signin-form" id="signin-form" aria-label="Operator sign in" novalidate>
+          <h1>Sign in to the console</h1>
+          <p class="hint">Projects, listening links, enquiries and production months for Kettlehole Audio.</p>
+          <div class="field">
+            <label for="signin-email">Email</label>
+            <input type="email" id="signin-email" autocomplete="username">
+          </div>
+          <div class="field">
+            <label for="signin-password">Password</label>
+            <input type="password" id="signin-password" autocomplete="current-password">
+          </div>
+          <button class="button primary" type="submit">Sign in</button>
+        </form>
+      </section>
+
+      <section class="two-pane" id="projects-view" hidden>
+        <div class="list-pane">
+          <div class="list-head">
+            <h1>Projects</h1>
+            <button class="button primary" type="button" id="new-project">New project</button>
+          </div>
+          <ul class="record-list" aria-label="Projects" id="project-list"></ul>
+        </div>
+        <div class="detail-pane" id="project-detail"></div>
+      </section>
+
+      <section class="two-pane" id="enquiries-view" hidden>
+        <div class="list-pane">
+          <div class="list-head">
+            <h1>Enquiries</h1>
+            <a class="button" href="/api/console/enquiries.csv" id="export-csv" download>Export CSV</a>
+          </div>
+          <div class="field compact">
+            <label for="status-filter">Status</label>
+            <select id="status-filter">
+              <option value="">All statuses</option>
+              <option value="new">New</option>
+              <option value="qualified">Qualified</option>
+              <option value="proposal_sent">Proposal sent</option>
+              <option value="accepted">Accepted</option>
+              <option value="deposit_paid">Deposit paid</option>
+              <option value="booked">Booked</option>
+              <option value="declined">Declined</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
+          <ul class="record-list" aria-label="Enquiries" id="enquiry-list"></ul>
+          <button type="button" class="button more" id="more-enquiries" hidden>Show more enquiries</button>
+        </div>
+        <div class="detail-pane" id="enquiry-detail"></div>
+      </section>
+
+      <section class="single-pane" id="months-view" hidden>
+        <div class="list-head">
+          <h1>Production months</h1>
+        </div>
+        <p class="hint">A month is open while its claimed places are below its capacity. Claimed places count accepted, deposit-paid and booked proposals.</p>
+        <table class="months-table" aria-label="Production months">
+          <thead><tr><th scope="col">Month</th><th scope="col">Capacity</th><th scope="col">Claimed</th></tr></thead>
+          <tbody id="month-rows"></tbody>
+        </table>
+        <button class="button primary" type="button" id="save-months">Save months</button>
+      </section>
+
+      <section class="single-pane" id="settings-view" hidden>
+        <div class="list-head"><h1>Settings</h1></div>
+        <div class="field">
+          <label for="time-zone">Time zone</label>
+          <select id="time-zone"></select>
+          <p class="hint">Dates in the console, on listening pages and in every email are written in this zone. Production months follow it too.</p>
+        </div>
+        <p class="hint" id="operator-email"></p>
+        <button class="button primary" type="button" id="save-settings">Save settings</button>
+        <section class="mail-queue" aria-labelledby="mail-queue-title">
+          <h2 id="mail-queue-title">Mail queue</h2>
+          <ul class="pending-emails" aria-label="Pending emails" id="pending-emails"></ul>
+          <p class="hint" id="mail-queue-note"></p>
+        </section>
+      </section>
+    </main>
+  </div>
+
+
+  <div class="dialog-backdrop" id="link-dialog" role="dialog" aria-modal="true" aria-labelledby="link-dialog-title" hidden>
+    <form class="dialog" id="link-form" novalidate>
+      <h2 id="link-dialog-title">New listening link</h2>
+      <div class="field">
+        <label for="link-label">Label</label>
+        <input type="text" id="link-label" aria-describedby="link-label-error">
+        <p class="field-error" id="link-label-error"></p>
+      </div>
+      <div class="field">
+        <label for="link-expires">Expires at</label>
+        <input type="datetime-local" id="link-expires" aria-describedby="link-expires-hint link-expires-error">
+        <p class="hint" id="link-expires-hint"></p>
+        <p class="field-error" id="link-expires-error"></p>
+      </div>
+      <div class="dialog-actions">
+        <button class="button primary" type="submit">Create link</button>
+        <button class="button" type="button" data-cancel>Cancel</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="dialog-backdrop" id="withdraw-dialog" role="alertdialog" aria-modal="true" aria-labelledby="withdraw-title" aria-describedby="withdraw-text" hidden>
+    <div class="dialog">
+      <h2 id="withdraw-title">Withdraw project?</h2>
+      <p id="withdraw-text">Its stems are deleted and every link to it stops working. This cannot be undone.</p>
+      <div class="dialog-actions">
+        <button class="button primary" type="button" id="withdraw-confirm">Withdraw</button>
+        <button class="button" type="button" data-cancel>Keep project</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="dialog-backdrop" id="proposal-dialog" role="dialog" aria-modal="true" aria-labelledby="proposal-dialog-title" hidden>
+    <form class="dialog wide" id="proposal-form" novalidate>
+      <h2 id="proposal-dialog-title">Build proposal</h2>
+      <div class="dialog-grid">
+        <div class="field">
+          <label for="pf-producer_name">Producer name</label>
+          <input type="text" id="pf-producer_name" aria-describedby="pf-producer_name-error">
+          <p class="field-error" id="pf-producer_name-error"></p>
+        </div>
+        <div class="field">
+          <label for="pf-producer_email">Producer email</label>
+          <input type="email" id="pf-producer_email" aria-describedby="pf-producer_email-error">
+          <p class="field-error" id="pf-producer_email-error"></p>
+        </div>
+        <div class="field span">
+          <label for="pf-project_title">Project title</label>
+          <input type="text" id="pf-project_title" aria-describedby="pf-project_title-error">
+          <p class="field-error" id="pf-project_title-error"></p>
+        </div>
+        <div class="field span">
+          <label for="pf-scope">Scope</label>
+          <textarea id="pf-scope" rows="4" aria-describedby="pf-scope-error"></textarea>
+          <p class="field-error" id="pf-scope-error"></p>
+        </div>
+        <div class="field">
+          <label for="pf-fee_cents">Fee (USD)</label>
+          <input type="text" id="pf-fee_cents" inputmode="decimal" aria-describedby="pf-fee_cents-error">
+          <p class="field-error" id="pf-fee_cents-error"></p>
+        </div>
+        <div class="field">
+          <label for="pf-production_month">Production month</label>
+          <select id="pf-production_month" aria-describedby="pf-production_month-full pf-production_month-error"></select>
+          <p class="field-error" id="pf-production_month-full"></p>
+          <p class="field-error" id="pf-production_month-error"></p>
+        </div>
+      </div>
+      <table class="preview-table" aria-label="Milestone preview">
+        <thead><tr><th scope="col">Milestone</th><th scope="col">Share</th><th scope="col">Amount</th></tr></thead>
+        <tbody id="preview-rows"></tbody>
+      </table>
+      <div class="dialog-actions">
+        <button class="button primary" type="submit" id="send-proposal">Send proposal</button>
+        <button class="button" type="button" data-cancel>Cancel</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

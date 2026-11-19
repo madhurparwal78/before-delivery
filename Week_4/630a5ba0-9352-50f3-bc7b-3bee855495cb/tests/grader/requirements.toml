@@ -1,0 +1,995 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "sign-up-and-trial",
+    "pull-and-import",
+    "meetings-import",
+    "waterline-check",
+    "move-between-days",
+    "timebox-calendar",
+    "routines",
+    "calendar-feed",
+    "evening-shutdown",
+    "seats-and-invites",
+    "weekly-review",
+    "billing-and-operations",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 88
+solo_criteria = [
+    "B7",
+]
+services = [
+    { name = "postgres", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Tidemark Daybook <daybook@tidemark.test>" } },
+    { name = "killbill", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 5
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 5
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "trial-clock"
+port = 4176
+url_env = "APP_TRIAL_CLOCK_URL"
+
+[outages.env]
+TRIAL_LENGTH_SECONDS = "40"
+TRIAL_NOTICE_LEAD_SECONDS = "30"
+DATABASE_URL = "${DATABASE_URL}_trial"
+
+[[requirements]]
+id = "DP-01"
+title = "Workspace sign-up"
+text = "Creating a workspace starts it in the trialing state with its owner signed in, and registers a Kill Bill account plus one seat for the owner, or queues that registration when Kill Bill is unreachable, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-up-and-trial"
+tests = [
+    "test_app.py::test_sign_up_registers_trial_and_billing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Trial start journey"
+text = "A visitor who fills in the trial form lands on an empty Daybook for their new workspace with the subscription banner showing the trial days left."
+kind = "behavior"
+primary = "workflow"
+workflow = "sign-up-and-trial"
+tests = [
+    "test_app.py::test_wf_sign_up_and_trial_happy",
+    "test_app.py::test_wf_sign_up_and_trial_email_taken",
+    "test_app.py::test_wf_sign_up_and_trial_billing_outage",
+    "test_app.py::test_wf_sign_up_and_trial_converted",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Trial clock and notice"
+text = "The trial ends a configured length after workspace creation, checked on the server, and the owner receives exactly one trial-ending email at the configured lead time before it ends, as set out in Business rules and Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-up-and-trial"
+tests = [
+    "test_app.py::test_trial_clock_notice_and_read_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Read-only workspace"
+text = "In the read-only and cancelled states every planning write is refused with the read-only error, while reads, sign-in, settings, member removal and the calendar feed keep working."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-up-and-trial"
+tests = [
+    "test_app.py::test_read_only_and_cancelled_refuse_planning_writes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Task import matching"
+text = "Importing a CSV task export matches rows on source and external id, so a repeat import updates existing cards and creates none, and the response reports created, updated, unchanged, merged, rejected and orphaned rows."
+kind = "behavior"
+primary = "pytest"
+workflow = "pull-and-import"
+tests = [
+    "test_app.py::test_task_import_matching",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Import journey"
+text = "A member opens the task import dialog, uploads a CSV export, hears the import summary announced, and finds the new cards in the Backlog."
+kind = "behavior"
+primary = "workflow"
+workflow = "pull-and-import"
+tests = [
+    "test_app.py::test_wf_pull_and_import_happy",
+    "test_app.py::test_wf_pull_and_import_reimport",
+    "test_app.py::test_wf_pull_and_import_bad_file",
+    "test_app.py::test_wf_pull_and_import_focus_return",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Quick add and suggestions"
+text = "Typing in the add-a-task box suggests at most eight of the member's own open tasks and never a task from another member or workspace, and Enter adds a new Backlog card."
+kind = "behavior"
+primary = "pytest"
+workflow = "pull-and-import"
+tests = [
+    "test_app.py::test_suggestions_stay_in_scope",
+    "test_app.py::test_wf_pull_and_import_quick_add",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Calendar file import"
+text = "Importing an .ics file creates or updates meetings matched on event UID, skips all-day and repeating events, and adds each meeting's minutes to the local days it overlaps."
+kind = "behavior"
+primary = "pytest"
+workflow = "meetings-import"
+tests = [
+    "test_app.py::test_calendar_import_matching_and_load",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Meetings on the calendar"
+text = "After a calendar import the member sees each meeting as a ruled block on the calendar strip at its local time, and the affected day totals grow by its minutes."
+kind = "behavior"
+primary = "workflow"
+workflow = "meetings-import"
+tests = [
+    "test_app.py::test_wf_meetings_import_happy",
+    "test_app.py::test_wf_meetings_import_reimport",
+    "test_app.py::test_wf_meetings_import_focus_return",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Derived day load"
+text = "Every day's task, meeting, routine and planned minutes are computed from server-side records only, and any total a client sends is ignored."
+kind = "behavior"
+primary = "pytest"
+workflow = "waterline-check"
+tests = [
+    "test_app.py::test_day_load_is_derived",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Local today"
+text = "Today, the five day columns and the past-day rejection follow the member's profile time zone rather than the server's or the browser's, and the board rolls over within a minute of local midnight without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "waterline-check"
+tests = [
+    "test_app.py::test_today_follows_profile_zone",
+    "test_app.py::test_wf_waterline_check_local_midnight",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Estimating cards"
+text = "In the Estimate step a member picks an estimate on a card, and the card, the day total and the Waterline update to the server-confirmed value."
+kind = "behavior"
+primary = "workflow"
+workflow = "waterline-check"
+tests = [
+    "test_app.py::test_wf_waterline_check_estimate",
+    "test_app.py::test_wf_waterline_check_read_only_rollback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Waterline gauge"
+text = "Each day column shows a fill whose height against the tidemark equals planned minutes over the threshold, capped at 1.2, with a tidemark rule at the threshold and the over label whenever the day is over."
+kind = "visual"
+primary = "pytest"
+workflow = "waterline-check"
+tests = [
+    "test_app.py::test_waterline_geometry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Drag preview"
+text = "While a card is held over a day column by pointer, touch or keyboard, a ghost segment of its estimate stacks on that column's fill, and the part above the tidemark is hatched with the over label beside it."
+kind = "visual"
+primary = "pytest"
+workflow = "waterline-check"
+tests = [
+    "test_app.py::test_drag_preview_ghost",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Task versions"
+text = "Every task change carries the version it was based on, and a change based on an older version is refused with the conflict error and the current task, leaving the task unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "move-between-days"
+tests = [
+    "test_app.py::test_task_versions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Honest card moves"
+text = "A card dragged to another column moves at once, and if the server refuses the move the card returns to its previous column, the fill drains back and the reason is announced."
+kind = "behavior"
+primary = "pytest"
+workflow = "move-between-days"
+tests = [
+    "test_app.py::test_wf_move_between_days_conflict_rollback",
+    "test_app.py::test_wf_move_between_days_read_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Keyboard moves"
+text = "A card can be picked up with Space, carried between the Backlog, day columns and calendar slots with arrow keys, dropped with Enter and put back with Escape, with focus staying on the card."
+kind = "behavior"
+primary = "pytest"
+workflow = "move-between-days"
+tests = [
+    "test_app.py::test_wf_move_between_days_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Timebox once"
+text = "Creating a timed session requires an idempotency key, a replay returns the original response, and a task never has more than one session, even under parallel requests."
+kind = "behavior"
+primary = "pytest"
+workflow = "timebox-calendar"
+tests = [
+    "test_app.py::test_timebox_idempotent_once",
+    "test_app.py::test_wf_timebox_calendar_no_duplicate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Session version winner"
+text = "When two saves move the same session from the same version, exactly one succeeds and the other gets the conflict error with the winning session, whose start and end both come from the winner."
+kind = "behavior"
+primary = "pytest"
+workflow = "timebox-calendar"
+tests = [
+    "test_app.py::test_session_version_winner",
+    "test_app.py::test_wf_timebox_calendar_two_devices",
+    "test_app.py::test_session_conflict_before_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Timebox journey"
+text = "Dropping a card on a calendar slot turns it into a block whose height matches its estimate, and the column's fill stays put when the task was already planned on that day."
+kind = "behavior"
+primary = "workflow"
+workflow = "timebox-calendar"
+tests = [
+    "test_app.py::test_wf_timebox_calendar_happy",
+    "test_app.py::test_wf_timebox_calendar_release_off_target",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Removed sessions stay removed"
+text = "Deleting a session removes it from the calendar, the board and the feed for good, and it does not reappear after a reload or a re-import."
+kind = "behavior"
+primary = "pytest"
+workflow = "timebox-calendar"
+tests = [
+    "test_app.py::test_removed_session_stays_removed",
+    "test_app.py::test_wf_timebox_calendar_remove",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "DST-safe routines"
+text = "Routines keep their local start time on every applicable day, including across daylight-saving changes, with exactly one occurrence per qualifying local date under the gap and overlap rule in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "routines"
+tests = [
+    "test_app.py::test_routines_dst",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Routine journey"
+text = "A member adds a routine in Settings and sees it on the calendar strip at the same local time on each board day it applies to."
+kind = "behavior"
+primary = "workflow"
+workflow = "routines"
+tests = [
+    "test_app.py::test_wf_routines_happy",
+    "test_app.py::test_wf_routines_invalid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Private calendar feed"
+text = "Each member has a secret feed URL that serves their timed sessions and routine occurrences as an iCalendar file, with exactly one event per session or occurrence."
+kind = "behavior"
+primary = "pytest"
+workflow = "calendar-feed"
+tests = [
+    "test_app.py::test_feed_serves_events",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Feed rotation"
+text = "Rotating the feed URL makes the old URL answer not found at once, the new URL serves the same events, and no feed URL accepts anything but reading."
+kind = "behavior"
+primary = "pytest"
+workflow = "calendar-feed"
+tests = [
+    "test_app.py::test_feed_rotation_and_methods",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Feed settings journey"
+text = "A member copies the feed URL, confirms a rotation in Settings, and sees the new URL and the rotation announcement."
+kind = "behavior"
+primary = "workflow"
+workflow = "calendar-feed"
+tests = [
+    "test_app.py::test_wf_calendar_feed_rotate",
+    "test_app.py::test_wf_calendar_feed_copy_keep",
+    "test_app.py::test_wf_calendar_feed_rotate_pending",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Evening shutdown"
+text = "Shutting down the day moves today's open tasks to tomorrow, clears their sessions, and reports done, carried-over and tomorrow's first item for the member's local day."
+kind = "behavior"
+primary = "pytest"
+workflow = "evening-shutdown"
+tests = [
+    "test_app.py::test_shutdown_carries_over_and_digests",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Shutdown digest"
+text = "Each member gets at most one shutdown digest email per local day, queued and sent once later when mail is unreachable, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "evening-shutdown"
+tests = [
+    "test_app.py::test_mail_outage_recovers",
+    "test_app.py::test_wf_evening_shutdown_repeat",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Shutdown journey"
+text = "A member opens the Shut down step, reviews the preview, sends the shutdown, and sees today's open cards move to tomorrow with the outcome announced."
+kind = "behavior"
+primary = "workflow"
+workflow = "evening-shutdown"
+tests = [
+    "test_app.py::test_wf_evening_shutdown_happy",
+    "test_app.py::test_wf_evening_shutdown_mail_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Invites hold seats"
+text = "An owner's invite adds one Kill Bill seat and sends one invite email, and when billing is unreachable the invite waits without a seat or email until billing accepts the seat, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "seats-and-invites"
+tests = [
+    "test_app.py::test_invites_hold_seats",
+    "test_app.py::test_wf_seats_and_invites_billing_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Removing members"
+text = "Removing a member cancels their seat in Kill Bill and ends their access and feed, or changes nothing when billing is unreachable, and the owner cannot be removed."
+kind = "behavior"
+primary = "pytest"
+workflow = "seats-and-invites"
+tests = [
+    "test_app.py::test_removing_members",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Join journey"
+text = "An invited person opens the emailed link, sets their name, password and time zone, and lands on their own empty Daybook in the inviting workspace."
+kind = "behavior"
+primary = "workflow"
+workflow = "seats-and-invites"
+tests = [
+    "test_app.py::test_wf_seats_and_invites_join",
+    "test_app.py::test_wf_seats_and_invites_used_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Weekly review totals"
+text = "The owner's weekly review sums planned and done estimate minutes per seat-holding member for an ISO week by each member's local dates, counting only the owner's workspace."
+kind = "behavior"
+primary = "pytest"
+workflow = "weekly-review"
+tests = [
+    "test_app.py::test_weekly_review_totals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Review screen"
+text = "An owner sees the Workspace page with the seat count, the members table and the weekly review table, and can step between weeks."
+kind = "behavior"
+primary = "workflow"
+workflow = "weekly-review"
+tests = [
+    "test_app.py::test_wf_weekly_review_happy",
+    "test_app.py::test_wf_weekly_review_remove_member",
+    "test_app.py::test_wf_weekly_review_remove_pending",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Verified billing callbacks"
+text = "Billing callbacks are accepted only with a valid signature and a fresh timestamp, and a repeated event id changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-and-operations"
+tests = [
+    "test_app.py::test_billing_callbacks_verified",
+    "test_app.py::test_billing_callback_unknown_workspace_first",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Subscription states"
+text = "The workspace subscription follows the state machine in Business rules, derived from every verified event in occurredAt order so that the final state never depends on the order events arrive in."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-and-operations"
+tests = [
+    "test_app.py::test_subscription_state_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Queued work recovers"
+text = "Work queued while Kill Bill or mail is unreachable completes exactly once within the recovery window in Business rules after any running instance can reach the service again, without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-and-operations"
+tests = [
+    "test_app.py::test_killbill_outage_recovers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Operator overview"
+text = "The operator sees every workspace's subscription state, seats, queued work and import activity with no task, meeting or routine content, and no other role can see this overview."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing-and-operations"
+tests = [
+    "test_app.py::test_operator_overview",
+    "test_app.py::test_wf_billing_and_operations_operator",
+    "test_app.py::test_wf_billing_and_operations_seats",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from the run manifest on the configured port and answers the health check, even when Kill Bill or mail is unreachable at boot."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_outage_boot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Server boundary"
+text = "The server accepts only same-origin writes within the stated size and content-type limits, and never serves source, configuration or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Credentials from environment"
+text = "Every service URL and credential is read from the environment at start and is never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Responsive notebook"
+text = "Every screen fits the three viewports in Screens and layout without horizontal page scrolling, using the arrangement described for each width."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Notebook look"
+text = "The Daybook reads as a paper notebook spread, with a warm paper ground, ink text, serif day headings over ruled columns, mono numerals, flat ruled slips and one green accent per screen."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Motion and reduced motion"
+text = "Fills, ghosts, counters and rollbacks animate within the stated durations, nothing loops for decoration, and with reduced motion every change is instant while labels and announcements still appear."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_and_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Accessible controls"
+text = "Every public control has its stated role and name, tab order follows the page, dialogs keep and return focus, and tap targets and contrast meet the Visual design limits."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_accessibility",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with exactly the string keys _schema (value run-manifest-v1), install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and every bundled font, with name, version and licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the production dependency tree from npm ls --omit=dev --all --json) uses one of MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0, CC0-1.0 or Unlicense, and bundled fonts use OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The only datastore is the provided PostgreSQL: no SQLite, Redis, embedded database or application data written to local files."
+tests = [
+    "test_app.py::test_if_postgres_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service definitions and environment files for PostgreSQL, Kill Bill and Mailpit are left unmodified."
+tests = [
+    "test_app.py::test_if_services_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Fonts and icons ship inside the app and load from its own origin, with no CDN or third-party request at runtime."
+tests = [
+    "test_app.py::test_if_assets_same_origin",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Server and browser code is TypeScript compiled with strict mode enabled, and npx tsc --noEmit passes."
+tests = [
+    "test_app.py::test_if_typescript_strict",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "sign-up-and-trial"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_sign_up_and_trial_happy",
+    "test_app.py::test_wf_sign_up_and_trial_billing_outage",
+    "test_app.py::test_wf_sign_up_and_trial_converted",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "pull-and-import"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+]
+critical = [
+    "test_app.py::test_wf_pull_and_import_happy",
+    "test_app.py::test_wf_pull_and_import_reimport",
+    "test_app.py::test_wf_pull_and_import_quick_add",
+    "test_app.py::test_wf_pull_and_import_focus_return",
+]
+
+[[workflows]]
+id = "meetings-import"
+requirements = [
+    "DP-08",
+    "DP-09",
+]
+critical = [
+    "test_app.py::test_wf_meetings_import_happy",
+    "test_app.py::test_wf_meetings_import_reimport",
+    "test_app.py::test_wf_meetings_import_focus_return",
+]
+checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "waterline-check"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_waterline_check_estimate",
+    "test_app.py::test_wf_waterline_check_local_midnight",
+    "test_app.py::test_wf_waterline_check_read_only_rollback",
+]
+checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "move-between-days"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_move_between_days_keyboard",
+    "test_app.py::test_wf_move_between_days_conflict_rollback",
+    "test_app.py::test_task_versions",
+]
+
+[[workflows]]
+id = "timebox-calendar"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_timebox_calendar_happy",
+    "test_app.py::test_wf_timebox_calendar_no_duplicate",
+    "test_app.py::test_wf_timebox_calendar_two_devices",
+    "test_app.py::test_wf_timebox_calendar_release_off_target",
+    "test_app.py::test_session_conflict_before_validation",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "routines"
+requirements = [
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_wf_routines_happy",
+    "test_app.py::test_routines_dst",
+]
+
+[[workflows]]
+id = "calendar-feed"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_calendar_feed_rotate",
+    "test_app.py::test_feed_serves_events",
+    "test_app.py::test_wf_calendar_feed_rotate_pending",
+]
+
+[[workflows]]
+id = "evening-shutdown"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_evening_shutdown_happy",
+    "test_app.py::test_wf_evening_shutdown_mail_outage",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "seats-and-invites"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_seats_and_invites_join",
+    "test_app.py::test_wf_seats_and_invites_billing_outage",
+]
+
+[[workflows]]
+id = "weekly-review"
+requirements = [
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_weekly_review_happy",
+    "test_app.py::test_weekly_review_totals",
+    "test_app.py::test_wf_weekly_review_remove_pending",
+]
+
+[[workflows]]
+id = "billing-and-operations"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_billing_and_operations_operator",
+    "test_app.py::test_billing_callbacks_verified",
+    "test_app.py::test_killbill_outage_recovers",
+    "test_app.py::test_billing_callback_unknown_workspace_first",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_health_and_outage_boot",
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_wf_cross_cutting_layout",
+]

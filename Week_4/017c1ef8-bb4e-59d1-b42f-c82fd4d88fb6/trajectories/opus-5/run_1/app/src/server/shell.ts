@@ -1,0 +1,17 @@
+/** The one page shell. Every font, script and style is served by the app itself. */
+export function pageShell(): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plainwork</title>
+<link rel="stylesheet" href="/app.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<div id="app"></div>
+</body>
+</html>
+`;
+}

@@ -1,0 +1,52 @@
+{% extends "console_base.html" %}
+{% from "_dept.html" import dept %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ table.name }} · Keystone Tables{% endblock %}
+{% block head %}
+<div class="page-head">
+  <h1>{{ table.name }}</h1>
+  <div class="meta">{{ dept(table.department) }}<span>Table <strong>{{ table.slug }}</strong></span><span>Tier <strong>{{ figures.tier }}</strong></span><span>Your role <strong>{{ role }}</strong></span></div>
+</div>
+<div class="banners" id="banners">
+  <div class="notice refuse" id="lock-banner" role="status"{% if not table.locked_period %} hidden{% endif %}>{% if table.locked_period %}<div class="row">{{ icon('lock') }}<p>Locked for {{ table.locked_period }}. Amendments are refused until a steward unlocks it.</p></div>{% endif %}</div>
+  {% set full = figures.count >= figures.row_allowance %}
+  {% set near = figures.count * 5 >= figures.row_allowance * 4 %}
+  <div class="notice {{ 'refuse' if full else 'caution' }}" id="allowance-notice" role="status"{% if not near or table.locked_period %} hidden{% endif %}>{% if near %}<div class="row">{{ icon('alert') }}<p>{% if full %}{{ figures.count }} of {{ figures.row_allowance }} rows used. New rows are refused on the {{ figures.tier }} tier.{% else %}{{ figures.count }} of {{ figures.row_allowance }} rows used on the {{ figures.tier }} tier{% endif %}</p></div>{% endif %}</div>
+</div>
+{% endblock %}
+{% block body %}
+<div class="workbench" id="workbench">
+  <aside class="controls" aria-label="View and sort">
+    <div class="pair">
+      <div class="field"><label for="pick-view">View</label><select class="select" id="pick-view"><option value="">All rows</option></select></div>
+      <div class="field"><label for="pick-sort">Sort</label><select class="select" id="pick-sort"><option value="">Insertion order</option>{% for c in figures.columns %}<option value="{{ c.caption }}">{{ c.caption }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="btn-row">
+      {% if boot.canViews %}<button type="button" class="btn" id="open-new-view">New view</button>{% endif %}
+    </div>
+    {% if boot.canLock %}
+    <form id="lock-form" class="stack" novalidate>
+      <div class="field"><label for="lock-period">Period</label><input class="input" id="lock-period" name="period" autocomplete="off"><p class="error" id="err-lock" hidden></p></div>
+      <div class="btn-row"><button type="submit" class="btn" id="lock-send">Lock table</button><button type="button" class="btn" id="unlock-send"{% if not table.locked_period %} hidden{% endif %}>Unlock table</button></div>
+    </form>
+    {% endif %}
+  </aside>
+  <section class="table-area" aria-label="{{ table.name }} rows">
+    <div class="btn-row" style="justify-content: space-between; align-items: center; padding-bottom: 8px">
+      <h2 class="visually-hidden">Rows</h2>
+      <span class="caption" id="row-summary"></span>
+      {% if boot.canEdit %}<button type="button" class="btn btn-primary" id="open-add-row">Add row</button>{% endif %}
+    </div>
+    {% set reserve = (32 + 37 * [figures.count, 100]|min) if figures.count else 118 %}
+    <div class="table-panel" id="table-panel" style="--reserve: {{ reserve }}px" role="region" aria-label="{{ table.name }} table" tabindex="0" aria-busy="true">
+      <div class="skeleton" id="skeleton" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <div class="pager">
+      <span class="where" id="page-where"></span>
+      <div class="btn-row"><button type="button" class="btn" id="prev-page" disabled>Previous page</button><button type="button" class="btn" id="next-page" disabled>Next page</button></div>
+    </div>
+  </section>
+</div>
+<script type="application/json" id="boot">{{ boot|tojson }}</script>
+{% endblock %}
+{% block scripts %}<script src="{{ asset('dialogs.js') }}" defer></script><script src="{{ asset('table.js') }}" defer></script>{% endblock %}

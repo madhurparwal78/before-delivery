@@ -1,0 +1,1680 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 93
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "cockpit-snapshot",
+    "transaction-feed",
+    "recipients",
+    "send-payment",
+    "approvals",
+    "money-in",
+    "access-control",
+    "sessions",
+    "sales-inquiry",
+    "marketing-site",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 84
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+B13 = 3
+S1 = 3
+S2 = 3
+S3 = 5
+S4 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 5
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "postgres-down"
+port = 4174
+url_env = "APP_POSTGRES_DOWN_URL"
+
+[outages.env]
+DATABASE_URL = "postgresql://tallwind:unreachable@127.0.0.1:9/tallwind"
+
+[[outages]]
+id = "fresh-start"
+port = 4175
+url_env = "APP_FRESH_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_fresh"
+
+[[requirements]]
+id = "DP-01"
+title = "Snapshot from integer cents"
+text = "Every balance and amount is stored and returned as integer cents. GET /api/snapshot reports total cash and total available equal to the sums over the accounts, with each account's balance, available balance and a thirty-day sparkline of end-of-day New York balances ending at its current balance."
+kind = "behavior"
+primary = "pytest"
+workflow = "cockpit-snapshot"
+tests = [
+    "test_app.py::test_snapshot_seeded_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Cockpit home"
+text = "Signing in lands on the cockpit home. Its snapshot shows a Total cash card, one card per account with its balance, its \"Available\" figure and a small sparkline, and a fully rounded \"Send payment\" pill."
+kind = "behavior"
+primary = "workflow"
+workflow = "cockpit-snapshot"
+tests = [
+    "test_app.py::test_wf_cockpit_snapshot_signin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Accounts rail and top bar"
+text = "The cockpit shows a left accounts rail whose active account is a raised near-black row marked as the current page, and a top bar with the universal search field and a round avatar menu."
+kind = "behavior"
+primary = "pytest"
+workflow = "cockpit-snapshot"
+tests = [
+    "test_app.py::test_cockpit_rail_and_top_bar",
+    "test_app.py::test_cockpit_mark_at_every_width",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Read balances aloud"
+text = "A \"Read balances aloud\" button beside the snapshot speaks the total cash and each account balance through the browser's speech synthesis, and is disabled when the browser has none."
+kind = "behavior"
+primary = "pytest"
+workflow = "cockpit-snapshot"
+tests = [
+    "test_app.py::test_read_balances_aloud",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Live transaction stream"
+text = "GET /api/stream delivers every new transaction of the caller's company as a transaction event carrying an event id within two seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "transaction-feed"
+tests = [
+    "test_app.py::test_stream_delivers_transactions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Feed order and filters"
+text = "The transaction feed lists transactions newest first, and its account, method and direction filters return only matching transactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "transaction-feed"
+tests = [
+    "test_app.py::test_feed_order_and_filters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Feed paging, search and statements"
+text = "The feed pages by a cursor bound to its filters that never repeats or skips a row even when new transactions arrive, and answers fifty rows when no limit is given. Search finds only the caller's own recipients and transactions, as qualified in DP-69. Each account has a CSV statement dated by New York calendar day with a running balance; its counterparty and memo cells can never run as spreadsheet formulas, while amounts stay plain signed numbers."
+kind = "behavior"
+primary = "pytest"
+workflow = "transaction-feed"
+tests = [
+    "test_app.py::test_feed_paging_and_statement_csv",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Feed rows on screen"
+text = "The cockpit feed is a list with one row per transaction, each amount carrying a sign and a direction word in a monospace face, and a filter change is announced."
+kind = "behavior"
+primary = "workflow"
+workflow = "transaction-feed"
+tests = [
+    "test_app.py::test_wf_transaction_feed_rows",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Recipients show only the last four digits"
+text = "A saved recipient returns only the last four digits of its account and keeps its display name exactly as typed after trimming, and an email invite creates a pending recipient."
+kind = "behavior"
+primary = "pytest"
+workflow = "recipients"
+tests = [
+    "test_app.py::test_recipient_last4_and_invite",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Recipient validation"
+text = "Each of these is refused on its own field, and nothing is stored: a blank or over-long display name, an account or routing number that is not a string of ASCII digits, an account number outside four to seventeen digits, or a routing number that fails the ABA checksum."
+kind = "behavior"
+primary = "pytest"
+workflow = "recipients"
+tests = [
+    "test_app.py::test_recipient_field_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "One recipient per bank account"
+text = "Saving a routing number and full account number the company already holds as an active recipient is refused with the existing recipient's id, and so is inviting an email that already has a pending invite, even when the requests arrive at the same moment. An account that only shares the last four digits is saved."
+kind = "behavior"
+primary = "pytest"
+workflow = "recipients"
+tests = [
+    "test_app.py::test_duplicate_recipient_concurrent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Recipient form and list"
+text = "The add-recipient form saves a recipient into the list. For a duplicate, it keeps the typed values and names the existing recipient on the Account number field. Each row's remove button, shown to owners and admins, confirms in a dialog and announces the result."
+kind = "behavior"
+primary = "workflow"
+workflow = "recipients"
+tests = [
+    "test_app.py::test_wf_recipients_add_duplicate_remove",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Command palette"
+text = "Control+K or Command+K in the cockpit opens the \"Command palette\" dialog. It finds cockpit pages, and active recipients from the server's search, and opens the highlighted match on Enter."
+kind = "behavior"
+primary = "pytest"
+workflow = "recipients"
+tests = [
+    "test_app.py::test_command_palette",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Atomic payment posting"
+text = "A payment within the approval threshold and the source account's available balance is completed in one server operation: it drops the stored balance, writes a debit at the top of the feed and is stored as posted with its effective date."
+kind = "behavior"
+primary = "pytest"
+workflow = "send-payment"
+tests = [
+    "test_app.py::test_direct_send_posts_atomically",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Payment refusals"
+text = "These payments are refused with nothing moved: one over the source account's available balance, one with a zero or negative amount, one to a pending or removed recipient, and one scheduled for today or earlier in New York. An unknown payment answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "send-payment"
+tests = [
+    "test_app.py::test_payment_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Idempotent and race-safe sends"
+text = "A replayed Idempotency-Key within 24 hours of its first success moves money once. A reused key with a different body is refused. Simultaneous sends never take an account's available balance below zero."
+kind = "behavior"
+primary = "pytest"
+workflow = "send-payment"
+tests = [
+    "test_app.py::test_idempotent_race_safe_sends",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Federal Reserve business days"
+text = "A scheduled ACH, wire or check payment takes effect on the first Federal Reserve business day on or after its chosen date, with Sunday holidays observed on Monday and Saturday holidays not moved to Friday. A scheduled RTP payment takes effect on its chosen date. Either kind can be cancelled until it posts."
+kind = "behavior"
+primary = "pytest"
+workflow = "send-payment"
+tests = [
+    "test_app.py::test_scheduled_business_days",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Currency quotes"
+text = "A currency quote converts at the published fixed rate, rounding half up, and adds a one percent fee. It is debited once, by one wire, and is usable only while the business clock is before its expiry instant."
+kind = "behavior"
+primary = "pytest"
+workflow = "send-payment"
+tests = [
+    "test_app.py::test_currency_quotes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Send payment screen"
+text = "The send-payment form lists each source account with its available balance and restates the payment on a review step. After \"Confirm and send\" it announces the result, including a moved effective date or a later settlement day. It shows the insufficient-funds message while keeping the typed values."
+kind = "behavior"
+primary = "workflow"
+workflow = "send-payment"
+tests = [
+    "test_app.py::test_wf_send_payment_review",
+    "test_app.py::test_wf_send_payment_scheduled",
+    "test_app.py::test_wf_send_payment_scheduled_cap",
+]
+criteria = [
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Send celebration"
+text = "A successful send drops a short shower of falling notes that fades, never blocks a click and is absent under reduced motion."
+kind = "visual"
+primary = "pytest"
+workflow = "send-payment"
+tests = [
+    "test_app.py::test_send_celebration",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Approval threshold"
+text = "A payment over $5,000.00 waits as pending_approval, with nothing debited and no effective date, until it collects its required approvals, is rejected or expires. Acting on a payment that is no longer pending is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals"
+tests = [
+    "test_app.py::test_approval_threshold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Who may approve or reject"
+text = "Only an owner or admin who did not create a held payment may approve it. Any owner or admin may reject it. A member can do neither. A rejection marks the payment rejected and moves nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals"
+tests = [
+    "test_app.py::test_who_may_approve",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Dual approval above $50,000"
+text = "A held payment over $50,000.00 needs two distinct approvers. The first approval moves nothing, a repeat by the same approver is refused, and only the second distinct approval posts it."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals"
+tests = [
+    "test_app.py::test_dual_approval",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Hash-chained audit trail"
+text = "Every payment step, expiry and money movement writes one event into the company's hash-chained audit trail in the same transaction, and a refused request writes none."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals"
+tests = [
+    "test_app.py::test_audit_chain",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Approvals screen"
+text = "The approvals page lists each held payment as a readable row naming its creator, recipient, method, source account, amount and approval progress, with Approve and Reject acting on it."
+kind = "behavior"
+primary = "workflow"
+workflow = "approvals"
+tests = [
+    "test_app.py::test_wf_approvals_keyboard",
+]
+criteria = [
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Invoices settle once"
+text = "Marking a sent invoice paid credits its total into the chosen account exactly once, even under retries and simultaneous requests. A paid or draft invoice is refused with nothing moved."
+kind = "behavior"
+primary = "pytest"
+workflow = "money-in"
+tests = [
+    "test_app.py::test_invoices_settle_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Venture line draws"
+text = "A draw on the venture line credits its funding account and raises the drawn amount in one operation. It never goes beyond the remaining credit and happens only once per idempotency key."
+kind = "behavior"
+primary = "pytest"
+workflow = "money-in"
+tests = [
+    "test_app.py::test_loan_draws",
+    "test_app.py::test_money_in_strict_ids_and_amounts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Transfers between own accounts"
+text = "A transfer moves money between two accounts of one company as a paired debit and credit, judged against the source's available balance. A transfer to the same account is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "money-in"
+tests = [
+    "test_app.py::test_transfers_between_accounts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Invoicing and loan screens"
+text = "The invoices page marks a sent invoice paid into a chosen account, and the loans page requests a withdrawal, each announcing its result. Repeated presses while a request is pending send one request and credit once. A withdrawal press after an answer arrives is a new withdrawal, as qualified in DP-92."
+kind = "behavior"
+primary = "workflow"
+workflow = "money-in"
+tests = [
+    "test_app.py::test_wf_money_in_invoices",
+]
+criteria = [
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Company money is private"
+text = "Anonymous callers get 401. A signed-in user outside the company finds none of its accounts, payments, recipients, invoices or loans by id, list or search. A member cannot read the audit trail."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-control"
+tests = [
+    "test_app.py::test_company_money_private",
+    "test_app.py::test_wf_access_control_outsider",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Derived surfaces stay inside the company"
+text = "Another company's stream events, statements, quotes and idempotency keys, and any of its ids inside a request body, are unknown to the caller. Nothing moves, nothing is stored and no audit event is written."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-control"
+tests = [
+    "test_app.py::test_derived_surfaces_stay_inside",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Sessions and sign-up"
+text = "Sign up starts a session that survives a reload and sign out ends it. A taken email is refused, and a wrong password is refused as invalid credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "sessions"
+tests = [
+    "test_app.py::test_sessions_and_signup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Sign-in and sign-up screens"
+text = "The sign-up and log-in forms show their inline error copy. Log in returns only to a safe cockpit path named in next, with its query kept, and otherwise to /app. After signing out, the back button reveals no cockpit data."
+kind = "behavior"
+primary = "workflow"
+workflow = "sessions"
+tests = [
+    "test_app.py::test_wf_sessions_landing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Sales inquiries"
+text = "A valid inquiry is stored with its source, a server-issued id and the business clock's time. An invalid one is refused field by field. A honeypot inquiry is answered as a success and not stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "sales-inquiry"
+tests = [
+    "test_app.py::test_inquiry_stored_and_honeypot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Inquiry limits"
+text = "Inquiry fields are trimmed, normalised to NFC and measured in Unicode code points against published limits. A body over 32,768 bytes is refused. A sixth inquiry within the rate window from one email, ignoring letter case and surrounding spaces, is refused even when the inquiries arrive together."
+kind = "behavior"
+primary = "pytest"
+workflow = "sales-inquiry"
+tests = [
+    "test_app.py::test_inquiry_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Contact form"
+text = "The contact page form marks Email, First name, Last name, Company and Message \"(Required)\", counts message characters live, and shows the thank-you copy or a message per failing field."
+kind = "behavior"
+primary = "workflow"
+workflow = "sales-inquiry"
+tests = [
+    "test_app.py::test_wf_sales_inquiry_contact",
+    "test_app.py::test_wf_sales_inquiry_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Home page"
+text = "The home page carries the \"Calm banking for companies on the move\" hero with its calls to action, a captioned product tour with a transcript, and a \"Launch demo\" link to the sample-data demo."
+kind = "behavior"
+primary = "workflow"
+workflow = "marketing-site"
+tests = [
+    "test_app.py::test_wf_marketing_site_home",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Pricing and product pages"
+text = "The pricing page shows three plans whose prices count up as they enter view, with an annual toggle and a jump list. The payments, treasury and spend pages show their fee and speed table, rate table and budget cards."
+kind = "behavior"
+primary = "workflow"
+workflow = "marketing-site"
+tests = [
+    "test_app.py::test_wf_marketing_site_pricing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Marketing chrome"
+text = "The marketing header is fixed and frosted, with Products, Solutions, Resources and About menus and an \"Open Menu\" toggle on narrow screens. The footer carries its link groups and the partner-bank disclaimer."
+kind = "behavior"
+primary = "pytest"
+workflow = "marketing-site"
+tests = [
+    "test_app.py::test_marketing_chrome",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Routes and health"
+text = "GET /api/health answers 200 only while the database is reachable and the schema applied, and 503 otherwise. An unknown page address answers 404 with a not-found page that links home."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "One accent on bright surfaces"
+text = "Every clickable action wears one blue accent on near-white surfaces, with a muted violet tint on the credit card page and a warm sand tint on the payments and spend pages."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Phone layout"
+text = "The public and cockpit pages reflow at 320, 375, 768 and 1280 pixels wide without sideways scrolling. Hero buttons go full width on phones, and the cockpit rail becomes a drawer as qualified in DP-76."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "WCAG 2.2 AA pages"
+text = "The public pages and the cockpit pages listed under Browser support and performance pass the WCAG 2.2 AA checks."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wcag_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Visible keyboard focus"
+text = "Every control reached by keyboard shows a visible outline at least 2 pixels wide."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_visible_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Quiet motion"
+text = "Cockpit panels fade in with a small upward slide in under half a second. The home page product still uncovers with scroll and re-covers on scroll back. A reduced-motion preference removes all movement, as qualified in Motion and effects."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_quiet_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Exact starting state"
+text = "The seeded company's sparklines match the published seeded history index for index. A new sign-up's company holds only one empty Checking account and nothing else. Restarting the app changes no row except due effective-date postings and failures and due approval expiries."
+kind = "behavior"
+primary = "pytest"
+workflow = "cockpit-snapshot"
+tests = [
+    "test_app.py::test_signup_company_empty_and_restart_stable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Feed filters live in the address"
+text = "The cockpit feed's account, method and direction filters are mirrored in the address, so reloading or opening it restores them and Back undoes each change. An unknown or foreign value falls back to the default and leaves the address."
+kind = "behavior"
+primary = "pytest"
+workflow = "transaction-feed"
+tests = [
+    "test_app.py::test_wf_transaction_feed_filters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Simultaneous approval decisions"
+text = "Approvals and rejections of one payment are applied one at a time. Two distinct approvers acting together both count and post the payment once, and a final approval racing a rejection leaves exactly one outcome with the other refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals"
+tests = [
+    "test_app.py::test_simultaneous_approval_decisions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Server-owned fields"
+text = "Keys a request body carries beyond those its endpoint reads are ignored. No body, inquiries included, can set an id, timestamp, status, role, company, approval count, creator, deadline, balance, total or funding account."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-control"
+tests = [
+    "test_app.py::test_server_owned_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Enumeration-safe lockout"
+text = "Sign-in with an unknown email answers exactly like a wrong password and in comparable time. Five failures for any email within the lockout window lock it, counted one at a time even when attempts arrive together, and kept across restarts."
+kind = "behavior"
+primary = "pytest"
+workflow = "sessions"
+tests = [
+    "test_app.py::test_enumeration_safe_lockout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Controlled business clock"
+text = "The business clock starts at APP_NOW when it is set and then advances in real time. Every business time reads that clock rather than the database's, from row timestamps and the New York date to windows, expiries and scheduled postings."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_business_clock",
+]
+criteria = [
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Available balance and approval holds"
+text = "Each account's available balance is its balance minus the total debits of its payments waiting for approval, and every funds check uses it. A hold is placed when a payment starts waiting and is released only by its final approval, its rejection or its expiry."
+kind = "behavior"
+primary = "pytest"
+workflow = "cockpit-snapshot"
+tests = [
+    "test_app.py::test_wf_cockpit_snapshot_held_available",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Monthly statements"
+text = "A statement for a chosen month lists that account's transactions whose New York date falls in the month, with a running balance carried from the end of the previous New York month. A malformed or future month is refused. The statement downloads from the account page's \"Statement month\" picker under a file name that keeps the account's name in any script."
+kind = "behavior"
+primary = "pytest"
+workflow = "transaction-feed"
+tests = [
+    "test_app.py::test_monthly_statement",
+    "test_app.py::test_wf_transaction_feed_statement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Resumable stream and outage recovery"
+text = "A stream reconnect naming its last event id, even one issued before a restart, first replays the company's missed transactions oldest first. When the database refuses connections while the app runs and then accepts them again, the API recovers within ten seconds without a restart. The cockpit reconnects and shows the transactions created after the database returned, within the deadline stated under Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "transaction-feed"
+tests = [
+    "test_app.py::test_stream_resume_and_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Removing a recipient"
+text = "An owner or admin removing a recipient makes it unknown everywhere except its past feed and statement rows, and cancels its scheduled payments. Removal is refused while one of its payments waits for approval. Once removed, its bank account can be saved again."
+kind = "behavior"
+primary = "pytest"
+workflow = "recipients"
+tests = [
+    "test_app.py::test_remove_recipient",
+    "test_app.py::test_recipient_removal_ids_before_role",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Scheduled posting at New York midnight"
+text = "A scheduled payment posts or fails against the available balance within sixty seconds after midnight New York time on its effective date. Each midnight, including on the daylight-saving transition days, is resolved by that date's own rule. A start after that midnight catches up every due payment in order within sixty seconds of becoming healthy."
+kind = "behavior"
+primary = "pytest"
+workflow = "send-payment"
+tests = [
+    "test_app.py::test_scheduled_posting_new_york_midnight",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Append-only audit enforced by the database"
+text = "The database refuses every update, delete or truncate of the audit trail issued with the app's own credentials. Each company's chain stays gapless and correctly linked when events are written at the same moment."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals"
+tests = [
+    "test_app.py::test_audit_append_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Paired transfers without deadlocks"
+text = "Both legs of a transfer share one transfer id and one timestamp. Simultaneous transfers in opposite directions between the same accounts each settle or are refused for funds, never failing with a server error."
+kind = "behavior"
+primary = "pytest"
+workflow = "money-in"
+tests = [
+    "test_app.py::test_opposite_transfers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Only the published API"
+text = "Under /api only the listed methods and paths exist. Any other method answers 405 with an Allow header, any other path answers 404, and no source maps are served."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-control"
+tests = [
+    "test_app.py::test_only_published_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Keyboard-complete header menus"
+text = "Each marketing header menu opens with Enter, Space or Down Arrow. It moves and wraps through its links with the arrow keys, Home and End, and closes on Escape, on Tab past its last link or on an outside click. Only one menu is open at a time, and no link of a closed panel can be reached or clicked."
+kind = "behavior"
+primary = "pytest"
+workflow = "marketing-site"
+tests = [
+    "test_app.py::test_header_menus_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Same-day cutoffs by method"
+text = "A direct send or a final approval stamps the payment's effective date from its posting instant in New York local time, on either side of a daylight-saving change: today for ACH before 16:00 and for wires before 17:00 on a business day, otherwise the next business day; always today for RTP; and the next business day for checks. A scheduled payment keeps the effective date set when it was scheduled, as stated in DP-17."
+kind = "behavior"
+primary = "pytest"
+workflow = "send-payment"
+tests = [
+    "test_app.py::test_same_day_cutoffs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Removal and send are serialised on the recipient"
+text = "A recipient's removal and a send naming it are applied one at a time. Either the send is stored first and a held one blocks the removal, or the removal wins and the send answers 404. No waiting or scheduled payment ever names a removed recipient."
+kind = "behavior"
+primary = "pytest"
+workflow = "recipients"
+tests = [
+    "test_app.py::test_removal_races_send",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Holds release exactly once"
+text = "After any mix of simultaneous held creations, approvals, rejections and expiries, every account's available balance equals its balance minus its still-waiting payments. Each hold is released once or not at all. When two held payments only fit one at a time, exactly one is stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals"
+tests = [
+    "test_app.py::test_holds_release_exactly_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Idempotency replays are stored, durable and endpoint-scoped"
+text = "An idempotency key is scoped to its company and endpoint. Its replay returns the byte-identical first answer even after later changes and restarts, and compares every read key, including the memo. A key stops replaying exactly 24 hours after its first success."
+kind = "behavior"
+primary = "pytest"
+workflow = "money-in"
+tests = [
+    "test_app.py::test_idempotency_durable_scoped",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Opaque errors and JSON-only bodies"
+text = "Malformed ids answer like unknown ids, and non-integer or out-of-range amounts fail validation. A non-empty /api body that is not application/json answers 415. No error ever reveals a stack trace, SQL, a constraint name, a file path or the database's name."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-control"
+tests = [
+    "test_app.py::test_opaque_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Sign-out revokes every use of the token"
+text = "Signing out closes that session's open streams within two seconds with no later event delivered. A reconnect with its token answers 401, and other sessions keep streaming."
+kind = "behavior"
+primary = "pytest"
+workflow = "sessions"
+tests = [
+    "test_app.py::test_signout_revokes_streams",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Typed and bounded inquiry validation"
+text = "An inquiry field that is not a JSON string fails validation on that field. Lengths are counted after NFC, even when normalisation lengthens text. Any body up to the cap is answered within two seconds, and only stored inquiries use a rate-limit slot."
+kind = "behavior"
+primary = "pytest"
+workflow = "sales-inquiry"
+tests = [
+    "test_app.py::test_inquiry_typed_and_bounded",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Pricing billing period lives in the address"
+text = "The pricing page mirrors annual prices as billing=annual in the address, with one history entry per toggle. Opening or reloading that address shows annual prices, Back restores monthly, and an unknown value is removed in place."
+kind = "behavior"
+primary = "pytest"
+workflow = "marketing-site"
+tests = [
+    "test_app.py::test_pricing_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Literal bounded search"
+text = "Search matches its 2-to-100-code-point query as literal case-insensitive text, so %, _, \\ and * match only themselves. It returns at most 20 recipients and 20 transactions, and answers within two seconds without a server error, even for a query ending in a backslash."
+kind = "behavior"
+primary = "pytest"
+workflow = "transaction-feed"
+tests = [
+    "test_app.py::test_search_literal_bounded",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Code-point names and clean text"
+text = "A recipient display name is up to 120 code points as typed and is returned exactly. Every string the API reads refuses NUL and lone surrogates, single-line fields also refuse control characters and text-direction controls, and bank numbers must be strings of ASCII digits. Each refusal is on its own field, with nothing stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "recipients"
+tests = [
+    "test_app.py::test_recipient_validation",
+]
+criteria = []
+parameter_cases = [
+    "name_121_code_points",
+    "name_nul",
+    "name_lone_surrogate",
+    "name_bidi_override",
+    "name_control_char",
+    "account_fullwidth_digits",
+    "routing_arabic_indic_digits",
+    "invite_email_bidi",
+    "inquiry_message_nul",
+    "signup_password_lone_surrogate",
+    "name_120_emoji_ok",
+    "name_arabic_ok",
+]
+
+[[requirements]]
+id = "DP-71"
+title = "Exact dollar entry"
+text = "The Amount and Withdrawal amount fields turn typed dollars such as \"1,234.56\" into exactly that many cents and refuse anything outside the published dollar format. Currency quotes round exact halves up."
+kind = "behavior"
+primary = "pytest"
+workflow = "send-payment"
+tests = [
+    "test_app.py::test_dollar_entry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Seed when the database first becomes reachable"
+text = "An app started while its database is unreachable keeps answering health with 503 without exiting. Within ten seconds of the database becoming reachable, it applies its schema and writes the seed, dated from the New York date at that moment. An open cockpit keeps its last figures through a later outage and refreshes by itself after it."
+kind = "behavior"
+primary = "pytest"
+workflow = "cockpit-snapshot"
+tests = [
+    "test_app.py::test_wf_cockpit_snapshot_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Role checks answer before state"
+text = "Inside one company, a forbidden role gets 403 before any malformed-body, validation, state-conflict or money answer. So a member cancelling another user's payment, or acting on a decided one, is refused as forbidden whatever its status. Another company's ids answer 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-control"
+tests = [
+    "test_app.py::test_role_checks_before_state",
+    "test_app.py::test_wf_access_control_member",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Named row actions and focus on Approvals"
+text = "Each Approvals row's Approve and Reject buttons are named with the payment's amount, recipient and source account. When rows share those values, each name gains a position suffix, so every name on the page is unique. After a decision removes a row, focus lands on the next row's Approve button, else the previous row's, else the Approvals heading."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals"
+tests = [
+    "test_app.py::test_wf_approvals_names",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "No lost updates on money in"
+text = "Simultaneous invoice settlements, draws, sends and transfers on one account each succeed or are refused by their own rule, with every balance equal to its credits minus its debits. Two draws that only fit one at a time leave one credit, and a draft invoice is never settled while it is being sent."
+kind = "behavior"
+primary = "pytest"
+workflow = "money-in"
+tests = [
+    "test_app.py::test_no_lost_updates_money_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Exact cockpit breakpoints"
+text = "The cockpit lays itself out by the window's inner width in CSS pixels. The accounts rail sits inline from exactly 1024 pixels and is a drawer behind \"Accounts menu\" below that. Snapshot cards sit one per row below 600 pixels, two across from 600 to 1023, and all in one row from 1024. Approvals rows stack below 600 pixels."
+kind = "behavior"
+primary = "pytest"
+workflow = "cockpit-snapshot"
+tests = [
+    "test_app.py::test_wf_cockpit_snapshot_breakpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Collapsed panels are unavailable"
+text = "A closed accounts drawer, avatar menu, search results region or command palette is absent from the accessibility tree, unreachable by Tab and unclickable. The open drawer starts on the active account, keeps Tab inside, closes on Escape back to \"Accounts menu\", and closes itself when the window widens to 1024 pixels."
+kind = "behavior"
+primary = "pytest"
+workflow = "cockpit-snapshot"
+tests = [
+    "test_app.py::test_wf_cockpit_snapshot_drawer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Feed refresh keeps the user's place"
+text = "The cockpit's ten-second, stream-triggered and post-outage refreshes keep every row already shown and add new rows only at the top, without repeats. They keep focus, the search text and its open results, the statement month and the filter values, and never announce the row count."
+kind = "behavior"
+primary = "pytest"
+workflow = "transaction-feed"
+tests = [
+    "test_app.py::test_wf_transaction_feed_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Streams share a bounded set of connections"
+text = "The app never holds more than ten database connections. A hundred open streams each receive their company's transactions within two seconds while other requests answer within two seconds. Everything a stream holds is released within five seconds of its client leaving."
+kind = "behavior"
+primary = "pytest"
+workflow = "transaction-feed"
+tests = [
+    "test_app.py::test_streams_bounded_connections",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Keyboard-complete recipients"
+text = "The \"Remove recipient\" dialog opens on Keep, with Tab and Shift+Tab wrapping between Keep and Remove. Control+K or Command+K opens the command palette from any focused cockpit control, including text fields. A refused save moves focus to the first failing field, marked invalid and described by its message."
+kind = "behavior"
+primary = "pytest"
+workflow = "recipients"
+tests = [
+    "test_app.py::test_wf_recipients_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Settlement preview decided by the server"
+text = "GET /api/me reports the business clock's instant, the settlement date each method would get now, and the next instant any of them changes. Send payment shows that settlement line under Method and on the review step, updating it in place within five seconds of that instant without using the browser's clock or time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "send-payment"
+tests = [
+    "test_app.py::test_settlement_preview",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Live Approvals without losing focus"
+text = "The Approvals page and the rail's Approvals link reflect any user's or the system's held creation, approval, rejection, posting or expiry within five seconds. Remaining rows update in place, so focus stays on the same payment's same button. When the focused row is decided elsewhere, focus follows the published rule, and the new count is announced."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals"
+tests = [
+    "test_app.py::test_wf_approvals_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Every result announced afresh"
+text = "Each cockpit page's status region is present and empty from page load and is emptied before every message. Each result, refusal included, is announced exactly once even when it repeats the previous message, and a double-clicked action announces once."
+kind = "behavior"
+primary = "pytest"
+workflow = "money-in"
+tests = [
+    "test_app.py::test_wf_money_in_loans",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Landing routes after every session change"
+text = "Sign-in lands on its valid next or /app, sign-up on /app and sign-out on /. A signed-in user opening Log in or Sign up is replaced by the cockpit. A session revoked elsewhere replaces the cockpit page once with Log in, carrying its address as next, and returns there after sign-in."
+kind = "behavior"
+primary = "pytest"
+workflow = "sessions"
+tests = [
+    "test_app.py::test_wf_sessions_revoked",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Send payment draft lives in the address"
+text = "The Send payment draft is mirrored in the address in a published order. Typing and choosing replace the history entry in place, and a successful review adds exactly one entry. Opening a draft address restores the draft and opens the review step only when its checks pass. Foreign or unknown values are removed in place."
+kind = "behavior"
+primary = "pytest"
+workflow = "send-payment"
+tests = [
+    "test_app.py::test_send_draft_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "A revoked send resumes on its review step"
+text = "When the session is revoked elsewhere while Send payment's review step is open, the page is replaced by Log in carrying the draft address. This happens whether a background request or \"Confirm and send\" discovers the revocation. Signing back in lands on the same review step, with every typed value and a fresh settlement line. No payment exists until the owner confirms once more."
+kind = "behavior"
+primary = "pytest"
+workflow = "send-payment"
+tests = [
+    "test_app.py::test_wf_send_payment_resume",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-87"
+title = "Held payments expire on the New York business calendar"
+text = "A held payment expires at 00:00 New York time on the fifth Federal Reserve business day after its New York creation date. Within sixty seconds of that instant it is marked expired, with its hold released once. A decision at or after that instant is refused, even before the expiry is processed."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals"
+tests = [
+    "test_app.py::test_held_payment_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-88"
+title = "Approve-by deadline decided by the server"
+text = "Each held payment carries server-set expires_at and approve_by. Each Approvals row shows \"Approve by\" with the date from approve_by, whatever the browser's clock or time zone, and leaves the list within five seconds of its expiry being processed."
+kind = "behavior"
+primary = "pytest"
+workflow = "approvals"
+tests = [
+    "test_app.py::test_wf_approvals_deadline",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-89"
+title = "Signed-in state is request-scoped"
+text = "Every API answer is marked not to be stored, and concurrent requests from different companies each receive only their caller's data. After a sign-out, the next user in the same tab never sees or requests anything of the previous company."
+kind = "behavior"
+primary = "pytest"
+workflow = "cockpit-snapshot"
+tests = [
+    "test_app.py::test_request_scoped_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-90"
+title = "Consistent snapshot reads"
+text = "Each snapshot and accounts answer is read from one database snapshot, so its balances, available figures and totals agree with each other even while approvals and transfers commit."
+kind = "behavior"
+primary = "pytest"
+workflow = "cockpit-snapshot"
+tests = [
+    "test_app.py::test_snapshot_consistent_under_commits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-91"
+title = "Latest search answer wins"
+text = "The command palette's recipients and the top-bar search results always belong to the text currently typed, and any answer for earlier text is discarded whenever it arrives."
+kind = "behavior"
+primary = "pytest"
+workflow = "recipients"
+tests = [
+    "test_app.py::test_latest_search_answer_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-92"
+title = "Lost withdrawal answers retry with their own key"
+text = "When a withdrawal gets no answer, or a 503 or 500, the Loans page keeps its figures and announces the failure. It reuses the same idempotency key on the next press with the same amount text, so a draw the server already made is replayed rather than repeated."
+kind = "behavior"
+primary = "pytest"
+workflow = "money-in"
+tests = [
+    "test_app.py::test_wf_money_in_lost_answer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-93"
+title = "Nothing from a signed-out session acts afterwards"
+text = "After Log out is pressed, the page sends no further request with the old token, closes its stream, cancels its timers and ignores late answers. Several simultaneous 401s after a revocation elsewhere replace the page only once."
+kind = "behavior"
+primary = "pytest"
+workflow = "sessions"
+tests = [
+    "test_app.py::test_signout_stops_everything",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/USER_README.md lists the seeded logins owner@example.com, admin@example.com, member@example.com and outsider@example.com with the password deku-demo-pw-2026."
+tests = [
+    "test_app.py::test_if_user_readme",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "The empty directories .browser_screenshots/ and .downloads/ exist at the app root."
+tests = [
+    "test_app.py::test_if_artifact_dirs",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "/app/run.json is a JSON object with \"_schema\": \"run-manifest-v1\" and string fields install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package with its licence, where shipped packages means the production dependency tree (npm ls --omit=dev --all --json, or the lockfile's non-dev group)."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Every shipped package is licensed MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0, and every bundled font is OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Application data lives only in the PostgreSQL database at DATABASE_URL; no SQLite file, Redis, document store or in-memory store is a source of truth."
+tests = [
+    "test_app.py::test_if_postgres_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The agent downloads, installs and starts no PostgreSQL server or other backing service; the provided database is used as is."
+tests = [
+    "test_app.py::test_if_no_backing_service_installed",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "cockpit-snapshot"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-46",
+    "DP-52",
+    "DP-72",
+    "DP-76",
+    "DP-77",
+    "DP-89",
+    "DP-90",
+]
+critical = [
+    "test_app.py::test_wf_cockpit_snapshot_signin",
+    "test_app.py::test_wf_cockpit_snapshot_held_available",
+    "test_app.py::test_wf_cockpit_snapshot_outage",
+    "test_app.py::test_wf_cockpit_snapshot_breakpoints",
+    "test_app.py::test_wf_cockpit_snapshot_drawer",
+    "test_app.py::test_signup_company_empty_and_restart_stable",
+    "test_app.py::test_request_scoped_state",
+    "test_app.py::test_cockpit_mark_at_every_width",
+]
+checkpoints = [
+    "B4",
+]
+
+[[workflows]]
+id = "transaction-feed"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-47",
+    "DP-53",
+    "DP-54",
+    "DP-69",
+    "DP-78",
+    "DP-79",
+]
+critical = [
+    "test_app.py::test_wf_transaction_feed_rows",
+    "test_app.py::test_wf_transaction_feed_filters",
+    "test_app.py::test_wf_transaction_feed_refresh",
+    "test_app.py::test_wf_transaction_feed_statement",
+    "test_app.py::test_feed_paging_and_statement_csv",
+    "test_app.py::test_monthly_statement",
+    "test_app.py::test_search_literal_bounded",
+    "test_app.py::test_streams_bounded_connections",
+]
+checkpoints = [
+    "B5",
+    "B7",
+]
+
+[[workflows]]
+id = "recipients"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-55",
+    "DP-62",
+    "DP-70",
+    "DP-80",
+    "DP-91",
+]
+critical = [
+    "test_app.py::test_wf_recipients_add_duplicate_remove",
+    "test_app.py::test_wf_recipients_keyboard",
+    "test_app.py::test_duplicate_recipient_concurrent",
+    "test_app.py::test_remove_recipient",
+    "test_app.py::test_removal_races_send",
+    "test_app.py::test_recipient_validation",
+    "test_app.py::test_latest_search_answer_wins",
+    "test_app.py::test_recipient_removal_ids_before_role",
+]
+checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "send-payment"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-56",
+    "DP-61",
+    "DP-71",
+    "DP-81",
+    "DP-85",
+    "DP-86",
+]
+critical = [
+    "test_app.py::test_wf_send_payment_review",
+    "test_app.py::test_wf_send_payment_scheduled",
+    "test_app.py::test_wf_send_payment_resume",
+    "test_app.py::test_scheduled_business_days",
+    "test_app.py::test_scheduled_posting_new_york_midnight",
+    "test_app.py::test_dollar_entry",
+    "test_app.py::test_settlement_preview",
+    "test_app.py::test_wf_send_payment_scheduled_cap",
+]
+checkpoints = [
+    "B9",
+    "B10",
+    "B13",
+]
+
+[[workflows]]
+id = "approvals"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-48",
+    "DP-57",
+    "DP-63",
+    "DP-74",
+    "DP-82",
+    "DP-87",
+    "DP-88",
+]
+critical = [
+    "test_app.py::test_wf_approvals_keyboard",
+    "test_app.py::test_wf_approvals_live",
+    "test_app.py::test_wf_approvals_names",
+    "test_app.py::test_wf_approvals_deadline",
+    "test_app.py::test_dual_approval",
+    "test_app.py::test_simultaneous_approval_decisions",
+    "test_app.py::test_audit_append_only",
+    "test_app.py::test_holds_release_exactly_once",
+]
+checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "money-in"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-58",
+    "DP-64",
+    "DP-75",
+    "DP-83",
+    "DP-92",
+]
+critical = [
+    "test_app.py::test_wf_money_in_loans",
+    "test_app.py::test_wf_money_in_invoices",
+    "test_app.py::test_wf_money_in_lost_answer",
+    "test_app.py::test_invoices_settle_once",
+    "test_app.py::test_opposite_transfers",
+    "test_app.py::test_idempotency_durable_scoped",
+    "test_app.py::test_no_lost_updates_money_in",
+    "test_app.py::test_money_in_strict_ids_and_amounts",
+]
+
+[[workflows]]
+id = "access-control"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-49",
+    "DP-59",
+    "DP-65",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_access_control_outsider",
+    "test_app.py::test_wf_access_control_member",
+    "test_app.py::test_derived_surfaces_stay_inside",
+    "test_app.py::test_server_owned_fields",
+    "test_app.py::test_only_published_api",
+    "test_app.py::test_opaque_errors",
+    "test_app.py::test_role_checks_before_state",
+]
+
+[[workflows]]
+id = "sessions"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-50",
+    "DP-66",
+    "DP-84",
+    "DP-93",
+]
+critical = [
+    "test_app.py::test_wf_sessions_landing",
+    "test_app.py::test_wf_sessions_revoked",
+    "test_app.py::test_signout_stops_everything",
+    "test_app.py::test_enumeration_safe_lockout",
+    "test_app.py::test_signout_revokes_streams",
+]
+
+[[workflows]]
+id = "sales-inquiry"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_sales_inquiry_contact",
+    "test_app.py::test_inquiry_limits",
+    "test_app.py::test_inquiry_typed_and_bounded",
+    "test_app.py::test_inquiry_stored_and_honeypot",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "marketing-site"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-60",
+    "DP-68",
+]
+critical = [
+    "test_app.py::test_wf_marketing_site_home",
+    "test_app.py::test_wf_marketing_site_pricing",
+    "test_app.py::test_header_menus_keyboard",
+    "test_app.py::test_pricing_address",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_health",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B3",
+]

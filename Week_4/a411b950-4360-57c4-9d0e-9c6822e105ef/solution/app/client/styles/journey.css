@@ -1,0 +1,430 @@
+/* Journey and private listening page. */
+.gate-open { overflow: hidden; }
+/* Focus and scroll-into-view keep controls clear of the fixed top bar (and the 375 readout strip). */
+html:has(body.journey) { scroll-padding-top: 88px; }
+@media (max-width: 640px) { html:has(body.journey) { scroll-padding-top: 152px; } }
+
+.corridor-frame {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: var(--ground);
+}
+.corridor {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  transform-origin: 50% 45%;
+}
+/* Panel glow: brighter for each active layer, crossing over with the layers. */
+.corridor-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+  background: radial-gradient(ellipse 64% 52% at 50% 44%, color-mix(in oklab, var(--oxide) 30%, transparent), transparent 72%);
+  transition: opacity var(--dur-cross) ease-out;
+}
+
+/* ---- Top bar ---- */
+.topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  height: 64px;
+  padding: 0 var(--margin);
+  background: var(--ground);
+}
+/* A ground scrim fades the solid bar into the corridor, so nothing reads through behind the controls. */
+.topbar::after {
+  content: "";
+  position: absolute;
+  top: 100%; left: 0; right: 0;
+  height: var(--space-5);
+  background: linear-gradient(var(--ground), color-mix(in oklab, var(--ground) 0%, transparent));
+  pointer-events: none;
+}
+.wordmark {
+  font: 700 1.375rem/1 var(--font-display);
+  letter-spacing: -0.02em;
+}
+.topbar-middle { flex: 1; display: flex; justify-content: center; min-width: 0; }
+.search { position: relative; width: min(420px, 100%); }
+.search-toggle { display: none; }
+.search-panel { position: relative; }
+.search-icon {
+  position: absolute; left: 12px; top: 12px;
+  width: 20px; height: 20px;
+  color: var(--ink-soft);
+  pointer-events: none;
+  z-index: 1;
+}
+.search-icon svg { width: 20px; height: 20px; }
+.search-panel input[type="search"] {
+  padding-left: 40px;
+  background: color-mix(in oklab, var(--ground) 82%, transparent);
+  backdrop-filter: blur(6px);
+}
+.search-popover {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0; right: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius-panel);
+  background: var(--ground-raised);
+  box-shadow: var(--inset), 0 24px 64px color-mix(in oklab, black 60%, transparent);
+}
+.search-status { font-size: 0.875rem; color: var(--ink-soft); padding: 0 var(--space-2); }
+.search-results { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: grid; gap: 2px; }
+.search-results:empty { display: none; }
+.search-results a {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  text-decoration: none;
+  font-weight: 600;
+}
+.search-results a:hover { background-color: color-mix(in oklab, var(--ink) 8%, transparent); }
+.search-results .label { font-weight: 500; }
+
+.sound-toggle .icon-on { display: none; }
+.sound-toggle[aria-pressed="true"] .icon-on { display: inline-flex; }
+.sound-toggle[aria-pressed="true"] .icon-off { display: none; }
+.sound-toggle[aria-pressed="true"] { border-color: var(--oxide); }
+.sound-toggle span { display: inline-flex; }
+
+/* ---- NDA notice and link status (private page) ---- */
+.nda-notice {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius-panel);
+  background: color-mix(in oklab, var(--ground-raised) 92%, transparent);
+  font-size: 0.875rem;
+  max-width: 640px;
+}
+.nda-notice svg { width: 18px; height: 18px; flex: none; color: var(--oxide); }
+.link-status:empty { min-height: 0; padding: 0; }
+.link-status {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: grid;
+  align-content: end;
+  padding: 0 var(--margin) 22vh;
+  font: 700 var(--step-3)/1.2 var(--font-display);
+  max-width: 22ch;
+  box-sizing: content-box;
+}
+
+/* ---- Readout ---- */
+.readout {
+  position: fixed;
+  z-index: 3;
+  top: 96px;
+  right: var(--margin);
+  width: 168px;
+  display: grid;
+  gap: var(--space-3);
+  justify-items: end;
+  text-align: right;
+}
+.meter { display: grid; justify-items: end; gap: var(--space-1); }
+.meter-value {
+  font-size: 3rem;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  margin-right: -0.12em;
+}
+.meter-scale {
+  position: relative;
+  width: 160px;
+  height: 10px;
+  margin-top: var(--space-2);
+  background:
+    repeating-linear-gradient(to right, var(--panel-line) 0 1px, transparent 1px 16px) bottom / 100% 6px no-repeat,
+    linear-gradient(var(--panel-line), var(--panel-line)) bottom / 100% 1px no-repeat;
+}
+.meter-needle {
+  position: absolute;
+  bottom: 0;
+  left: calc(var(--needle, 0) * 1%);
+  width: 3px;
+  height: 14px;
+  margin-left: -1px;
+  background: var(--signal);
+}
+/* The tape log of rung changes sits at the foot of the right column, clear of the ladder:
+   one unbroken sentence per line, extending left past the column as far as it needs. */
+.layer-changes {
+  position: fixed;
+  right: var(--margin);
+  bottom: 12vh;
+  min-width: 34ch;
+  min-height: calc(3 * 1.5em);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+  font: 500 0.75rem/1.5 var(--font-mono);
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  text-align: right;
+}
+
+.layer-changes .sentence { display: block; white-space: nowrap; }
+/* While no station is current the readout and its log step back. */
+.readout.idle { opacity: 0.55; }
+
+/* ---- Intro and chapters ---- */
+.corridor-journey { position: relative; z-index: 1; }
+.intro {
+  min-height: 100vh;
+  display: grid;
+  align-content: end;
+  padding: 0 var(--margin) 14vh;
+}
+.intro-text { max-width: 40rem; display: grid; gap: var(--space-4); }
+.intro-text h1 { font-size: calc(var(--step-4) * 1.25); }
+.intro-lede { color: var(--ink-soft); max-width: 36rem; }
+
+.chapter { position: relative; height: calc(100vh + 1600px); }
+.stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+}
+.station-text {
+  position: absolute;
+  left: var(--margin);
+  bottom: 12vh;
+  width: min(40vw, 36rem);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-5) var(--space-5) 0;
+}
+.station-text::before {
+  content: "";
+  position: absolute;
+  inset: -12vh -8vw -12vh calc(-1 * var(--margin));
+  z-index: -1;
+  background: radial-gradient(ellipse at 20% 80%, color-mix(in oklab, var(--ground) 86%, transparent) 0 45%, transparent 75%);
+  pointer-events: none;
+}
+.station-text h2 { font-size: var(--step-3); }
+.station-text .role { font-weight: 600; }
+.station-text .credit-line { color: var(--ink-soft); }
+.station-text .blurb { max-width: 36rem; }
+.credit-label { color: var(--oxide); }
+.resting {
+  display: flex; gap: var(--space-2); align-items: center;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+  border-left: 2px solid var(--panel-line);
+  padding-left: var(--space-3);
+}
+.resting[hidden] { display: none; }
+
+/* ---- Ladder ---- */
+.ladder {
+  position: absolute;
+  right: var(--margin);
+  top: 268px;
+  width: 168px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-3);
+}
+.ladder input[type="range"] {
+  order: -1;
+  width: 100%;
+  min-height: var(--tap);
+  accent-color: var(--signal);
+  margin: var(--space-2) 0 0;
+}
+.rung {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  padding: 0 var(--space-3);
+  border: 2px solid var(--panel-line);
+  border-radius: var(--radius);
+  background-color: var(--panel);
+  color: var(--ink);
+  font: 500 0.8125rem/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+}
+.rung:hover { border-color: var(--ink-soft); }
+.rung:active { background-color: color-mix(in oklab, var(--panel) 80%, black); }
+.rung-fill {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--oxide);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--dur-cross) ease-out;
+}
+.rung[aria-pressed="true"] { color: var(--ground); border-color: var(--oxide); }
+.rung[aria-pressed="true"] .rung-fill { transform: scaleX(1); }
+.rung-threshold { font-weight: 500; }
+
+/* ---- Brief ---- */
+.brief {
+  position: relative;
+  z-index: 1;
+  /* The corridor's end wall stays faintly behind the form. */
+  background: linear-gradient(to bottom, color-mix(in oklab, var(--ground) 0%, transparent), color-mix(in oklab, var(--ground) 80%, transparent) 18vh);
+  /* The pinned readout column stays clear of the form. */
+  padding: 24vh calc(var(--margin) + 312px) var(--space-9) var(--margin);
+}
+.brief-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr);
+  gap: var(--space-8);
+  max-width: 1120px;
+}
+.brief-copy { display: grid; gap: var(--space-4); align-content: start; }
+.brief-copy p:not(.label) { color: var(--ink-soft); max-width: 30rem; }
+.brief-form {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius-panel);
+  background: var(--ground-raised);
+  box-shadow: var(--inset);
+}
+.brief-submit { display: grid; gap: var(--space-3); justify-items: start; }
+
+/* ---- Gate ---- */
+.gate {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: var(--margin);
+  background: color-mix(in oklab, var(--ground) 86%, transparent);
+  backdrop-filter: blur(4px);
+}
+.gate[hidden] { display: none; }
+.gate-card {
+  max-width: 34rem;
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-7);
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius-panel);
+  background: var(--ground-raised);
+  box-shadow: var(--inset), 0 24px 64px color-mix(in oklab, black 60%, transparent);
+}
+.gate-heading { font-size: var(--step-3); }
+.gate-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); }
+.gate-note { font-size: 0.875rem; color: var(--ink-soft); }
+
+/* ---- 768 ---- */
+@media (max-width: 1023px) {
+  .readout { width: 132px; top: 88px; }
+  .meter-value { font-size: 2.25rem; }
+  .meter-scale { width: 124px; }
+  .layer-changes { bottom: 8vh; }
+  .ladder { width: 132px; top: 236px; }
+  .station-text { width: 50vw; }
+  .brief-inner { grid-template-columns: 1fr; gap: var(--space-6); }
+  .brief { padding-right: calc(var(--margin) + 184px); }
+}
+
+/* ---- 375 ---- */
+@media (max-width: 640px) {
+  .topbar { gap: var(--space-3); height: 60px; padding: 0 16px; background: var(--ground); }
+  .wordmark { font-size: 1.125rem; }
+  .topbar-middle { justify-content: flex-end; }
+  .search { width: auto; position: static; }
+  .search-toggle { display: inline-flex; padding: 0 var(--space-3); }
+  .search-panel { display: none; }
+  .search.open .search-toggle { display: none; }
+  .search.open .search-panel {
+    display: block;
+    position: absolute;
+    left: 16px; right: 16px; top: 8px;
+  }
+  .sound-toggle { padding: 0 var(--space-3); }
+  .readout {
+    top: 60px; left: 0; right: 0;
+    width: auto;
+    height: 76px;
+    padding: var(--space-2) 16px;
+    grid-template-columns: 1fr;
+    gap: 2px;
+    align-content: center;
+    justify-items: start;
+    text-align: left;
+    background: var(--ground);
+    border-bottom: 1px solid var(--panel);
+  }
+  /* The strip stays solid so nothing scrolls through it; only its contents step back. */
+  .readout.idle { opacity: 1; }
+  .readout.idle > * { opacity: 0.55; }
+  .meter { grid-template-columns: auto auto; align-items: baseline; gap: var(--space-2); }
+  .meter-value { font-size: 1.5rem; }
+  .meter-scale { display: none; }
+  .layer-changes .sentence { display: inline; white-space: normal; }
+  .layer-changes {
+    position: static;
+    width: auto;
+    min-width: 0;
+    min-height: 0;
+    display: block;
+    text-align: left;
+    font-size: 0.6875rem;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+  .ladder {
+    top: 144px; left: 16px; right: 16px;
+    width: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .ladder .rung { flex: 1 1 0; padding: 0 6px; grid-template-columns: 1fr; justify-items: center; letter-spacing: 0.06em; font-size: 0.6875rem; }
+  .ladder input[type="range"] { flex: 1 0 100%; order: 1; margin: 0; }
+  .station-text { left: 16px; right: 16px; width: auto; bottom: 6vh; top: 50vh; align-content: end; padding: 0; }
+  .station-text .blurb { font-size: 0.9375rem; }
+  .intro { padding: 0 16px 12vh; }
+  .intro-text h1 { font-size: var(--step-4); }
+  .brief { padding: 20vh 16px var(--space-8); }
+  .brief-form { padding: var(--space-5) var(--space-4); }
+  .nda-notice { font-size: 0.75rem; padding: var(--space-1) var(--space-2); }
+  .link-status { padding: 0 16px 20vh; }
+  .gate-card { padding: var(--space-6) var(--space-5); }
+}
+
+/* Reference upload: steps with the bytes sent, never animated. */
+.upload { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-1); }
+.upload[hidden] { display: none; }
+.upload-track { flex: 1; height: 6px; background: var(--panel); border-radius: var(--radius); overflow: hidden; }
+.upload-fill { display: block; height: 100%; width: 100%; background: var(--oxide); transform-origin: left; transform: scaleX(0); }
+.upload-value { font-family: var(--font-mono); letter-spacing: 0.12em; font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; }

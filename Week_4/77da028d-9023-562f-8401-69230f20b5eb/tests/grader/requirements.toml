@@ -1,0 +1,1217 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "site-setup",
+    "tonight-plan",
+    "night-scrub",
+    "sky-conditions",
+    "session-logging",
+    "frame-upload",
+    "session-amend-restore",
+    "calibration-library",
+    "project-ledger",
+    "sharing",
+    "pushes",
+    "reminders",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 85
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "ntfy", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 5
+B10 = 5
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 5
+Q2 = 3
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "ntfy-down"
+port = 4174
+url_env = "APP_NTFY_DOWN_URL"
+
+[outages.env]
+NTFY_URL = "http://127.0.0.1:9"
+PUSH_RETRY_SECONDS = "2"
+DATABASE_URL = "${DATABASE_URL}_ntfydown"
+S3_BUCKET = "${S3_BUCKET}-ntfydown"
+
+[[outages]]
+id = "short-timer"
+port = 4175
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+CONDITIONS_STALE_SECONDS = "5"
+DRAFT_LOCK_SECONDS = "5"
+PUSH_RETRY_SECONDS = "2"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Workspace creation and unlock"
+text = "Creating a workspace returns a one-time workspace key, and every private API call and screen requires that key as a bearer token or the unlock cookie, as specified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "site-setup"
+tests = [
+    "test_app.py::test_workspace_creation_and_unlock",
+    "test_app.py::test_unlock_screen_redirect_and_wrong_key",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Owner-only records"
+text = "Every project, session, batch, frame, calibration set, plan, push and share setting is visible and changeable only by its imager, and another imager's id anywhere in a path or body answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "site-setup"
+tests = [
+    "test_app.py::test_owner_only_ids",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Site and horizon settings"
+text = "The imager stores the site label, coordinates, elevation, time zone, minimum altitude, push topic and a 72-bin horizon mask, with the validation stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "site-setup"
+tests = [
+    "test_app.py::test_site_and_horizon_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Painting the treeline"
+text = "The Site screen's horizon painter changes mask bins by pointer drag and by keyboard, saves without a submit button, and the tonight verdict card on the same screen updates from the server's reply."
+kind = "behavior"
+primary = "pytest"
+workflow = "site-setup"
+tests = [
+    "test_app.py::test_horizon_painter_keyboard_and_drag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Site setup journey"
+text = "A new imager creates a workspace, unlocks it, sets the site, paints the treeline and sees the saved mask and verdict card reflect it after reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "site-setup"
+tests = [
+    "test_app.py::test_wf_site_setup_happy",
+    "test_app.py::test_wf_site_setup_invalid_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Night window and ephemeris"
+text = "The server computes the astronomical-night window, Sun, Moon and target positions, Moon illumination and separations by the published method and rounding, for any explicit observing date and minute."
+kind = "behavior"
+primary = "pytest"
+workflow = "tonight-plan"
+tests = [
+    "test_app.py::test_ephemeris_matches_reference",
+    "test_app.py::test_no_astronomical_night",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Plan targets"
+text = "The imager adds active projects' targets to a night's plan and removes them, with the conflicts stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "tonight-plan"
+tests = [
+    "test_app.py::test_plan_targets_conflicts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Usable minutes and verdict"
+text = "For each plan target and filter the server counts usable minutes from the chosen minute to the end of the filter's window, as qualified in Business rules, and derives the go, no-go or unknown verdict, best target, clear window and hours owed after tonight."
+kind = "behavior"
+primary = "pytest"
+workflow = "tonight-plan"
+tests = [
+    "test_app.py::test_usable_minutes_and_verdict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Server-decided tonight"
+text = "The Plan screen without an explicit date shows the server's current observing night, minute, verdict and countdown even when the device clock is wrong."
+kind = "behavior"
+primary = "pytest"
+workflow = "tonight-plan"
+tests = [
+    "test_app.py::test_plan_screen_server_tonight_wrong_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "No-conditions banner"
+text = "A night with no sky conditions entered shows the published no-conditions banner and an unknown verdict."
+kind = "behavior"
+primary = "pytest"
+workflow = "tonight-plan"
+tests = [
+    "test_app.py::test_no_conditions_banner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Tonight plan journey"
+text = "The imager opens tonight, adds two targets, enters conditions and sees the verdict, best target and clear window that the API reports."
+kind = "behavior"
+primary = "workflow"
+workflow = "tonight-plan"
+tests = [
+    "test_app.py::test_wf_tonight_plan_happy",
+    "test_app.py::test_wf_tonight_plan_invalid_conditions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Night time handle"
+text = "The night time slider moves by published pointer and keyboard steps across the astronomical night and reports its minute and site time accessibly."
+kind = "behavior"
+primary = "pytest"
+workflow = "night-scrub"
+tests = [
+    "test_app.py::test_night_handle_keyboard_steps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Figures recompute in place"
+text = "Moving the handle, changing minimum altitude or adding or removing a target updates usable minutes, verdict, hours owed after tonight and total integration in place from the server, with one announcement per action."
+kind = "behavior"
+primary = "pytest"
+workflow = "night-scrub"
+tests = [
+    "test_app.py::test_figures_recompute_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Sky chart and treeline lens"
+text = "The sky chart draws the painted treeline, target arcs and dots that dim behind the treeline, and a 160-pixel lens that reveals the unmasked sky and reads out the nearest target's altitude and Moon separation."
+kind = "visual"
+primary = "pytest"
+workflow = "night-scrub"
+tests = [
+    "test_app.py::test_sky_chart_lens_readout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Three-dimensional sky dome"
+text = "A WebGL dome shows the treeline band, target tracks, a lit Moon and a sidereal star field, stays still when untouched, orbits and zooms within published limits, follows the handle, and exposes its camera and minute in its accessible name."
+kind = "visual"
+primary = "pytest"
+workflow = "night-scrub"
+tests = [
+    "test_app.py::test_dome_render_orbit_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Dome without WebGL"
+text = "Without WebGL the dome is replaced by a still sky chart image with the same accessible name pattern and the published unavailable sentence, and every figure stays identical."
+kind = "behavior"
+primary = "pytest"
+workflow = "night-scrub"
+tests = [
+    "test_app.py::test_dome_without_webgl",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Reduced-motion scrub"
+text = "Under reduced motion the handle, dome and numerals jump to their end state in one frame and the lens becomes a click-to-pin readout, with identical values."
+kind = "visual"
+primary = "pytest"
+workflow = "night-scrub"
+tests = [
+    "test_app.py::test_reduced_motion_scrub",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "One-handed phone plan"
+text = "At 375 pixels wide the Plan screen keeps the time handle and step buttons in a bar at the bottom of the screen with touch targets of at least 44 pixels, and touch drags scrub and orbit."
+kind = "visual"
+primary = "pytest"
+workflow = "night-scrub"
+tests = [
+    "test_app.py::test_phone_bottom_bar_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Night scrub journey"
+text = "The imager scrubs the night by keyboard from dusk to dawn and sees a target pass behind the treeline in both the chart and the dome while the verdict counts down."
+kind = "behavior"
+primary = "workflow"
+workflow = "night-scrub"
+tests = [
+    "test_app.py::test_wf_night_scrub_keyboard",
+    "test_app.py::test_wf_night_scrub_phone_reduced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Hourly sky conditions"
+text = "The imager enters cloud, transparency and seeing per site-local hour of the night, and the server stores them with the time they were entered."
+kind = "behavior"
+primary = "pytest"
+workflow = "sky-conditions"
+tests = [
+    "test_app.py::test_conditions_store_hours",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Stale conditions"
+text = "Conditions older than the configured stale period are flagged stale by the server and shown with the published stale banner, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "sky-conditions"
+tests = [
+    "test_app.py::test_stale_conditions_flag_and_banner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Clear-window countdown"
+text = "Tonight's clear-window countdown comes from the server, refreshes at least every 60 seconds, and a refresh never closes an open dialog or replaces typed values or the latest announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "sky-conditions"
+tests = [
+    "test_app.py::test_countdown_refresh_keeps_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Sky conditions journey"
+text = "The imager fills the conditions dialog, saves, watches the verdict change from unknown, and later sees the stale banner without losing values typed into a reopened dialog."
+kind = "behavior"
+primary = "workflow"
+workflow = "sky-conditions"
+tests = [
+    "test_app.py::test_wf_sky_conditions_stale_reopen",
+    "test_app.py::test_wf_sky_conditions_repeated_hour",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Session states"
+text = "Sessions move planned, imaging, logged, amended, trashed only along the published edges, and every illegal edge answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-logging"
+tests = [
+    "test_app.py::test_session_state_edges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Observing date across midnight"
+text = "A session started before local noon belongs to the previous evening's observing date in the site's time zone, whatever the browser's or server's zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-logging"
+tests = [
+    "test_app.py::test_observing_date_noon_rule",
+]
+criteria = []
+parameter_cases = [
+    "evening-2330",
+    "after-midnight-0110",
+    "noon-1200",
+    "before-noon",
+]
+
+[[requirements]]
+id = "DP-26"
+title = "Idempotent batch submits"
+text = "A batch submit repeated with the same key returns the stored response and creates nothing, and the same key with a different body answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-logging"
+tests = [
+    "test_app.py::test_batch_idempotency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Batch logging announcements"
+text = "Adding a batch, logging and other session actions in the session editor are announced in the Session log region with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-logging"
+tests = [
+    "test_app.py::test_session_editor_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Session logging journey"
+text = "The imager creates a session, starts it at 23:30 site time, adds batches, logs it, and sees the evening's date and the project's owed hours drop by the batch integration."
+kind = "behavior"
+primary = "workflow"
+workflow = "session-logging"
+tests = [
+    "test_app.py::test_wf_session_logging_happy",
+    "test_app.py::test_wf_session_logging_after_midnight",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Provider-confirmed frames"
+text = "A frame upload is stored in object storage, confirmed, and only then counted, its bytes download exactly, and a storage failure counts nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "frame-upload"
+tests = [
+    "test_app.py::test_frame_upload_confirmed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Upload progress announcements"
+text = "Frame uploads announce progress, success with the session's frame count, and failure in the Upload progress region with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "frame-upload"
+tests = [
+    "test_app.py::test_upload_progress_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Frame upload journey"
+text = "The imager uploads two frames to a batch, sees each counted after it is stored, and downloads one back byte for byte."
+kind = "behavior"
+primary = "workflow"
+workflow = "frame-upload"
+tests = [
+    "test_app.py::test_wf_frame_upload_happy",
+    "test_app.py::test_wf_frame_upload_rejected_type",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Amending with reversals"
+text = "Amending a logged session posts reversing entries for changed or removed batches and new entries for the amended ones, so owed seconds match the amended batches exactly."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-amend-restore"
+tests = [
+    "test_app.py::test_amend_reversals_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Trash and exact restore"
+text = "Trashing a session reverses its integration, and restoring it brings back its prior state, notes, batches, frames and calibration links unchanged and re-posts its integration."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-amend-restore"
+tests = [
+    "test_app.py::test_trash_restore_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Session editor lock"
+text = "Opening the session editor takes an edit lock that expires after the configured period, and exactly one of two simultaneous lock requests wins."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-amend-restore"
+tests = [
+    "test_app.py::test_edit_lock_concurrency_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Notes survive the lock timer"
+text = "When the edit lock expires or another device holds it, the editor keeps the typed notes, shows the published copy, and saves them once the lock is taken again."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-amend-restore"
+tests = [
+    "test_app.py::test_notes_survive_lock_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Amend and restore journey"
+text = "The imager amends a batch count, trashes the session, restores it, and sees the same session contents and the project's hours owed return to the amended value."
+kind = "behavior"
+primary = "workflow"
+workflow = "session-amend-restore"
+tests = [
+    "test_app.py::test_wf_session_amend_restore_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Calibration sets and states"
+text = "Calibration sets move building, ready, stale and retired along the published edges, with stale derived from the published age windows."
+kind = "behavior"
+primary = "pytest"
+workflow = "calibration-library"
+tests = [
+    "test_app.py::test_calibration_states_and_age",
+]
+criteria = []
+parameter_cases = [
+    "dark",
+    "flat",
+    "bias",
+]
+
+[[requirements]]
+id = "DP-38"
+title = "Master files"
+text = "A calibration master upload is stored and confirmed before the set records it, and downloads byte for byte."
+kind = "behavior"
+primary = "pytest"
+workflow = "calibration-library"
+tests = [
+    "test_app.py::test_master_upload_bytes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Calibration matching"
+text = "The server links a calibration set to a light batch only when the published fields match within tolerance and refuses a mismatch with the published reasons."
+kind = "behavior"
+primary = "pytest"
+workflow = "calibration-library"
+tests = [
+    "test_app.py::test_calibration_matching_refusal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Library copy"
+text = "The empty library, the mismatch refusal and the stale warning render in the published words character for character."
+kind = "behavior"
+primary = "pytest"
+workflow = "calibration-library"
+tests = [
+    "test_app.py::test_library_copy_verbatim",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Calibration versions"
+text = "Every edit of a calibration set records a version, and restoring a version brings back its exact fields and master file."
+kind = "behavior"
+primary = "pytest"
+workflow = "calibration-library"
+tests = [
+    "test_app.py::test_calibration_versions_restore",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Calibration library journey"
+text = "The imager adds a dark set, uploads its master, marks it ready, links it to a matching batch, is refused for a mismatched one, edits it and restores the prior version."
+kind = "behavior"
+primary = "workflow"
+workflow = "calibration-library"
+tests = [
+    "test_app.py::test_wf_calibration_library_happy",
+    "test_app.py::test_wf_calibration_library_link_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Project states"
+text = "Projects move draft, active, paused, complete, archived only along the published edges, with the published guards for activating and completing."
+kind = "behavior"
+primary = "pytest"
+workflow = "project-ledger"
+tests = [
+    "test_app.py::test_project_state_edges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Paired hours-owed ledger"
+text = "Every allotment change, logged batch, amendment, trash and restore posts movements of two entries that cancel, and planned, logged and owed seconds per filter equal sums of those entries."
+kind = "behavior"
+primary = "pytest"
+workflow = "project-ledger"
+tests = [
+    "test_app.py::test_ledger_paired_entries",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Hours owed update in place"
+text = "Changing a filter's planned time on the project page updates the hours owed table and total integration in place from the server and announces the new owed time."
+kind = "behavior"
+primary = "pytest"
+workflow = "project-ledger"
+tests = [
+    "test_app.py::test_planned_minutes_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Published breakpoints"
+text = "Plan, Projects, Sessions and Library change layout exactly at 768 and 1200 pixels wide, as described in Screens and layout, and never scroll sideways at 375, 768 or 1280 pixels."
+kind = "visual"
+primary = "pytest"
+workflow = "project-ledger"
+tests = [
+    "test_app.py::test_breakpoints_layout",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "below-768",
+    "768x1024",
+    "1199x800",
+    "1200x800",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-47"
+title = "Project ledger journey"
+text = "The imager activates a project, sets planned time per filter, logs a session against it, reads the ledger and marks the project complete once nothing is owed."
+kind = "behavior"
+primary = "workflow"
+workflow = "project-ledger"
+tests = [
+    "test_app.py::test_wf_project_ledger_happy",
+    "test_app.py::test_wf_project_ledger_over_logged",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Revocable share links"
+text = "The imager creates, regenerates, expires and revokes a read-only project link, the old link stops working at once, and the link can change nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "sharing"
+tests = [
+    "test_app.py::test_share_links_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Shared page contents"
+text = "The shared page and its API show only the published integration fields and site coordinates rounded to the half-degree grid, never notes or exact coordinates."
+kind = "behavior"
+primary = "pytest"
+workflow = "sharing"
+tests = [
+    "test_app.py::test_shared_body_fields",
+]
+criteria = []
+parameter_cases = [
+    "seed-site",
+    "southwest-halves",
+    "near-zero",
+]
+
+[[requirements]]
+id = "DP-50"
+title = "Sharing journey"
+text = "The imager shares a project, a friend opens the link without unlocking and sees the summary, and after revocation the friend sees the unavailable copy."
+kind = "behavior"
+primary = "workflow"
+workflow = "sharing"
+tests = [
+    "test_app.py::test_wf_sharing_happy",
+    "test_app.py::test_wf_sharing_regenerate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Verdict pushes"
+text = "Each change of a night's verdict to go or no-go queues one push that reaches the imager's ntfy topic with the published title and message, recorded as sent only after ntfy accepts it."
+kind = "behavior"
+primary = "pytest"
+workflow = "pushes"
+tests = [
+    "test_app.py::test_verdict_push_ntfy",
+    "test_app.py::test_wf_pushes_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Push outage and recovery"
+text = "While ntfy is unreachable the plan and log keep working, pushes show the published unsent state and retry, and each is delivered exactly once when ntfy answers again."
+kind = "behavior"
+primary = "pytest"
+workflow = "pushes"
+tests = [
+    "test_app.py::test_push_outage_unsent_retry",
+    "test_app.py::test_wf_pushes_outage_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "New-moon weekend reminder"
+text = "The recurring reminder lists and sends occurrences at the imager's chosen site-local time before each new-moon weekend, keeping that wall-clock time across clock changes by the published rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "reminders"
+tests = [
+    "test_app.py::test_new_moon_occurrences_dst",
+    "test_app.py::test_wf_reminders_ui_list",
+    "test_app.py::test_wf_reminders_time_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Run manifest, services and health"
+text = "One serve command starts the gateway and three internal services on published ports, the health endpoint reports each in the published shape, and every response carries a request id."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_request_id",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Server boundary"
+text = "The server enforces the published size, content-type and same-origin limits, serves no source or credentials, and starts when a dependency is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_wf_cross_cutting_outage_boot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Keyboard-complete dialogs and shortcuts"
+text = "Every action works by keyboard, focus wraps inside every open dialog, Escape closes it and returns focus, and the published shortcuts work from any non-text control in their screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_dialogs_and_shortcuts",
+    "test_app.py::test_wf_cross_cutting_keyboard_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Motion timing"
+text = "Small state changes take about a sixth of a second, sheets and dialogs take under half a second, nothing moves while idle, and reduced motion removes every transition."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_timing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Night-glow visual design"
+text = "Every screen carries the dark ground, single cyan light, Sora type, card shapes and verdict card described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Treeline lens craft"
+text = "The plan screen's dome, chart, lens and verdict read as one lit object on the dark ground, with the treeline, tracks and Moon drawn with the care described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Source integrity"
+text = "Credentials come only from the environment, verdicts and figures are computed only on the server, the four services keep their own schemas, and three.js and Sora ship from the app's own files."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve fields and \"_schema\":\"run-manifest-v1\", and serve alone starts all four services."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package with its licence; shipped packages means the production dependency tree (the packages install puts into /app/.venv, as .venv/bin/python -m pip list --format json reports them) plus every vendored browser file (three.js, Sora)."
+tests = [
+    "test_app.py::test_if_notices_list_shipped",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Shipped packages use only MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC, PSF-2.0 or, for fonts, OFL-1.1 licences."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "No datastore other than the provided PostgreSQL, MinIO and ntfy: no SQLite files, no Redis, no file-based records outside MinIO."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "All browser assets, including three.js and the Sora fonts, are served from the app's own origin; no CDN or third-party URL appears in any served page."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Python dependencies live in /app/.venv and the manifest calls tools through .venv/bin/ or python -m."
+tests = [
+    "test_app.py::test_if_venv_manifest_tools",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The provided development service definitions and their credentials stay untouched."
+tests = [
+    "test_app.py::test_if_services_untouched",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "site-setup"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+]
+critical = [
+    "test_app.py::test_wf_site_setup_happy",
+    "test_app.py::test_owner_only_ids",
+    "test_app.py::test_horizon_painter_keyboard_and_drag",
+]
+
+[[workflows]]
+id = "tonight-plan"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_wf_tonight_plan_happy",
+    "test_app.py::test_plan_screen_server_tonight_wrong_clock",
+    "test_app.py::test_no_conditions_banner",
+]
+checkpoints = [
+    "B3",
+    "B5",
+    "B6",
+]
+critical_checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "night-scrub"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_night_scrub_keyboard",
+    "test_app.py::test_night_handle_keyboard_steps",
+    "test_app.py::test_reduced_motion_scrub",
+    "test_app.py::test_figures_recompute_in_place",
+]
+checkpoints = [
+    "B9",
+    "B10",
+    "B12",
+]
+critical_checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "sky-conditions"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_conditions_store_hours",
+    "test_app.py::test_wf_sky_conditions_stale_reopen",
+    "test_app.py::test_countdown_refresh_keeps_dialog",
+    "test_app.py::test_stale_conditions_flag_and_banner",
+]
+
+[[workflows]]
+id = "session-logging"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_session_logging_happy",
+    "test_app.py::test_observing_date_noon_rule",
+    "test_app.py::test_session_editor_announcements",
+]
+
+[[workflows]]
+id = "frame-upload"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_frame_upload_happy",
+    "test_app.py::test_frame_upload_confirmed",
+    "test_app.py::test_upload_progress_announcements",
+]
+
+[[workflows]]
+id = "session-amend-restore"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_session_amend_restore_happy",
+    "test_app.py::test_amend_reversals_ledger",
+    "test_app.py::test_trash_restore_exact",
+    "test_app.py::test_notes_survive_lock_expiry",
+]
+
+[[workflows]]
+id = "calibration-library"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_calibration_library_happy",
+    "test_app.py::test_library_copy_verbatim",
+    "test_app.py::test_master_upload_bytes",
+    "test_app.py::test_calibration_versions_restore",
+]
+
+[[workflows]]
+id = "project-ledger"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_project_state_edges",
+    "test_app.py::test_wf_project_ledger_happy",
+    "test_app.py::test_ledger_paired_entries",
+    "test_app.py::test_planned_minutes_in_place",
+    "test_app.py::test_breakpoints_layout",
+]
+checkpoints = [
+    "B4",
+    "B7",
+]
+
+[[workflows]]
+id = "sharing"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_sharing_happy",
+    "test_app.py::test_share_links_lifecycle",
+    "test_app.py::test_shared_body_fields",
+]
+
+[[workflows]]
+id = "pushes"
+requirements = [
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_verdict_push_ntfy",
+    "test_app.py::test_push_outage_unsent_retry",
+    "test_app.py::test_wf_pushes_happy",
+]
+
+[[workflows]]
+id = "reminders"
+requirements = [
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_new_moon_occurrences_dst",
+    "test_app.py::test_wf_reminders_ui_list",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_outage_boot",
+    "test_app.py::test_wf_cross_cutting_keyboard_only",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B8",
+]

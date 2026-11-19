@@ -1,0 +1,1279 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 59
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "creator-draft",
+    "media-launch",
+    "pledge-keyboard",
+    "pledge-authorise",
+    "limited-tier-race",
+    "pledge-change",
+    "pledge-mobile",
+    "final-day-guard",
+    "unfunded-deadline",
+    "funded-collection",
+    "errored-fix",
+    "statements-settlement",
+    "outage-banners",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 83
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Dotgain by Coldset Works <press@dotgain.example>" } },
+    { name = "killbill", env = {} },
+    { name = "minio", env = {} },
+    { name = "gotenberg", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 5
+B6 = 5
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_kbdown"
+S3_BUCKET = "${S3_BUCKET}-kbdown"
+MIN_CAMPAIGN_SECONDS = "20"
+FINAL_WINDOW_SECONDS = "30"
+FIX_WINDOW_SECONDS = "40"
+FIX_NOTICE_SECONDS = "15"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+MAILPIT_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_maildown"
+S3_BUCKET = "${S3_BUCKET}-maildown"
+MIN_CAMPAIGN_SECONDS = "20"
+FINAL_WINDOW_SECONDS = "30"
+FIX_WINDOW_SECONDS = "40"
+FIX_NOTICE_SECONDS = "15"
+
+[[outages]]
+id = "minio-down"
+port = 4176
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_s3down"
+S3_BUCKET = "${S3_BUCKET}-s3down"
+MIN_CAMPAIGN_SECONDS = "20"
+FINAL_WINDOW_SECONDS = "30"
+FIX_WINDOW_SECONDS = "40"
+FIX_NOTICE_SECONDS = "15"
+
+[[outages]]
+id = "gotenberg-down"
+port = 4177
+url_env = "APP_DOCS_DOWN_URL"
+
+[outages.env]
+GOTENBERG_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_docsdown"
+S3_BUCKET = "${S3_BUCKET}-docsdown"
+MIN_CAMPAIGN_SECONDS = "20"
+FINAL_WINDOW_SECONDS = "30"
+FIX_WINDOW_SECONDS = "40"
+FIX_NOTICE_SECONDS = "15"
+
+[[outages]]
+id = "short-timer"
+port = 4178
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+MIN_CAMPAIGN_SECONDS = "20"
+FINAL_WINDOW_SECONDS = "30"
+FIX_WINDOW_SECONDS = "40"
+FIX_NOTICE_SECONDS = "15"
+
+[[requirements]]
+id = "DP-01"
+title = "Person keys"
+text = "Creating a person returns a secret key once, and every personal route accepts only that key as a bearer credential, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "creator-draft"
+tests = [
+    "test_app.py::test_person_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Draft campaigns"
+text = "A creator saves a draft with a title, story, goal, minimum run, stretch break points, home country, time zone and local deadline, each validated as listed in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "creator-draft"
+tests = [
+    "test_app.py::test_draft_fields",
+]
+criteria = []
+parameter_cases = [
+    "title",
+    "story",
+    "goal",
+    "min_run_copies",
+    "stretch",
+    "ships_from",
+    "time_zone",
+    "deadline_local",
+]
+
+[[requirements]]
+id = "DP-03"
+title = "Deadline in the campaign's time zone"
+text = "The deadline is the wall-clock time the creator picks in the campaign's IANA time zone, converted to one exact instant under the Business rules for skipped and repeated local times."
+kind = "behavior"
+primary = "pytest"
+workflow = "creator-draft"
+tests = [
+    "test_app.py::test_deadline_zone",
+]
+criteria = []
+parameter_cases = [
+    "winter",
+    "summer",
+    "gap",
+    "repeat",
+    "far_zone",
+]
+
+[[requirements]]
+id = "DP-04"
+title = "Reward tiers and zone shipping"
+text = "A draft holds open and limited reward tiers, each with its own domestic, Europe and rest-of-world shipping price, editable only while the campaign is a draft."
+kind = "behavior"
+primary = "pytest"
+workflow = "creator-draft"
+tests = [
+    "test_app.py::test_tiers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Draft privacy"
+text = "A draft, its tiers and its images are visible only to their creator, and anyone else gets the not-found answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "creator-draft"
+tests = [
+    "test_app.py::test_draft_privacy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Start-a-campaign journey"
+text = "From the home page a new creator gets a key, fills the editor and sees the saved draft in the Studio list."
+kind = "behavior"
+primary = "workflow"
+workflow = "creator-draft"
+tests = [
+    "test_app.py::test_wf_creator_draft_start",
+    "test_app.py::test_wf_creator_draft_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Media counts only once stored"
+text = "An uploaded image counts as stored only after the bucket confirms the object, and a failed upload stays listed as not stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "media-launch"
+tests = [
+    "test_app.py::test_media_stored",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Launch gate"
+text = "Launch moves a draft to live only when every image is stored, a cover and at least one tier exist, and the deadline falls inside the allowed campaign length."
+kind = "behavior"
+primary = "pytest"
+workflow = "media-launch"
+tests = [
+    "test_app.py::test_launch_gate",
+]
+criteria = []
+parameter_cases = [
+    "no_cover",
+    "no_tier",
+    "too_soon",
+    "too_far",
+    "media_not_stored",
+    "not_draft",
+]
+
+[[requirements]]
+id = "DP-09"
+title = "Media served by visibility"
+text = "Images are served only through their media id to people who may see the campaign, and no route hands out stored objects by key."
+kind = "behavior"
+primary = "pytest"
+workflow = "media-launch"
+tests = [
+    "test_app.py::test_media_visibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Cover-and-launch journey"
+text = "A creator uploads a cover and spreads, watches each image report stored, launches, and sees the live page with the cover in its circle."
+kind = "behavior"
+primary = "workflow"
+workflow = "media-launch"
+tests = [
+    "test_app.py::test_wf_media_launch_journey",
+    "test_app.py::test_wf_media_launch_blocked",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Keyboard pledge journey"
+text = "A backer picks a tier, a shipping country and an add-on and confirms the pledge using only the keyboard."
+kind = "behavior"
+primary = "workflow"
+workflow = "pledge-keyboard"
+tests = [
+    "test_app.py::test_wf_pledge_keyboard_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Dialog focus"
+text = "Every dialog keeps Tab and Shift+Tab inside it, closes on Escape and returns focus as stated in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-keyboard"
+tests = [
+    "test_app.py::test_wf_pledge_keyboard_dialogs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Pledge result announcements"
+text = "Every pledge, change, cancellation and fix outcome is announced in its named polite live region with the exact copy from Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-keyboard"
+tests = [
+    "test_app.py::test_wf_pledge_keyboard_pending",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Pledge amount fixed at pledge time"
+text = "A pledge's amount is the tier price plus the shipping for the backer's country zone plus the add-on, fixed in pence when the pledge is made."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-authorise"
+tests = [
+    "test_app.py::test_pledge_amount",
+]
+criteria = []
+parameter_cases = [
+    "domestic",
+    "europe",
+    "rest_of_world",
+]
+
+[[requirements]]
+id = "DP-15"
+title = "Holds placed in Kill Bill"
+text = "A pledge becomes authorised only after Kill Bill confirms a successful authorisation for its full amount on the backer's account."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-authorise"
+tests = [
+    "test_app.py::test_holds_in_killbill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Total counts confirmed holds only"
+text = "The campaign total and percentage include only pledges whose authorisation Kill Bill has confirmed."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-authorise"
+tests = [
+    "test_app.py::test_total_counts_holds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Declined cards leave no pledge"
+text = "A declined card leaves no pledge, no counted amount and no claimed copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-authorise"
+tests = [
+    "test_app.py::test_declined_card",
+    "test_app.py::test_wf_pledge_authorise_declined",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Pledge idempotency"
+text = "Pledge creation and pledge changes honour an idempotency key with the replay and conflict answers given in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-authorise"
+tests = [
+    "test_app.py::test_idempotency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Pledge receipt"
+text = "Each confirmed authorisation sends the backer a pledge receipt email as specified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-authorise"
+tests = [
+    "test_app.py::test_pledge_receipt",
+    "test_app.py::test_wf_pledge_authorise_new_backer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "One pledge per backer"
+text = "A backer holds at most one active pledge per campaign, and a creator cannot back their own campaign."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-authorise"
+tests = [
+    "test_app.py::test_one_pledge_each",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Last copy of a limited tier"
+text = "When backers claim the last copy of a limited tier at once, exactly one wins and every other is refused before any card is authorised."
+kind = "behavior"
+primary = "pytest"
+workflow = "limited-tier-race"
+tests = [
+    "test_app.py::test_last_copy_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Sold-out tier journey"
+text = "A backer who loses the last copy sees the tier marked gone and hears the sold-out announcement, with no hold on their card."
+kind = "behavior"
+primary = "workflow"
+workflow = "limited-tier-race"
+tests = [
+    "test_app.py::test_wf_limited_tier_race_sold_out",
+    "test_app.py::test_wf_limited_tier_race_gone_on_load",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Changing a pledge"
+text = "A change places a new hold for the new amount and only then releases the old one, so a refused change leaves the original pledge as it was."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-change"
+tests = [
+    "test_app.py::test_change_pledge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Cancelling a pledge"
+text = "Cancelling releases the hold in Kill Bill, frees any limited copy and emails the backer."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-change"
+tests = [
+    "test_app.py::test_cancel_pledge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Change-and-cancel journey"
+text = "From My pledges a backer opens a held pledge's campaign page, changes its tier there and later cancels it, seeing each state with its mark and word."
+kind = "behavior"
+primary = "workflow"
+workflow = "pledge-change"
+tests = [
+    "test_app.py::test_wf_pledge_change_journey",
+    "test_app.py::test_wf_pledge_change_keep",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Live pledge preview"
+text = "As the backer changes tier, country or add-on, the total, the shipping line, the proof rings and the preview sentence update in place without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-mobile"
+tests = [
+    "test_app.py::test_live_preview",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Campaign page breakpoints"
+text = "The campaign page switches from one column to its two-column pledge layout, and then to its pinned pledge column, at the published breakpoints in Screens and layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-mobile"
+tests = [
+    "test_app.py::test_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-28"
+title = "Phone touch pledge journey"
+text = "On a phone-sized screen a backer reads Plate Fill and pledges by touch alone."
+kind = "behavior"
+primary = "workflow"
+workflow = "pledge-mobile"
+tests = [
+    "test_app.py::test_wf_pledge_mobile_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Reduced-motion Plate Fill"
+text = "Under reduced motion the gauge jumps straight to its final coverage, the total shows its final figure and every announcement is unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "pledge-mobile"
+tests = [
+    "test_app.py::test_wf_pledge_mobile_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Final-window guard"
+text = "In a campaign's final window the server refuses any reduction or cancellation that would take a funded campaign below its goal."
+kind = "behavior"
+primary = "pytest"
+workflow = "final-day-guard"
+tests = [
+    "test_app.py::test_final_window_guard",
+    "test_app.py::test_wf_final_day_guard_would_unfund",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Server closes pledging"
+text = "New pledges, changes and cancellations close at the deadline instant, as decided by the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "final-day-guard"
+tests = [
+    "test_app.py::test_server_closes_pledging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Status from the server, not the device"
+text = "Every screen shows open, closed and time-left status from the server's answer and never from the device clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "final-day-guard"
+tests = [
+    "test_app.py::test_wf_final_day_guard_device_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Unfunded deadline"
+text = "A campaign under its goal at the deadline captures nothing, voids every hold and emails every backer."
+kind = "behavior"
+primary = "pytest"
+workflow = "unfunded-deadline"
+tests = [
+    "test_app.py::test_unfunded_closeout",
+    "test_app.py::test_wf_unfunded_deadline_backer_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Closed campaign headings"
+text = "A closed campaign shows the published funded, not-funded or cancelled heading word for word in place of the pledge form."
+kind = "behavior"
+primary = "pytest"
+workflow = "unfunded-deadline"
+tests = [
+    "test_app.py::test_closed_headings",
+]
+criteria = []
+parameter_cases = [
+    "funded",
+    "unfunded",
+    "cancelled",
+]
+
+[[requirements]]
+id = "DP-35"
+title = "Creator cancellation"
+text = "A creator can cancel a live campaign only before its deadline, and cancelling voids every hold."
+kind = "behavior"
+primary = "pytest"
+workflow = "unfunded-deadline"
+tests = [
+    "test_app.py::test_creator_cancellation",
+    "test_app.py::test_wf_unfunded_deadline_creator_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Funded capture"
+text = "A campaign at or above its goal at the deadline captures every held pledge in Kill Bill for its full amount."
+kind = "behavior"
+primary = "pytest"
+workflow = "funded-collection"
+tests = [
+    "test_app.py::test_funded_capture",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Each pledge captured whole or errored"
+text = "Each pledge at a funded deadline ends either captured, with its receipt and statement recorded, or errored with no capture, and never a mix of the two."
+kind = "behavior"
+primary = "pytest"
+workflow = "funded-collection"
+tests = [
+    "test_app.py::test_captured_or_errored",
+    "test_app.py::test_wf_funded_collection_needs_fixing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Funded backer journey"
+text = "After a funded deadline a backer sees the funded heading, a filled dot with its word and, once ready, a statement download."
+kind = "behavior"
+primary = "workflow"
+workflow = "funded-collection"
+tests = [
+    "test_app.py::test_wf_funded_collection_backer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Fix-payment notices"
+text = "An errored pledge's backer receives a fix-payment email when the pledge errors and again at every notice interval until the fix window closes."
+kind = "behavior"
+primary = "pytest"
+workflow = "errored-fix"
+tests = [
+    "test_app.py::test_fix_notices",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Fixing a card"
+text = "Through the fix link a lapsed backer replaces the card, which is held at once and collected when the fix window closes."
+kind = "behavior"
+primary = "pytest"
+workflow = "errored-fix"
+tests = [
+    "test_app.py::test_fix_card",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Final attempt and drop"
+text = "When the fix window closes the server makes one final collection attempt, then marks the pledge captured or dropped and emails the backer."
+kind = "behavior"
+primary = "pytest"
+workflow = "errored-fix"
+tests = [
+    "test_app.py::test_wf_errored_fix_window_closed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Lapsed backer journey"
+text = "A lapsed backer opens the emailed fix link, enters a working card and later sees the pledge charged."
+kind = "behavior"
+primary = "workflow"
+workflow = "errored-fix"
+tests = [
+    "test_app.py::test_wf_errored_fix_lapsed_backer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Fee arithmetic"
+text = "Each captured pledge carries a platform fee and a processing fee computed in whole pence with half-up rounding per pledge, as stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "statements-settlement"
+tests = [
+    "test_app.py::test_fee_arithmetic",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Backer statement"
+text = "Each captured pledge gets a statement PDF that is rendered and stored, and shows as ready only after both succeed."
+kind = "behavior"
+primary = "pytest"
+workflow = "statements-settlement"
+tests = [
+    "test_app.py::test_wf_statements_settlement_backer_statement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Settlement sheet"
+text = "The creator's settlement net equals the sum of the to-creator lines on every statement, and its sheet is rendered, stored and announced by email."
+kind = "behavior"
+primary = "pytest"
+workflow = "statements-settlement"
+tests = [
+    "test_app.py::test_wf_statements_settlement_creator",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Owner-only documents"
+text = "A statement downloads only for its backer and a settlement only for its creator, and any other caller gets the not-found answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "statements-settlement"
+tests = [
+    "test_app.py::test_owner_only_documents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Service status banners"
+text = "The server reports each dependency's state, and the screens show the published banner while one is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-banners"
+tests = [
+    "test_app.py::test_status_banners",
+]
+criteria = []
+parameter_cases = [
+    "payments",
+    "email",
+    "storage",
+    "documents",
+]
+
+[[requirements]]
+id = "DP-48"
+title = "Payment service outage"
+text = "While Kill Bill is unreachable, pledges, changes, cancellations and fixes are refused with the payment-unavailable answer and nothing changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-banners"
+tests = [
+    "test_app.py::test_payment_outage",
+    "test_app.py::test_wf_outage_banners_payments",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Email outage queue"
+text = "While mail is down every notice is recorded as queued and the action that triggered it still succeeds, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-banners"
+tests = [
+    "test_app.py::test_email_outage_queue",
+    "test_app.py::test_wf_outage_banners_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Storage and document outages"
+text = "While storage is down every upload is refused and its image stays listed as not stored, and while the PDF renderer is down statements and settlement sheets stay not ready, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-banners"
+tests = [
+    "test_app.py::test_storage_document_outages",
+]
+criteria = []
+parameter_cases = [
+    "storage",
+    "documents",
+]
+
+[[requirements]]
+id = "DP-51"
+title = "Health and run manifest"
+text = "The app installs, builds and serves from its run manifest and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Plate Fill geometry"
+text = "The gauge draws the published hex screen of dots with coverage and size from the published formula, plus one outer ring per stretch break point."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_plate_fill_geometry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Plate Fill ink sequence"
+text = "After a confirmed hold the proof rings ink ring by ring from the centre out while the total counts up, then the result is announced, within the times in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_ink_sequence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Pledge state marks"
+text = "Every pledge state shows its dot mark together with its word, so colour never carries meaning alone."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_state_marks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Empty and loading states"
+text = "Empty lists show the outline dot with their published sentence, and loading shows dots inking ring by ring."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_empty_and_loading",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Halftone hero"
+text = "The home page opens on the cropped teal disc breaking into a halftone ramp beside the published headline."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "One-motif working screens"
+text = "Lists, forms, tables, banners and buttons share the dot motif, the one teal ink on paper and the single corner rule."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read from the environment at start and is never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Server boundary"
+text = "The server is same-origin, enforces its body limits and never serves source, configuration or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with exactly the string fields _schema (value run-manifest-v1), install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package, meaning the production dependency tree from npm ls --omit=dev --all --json, with its version and licence, plus the Jost font and its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the same production tree) and every bundled font is licensed under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0, CC0-1.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in the provided Postgres database and MinIO bucket: no SQLite, embedded databases, extra caches or files used as a datastore."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service definitions and their environment values are left unmodified."
+tests = [
+    "test_app.py::test_if_services_unmodified",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Fonts and scripts are served from the app itself, and the running app calls no internet host."
+tests = [
+    "test_app.py::test_if_no_internet",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Application source, server and browser alike, is written in TypeScript; plain JavaScript appears only as build output or tool configuration."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "creator-draft"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+]
+critical = [
+    "test_app.py::test_wf_creator_draft_start",
+    "test_app.py::test_wf_creator_draft_validation",
+    "test_app.py::test_draft_privacy",
+]
+
+[[workflows]]
+id = "media-launch"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+]
+critical = [
+    "test_app.py::test_wf_media_launch_journey",
+    "test_app.py::test_wf_media_launch_blocked",
+    "test_app.py::test_media_stored",
+    "test_app.py::test_media_visibility",
+]
+checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "pledge-keyboard"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_pledge_keyboard_journey",
+    "test_app.py::test_wf_pledge_keyboard_dialogs",
+    "test_app.py::test_wf_pledge_keyboard_pending",
+]
+
+[[workflows]]
+id = "pledge-authorise"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_pledge_authorise_declined",
+    "test_app.py::test_wf_pledge_authorise_new_backer",
+    "test_app.py::test_holds_in_killbill",
+    "test_app.py::test_pledge_amount",
+]
+
+[[workflows]]
+id = "limited-tier-race"
+requirements = [
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_limited_tier_race_sold_out",
+    "test_app.py::test_wf_limited_tier_race_gone_on_load",
+    "test_app.py::test_last_copy_race",
+]
+
+[[workflows]]
+id = "pledge-change"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_pledge_change_journey",
+    "test_app.py::test_wf_pledge_change_keep",
+    "test_app.py::test_change_pledge",
+    "test_app.py::test_cancel_pledge",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "pledge-mobile"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_pledge_mobile_touch",
+    "test_app.py::test_wf_pledge_mobile_reduced_motion",
+    "test_app.py::test_live_preview",
+    "test_app.py::test_breakpoints",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "final-day-guard"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_final_day_guard_device_clock",
+    "test_app.py::test_wf_final_day_guard_would_unfund",
+    "test_app.py::test_final_window_guard",
+    "test_app.py::test_server_closes_pledging",
+]
+
+[[workflows]]
+id = "unfunded-deadline"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_wf_unfunded_deadline_backer_view",
+    "test_app.py::test_wf_unfunded_deadline_creator_cancel",
+    "test_app.py::test_unfunded_closeout",
+    "test_app.py::test_closed_headings",
+]
+
+[[workflows]]
+id = "funded-collection"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_funded_collection_backer",
+    "test_app.py::test_wf_funded_collection_needs_fixing",
+    "test_app.py::test_funded_capture",
+    "test_app.py::test_captured_or_errored",
+]
+
+[[workflows]]
+id = "errored-fix"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_errored_fix_lapsed_backer",
+    "test_app.py::test_wf_errored_fix_window_closed",
+    "test_app.py::test_fix_card",
+]
+
+[[workflows]]
+id = "statements-settlement"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_wf_statements_settlement_backer_statement",
+    "test_app.py::test_wf_statements_settlement_creator",
+    "test_app.py::test_fee_arithmetic",
+    "test_app.py::test_owner_only_documents",
+]
+
+[[workflows]]
+id = "outage-banners"
+requirements = [
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_outage_banners_payments",
+    "test_app.py::test_wf_outage_banners_email",
+    "test_app.py::test_status_banners",
+    "test_app.py::test_email_outage_queue",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_ink_sequence",
+    "test_app.py::test_wf_cross_cutting_state_marks",
+    "test_app.py::test_health",
+    "test_app.py::test_server_boundary",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B5",
+]
+critical_checkpoints = [
+    "B1",
+]

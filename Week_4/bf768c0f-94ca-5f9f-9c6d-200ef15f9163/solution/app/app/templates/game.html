@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% from "_board.html" import flat_board, square_list with context %}
+{% block title %}{{ game.white.username }} vs {{ game.black.username }} — {{ club_name }}{% endblock %}
+{% block skip %}<a class="skip-link" href="#board-region">Skip to board</a>{% endblock %}
+{% block content %}
+{% set top = game.black if orientation == 'white' else game.white %}
+{% set bottom = game.white if orientation == 'white' else game.black %}
+<script type="application/json" id="game-data">{{ game_json | safe }}</script>
+<div class="game-layout">
+  <div class="board-column" id="board-region" tabindex="-1">
+    <div class="view-switch" role="group" aria-label="Board view">
+      <button type="button" data-view="flat" aria-pressed="{{ 'true' if me.view != 'deep' and me.view != 'squares' else 'false' }}">
+        <svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>Flat board</button>
+      <button type="button" data-view="deep" aria-pressed="{{ 'true' if me.view == 'deep' else 'false' }}">
+        <svg class="icon" aria-hidden="true"><use href="#i-cube"/></svg>Deep board</button>
+      <button type="button" data-view="squares" aria-pressed="{{ 'true' if me.view == 'squares' else 'false' }}">
+        <svg class="icon" aria-hidden="true"><use href="#i-keyboard"/></svg>Square list</button>
+    </div>
+
+    <div class="player-strip">
+      <img class="avatar" src="{{ top.avatar_url }}" alt="" width="40" height="40">
+      <span class="player-name">{{ top.username }}</span>
+      <span class="mono muted">{{ top.rating_display }}</span>
+      <span class="turn-dot" data-turn-dot="{{ 'black' if orientation == 'white' else 'white' }}"></span>
+      <span class="chip">{{ 'Black' if orientation == 'white' else 'White' }}</span>
+    </div>
+
+    {% set start_view = me.view if me.view in ('deep', 'squares') else 'flat' %}
+    <div class="board-stage" id="board-stage" data-view="{{ start_view }}">
+      <p class="board-busy" id="board-busy" hidden>Sending your move…</p>
+      <div class="view-pane" id="pane-flat">
+        {{ flat_board(squares, 'flat-board') }}
+      </div>
+      <div class="view-pane" id="pane-deep" hidden>
+        <div class="deep-wrap" id="deep-wrap">
+          <span class="deep-hint">Drag to turn the board · wheel or pinch to zoom</span>
+        </div>
+      </div>
+      <!-- The sixty-four named squares: laid over the flat board, under the deep board, alone in the square list. -->
+      <section id="square-pane" aria-labelledby="square-pane-heading" aria-describedby="square-hint">
+        <h2 id="square-pane-heading" class="sr-only">The board as sixty-four squares</h2>
+        {{ square_list(squares) }}
+      </section>
+    </div>
+
+    <div class="player-strip">
+      <img class="avatar" src="{{ bottom.avatar_url }}" alt="" width="40" height="40">
+      <span class="player-name {% if bottom.username == me.username %}me{% endif %}">{{ bottom.username }}</span>
+      <span class="mono muted">{{ bottom.rating_display }}</span>
+      <span class="turn-dot" data-turn-dot="{{ orientation }}"></span>
+      <span class="chip">{{ 'White' if orientation == 'white' else 'Black' }}</span>
+    </div>
+
+    <p class="muted square-hint" id="square-hint">
+      Arrow keys move between squares, Enter selects and plays, Escape cancels.
+    </p>
+  </div>
+
+  <div class="side-column">
+    <section class="panel">
+      <div class="panel-body">
+        <div class="row-line spread">
+          <h2 style="margin:0">{{ 'Rated game' if game.rated else ('House game' if game.level else 'Casual game') }}</h2>
+          <span class="chip" id="status-chip">{{ game.status }}</span>
+        </div>
+        <p class="muted" style="margin:6px 0 0" id="turn-line">
+          <span id="turn-text">{{ 'White to move' if game.turn == 'white' else 'Black to move' }}</span>
+          {% if game.opening %} · <span class="mono">{{ game.opening }}</span>{% endif %}
+          {% if game.club %} · <a href="/clubs/{{ game.club.slug }}">{{ game.club.name }}</a>{% endif %}
+        </p>
+        <p class="muted mono" style="margin:4px 0 0;font-size:12px" id="fen-line">{{ game.fen }}</p>
+        <p style="margin:8px 0 0"><a class="button small" href="/game/{{ game.id }}/record">Game record</a></p>
+      </div>
+    </section>
+
+    <div id="banners"></div>
+
+    <div class="column-tabs" role="tablist" aria-label="Game panels">
+      <button type="button" role="tab" data-tab-button="moves" aria-selected="true">Moves</button>
+      <button type="button" role="tab" data-tab-button="chat" aria-selected="false">Chat</button>
+      <button type="button" role="tab" data-tab-button="controls" aria-selected="false">Game</button>
+    </div>
+
+    <section class="panel" data-tab="moves" aria-labelledby="moves-heading">
+      <h2 id="moves-heading">Moves</h2>
+      <div class="panel-body">
+        <div class="move-list" id="move-list">
+          {% if game.moves %}
+          <ol>
+            {% for m in game.moves %}{% if loop.index0 % 2 == 0 %}<li><span class="san">{{ m.san }}</span>{% if game.moves|length > loop.index0 + 1 %} <span class="san">{{ game.moves[loop.index0 + 1].san }}</span>{% endif %}</li>{% endif %}{% endfor %}
+          </ol>
+          {% else %}<p class="empty" id="moves-empty">No moves yet.</p>{% endif %}
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" data-tab="chat" aria-labelledby="chat-heading">
+      <h2 id="chat-heading">Chat</h2>
+      <div class="panel-body">
+        {% if game.viewer_is_player %}
+        <div class="chat-scroll" id="chat-scroll">
+          {% for m in chat %}
+          <div class="chat-msg">
+            <img class="avatar" src="{{ m.avatar_url }}" alt="" width="28" height="28">
+            <div><div class="chat-who">{{ m.username }}</div><div class="chat-text">{{ m.text }}</div></div>
+          </div>
+          {% else %}
+          <p class="empty" id="chat-empty">No messages yet. Say hello.</p>
+          {% endfor %}
+        </div>
+        <form class="chat-form" id="chat-form">
+          <label class="sr-only" for="chat-input">Message</label>
+          <input id="chat-input" name="text" type="text" maxlength="500" placeholder="Message" autocomplete="off">
+          <button class="button" type="submit">Send</button>
+        </form>
+        <p class="field-error" id="chat-error" role="alert"></p>
+        {% else %}
+        <p class="empty">A game's chat is for its two players. You are watching this game.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="panel" data-tab="controls" aria-labelledby="controls-heading">
+      <h2 id="controls-heading">Game</h2>
+      <div class="panel-body">
+        {% if game.viewer_is_player %}
+        <div class="controls" id="game-controls">
+          <button class="button small" id="btn-draw-offer"><svg class="icon" aria-hidden="true"><use href="#i-equals"/></svg>Offer draw</button>
+          <button class="button small" id="btn-claim"><svg class="icon" aria-hidden="true"><use href="#i-equals"/></svg>Claim draw</button>
+          <button class="button small" id="btn-takeback"><svg class="icon" aria-hidden="true"><use href="#i-takeback"/></svg>Ask for takeback</button>
+          <button class="button small danger" id="btn-resign"><svg class="icon" aria-hidden="true"><use href="#i-flag"/></svg>Resign</button>
+          {% if game.kind == 'member' %}<button class="button small" id="btn-rematch" type="button" aria-describedby="rematch-note" {% if game.status == 'in_progress' %}disabled{% endif %}>Rematch</button>
+          <span class="form-note" id="rematch-note">{% if game.status == 'in_progress' %}A rematch opens when this game ends.{% endif %}</span>{% endif %}
+        </div>
+        <p class="field-error" id="control-error" role="alert"></p>
+        {% else %}
+        <p class="empty">You are watching. Only the two players may act in this game.</p>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="endscreen" id="endscreen" hidden role="dialog" aria-modal="true" aria-labelledby="end-title">
+  <div class="endcard" id="endcard">
+    <svg class="end-king" viewBox="0 0 24 24" aria-hidden="true" id="end-king"><use href="#i-king"/></svg>
+    <div class="draw-kings" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><use href="#i-king"/></svg>
+      <svg viewBox="0 0 24 24"><use href="#i-king"/></svg>
+    </div>
+    <h2 id="end-title">Drawn</h2>
+    <p id="end-reason" class="muted"></p>
+    <p id="end-detail" class="mono"></p>
+    <div class="row-line" style="justify-content:center;margin-top:12px">
+      <button class="button" id="end-close">Stay on the board</button>
+      <a class="button ghost" href="/hall">Back to the hall</a>
+    </div>
+  </div>
+</div>
+
+<dialog id="promotion-dialog" aria-label="Choose a promotion">
+  <form method="dialog" class="card">
+    <h2>Promote to</h2>
+    <div class="controls">
+      <button class="button" value="q">Queen</button>
+      <button class="button" value="r">Rook</button>
+      <button class="button" value="b">Bishop</button>
+      <button class="button" value="n">Knight</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/game.js"></script>{% endblock %}

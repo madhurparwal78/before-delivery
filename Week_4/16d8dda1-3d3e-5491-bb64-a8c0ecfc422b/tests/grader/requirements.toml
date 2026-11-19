@@ -1,0 +1,1062 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "arranging-classroom",
+    "joining-and-seating",
+    "seat-race",
+    "following-the-board",
+    "raised-hands",
+    "preparing-a-lesson",
+    "running-a-poll",
+    "breakouts-bell-return",
+    "attendance-edges",
+    "phone-touch",
+    "spotlight-and-lock",
+    "roles-and-privacy",
+    "outage-and-review",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B13",
+    "B14",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B15",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 98
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 5
+B5 = 5
+B6 = 3
+B13 = 3
+B14 = 3
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 3
+B15 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 5
+Q1 = 5
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+GRADING_KEY = "slatehall-grading-4e82a1"
+TZ = "UTC"
+BREAKOUT_SECONDS = "480"
+BREAKOUT_WARNING_SECONDS = "30"
+BREAKOUT_EXTEND_SECONDS = "120"
+LATE_AFTER_MINUTES = "5"
+LEFT_EARLY_MINUTES = "10"
+RECONNECT_GRACE_SECONDS = "90"
+SLIDE_MAX_BYTES = "5000000"
+MODEL_MAX_BYTES = "10000000"
+SLIDES_MAX_PER_LESSON = "40"
+CHAT_MAX_CHARS = "300"
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[services]]
+name = "valkey"
+
+[services.env]
+
+[[outages]]
+id = "second-instance"
+port = 4174
+url_env = "APP_SECOND_URL"
+
+[outages.env]
+INSTANCE_NAME = "b"
+
+[[outages]]
+id = "short-timers"
+port = 4175
+url_env = "APP_TIMERS_URL"
+
+[outages.env]
+BREAKOUT_SECONDS = "20"
+BREAKOUT_WARNING_SECONDS = "5"
+RECONNECT_GRACE_SECONDS = "3"
+
+[[outages]]
+id = "minio-down"
+port = 4176
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "valkey-down"
+port = 4177
+url_env = "APP_VALKEY_DOWN_URL"
+
+[outages.env]
+VALKEY_URL = "redis://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Teacher accounts"
+text = "Teachers sign up with an email, a password and a display name, sign in and out, and stay signed in across reload and on both instances."
+kind = "behavior"
+primary = "pytest"
+workflow = "arranging-classroom"
+tests = [
+    "test_app.py::test_teacher_accounts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Classes and class codes"
+text = "A teacher creates classes with a title, a time zone and a server-made class code, lists the classes they own or co-teach, and adds co-teachers by email."
+kind = "behavior"
+primary = "pytest"
+workflow = "arranging-classroom"
+tests = [
+    "test_app.py::test_classes_and_codes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Classroom layout rules"
+text = "Saving a room enforces the grid size, piece placement and seat and table ids from Business rules, and refuses the first offending piece with its published text."
+kind = "behavior"
+primary = "pytest"
+workflow = "arranging-classroom"
+tests = [
+    "test_app.py::test_layout_rules",
+]
+criteria = []
+parameter_cases = [
+    "grid_too_narrow",
+    "grid_too_tall",
+    "unknown_kind",
+    "kind_before_outside",
+    "seat_outside",
+    "board_overhang",
+    "board_off_wall",
+    "seat_on_wall",
+    "overlap_earliest",
+    "board_overlap",
+    "first_failure_wins",
+    "no_board",
+    "two_boards",
+    "ids_and_tables",
+    "reference",
+    "live_session",
+]
+
+[[requirements]]
+id = "DP-04"
+title = "Arranging the room by keyboard"
+text = "The teacher builds and saves a room in the room editor with the keyboard alone (arrow keys, Enter, Delete) or with the pointer, and a refused save shows the server's text in the editor's alert."
+kind = "behavior"
+primary = "workflow"
+workflow = "arranging-classroom"
+tests = [
+    "test_app.py::test_wf_arranging_classroom_keyboard",
+    "test_app.py::test_wf_arranging_classroom_refusal",
+    "test_app.py::test_wf_arranging_classroom_saved_room_cursor",
+]
+criteria = [
+    "B10",
+    "B15",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Joining by class code"
+text = "A learner joins with a class code and a display name only while that class's session is open or live and unlocked, and is otherwise refused with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "joining-and-seating"
+tests = [
+    "test_app.py::test_join_rules",
+    "test_app.py::test_wf_joining_and_seating_closed_class",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Taking a seat, seen everywhere"
+text = "A learner who takes or moves to a seat appears in it in the seat mirror of every connected page on both instances within one second."
+kind = "behavior"
+primary = "workflow"
+workflow = "joining-and-seating"
+tests = [
+    "test_app.py::test_wf_joining_and_seating_keyboard_seat",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Classroom keyboard"
+text = "Inside the classroom the published arrow keys and shortcuts move the seat cursor, take seats, raise hands, open chat, answer polls, change slides, spotlight and take hands, and they never act while focus is in a text field."
+kind = "behavior"
+primary = "pytest"
+workflow = "joining-and-seating"
+tests = [
+    "test_app.py::test_classroom_keyboard_shortcuts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "One seat, one learner"
+text = "Across both instances a seat holds at most one learner and a learner holds at most one seat, and when several learners claim one empty seat at once exactly one wins."
+kind = "behavior"
+primary = "pytest"
+workflow = "seat-race"
+tests = [
+    "test_app.py::test_seat_claims_race",
+    "test_app.py::test_wf_seat_race_move_seat",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Seat-taken notice"
+text = "A learner who loses a seat stays where they were, and sees and hears the published seat-taken copy."
+kind = "behavior"
+primary = "workflow"
+workflow = "seat-race"
+tests = [
+    "test_app.py::test_wf_seat_race_lost_claim",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Session lifecycle"
+text = "Sessions move through scheduled, open, live, breakouts and ended only along the published edges, and every other request answers 409 with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "following-the-board"
+tests = [
+    "test_app.py::test_session_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Live slides on every instance"
+text = "When the teacher or a co-teacher sets the slide, every board on both instances shows it and announces it."
+kind = "behavior"
+primary = "pytest"
+workflow = "following-the-board"
+tests = [
+    "test_app.py::test_live_slide_every_instance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Following the board"
+text = "A learner's board follows the teacher's PageDown and PageUp live, and a learner who joins mid-session sees the current slide straight away."
+kind = "behavior"
+primary = "workflow"
+workflow = "following-the-board"
+tests = [
+    "test_app.py::test_wf_following_the_board_pagekeys",
+    "test_app.py::test_wf_following_the_board_late_joiner",
+    "test_app.py::test_wf_following_the_board_late_joiner_model",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Raised-hand queue"
+text = "Raised hands queue in the order the server receives them, lowering removes a hand, and raising again goes to the back, the same on both instances."
+kind = "behavior"
+primary = "pytest"
+workflow = "raised-hands"
+tests = [
+    "test_app.py::test_hand_queue_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Taking hands in order"
+text = "The teacher takes the first raised hand by button or T key, everyone hears who has the floor, and an empty queue shows the published empty copy."
+kind = "behavior"
+primary = "workflow"
+workflow = "raised-hands"
+tests = [
+    "test_app.py::test_wf_raised_hands_take_in_order",
+    "test_app.py::test_wf_raised_hands_learner_h",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Lesson file uploads"
+text = "Uploads accept PNG and JPEG slides and glTF binary models, judged by content, within the published size and count limits, and if any file is refused the request saves nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "preparing-a-lesson"
+tests = [
+    "test_app.py::test_lesson_upload_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Store-confirmed files"
+text = "Each file is stored byte for byte in the object store and counts in its lesson only after the store confirms it, and a lesson can be marked ready to teach only when every file is confirmed."
+kind = "behavior"
+primary = "pytest"
+workflow = "preparing-a-lesson"
+tests = [
+    "test_app.py::test_store_confirmed_and_ready",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Preparing a lesson"
+text = "On the lesson page the teacher uploads files, sees each one pending until confirmed, reorders slides, sees refusals in the page alert and marks the lesson ready to teach."
+kind = "behavior"
+primary = "workflow"
+workflow = "preparing-a-lesson"
+tests = [
+    "test_app.py::test_wf_preparing_a_lesson_upload_and_ready",
+    "test_app.py::test_wf_preparing_a_lesson_refused",
+    "test_app.py::test_wf_preparing_a_lesson_model_on_show",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "File storage outage"
+text = "While the object store is unreachable, uploads answer the published 503 with nothing half-saved, and the next upload after it returns works without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "preparing-a-lesson"
+tests = [
+    "test_app.py::test_file_storage_outage",
+    "test_app.py::test_wf_preparing_a_lesson_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Polls"
+text = "A teacher or co-teacher opens one poll at a time within the published limits, each learner's latest answer counts, the teacher sees live counts, and learners see results only once the poll closes."
+kind = "behavior"
+primary = "pytest"
+workflow = "running-a-poll"
+tests = [
+    "test_app.py::test_poll_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Poll percentages"
+text = "Closing a poll writes its final tally once and reports each option's percentage rounded half up to a whole number, as in the published examples."
+kind = "behavior"
+primary = "pytest"
+workflow = "running-a-poll"
+tests = [
+    "test_app.py::test_poll_percentages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Running a poll live"
+text = "Learners answer an open poll by option button or number key, the teacher's counts change on the other instance, and closing the poll announces the results to everyone."
+kind = "behavior"
+primary = "workflow"
+workflow = "running-a-poll"
+tests = [
+    "test_app.py::test_wf_running_a_poll_live",
+    "test_app.py::test_wf_running_a_poll_invalid_options",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Breakout split"
+text = "Starting breakouts at k tables deals seated learners, in seat-id order, to tables T1 to Tk in turn."
+kind = "behavior"
+primary = "pytest"
+workflow = "breakouts-bell-return"
+tests = [
+    "test_app.py::test_breakout_split",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Server-held breakout deadline"
+text = "The server holds the breakout deadline, Add 2 minutes extends it by exactly the published extension, and the warning and the return happen at server-decided edges whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "breakouts-bell-return"
+tests = [
+    "test_app.py::test_breakout_deadline_server_held",
+    "test_app.py::test_wf_breakouts_bell_return_device_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Table chat"
+text = "During breakouts each learner reads and posts only to their own table, the teacher reads every table, and after the deadline chat answers 409 and the field is disabled."
+kind = "behavior"
+primary = "pytest"
+workflow = "breakouts-bell-return"
+tests = [
+    "test_app.py::test_table_chat_rules",
+    "test_app.py::test_wf_breakouts_bell_return_late_edges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Bell Return"
+text = "Each breakout table shows a draining ring and its seconds left, the rail timer turns urgent at the warning, and at the deadline the class walks back to their home seats table by table with the published timings."
+kind = "visual"
+primary = "pytest"
+workflow = "breakouts-bell-return"
+tests = [
+    "test_app.py::test_bell_return_mirror",
+    "test_app.py::test_wf_breakouts_bell_return_real_timers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Sessions in the class time zone"
+text = "Session start and end are wall times in the class's time zone, stored and shown in that zone whatever the server's or the browser's zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "attendance-edges"
+tests = [
+    "test_app.py::test_session_time_zone",
+    "test_app.py::test_wf_attendance_edges_schedule_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Attendance statuses"
+text = "Attendance marks each learner present, late, left early, late and left early, or absent from server presence times, using the published edges and reconnect grace."
+kind = "behavior"
+primary = "pytest"
+workflow = "attendance-edges"
+tests = [
+    "test_app.py::test_attendance_statuses",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Session summary"
+text = "After a session ends, the teacher reads its attendance table, poll results, hands taken and breakout rounds, unchanged by the device clock or time zone."
+kind = "behavior"
+primary = "workflow"
+workflow = "attendance-edges"
+tests = [
+    "test_app.py::test_wf_attendance_edges_summary_page",
+]
+criteria = [
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Phone panels"
+text = "At 375 by 812 the room sits above a Class panels tab bar whose Seats tab lists every seat as a button, and closed panels are hidden and inert."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-touch"
+tests = [
+    "test_app.py::test_phone_panels",
+]
+criteria = [
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Learning by touch on a phone"
+text = "A learner on a phone takes a seat, raises a hand and answers a poll by tapping, and every touch target is at least 44 by 44 pixels."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone-touch"
+tests = [
+    "test_app.py::test_wf_phone_touch_tap_flow",
+    "test_app.py::test_wf_phone_touch_seat_taken",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Spotlight"
+text = "The teacher or a co-teacher spotlights one learner at a time, every page shows and announces it, and it clears when that learner leaves."
+kind = "behavior"
+primary = "pytest"
+workflow = "spotlight-and-lock"
+tests = [
+    "test_app.py::test_spotlight_rules",
+    "test_app.py::test_wf_spotlight_and_lock_coteacher_spotlight",
+    "test_app.py::test_wf_spotlight_and_lock_cursor_spotlight",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Locking the room"
+text = "When the teacher locks a live class, newcomers are refused on the join page with the locked copy, while learners already in the session can still reload and reconnect."
+kind = "behavior"
+primary = "workflow"
+workflow = "spotlight-and-lock"
+tests = [
+    "test_app.py::test_wf_spotlight_and_lock_lock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Roles and co-teachers"
+text = "Owners, co-teachers and learners can each do only the actions the Roles rule gives them, and any other action inside a class they can open answers 403 with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "roles-and-privacy"
+tests = [
+    "test_app.py::test_roles_matrix",
+    "test_app.py::test_wf_roles_and_privacy_coteacher_view",
+    "test_app.py::test_wf_roles_and_privacy_coteacher_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Private by default"
+text = "Anything a caller cannot open answers 404 Not found: another teacher's class, another world's records, a session a learner cannot open or a lesson file they may not review, and another table's chat."
+kind = "behavior"
+primary = "pytest"
+workflow = "roles-and-privacy"
+tests = [
+    "test_app.py::test_private_by_default",
+    "test_app.py::test_wf_roles_and_privacy_other_teacher",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Live updates paused"
+text = "When an instance cannot reach the live bus, its pages show the live-paused banner, live actions answer 503, and the room freezes instead of diverging, then resumes on its own when the bus returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage-and-review"
+tests = [
+    "test_app.py::test_live_bus_outage_api",
+    "test_app.py::test_wf_outage_and_review_bus_returns",
+    "test_app.py::test_wf_outage_and_review_valkey_down_boot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Reviewing after class"
+text = "A learner who attended an ended session steps through its slides on the review page by buttons or arrow keys."
+kind = "behavior"
+primary = "workflow"
+workflow = "outage-and-review"
+tests = [
+    "test_app.py::test_wf_outage_and_review_review",
+]
+criteria = [
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Reduced motion"
+text = "With reduced motion requested, the camera cuts, avatars jump to their seats, rings become a stepped number, no loop runs, and every function, announcement and timing stays the same."
+kind = "visual"
+primary = "pytest"
+workflow = "outage-and-review"
+tests = [
+    "test_app.py::test_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from run.json on the published port, and the health route answers 200 with ok or unavailable as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_instances",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Grading routes and worlds"
+text = "The grading setup, sign-in, clock and outage routes work as published behind the grading key, and records never cross worlds."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_routes_and_worlds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Configuration and server boundary"
+text = "Credentials, URLs and every timer and limit come from the published environment variables, and the server enforces same-origin requests and size limits and never serves source or secrets."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "3D classroom and its mirror"
+text = "The classroom shows a WebGL 3D room with a DOM mirror of seats, tables and board that follows server messages, and shows still text in its place without WebGL."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_classroom_mirror_and_webgl",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Class announcements"
+text = "The polite Class announcements region speaks every published announcement once, newest last, and keeps the latest 20."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_class_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Tablet and desktop layout"
+text = "At 1280 by 800 the room and a ruled right rail sit side by side, at 768 by 1024 the rail is a bottom sheet behind the Class panel button, and no published viewport has horizontal overflow."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_tablet_and_desktop_layout",
+]
+criteria = [
+    "B5",
+    "B9",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Lamplit scholarly look"
+text = "Pages use a warm paper ground, a deep slate-green board, a single brick accent for time pressure and the live state, serif headings and monospace numerals, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B13",
+    "B14",
+    "B7",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Real live bus and real 3D"
+text = "The source carries live state between instances through valkey and draws the room as a real WebGL scene, with no faked state endpoints and no prerendered images."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists at the app root with string install, build and serve fields and \"_schema\":\"run-manifest-v1\", and those commands alone install, build and serve the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at the app root names every shipped package, meaning the production dependency tree from npm ls --omit=dev --all --json, with its version and licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the production dependency tree from npm ls --omit=dev --all --json) is licensed MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses only Postgres, MinIO and Valkey as backing services: no other database, cache, broker, mail or PDF service, and no file or in-memory stand-in for them."
+tests = [
+    "test_app.py::test_if_backing_services",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and its dev credentials are left untouched, and the app reads every service setting from the environment."
+tests = [
+    "test_app.py::test_if_service_config_from_environment",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The browser loads nothing from outside the app's origin: no CDN scripts, web fonts, analytics or remote images."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "A committed npm lockfile pins the dependency tree that install uses."
+tests = [
+    "test_app.py::test_if_lockfile_pins_tree",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "arranging-classroom"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_arranging_classroom_keyboard",
+    "test_app.py::test_wf_arranging_classroom_refusal",
+    "test_app.py::test_wf_arranging_classroom_saved_room_cursor",
+]
+checkpoints = [
+    "B10",
+    "B15",
+]
+
+[[workflows]]
+id = "joining-and-seating"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+]
+critical = [
+    "test_app.py::test_wf_joining_and_seating_keyboard_seat",
+    "test_app.py::test_wf_joining_and_seating_closed_class",
+]
+
+[[workflows]]
+id = "seat-race"
+requirements = [
+    "DP-08",
+    "DP-09",
+]
+critical = [
+    "test_app.py::test_wf_seat_race_lost_claim",
+    "test_app.py::test_wf_seat_race_move_seat",
+    "test_app.py::test_seat_claims_race",
+]
+
+[[workflows]]
+id = "following-the-board"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_following_the_board_pagekeys",
+    "test_app.py::test_wf_following_the_board_late_joiner",
+    "test_app.py::test_wf_following_the_board_late_joiner_model",
+]
+
+[[workflows]]
+id = "raised-hands"
+requirements = [
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_raised_hands_take_in_order",
+    "test_app.py::test_wf_raised_hands_learner_h",
+    "test_app.py::test_hand_queue_order",
+]
+
+[[workflows]]
+id = "preparing-a-lesson"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_preparing_a_lesson_upload_and_ready",
+    "test_app.py::test_wf_preparing_a_lesson_refused",
+    "test_app.py::test_wf_preparing_a_lesson_storage_outage",
+    "test_app.py::test_wf_preparing_a_lesson_model_on_show",
+]
+
+[[workflows]]
+id = "running-a-poll"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_running_a_poll_live",
+    "test_app.py::test_wf_running_a_poll_invalid_options",
+]
+
+[[workflows]]
+id = "breakouts-bell-return"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_breakouts_bell_return_device_clock",
+    "test_app.py::test_wf_breakouts_bell_return_late_edges",
+    "test_app.py::test_wf_breakouts_bell_return_real_timers",
+]
+
+[[workflows]]
+id = "attendance-edges"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_attendance_edges_summary_page",
+    "test_app.py::test_wf_attendance_edges_schedule_dialog",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "phone-touch"
+requirements = [
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_phone_touch_tap_flow",
+    "test_app.py::test_wf_phone_touch_seat_taken",
+]
+checkpoints = [
+    "B8",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "spotlight-and-lock"
+requirements = [
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_spotlight_and_lock_lock",
+    "test_app.py::test_wf_spotlight_and_lock_coteacher_spotlight",
+    "test_app.py::test_wf_spotlight_and_lock_cursor_spotlight",
+]
+
+[[workflows]]
+id = "roles-and-privacy"
+requirements = [
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_roles_and_privacy_coteacher_view",
+    "test_app.py::test_wf_roles_and_privacy_other_teacher",
+    "test_app.py::test_private_by_default",
+    "test_app.py::test_wf_roles_and_privacy_coteacher_sheet",
+]
+
+[[workflows]]
+id = "outage-and-review"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_outage_and_review_bus_returns",
+    "test_app.py::test_wf_outage_and_review_review",
+    "test_app.py::test_wf_outage_and_review_valkey_down_boot",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_health_and_instances",
+    "test_app.py::test_classroom_mirror_and_webgl",
+]
+checkpoints = [
+    "B5",
+    "B9",
+    "B13",
+]
+critical_checkpoints = [
+    "B5",
+]

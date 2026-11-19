@@ -1,0 +1,1214 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "sign-in-and-roles",
+    "card-deposits",
+    "event-trading",
+    "shared-book",
+    "orderbook-orbit",
+    "event-lifecycle",
+    "margin-liquidation",
+    "builder-api",
+    "builder-billing",
+    "builder-webhooks",
+    "statements",
+    "owner-venue",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 90
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "keycloak", env = {} },
+    { name = "killbill", env = {} },
+    { name = "valkey", env = {} },
+    { name = "svix", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Plumtide Venue <venue@plumtide.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 5
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 5
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 5
+Q7 = 5
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "svix-down"
+port = 4175
+url_env = "APP_SVIX_DOWN_URL"
+
+[outages.env]
+SVIX_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "minio-down"
+port = 4176
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4177
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "short-timer"
+port = 4178
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+DUNNING_FINAL_NOTICE_SECONDS = "5"
+OVERDUE_POLL_SECONDS = "5"
+INVITE_TTL_SECONDS = "5"
+DATABASE_URL = "${DATABASE_URL}_short"
+
+[[requirements]]
+id = "DP-01"
+title = "Keycloak sign-in"
+text = "A person signs in through the deployment's Keycloak realm from the Sign in link and lands on their venue home, signed in, in the same browser that started the sign-in."
+kind = "behavior"
+primary = "workflow"
+workflow = "sign-in-and-roles"
+tests = [
+    "test_app.py::test_wf_sign_in_and_roles_browser_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Sign-in stays in its browser"
+text = "Each sign-in attempt carries its own fresh state and proof key, and a callback with a missing, reused or foreign state shows the sign-in error page and creates no session."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-roles"
+tests = [
+    "test_app.py::test_wf_sign_in_and_roles_callback_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Password sessions for scripts"
+text = "`POST /api/session` exchanges a member's Keycloak username and password for the same session a browser sign-in gives, as specified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-roles"
+tests = [
+    "test_app.py::test_password_session",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Role checks on the server"
+text = "Every role-restricted endpoint, including resolve-event, run-liquidations and refund-deposit, answers 403 to a signed-in caller of the same venue who lacks the role, however the request is built."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-roles"
+tests = [
+    "test_app.py::test_role_checks_forbidden",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Not found for other members' records"
+text = "Another member's order, fill, deposit or statement, and any id from another venue, answers exactly like an id that does not exist."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-roles"
+tests = [
+    "test_app.py::test_other_members_records_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Profile and ID documents"
+text = "A member edits their display name and uploads an ID document that only their own venue's market admins can open, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-roles"
+tests = [
+    "test_app.py::test_profile_and_id_documents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Founder console without member data"
+text = "The founder operator lists and onboards venues and reads provider health, and every venue route refuses them."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-roles"
+tests = [
+    "test_app.py::test_founder_console",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Card deposit journey"
+text = "A trader funds their house balance by card from the Balance screen and sees the confirmed amount in their available balance and deposit list."
+kind = "behavior"
+primary = "workflow"
+workflow = "card-deposits"
+tests = [
+    "test_app.py::test_wf_card_deposits_happy",
+    "test_app.py::test_wf_card_deposits_invalid_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Balance rises only on Kill Bill success"
+text = "A deposit credits the house balance only after Kill Bill records a successful PURCHASE on the member's own Kill Bill account, and a replayed deposit request never charges twice."
+kind = "behavior"
+primary = "pytest"
+workflow = "card-deposits"
+tests = [
+    "test_app.py::test_deposit_credited_on_killbill_success",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Deposit validation"
+text = "A deposit outside the published amount range or with an invalid card number is refused with field errors and reaches neither Kill Bill nor the ledger."
+kind = "behavior"
+primary = "pytest"
+workflow = "card-deposits"
+tests = [
+    "test_app.py::test_deposit_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Card payments paused"
+text = "While Kill Bill is unreachable, deposits and refunds answer 503 and the Balance screen shows the paused-payments banner, and trading continues."
+kind = "behavior"
+primary = "pytest"
+workflow = "card-deposits"
+tests = [
+    "test_app.py::test_wf_card_deposits_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Deposit receipt email"
+text = "Each confirmed deposit sends one receipt email to the depositor carrying only their own deposit details, delivered later if mail is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "card-deposits"
+tests = [
+    "test_app.py::test_deposit_receipt_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Deposit refunds"
+text = "A market admin refunds all or part of a deposit through Kill Bill, capped by the published refundable amount, and the member gets a refund email."
+kind = "behavior"
+primary = "pytest"
+workflow = "card-deposits"
+tests = [
+    "test_app.py::test_deposit_refunds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Balanced venue ledger"
+text = "Every balance change posts as one journal entry whose legs sum to zero, so each venue's accounts sum to zero and every member balance equals the sum of its legs."
+kind = "behavior"
+primary = "pytest"
+workflow = "card-deposits"
+tests = [
+    "test_app.py::test_balanced_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Event order journey"
+text = "A trader picks an event market, sets outcome, price and size, reviews, confirms, sees the order rest or fill, and cancels a resting one."
+kind = "behavior"
+primary = "workflow"
+workflow = "event-trading"
+tests = [
+    "test_app.py::test_wf_event_trading_fill",
+    "test_app.py::test_wf_event_trading_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Event matching across the mirror"
+text = "On an event market a buy of YES at a price meets a buy of NO at 100 minus that price on one price-time-priority book."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-trading"
+tests = [
+    "test_app.py::test_event_mirror_matching",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Exact cost and fee per fill"
+text = "Each fill charges its notional plus the published basis-point fee rounded half-up per fill, in integer cents."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-trading"
+tests = [
+    "test_app.py::test_fee_per_fill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Order validation and holds"
+text = "An order is checked for ranges, market state and funds, and its maximum cost is held from the available balance until it fills or ends."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-trading"
+tests = [
+    "test_app.py::test_order_validation_and_holds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Order lifecycle"
+text = "Orders move through resting, partially filled, filled, cancelled and liquidated by the published rules, and cancelling an ended order answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-trading"
+tests = [
+    "test_app.py::test_order_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Order announcements"
+text = "The ticket's live region announces the published order and fill messages word for word."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-trading"
+tests = [
+    "test_app.py::test_order_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Keyboard-complete ticket"
+text = "Choosing a market, picking a book level, setting the ticket, reviewing, confirming and cancelling all work by keyboard alone, with dialogs that keep and return focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-trading"
+tests = [
+    "test_app.py::test_keyboard_ticket",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Spot and margin share one book"
+text = "Spot and margin orders on a pair rest on one price-time-priority book and match each other."
+kind = "behavior"
+primary = "pytest"
+workflow = "shared-book"
+tests = [
+    "test_app.py::test_wf_shared_book_margin_meets_spot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Spot holdings"
+text = "Spot buys add units to the buyer's holdings, and spot sells need unreserved units."
+kind = "behavior"
+primary = "pytest"
+workflow = "shared-book"
+tests = [
+    "test_app.py::test_spot_holdings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Margin positions"
+text = "Margin orders open, grow or reduce one long or short position per member per pair, with collateral and profit or loss as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "shared-book"
+tests = [
+    "test_app.py::test_margin_positions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Live in-place updates"
+text = "Balance, open interest, book levels and the orbit's rings update within one second of a fill, without a reload and without losing the ticket draft."
+kind = "behavior"
+primary = "pytest"
+workflow = "shared-book"
+tests = [
+    "test_app.py::test_wf_shared_book_live_updates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Orderbook Orbit"
+text = "The market detail shows the live book as the Orderbook Orbit beside a synced ranked list of the same levels, and picking a level on either side prefills the ticket."
+kind = "behavior"
+primary = "pytest"
+workflow = "orderbook-orbit"
+tests = [
+    "test_app.py::test_wf_orderbook_orbit_pick_ring",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Scroll and drag camera"
+text = "Scrolling the market detail moves the orbit camera from top-down to side profile and back along one fixed path, and dragging adds a limited yaw that springs back."
+kind = "behavior"
+primary = "pytest"
+workflow = "orderbook-orbit"
+tests = [
+    "test_app.py::test_orbit_camera",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Fill settle and re-sort"
+text = "When a fill lands, the filled ring shrinks, the rings re-sort and settle without bounce, and the trade numeral counts to the new last price."
+kind = "behavior"
+primary = "pytest"
+workflow = "orderbook-orbit"
+tests = [
+    "test_app.py::test_orbit_fill_settle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Depth ladder for reduced motion and no WebGL"
+text = "With reduced motion or without WebGL, a flat two-column depth ladder replaces the orbit, updates at once, and keeps the same selection and ticket prefill."
+kind = "behavior"
+primary = "pytest"
+workflow = "orderbook-orbit"
+tests = [
+    "test_app.py::test_wf_orderbook_orbit_depth_ladder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Market detail layouts"
+text = "The market detail gives each published viewport its published layout (stacked, side by side, three panes) with no horizontal scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "orderbook-orbit"
+tests = [
+    "test_app.py::test_market_detail_layouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Market lifecycle"
+text = "Market admins list, open, halt, resume and resolve markets along the published state machine, and every illegal step answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-lifecycle"
+tests = [
+    "test_app.py::test_market_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Server-decided trading close"
+text = "An event stops trading at its server-set close instant, refuses later orders, cancels resting ones and flips open screens to closed, whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-lifecycle"
+tests = [
+    "test_app.py::test_wf_event_lifecycle_server_close",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Resolution and settlement"
+text = "Resolving a closed event pays each winning contract 100 cents exactly once and moves the market to settled."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-lifecycle"
+tests = [
+    "test_app.py::test_resolution_settlement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Resolve-to-payout journey"
+text = "A market admin resolves an event in the admin screen, and its holders see the market settled and the payout in their balance."
+kind = "behavior"
+primary = "workflow"
+workflow = "event-lifecycle"
+tests = [
+    "test_app.py::test_wf_event_lifecycle_resolve_payout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Maintenance check"
+text = "After every fill on a pair, the server checks each open margin position on that pair against its maintenance requirement at the new mark, within the delay stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "margin-liquidation"
+tests = [
+    "test_app.py::test_wf_margin_liquidation_after_fill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Liquidation"
+text = "A position below maintenance is liquidated at the mark and its resting margin orders end as liquidated, and a market admin can run the check on demand."
+kind = "behavior"
+primary = "pytest"
+workflow = "margin-liquidation"
+tests = [
+    "test_app.py::test_wf_margin_liquidation_on_demand",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "API keys"
+text = "A builder creates, lists and revokes API keys, sees each secret once, and trades with a key as themselves."
+kind = "behavior"
+primary = "pytest"
+workflow = "builder-api"
+tests = [
+    "test_app.py::test_wf_builder_api_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Idempotent order placement"
+text = "Repeating an order with the same Idempotency-Key returns the original order without a second order, hold or fee, and a different body under that key answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "builder-api"
+tests = [
+    "test_app.py::test_idempotent_orders",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Plan rate limits"
+text = "Each API key is limited to its builder's effective plan rate, held in Valkey, and excess requests answer 429."
+kind = "behavior"
+primary = "pytest"
+workflow = "builder-api"
+tests = [
+    "test_app.py::test_plan_rate_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "No extra fields"
+text = "Profile, order, deposit, refund, fee and invite requests that carry any field the API does not list are refused with 422 and change nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "builder-api"
+tests = [
+    "test_app.py::test_no_extra_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Builder API journey"
+text = "A builder mints a key, places and cancels orders over the API, and sees the same orders and fills on their screens."
+kind = "behavior"
+primary = "workflow"
+workflow = "builder-api"
+tests = [
+    "test_app.py::test_wf_builder_api_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Builder plans in Kill Bill"
+text = "Builder plans are Kill Bill subscriptions: upgrades take effect at once with Kill Bill's proration, downgrades take effect at the end of the term Kill Bill reports, and invoices are read back from Kill Bill."
+kind = "behavior"
+primary = "pytest"
+workflow = "builder-billing"
+tests = [
+    "test_app.py::test_builder_plans_in_killbill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Dunning follows Kill Bill overdue"
+text = "The builder's plan state follows Kill Bill's overdue state, the downgraded state cuts every key to the Sandbox rate in the same step, a cleared account restores it, and each step sends its email."
+kind = "behavior"
+primary = "pytest"
+workflow = "builder-billing"
+tests = [
+    "test_app.py::test_dunning_rates_follow_plan",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Billing screen journey"
+text = "A builder changes plan, sees Payment failed or Downgraded with its banner, pays the outstanding balance, and sees the plan restored once Kill Bill clears it."
+kind = "behavior"
+primary = "workflow"
+workflow = "builder-billing"
+tests = [
+    "test_app.py::test_wf_builder_billing_change_plan",
+    "test_app.py::test_wf_builder_billing_outage",
+    "test_app.py::test_wf_builder_billing_dunning",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Builder webhook endpoint"
+text = "A builder saves one webhook endpoint that becomes their Svix endpoint in their venue's Svix application, and sees its delivery attempts."
+kind = "behavior"
+primary = "pytest"
+workflow = "builder-webhooks"
+tests = [
+    "test_app.py::test_wf_builder_webhooks_save_endpoint",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Signed fill, liquidation and settlement events"
+text = "Each of the builder's fills, liquidations and settlements is sent once through Svix, signed, and retried under the same event id, carrying only counterparty-free fields."
+kind = "behavior"
+primary = "pytest"
+workflow = "builder-webhooks"
+tests = [
+    "test_app.py::test_wf_builder_webhooks_signed_delivery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Webhook delivery delays"
+text = "While Svix is unreachable, fills still succeed, events wait and are delivered later, and the webhooks screen shows the delay banner."
+kind = "behavior"
+primary = "pytest"
+workflow = "builder-webhooks"
+tests = [
+    "test_app.py::test_wf_builder_webhooks_delayed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Monthly statements"
+text = "Each member gets a monthly PDF statement for the venue's calendar month, stored in MinIO and opened only by its owner through a short signed link."
+kind = "behavior"
+primary = "pytest"
+workflow = "statements"
+tests = [
+    "test_app.py::test_statements_generated_and_private",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Statement ready email"
+text = "Each new statement sends its owner one email with an in-app link and no statement content."
+kind = "behavior"
+primary = "pytest"
+workflow = "statements"
+tests = [
+    "test_app.py::test_wf_statements_download_and_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Statements unavailable"
+text = "While MinIO is unreachable, statement links and generation answer 503 and the Statements screen shows the outage banner."
+kind = "behavior"
+primary = "pytest"
+workflow = "statements"
+tests = [
+    "test_app.py::test_wf_statements_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Venue totals and member picker"
+text = "The org owner's venue totals and member picker count and list only their own venue's rows."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-venue"
+tests = [
+    "test_app.py::test_venue_totals_and_picker",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Fill export"
+text = "The org owner downloads one month of their venue's fills as CSV, containing only that venue's rows."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-venue"
+tests = [
+    "test_app.py::test_fill_export",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Invites and fee schedule"
+text = "The org owner invites members with chosen roles through Keycloak-backed invites and sets the venue's taker and maker fees for orders placed afterwards."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-venue"
+tests = [
+    "test_app.py::test_invites_and_fees",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Owner journey"
+text = "An org owner reads venue totals, finds a member, invites an admin, saves fees, exports fills, generates statements and sees builder billing states."
+kind = "behavior"
+primary = "workflow"
+workflow = "owner-venue"
+tests = [
+    "test_app.py::test_wf_owner_venue_journey",
+    "test_app.py::test_wf_owner_venue_invite_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Health and run manifest"
+text = "The app installs, builds and serves from `/app/run.json` on the published port, and `/api/health` answers 200 even while a provider is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Server boundary"
+text = "The server enforces the published size limits and origin rule, never serves source files or credentials, and starts even when a provider is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Candy-shift look"
+text = "Every screen carries the candy-shift direction: full-bleed slate, sage, blush and olive fields, Parkinsans and Urbanist type, calm surface cards and one olive pill per action."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Candy-stage hero"
+text = "The home screen opens on the candy-stage hero: the plump product name, the orbit, four cropped stickers and the single Open the book pill."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Credentials from environment"
+text = "Every service URL and credential is read from the published environment variables at start, and none is hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Procedural orbit graphics"
+text = "The Orderbook Orbit and the stickers are drawn procedurally in the browser from live data, with no bundled images or video of the book."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with `\"_schema\":\"run-manifest-v1\"` and string `install`, `build` and `serve` commands, and `install` uses the committed lockfile (`npm ci`)."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` lists every shipped package, meaning the production dependency tree from `npm ls --omit=dev --all --json`, with its licence, plus the two font families."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (same definition as IF-02) is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0, and the fonts under the SIL Open Font License 1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastore, queue, cache or external network service beyond Postgres, Valkey, Keycloak, Kill Bill, Svix, MinIO and the SMTP sink (no SQLite, no file-based database, no CDN at runtime)."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The app never changes the Keycloak `app` or `gf-observer` clients, the realm's registration and login settings, the Kill Bill tenant's credentials, or the MinIO bucket's access policy."
+tests = [
+    "test_app.py::test_if_untouched_provider_config",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "All application source, backend and frontend, is TypeScript. Only tool configuration files may be plain JavaScript."
+tests = [
+    "test_app.py::test_if_typescript_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "`package-lock.json` is committed and every dependency version in `package.json` is exact."
+tests = [
+    "test_app.py::test_if_exact_dependencies",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "sign-in-and-roles"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+]
+critical = [
+    "test_app.py::test_wf_sign_in_and_roles_browser_sign_in",
+    "test_app.py::test_wf_sign_in_and_roles_callback_replay",
+    "test_app.py::test_role_checks_forbidden",
+    "test_app.py::test_other_members_records_not_found",
+]
+
+[[workflows]]
+id = "card-deposits"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_card_deposits_happy",
+    "test_app.py::test_wf_card_deposits_invalid_recovery",
+    "test_app.py::test_wf_card_deposits_outage",
+    "test_app.py::test_deposit_credited_on_killbill_success",
+    "test_app.py::test_balanced_ledger",
+    "test_app.py::test_deposit_receipt_email",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "event-trading"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_event_trading_fill",
+    "test_app.py::test_wf_event_trading_cancel",
+    "test_app.py::test_fee_per_fill",
+    "test_app.py::test_keyboard_ticket",
+    "test_app.py::test_order_announcements",
+]
+checkpoints = [
+    "B7",
+]
+
+[[workflows]]
+id = "shared-book"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_shared_book_margin_meets_spot",
+    "test_app.py::test_wf_shared_book_live_updates",
+    "test_app.py::test_margin_positions",
+]
+
+[[workflows]]
+id = "orderbook-orbit"
+requirements = [
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_orderbook_orbit_pick_ring",
+    "test_app.py::test_wf_orderbook_orbit_depth_ladder",
+    "test_app.py::test_market_detail_layouts",
+]
+checkpoints = [
+    "B8",
+    "B11",
+]
+
+[[workflows]]
+id = "event-lifecycle"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_event_lifecycle_server_close",
+    "test_app.py::test_wf_event_lifecycle_resolve_payout",
+    "test_app.py::test_resolution_settlement",
+]
+
+[[workflows]]
+id = "margin-liquidation"
+requirements = [
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_margin_liquidation_after_fill",
+    "test_app.py::test_wf_margin_liquidation_on_demand",
+]
+
+[[workflows]]
+id = "builder-api"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_builder_api_journey",
+    "test_app.py::test_wf_builder_api_keys",
+    "test_app.py::test_idempotent_orders",
+    "test_app.py::test_no_extra_fields",
+]
+
+[[workflows]]
+id = "builder-billing"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-44",
+]
+critical = [
+    "test_app.py::test_wf_builder_billing_change_plan",
+    "test_app.py::test_wf_builder_billing_outage",
+    "test_app.py::test_wf_builder_billing_dunning",
+    "test_app.py::test_builder_plans_in_killbill",
+    "test_app.py::test_dunning_rates_follow_plan",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "builder-webhooks"
+requirements = [
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_builder_webhooks_save_endpoint",
+    "test_app.py::test_wf_builder_webhooks_signed_delivery",
+    "test_app.py::test_wf_builder_webhooks_delayed",
+]
+
+[[workflows]]
+id = "statements"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_statements_generated_and_private",
+    "test_app.py::test_wf_statements_download_and_email",
+    "test_app.py::test_wf_statements_outage",
+]
+
+[[workflows]]
+id = "owner-venue"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+]
+critical = [
+    "test_app.py::test_wf_owner_venue_journey",
+    "test_app.py::test_wf_owner_venue_invite_errors",
+    "test_app.py::test_venue_totals_and_picker",
+    "test_app.py::test_invites_and_fees",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_health",
+    "test_app.py::test_wf_cross_cutting_server_boundary",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B5",
+]
+critical_checkpoints = [
+    "B1",
+]

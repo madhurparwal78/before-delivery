@@ -1,0 +1,1348 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "room-walk-keyboard",
+    "two-instance-live",
+    "phone-touch-walk",
+    "proximity-chat-edge",
+    "session-visibility",
+    "avatar-upload-keyboard",
+    "room-version-live",
+    "safety-both-ways",
+    "vote-removal",
+    "report-moderator",
+    "community-demotion",
+    "gathering-time-zones",
+    "invite-reduced-outage",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 91
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 5
+B4 = 5
+B5 = 5
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 5
+S4 = 5
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 5
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+GRADING_KEY = "hearthtile-grading-7d31c9"
+STEP_MIN_INTERVAL_MS = "0"
+DROP_GRACE_SECONDS = "30"
+VOTE_WINDOW_SECONDS = "60"
+INVITE_TTL_SECONDS = "604800"
+REMINDER_LEAD_MINUTES = "60"
+CHAT_MAX_CHARS = "300"
+SESSION_CAPACITY_MAX = "50"
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Hearthtile <hello@hearthtile.example>"
+
+[[services]]
+name = "valkey"
+
+[services.env]
+
+[[outages]]
+id = "second-instance"
+port = 4174
+url_env = "APP_SECOND_URL"
+
+[outages.env]
+INSTANCE_NAME = "b"
+
+[[outages]]
+id = "short-timers"
+port = 4175
+url_env = "APP_TIMERS_URL"
+
+[outages.env]
+STEP_MIN_INTERVAL_MS = "2000"
+DROP_GRACE_SECONDS = "2"
+
+[[outages]]
+id = "minio-down"
+port = 4176
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "valkey-down"
+port = 4177
+url_env = "APP_VALKEY_DOWN_URL"
+
+[outages.env]
+VALKEY_URL = "redis://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health."
+text = "Ship the run manifest and bind as Deployment states, and answer the health route as API states, including its 200 unavailable body when Valkey or MinIO is out of reach."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Grading setup and worlds."
+text = "`POST /api/grading/setup` creates a complete world from one JSON body and answers every created id by its key, and lists, counts, presence and search only ever include the caller's world."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_setup_and_worlds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Grading clock and outage."
+text = "`POST /api/grading/clock` holds a world's clock and runs everything that has become due before it answers, and `POST /api/grading/outage` makes only the receiving instance treat a service as unreachable until set false."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_clock_and_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Instances and timers."
+text = "Every timer and limit reads its published environment variable at start, and each published extra instance behaves as Deployment states."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_instances_and_timers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Error order."
+text = "Every route follows the one error order and body shapes stated at the top of API, so anything the caller cannot open answers 404 and never 403."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Server boundary."
+text = "Enforce the same-origin rule, the request size limits and the list of things never served, and keep starting and serving when a dependency is unreachable at boot, as Server boundary states."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_boot_with_services_unreachable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Sign-up and sign-in."
+text = "Sign-up and sign-in never reveal whether an email is known, sign-up mails a confirmation link to a new email only, and only a confirmed account signs in."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_signup_and_signin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Seed data."
+text = "Apply the invented records in Seed data exactly once at first start, with original procedural model files stored as real versions."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_seed_data",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Room mirror."
+text = "A room page carries the published mirror lists and attributes, updated when the server's message arrives and never on an animation frame, so it stays correct with the page clock paused."
+kind = "behavior"
+primary = "pytest"
+workflow = "room-walk-keyboard"
+tests = [
+    "test_app.py::test_room_mirror_attributes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Turn then step."
+text = "A direction press turns a standing person who is not facing that way and moves a standing person who is, on the published tile grid decided by the server, and a seated person's press is refused as Business rules states."
+kind = "behavior"
+primary = "pytest"
+workflow = "room-walk-keyboard"
+tests = [
+    "test_app.py::test_turn_then_step",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Refused steps and pacing."
+text = "A refused step changes nothing and answers its exact text, and a step inside the minimum interval answers 429, as Business rules states."
+kind = "behavior"
+primary = "pytest"
+workflow = "room-walk-keyboard"
+tests = [
+    "test_app.py::test_refused_steps_and_pacing",
+    "test_app.py::test_wf_room_walk_keyboard_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Sit and stand."
+text = "A person sits on the seat straight ahead and stands back to the published tile, with an exact refusal for each case in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "room-walk-keyboard"
+tests = [
+    "test_app.py::test_sit_and_stand",
+    "test_app.py::test_wf_room_walk_keyboard_sit_stand",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Room shortcuts."
+text = "A Member walks, sits, opens chat, lists nearby people and opens the nearest person's actions using only the keyboard, with Tab wrapping inside every open dialog and focus returning to the opener."
+kind = "behavior"
+primary = "workflow"
+workflow = "room-walk-keyboard"
+tests = [
+    "test_app.py::test_wf_room_walk_keyboard_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Room announcements."
+text = "The Room announcements region holds each arrival, departure, nearby person and refusal with its exact text, spaced by the page clock rule in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "room-walk-keyboard"
+tests = [
+    "test_app.py::test_wf_room_walk_keyboard_announcements",
+    "test_app.py::test_announcement_spacing_and_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Live mirror across instances."
+text = "Two people on different app instances see each other's arrival and every move in the mirror in place with no reload, through the published Valkey keys and channel."
+kind = "behavior"
+primary = "workflow"
+workflow = "two-instance-live"
+tests = [
+    "test_app.py::test_wf_two_instance_live_meet",
+    "test_app.py::test_wf_two_instance_live_seat",
+    "test_app.py::test_wf_two_instance_live_touch",
+    "test_app.py::test_wf_two_instance_live_reload",
+    "test_app.py::test_wf_two_instance_live_host_handover",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "One tile one winner."
+text = "Of any people stepping onto one tile on any instances, exactly one moves by server order and each other person reads the published refusal and stays."
+kind = "behavior"
+primary = "pytest"
+workflow = "two-instance-live"
+tests = [
+    "test_app.py::test_one_tile_one_winner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Exits and departures."
+text = "Stepping onto an exit or leaving ends a person's presence in the session, and a person who has lost all sockets leaves only after the grace period, with a reload inside it keeping their tile."
+kind = "behavior"
+primary = "pytest"
+workflow = "two-instance-live"
+tests = [
+    "test_app.py::test_exits_and_leaving",
+    "test_app.py::test_wf_two_instance_live_grace",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Direction buttons."
+text = "On a phone a Member steps with on-screen direction buttons of at least 44 px, where a press steps once at once and a hold repeats on the page clock until release."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone-touch-walk"
+tests = [
+    "test_app.py::test_wf_phone_touch_walk_hold",
+    "test_app.py::test_wf_phone_touch_walk_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "People and chat sheet."
+text = "At phone size a closed sheet is hidden and inert, Tab wraps inside the open sheet, arrow keys in its chat field move only the caret, and reopening it during its exit keeps it open with no stale timer re-hiding it."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-touch-walk"
+tests = [
+    "test_app.py::test_wf_phone_touch_walk_sheet",
+    "test_app.py::test_wf_phone_touch_walk_chat",
+    "test_app.py::test_wf_phone_touch_walk_closed_sheet_current",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Published layouts."
+text = "Each of 375x812, 768x1024 and 1280x800 shows its published arrangement and order of canvas, people list and chat with no horizontal overflow."
+kind = "visual"
+primary = "pytest"
+workflow = "phone-touch-walk"
+tests = [
+    "test_app.py::test_published_layouts",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "desktop",
+]
+
+[[requirements]]
+id = "DP-21"
+title = "Chat distance."
+text = "The server decides recipients at send time by the published distance, and `heardBy` matches every case in the worked distance table in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "proximity-chat-edge"
+tests = [
+    "test_app.py::test_chat_distance_table",
+]
+criteria = []
+parameter_cases = [
+    "x6",
+    "x7",
+    "corner6",
+    "corner7",
+    "north5",
+]
+
+[[requirements]]
+id = "DP-22"
+title = "Chat recipients and length."
+text = "A message reaches only its recipients in the log, the API and the socket, walking into range later never reveals it, and its length is counted in user-perceived characters as Business rules states."
+kind = "behavior"
+primary = "workflow"
+workflow = "proximity-chat-edge"
+tests = [
+    "test_app.py::test_wf_proximity_chat_edge_three_members",
+    "test_app.py::test_wf_proximity_chat_edge_length",
+    "test_app.py::test_wf_proximity_chat_edge_keyboard",
+    "test_app.py::test_wf_proximity_chat_edge_walk_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Earshot Ripple."
+text = "On send the speaker reads the server's recipient count and sees Earshot Ripple grow from their tile out to the chat distance, observable through the published attributes on the page clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "proximity-chat-edge"
+tests = [
+    "test_app.py::test_earshot_ripple",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Session lifecycle."
+text = "A Host opens a session of a published room with a level and capacity, the longest-present person becomes host when the host leaves, and the session ends when its last person leaves."
+kind = "behavior"
+primary = "workflow"
+workflow = "session-visibility"
+tests = [
+    "test_app.py::test_wf_session_visibility_open_and_handover",
+    "test_app.py::test_session_open_validation",
+    "test_app.py::test_wf_session_visibility_outage_alert",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Visibility levels."
+text = "Who may see and join a session matches every row of the visibility table in Business rules, a block with the host included."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-visibility"
+tests = [
+    "test_app.py::test_visibility_table",
+]
+criteria = []
+parameter_cases = [
+    "any",
+    "friend",
+    "community-member",
+    "invited",
+    "blocked-by-host",
+    "blocks-host",
+    "removed",
+    "other-world",
+]
+
+[[requirements]]
+id = "DP-26"
+title = "Barred sessions stay hidden."
+text = "A session someone may not join answers 404 and is absent from every list, search, total, count, capacity figure and friend presence entry that person can read."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-visibility"
+tests = [
+    "test_app.py::test_barred_sessions_stay_hidden",
+    "test_app.py::test_wf_session_visibility_barred_page",
+    "test_app.py::test_wf_session_visibility_search_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Last capacity place."
+text = "Exactly one of any number of concurrent joiners takes the last place across instances, the others read the published refusal, and a person with two tabs counts once."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-visibility"
+tests = [
+    "test_app.py::test_last_capacity_place",
+    "test_app.py::test_wf_session_visibility_last_place_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Friend presence."
+text = "Friends with no block between them read each other's published presence state, and a join control appears only when the viewer may join that session."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-visibility"
+tests = [
+    "test_app.py::test_friend_presence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Upload journey."
+text = "A Creator uploads, reads the rank, the worst measure and the measures table, and publishes the version using only the keyboard, as the upload rows in Public screens and controls state."
+kind = "behavior"
+primary = "workflow"
+workflow = "avatar-upload-keyboard"
+tests = [
+    "test_app.py::test_wf_avatar_upload_keyboard_journey",
+    "test_app.py::test_wf_avatar_upload_keyboard_phone_wear",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Refused uploads."
+text = "Type is judged from the file's content in the published check order, never its name or declared type, and each refused file answers and shows its exact text."
+kind = "behavior"
+primary = "pytest"
+workflow = "avatar-upload-keyboard"
+tests = [
+    "test_app.py::test_wf_avatar_upload_keyboard_renamed_file",
+    "test_app.py::test_refused_uploads",
+    "test_app.py::test_wf_avatar_upload_keyboard_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Rank measures."
+text = "Triangles, materials, texture size and file size are measured as Business rules states, and the rank is computed once at upload and stored with the version."
+kind = "behavior"
+primary = "pytest"
+workflow = "avatar-upload-keyboard"
+tests = [
+    "test_app.py::test_rank_measures",
+    "test_app.py::test_wf_avatar_upload_keyboard_measures",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Rank limits."
+text = "The rank for each kind matches every inclusive limit in the rank table, the worst measure sets the rank, and a tie names the earlier measure."
+kind = "behavior"
+primary = "pytest"
+workflow = "avatar-upload-keyboard"
+tests = [
+    "test_app.py::test_rank_limits",
+]
+criteria = []
+parameter_cases = [
+    "avatar-feather",
+    "avatar-linen",
+    "avatar-cedar",
+    "avatar-granite",
+    "room-feather",
+    "room-linen",
+    "room-cedar",
+    "room-granite",
+]
+
+[[requirements]]
+id = "DP-33"
+title = "Stored as submitted."
+text = "Every version's file is stored byte for byte at the published MinIO key and reads back as the same bytes, and a version exists only after its object is stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "avatar-upload-keyboard"
+tests = [
+    "test_app.py::test_stored_byte_for_byte",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Publishing versions."
+text = "Publishing makes a checked version current for later joins only, and everyone already inside keeps the version they joined with until they rejoin."
+kind = "behavior"
+primary = "workflow"
+workflow = "room-version-live"
+tests = [
+    "test_app.py::test_wf_room_version_live_publish",
+    "test_app.py::test_wf_room_version_live_rejoin_announced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Walking your own version."
+text = "Each person walks on the layout of their own room version while other people still block them, as the worked example in Business rules states."
+kind = "behavior"
+primary = "pytest"
+workflow = "room-version-live"
+tests = [
+    "test_app.py::test_walking_your_own_version",
+    "test_app.py::test_wf_room_version_live_own_walls",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Restore and removal."
+text = "Restore publishes a new version with the old bytes, and removal deletes the object and takes the version out of every list and route unless it is in use by an open session, as Business rules states."
+kind = "behavior"
+primary = "pytest"
+workflow = "room-version-live"
+tests = [
+    "test_app.py::test_restore_and_removal",
+    "test_app.py::test_wf_room_version_live_restore_remove",
+    "test_app.py::test_wf_room_version_live_versions_keyboard",
+    "test_app.py::test_wf_room_version_live_numbers_never_reused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Block both ways."
+text = "A block has every published effect in both directions at once in live sessions, persists, and is fully undone on unblock."
+kind = "behavior"
+primary = "workflow"
+workflow = "safety-both-ways"
+tests = [
+    "test_app.py::test_wf_safety_both_ways_block",
+    "test_app.py::test_wf_safety_both_ways_block_announced",
+    "test_app.py::test_wf_safety_both_ways_friend_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Mute one way."
+text = "A mute stops only the muted person's chat reaching the muter, leaves the muted person's view unchanged, applies at once and persists."
+kind = "behavior"
+primary = "pytest"
+workflow = "safety-both-ways"
+tests = [
+    "test_app.py::test_wf_safety_both_ways_mute",
+    "test_app.py::test_wf_safety_both_ways_phone_mute",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Hide above rank."
+text = "A viewer's rank setting hides heavier avatars for that viewer only, at once, with the published precedence between avatar states."
+kind = "behavior"
+primary = "pytest"
+workflow = "safety-both-ways"
+tests = [
+    "test_app.py::test_hide_above_rank",
+    "test_app.py::test_wf_safety_both_ways_hide_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Starting and casting a vote."
+text = "Anyone in a session starts a removal vote by keyboard from the person's actions, the starter's yes counts, eligibility is fixed at the start, and each illegal attempt answers its exact refusal."
+kind = "behavior"
+primary = "workflow"
+workflow = "vote-removal"
+tests = [
+    "test_app.py::test_wf_vote_removal_keyboard",
+    "test_app.py::test_vote_refusals",
+    "test_app.py::test_wf_vote_removal_start_refusals",
+    "test_app.py::test_wf_vote_removal_phone_touch",
+    "test_app.py::test_wf_vote_removal_late_joiner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Vote thresholds."
+text = "The yes votes a removal needs match every row of the threshold table in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "vote-removal"
+tests = [
+    "test_app.py::test_vote_thresholds",
+]
+criteria = []
+parameter_cases = [
+    "e2",
+    "e3",
+    "e4",
+    "e5",
+    "e6",
+    "e7",
+    "e10",
+]
+
+[[requirements]]
+id = "DP-42"
+title = "Vote window and outcome."
+text = "The server's world clock alone opens and closes a vote even when the device clock is wrong, and passing removes the person at once with the published notices and a barred rejoin."
+kind = "behavior"
+primary = "pytest"
+workflow = "vote-removal"
+tests = [
+    "test_app.py::test_vote_window",
+    "test_app.py::test_wf_vote_removal_wrong_device_clock",
+    "test_app.py::test_wf_vote_removal_across_instances_rejoin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Anonymous reports."
+text = "Anyone in a session files a report by keyboard, a block does not prevent it, and no response, page or mail ever reveals who filed it."
+kind = "behavior"
+primary = "pytest"
+workflow = "report-moderator"
+tests = [
+    "test_app.py::test_wf_report_moderator_file_and_triage",
+    "test_app.py::test_report_anonymity_and_validation",
+    "test_app.py::test_wf_report_moderator_blocked_reporter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Report moves."
+text = "A Moderator moves a report through the legal states, every illegal move is refused with the exact text, and non-moderators answer 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "report-moderator"
+tests = [
+    "test_app.py::test_report_moves",
+    "test_app.py::test_wf_report_moderator_queue_keyboard",
+    "test_app.py::test_wf_report_moderator_phone_queue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Warn and suspend."
+text = "Suspending ends the person's live sessions at once with the published notice and refuses their next request and later sign-ins, while warning shows its notice and ends nothing."
+kind = "behavior"
+primary = "workflow"
+workflow = "report-moderator"
+tests = [
+    "test_app.py::test_wf_report_moderator_suspend",
+    "test_app.py::test_wf_report_moderator_warn",
+    "test_app.py::test_wf_report_moderator_suspend_instances",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Live role changes."
+text = "A role change or removal applies on the person's next request, mid-session, and a removed control leaves the page on the pushed event with focus kept safe."
+kind = "behavior"
+primary = "workflow"
+workflow = "community-demotion"
+tests = [
+    "test_app.py::test_wf_community_demotion_live",
+    "test_app.py::test_wf_community_demotion_removed_member",
+    "test_app.py::test_role_change_rules",
+    "test_app.py::test_wf_community_demotion_keyboard_owner",
+    "test_app.py::test_wf_community_demotion_steward_view",
+    "test_app.py::test_wf_community_demotion_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Member fields by role."
+text = "`GET /api/communities/<id>/members` returns exactly the keys in the role table in Business rules, and nothing more."
+kind = "behavior"
+primary = "pytest"
+workflow = "community-demotion"
+tests = [
+    "test_app.py::test_member_fields_by_role",
+]
+criteria = []
+parameter_cases = [
+    "member",
+    "steward",
+    "owner",
+]
+
+[[requirements]]
+id = "DP-48"
+title = "Community boundary."
+text = "Another community's member, gathering or session id answers 404 on every route, nested path and request body ids included."
+kind = "behavior"
+primary = "pytest"
+workflow = "community-demotion"
+tests = [
+    "test_app.py::test_community_boundary",
+    "test_app.py::test_wf_community_demotion_boundary_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Gathering times by zone."
+text = "A gathering is stored in its community's zone and each Member reads it in their own zone in the exact published format and abbreviation."
+kind = "behavior"
+primary = "workflow"
+workflow = "gathering-time-zones"
+tests = [
+    "test_app.py::test_wf_gathering_time_zones_display",
+    "test_app.py::test_every_zone_prints_its_abbreviation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Daylight-saving rules."
+text = "Weekly gatherings keep the community's wall clock across daylight-saving dates, and missing and repeated local times follow the published rules and are shown as notes to each Member."
+kind = "behavior"
+primary = "pytest"
+workflow = "gathering-time-zones"
+tests = [
+    "test_app.py::test_daylight_saving_rules",
+    "test_app.py::test_wf_gathering_time_zones_schedule_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Gathering status and limit."
+text = "The server's world clock decides upcoming, open and ended even when the device clock is wrong, and attending stops at the limit with the published refusal."
+kind = "behavior"
+primary = "pytest"
+workflow = "gathering-time-zones"
+tests = [
+    "test_app.py::test_gathering_status_and_limit",
+    "test_app.py::test_wf_gathering_time_zones_device_clock",
+    "test_app.py::test_wf_gathering_time_zones_attend_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Exactly-once reminders."
+text = "Each attending Member gets one reminder per occurrence across all instances at the published lead time, in that Member's zone, and nothing one second earlier."
+kind = "behavior"
+primary = "pytest"
+workflow = "gathering-time-zones"
+tests = [
+    "test_app.py::test_exactly_once_reminders",
+    "test_app.py::test_wf_gathering_time_zones_reminder_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Friend invites."
+text = "Friend invites answer identically for known and unknown emails, work once by keyboard, die at exactly their lifetime, can be revoked, and show one identical refusal when dead."
+kind = "behavior"
+primary = "workflow"
+workflow = "invite-reduced-outage"
+tests = [
+    "test_app.py::test_wf_invite_reduced_outage_invite",
+    "test_app.py::test_invite_lifetime_and_refusals",
+    "test_app.py::test_wf_invite_reduced_outage_phone_accept",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Reduced motion."
+text = "Under reduced motion the camera cuts, avatars jump, no animation runs, Earshot Ripple is a static outline and the sheet has no exit animation, with the same function and text."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-reduced-outage"
+tests = [
+    "test_app.py::test_reduced_motion",
+    "test_app.py::test_wf_invite_reduced_outage_join_friend",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "File storage outage."
+text = "With MinIO unreachable an upload saves nothing and shows the exact text, which no later repaint overwrites."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-reduced-outage"
+tests = [
+    "test_app.py::test_wf_invite_reduced_outage_minio",
+    "test_app.py::test_file_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Live room outage."
+text = "With Valkey unreachable opening or joining saves nothing and shows the exact text, other pages keep working, and an open room page recovers with no reload or restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-reduced-outage"
+tests = [
+    "test_app.py::test_live_room_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Paper-cut look."
+text = "Every screen wears the warm cut-paper look in Visual design, on a cream ground with one lantern-yellow accent and hard offset shadows."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Room scene."
+text = "A seeded room shows a visible paper-cut tile floor, avatars standing on their tiles and, after a message, Earshot Ripple, on a software WebGL renderer."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "3D view fallback."
+text = "Without WebGL the canvas is replaced by the published text, and the mirror and every control still work."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_webgl_fallback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Source integrity."
+text = "The source shows a real WebGL scene, real provider calls and credentials read only from the environment, with no state faked for the mirror or stored outside the four services."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with string `install`, `build` and `serve` and `\"_schema\":\"run-manifest-v1\"`."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` names every shipped package with its licence, where shipped packages means the production dependency tree (`npm ls --omit=dev --all --json`, or the lockfile's non-dev group)."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package, meaning the production dependency tree as in IF-02, has a licence among MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC or 0BSD."
+tests = [
+    "test_app.py::test_if_allowed_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses only Postgres, MinIO, Mailpit and Valkey for storage and messaging, with no other datastore, broker or lasting local file state."
+tests = [
+    "test_app.py::test_if_only_four_services",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The application source is TypeScript."
+tests = [
+    "test_app.py::test_if_typescript_source",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Models, fonts and other assets the app ships are original or generated by the app, and nothing is fetched from outside at run time."
+tests = [
+    "test_app.py::test_if_shipped_assets_named",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The development service definitions you are given stay untouched."
+tests = [
+    "test_app.py::test_if_service_definitions",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "room-walk-keyboard"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_room_walk_keyboard_journey",
+    "test_app.py::test_wf_room_walk_keyboard_announcements",
+    "test_app.py::test_room_mirror_attributes",
+    "test_app.py::test_announcement_spacing_and_limit",
+    "test_app.py::test_wf_room_walk_keyboard_refusals",
+    "test_app.py::test_wf_room_walk_keyboard_sit_stand",
+]
+
+[[workflows]]
+id = "two-instance-live"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_two_instance_live_meet",
+    "test_app.py::test_one_tile_one_winner",
+    "test_app.py::test_exits_and_leaving",
+    "test_app.py::test_wf_two_instance_live_grace",
+    "test_app.py::test_wf_two_instance_live_seat",
+    "test_app.py::test_wf_two_instance_live_touch",
+    "test_app.py::test_wf_two_instance_live_reload",
+    "test_app.py::test_wf_two_instance_live_host_handover",
+]
+
+[[workflows]]
+id = "phone-touch-walk"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_phone_touch_walk_hold",
+    "test_app.py::test_wf_phone_touch_walk_sheet",
+    "test_app.py::test_published_layouts",
+    "test_app.py::test_wf_phone_touch_walk_refused",
+    "test_app.py::test_wf_phone_touch_walk_chat",
+    "test_app.py::test_wf_phone_touch_walk_closed_sheet_current",
+]
+
+[[workflows]]
+id = "proximity-chat-edge"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_wf_proximity_chat_edge_three_members",
+    "test_app.py::test_wf_proximity_chat_edge_length",
+    "test_app.py::test_earshot_ripple",
+    "test_app.py::test_wf_proximity_chat_edge_keyboard",
+    "test_app.py::test_wf_proximity_chat_edge_walk_out",
+]
+
+[[workflows]]
+id = "session-visibility"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_session_visibility_open_and_handover",
+    "test_app.py::test_barred_sessions_stay_hidden",
+    "test_app.py::test_wf_session_visibility_barred_page",
+    "test_app.py::test_wf_session_visibility_last_place_race",
+    "test_app.py::test_friend_presence",
+    "test_app.py::test_wf_session_visibility_search_live",
+    "test_app.py::test_wf_session_visibility_outage_alert",
+]
+
+[[workflows]]
+id = "avatar-upload-keyboard"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_avatar_upload_keyboard_journey",
+    "test_app.py::test_wf_avatar_upload_keyboard_renamed_file",
+    "test_app.py::test_stored_byte_for_byte",
+    "test_app.py::test_wf_avatar_upload_keyboard_refusals",
+    "test_app.py::test_wf_avatar_upload_keyboard_measures",
+    "test_app.py::test_wf_avatar_upload_keyboard_phone_wear",
+]
+
+[[workflows]]
+id = "room-version-live"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_room_version_live_publish",
+    "test_app.py::test_wf_room_version_live_restore_remove",
+    "test_app.py::test_wf_room_version_live_own_walls",
+    "test_app.py::test_wf_room_version_live_versions_keyboard",
+    "test_app.py::test_wf_room_version_live_rejoin_announced",
+    "test_app.py::test_wf_room_version_live_numbers_never_reused",
+]
+
+[[workflows]]
+id = "safety-both-ways"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_safety_both_ways_block",
+    "test_app.py::test_wf_safety_both_ways_mute",
+    "test_app.py::test_hide_above_rank",
+    "test_app.py::test_wf_safety_both_ways_block_announced",
+    "test_app.py::test_wf_safety_both_ways_friend_list",
+    "test_app.py::test_wf_safety_both_ways_hide_keyboard",
+    "test_app.py::test_wf_safety_both_ways_phone_mute",
+]
+
+[[workflows]]
+id = "vote-removal"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_vote_removal_keyboard",
+    "test_app.py::test_wf_vote_removal_wrong_device_clock",
+    "test_app.py::test_wf_vote_removal_start_refusals",
+    "test_app.py::test_wf_vote_removal_phone_touch",
+    "test_app.py::test_wf_vote_removal_across_instances_rejoin",
+    "test_app.py::test_wf_vote_removal_late_joiner",
+]
+
+[[workflows]]
+id = "report-moderator"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_report_moderator_file_and_triage",
+    "test_app.py::test_wf_report_moderator_suspend",
+    "test_app.py::test_report_anonymity_and_validation",
+    "test_app.py::test_wf_report_moderator_warn",
+    "test_app.py::test_wf_report_moderator_queue_keyboard",
+    "test_app.py::test_wf_report_moderator_blocked_reporter",
+    "test_app.py::test_wf_report_moderator_suspend_instances",
+    "test_app.py::test_wf_report_moderator_phone_queue",
+]
+
+[[workflows]]
+id = "community-demotion"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_community_demotion_live",
+    "test_app.py::test_member_fields_by_role",
+    "test_app.py::test_community_boundary",
+    "test_app.py::test_wf_community_demotion_removed_member",
+    "test_app.py::test_wf_community_demotion_keyboard_owner",
+    "test_app.py::test_wf_community_demotion_steward_view",
+    "test_app.py::test_wf_community_demotion_boundary_pages",
+    "test_app.py::test_wf_community_demotion_phone",
+]
+
+[[workflows]]
+id = "gathering-time-zones"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_gathering_time_zones_display",
+    "test_app.py::test_wf_gathering_time_zones_device_clock",
+    "test_app.py::test_daylight_saving_rules",
+    "test_app.py::test_wf_gathering_time_zones_schedule_keyboard",
+    "test_app.py::test_wf_gathering_time_zones_attend_keyboard",
+    "test_app.py::test_wf_gathering_time_zones_reminder_phone",
+]
+
+[[workflows]]
+id = "invite-reduced-outage"
+requirements = [
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_invite_reduced_outage_invite",
+    "test_app.py::test_wf_invite_reduced_outage_minio",
+    "test_app.py::test_reduced_motion",
+    "test_app.py::test_live_room_outage",
+    "test_app.py::test_wf_invite_reduced_outage_join_friend",
+    "test_app.py::test_wf_invite_reduced_outage_phone_accept",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_grading_setup_and_worlds",
+]
+checkpoints = [
+    "B1",
+    "B3",
+    "B4",
+]
+critical_checkpoints = [
+    "B1",
+]

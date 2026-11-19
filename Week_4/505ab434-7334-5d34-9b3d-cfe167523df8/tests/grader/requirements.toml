@@ -1,0 +1,1076 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 44
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "variant-request",
+    "approval-chain",
+    "three-viewers",
+    "link-death",
+    "proof",
+    "publication",
+    "statements",
+    "deadlines",
+    "races",
+    "audit",
+    "weight-and-colour",
+    "motion",
+    "phone-review",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 82
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 5
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 5
+Q7 = 5
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+GRADING_KEY = "gf-grading-4c8e17"
+APP_START_AT = "2026-03-02T09:00:00+01:00"
+APP_TIME_ZONE = "Europe/Berlin"
+SESSION_COOKIE_NAME = "rulehouse_session"
+SUBMIT_DEDUP_SECONDS = "10"
+WEIGHT_ANNOUNCE_DELAY_MS = "300"
+DEADLINE_HOURS_STANDARD = "24"
+DEADLINE_HOURS_EXTENDED = "48"
+DEADLINE_HOURS_LEGAL = "72"
+DEADLINE_WARNING_PERCENT = "75"
+EXPIRY_CEILING_MULTIPLIER = "2"
+
+[[services]]
+name = "minio"
+
+[services.env]
+DOWNLOAD_LINK_TTL_SECONDS = "300"
+PROOF_MAX_BYTES = "5242880"
+LINK_SIGNING_SECRET = "gf-link-9b31d2"
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Rulehouse for Quenby & Co. <rulehouse@quenby.example>"
+INVITE_TTL_HOURS = "72"
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "/app/run.json installs, builds and serves the app on port 4173 (or APP_PUBLIC_PORT), and GET /api/health answers 200 with the status JSON qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_reports_ok",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Grading routes and server clock"
+text = "Key-guarded reset, seed, clock and tamper routes behave as published in API, and every time-dependent decision uses the shared app clock in the workspace time zone with the published date and time formats."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_routes_and_app_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Sign-in and sessions"
+text = "Seeded people sign in with email and password through the sign-in page or carry a seed-issued session cookie, and sign-out ends the session."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_signin",
+    "test_app.py::test_wf_cross_cutting_keyboard_signin_nav",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Invitation activation by mail"
+text = "Inviting an agency partner or press contact mails a one-use activation link that sets a password and signs them in, and a used or expired link shows the published invalid-link page."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_invitation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "One error order and shape"
+text = "Every API error follows the published check order and returns the {\"error\",\"message\"} body with the code and message from the API error catalogue."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_order_and_shape",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Not found for what you cannot open"
+text = "Another agency's request, grant or proof, a draft version for non-editors, the queue for non-reviewers and admin areas for the wrong roles all answer exactly like a resource that does not exist."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_invisible_resources_answer_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Server-side role checks"
+text = "Each action in the role table, other than the audit reads answered not found, is refused with 403 for a caller who can see its target but whose role may not perform it, whatever the UI shows, while an invisible target answers not found first, and the 403 refusal is audited as denied as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_role_table_refusals",
+]
+criteria = []
+parameter_cases = [
+    "invite",
+    "engagement",
+    "add_derivative",
+    "remove_derivative",
+    "release",
+    "restrict",
+    "retire",
+    "revoke",
+    "decide",
+    "condition",
+    "proof_accept",
+    "create_request",
+    "start_version",
+    "approve_version",
+    "publish",
+    "republish",
+    "link_issue",
+    "invisible_version",
+    "invisible_grant",
+]
+
+[[requirements]]
+id = "DP-08"
+title = "Credentials from the environment"
+text = "Every service URL, credential, key and timer is read from the published environment variables at start and never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Blueprint look on every screen"
+text = "Public and signed-in screens carry the published visual design: white ground under the chapter frame grid, flat field colours with ink text, the system type, grid-framed cells and the stated corner rule."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Rulebook assembly"
+text = "On desktop widths without reduced motion, scrolling the pinned home stage assembles the opening cell, brand promise card and incoming chapter fields into the chapter mosaic in the published steps, reversing step by step on scroll back."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_rulebook_assembly_scrubs_with_scroll",
+    "test_app.py::test_wf_cross_cutting_focus_outline",
+    "test_app.py::test_wf_cross_cutting_phone_cue_tap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Reduced motion and phone stacking"
+text = "Under reduced motion or below the 768-pixel breakpoint the home page shows three static stacked sections with opacity-only fades, the jump-to-chapters cue moves focus to the mosaic, and every sliding motion is absent."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion_and_phone_stacking",
+]
+criteria = []
+parameter_cases = [
+    "reduced-desktop",
+    "phone",
+]
+
+[[requirements]]
+id = "DP-12"
+title = "Published breakpoint"
+text = "At 768 pixels and wider the mosaic has four columns and the review queue is a table; narrower, the mosaic has two columns and the queue is a card list, with no horizontal overflow at 375, 768 or 1280 pixels."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_published_breakpoint_layouts",
+]
+criteria = []
+parameter_cases = [
+    "375",
+    "768",
+    "1280",
+]
+
+[[requirements]]
+id = "DP-13"
+title = "Variant cards and grant scope"
+text = "The library shows one card per logo variant named \"<asset name> — <variant label>\", and a grant on one variant never makes another variant or the base asset available."
+kind = "behavior"
+primary = "pytest"
+workflow = "variant-request"
+tests = [
+    "test_app.py::test_wf_variant_request_grant_scope",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Request a variant with the engagement cap"
+text = "An agency partner requests a variant by keyboard through the request dialog, sees the engagement cap notice when the campaign outlasts the engagement, and lands on a request page showing Under review, its holder and its cited rule links."
+kind = "behavior"
+primary = "workflow"
+workflow = "variant-request"
+tests = [
+    "test_app.py::test_wf_variant_request_keyboard_happy",
+    "test_app.py::test_wf_variant_request_dialog_semantics",
+    "test_app.py::test_wf_variant_request_phone_tap",
+    "test_app.py::test_wf_variant_request_phone_dialog_checkboxes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Stage routing and the holder"
+text = "Submission routes the request through the published brand, second-brand and legal stages to the least-loaded eligible reviewer, escalates to the owner when nobody is eligible, and the request always shows one holder."
+kind = "behavior"
+primary = "pytest"
+workflow = "variant-request"
+tests = [
+    "test_app.py::test_wf_variant_request_routing",
+    "test_app.py::test_wf_variant_request_escalation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Multi-stage approval to a grant"
+text = "Two brand reviewers and a legal reviewer each decide their stage of a Co-brand mark request in their own sessions, and the requester's page turns Granted live with the grant end, conditions, announcement and grant mail."
+kind = "behavior"
+primary = "workflow"
+workflow = "approval-chain"
+tests = [
+    "test_app.py::test_wf_approval_chain_three_sessions",
+    "test_app.py::test_wf_approval_chain_keyboard_queue_decision",
+    "test_app.py::test_wf_approval_chain_desktop_queue_targets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Grant window"
+text = "A minted grant runs from its approval or proof-acceptance date to the earliest of the four published caps, with the cap named in the decision panel and a Zero-length grant when the end falls before the start."
+kind = "behavior"
+primary = "pytest"
+workflow = "approval-chain"
+tests = [
+    "test_app.py::test_wf_approval_chain_grant_window",
+    "test_app.py::test_wf_approval_chain_reduced_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Conditions"
+text = "Stage holders attach the six published condition kinds with validated values, each shown with its exact display text on the request, the grant and the grant mail."
+kind = "behavior"
+primary = "pytest"
+workflow = "approval-chain"
+tests = [
+    "test_app.py::test_conditions_display_text",
+]
+criteria = []
+parameter_cases = [
+    "clear_space",
+    "no_recolour",
+    "attribution",
+    "proof_required",
+    "territory",
+    "expiry_override",
+]
+
+[[requirements]]
+id = "DP-19"
+title = "Live request updates"
+text = "Request pages, review queues, libraries and admin grant views update over the app's live channel within two seconds of a change, and every request state change is announced with the published sentence."
+kind = "behavior"
+primary = "pytest"
+workflow = "approval-chain"
+tests = [
+    "test_app.py::test_live_channel_updates",
+    "test_app.py::test_wf_approval_chain_changes_requested_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Availability decision"
+text = "Each card's badge, reason and enabled actions come from the published six-step decision evaluated on the server at request time against the app clock, never the device clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "three-viewers"
+tests = [
+    "test_app.py::test_wf_three_viewers_badges",
+    "test_app.py::test_wf_three_viewers_press_reasons",
+    "test_app.py::test_wf_three_viewers_release_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Viewer-scoped library data"
+text = "Library and grant responses for agency partners and press contacts carry only the published fields and only the caller's own grants, conditions and requests."
+kind = "behavior"
+primary = "pytest"
+workflow = "three-viewers"
+tests = [
+    "test_app.py::test_wf_three_viewers_projection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Library filters"
+text = "Signed-in viewers filter the library by class, availability and search by keyboard, with each card's accessible name carrying its badge and the results status reading the published count sentence."
+kind = "behavior"
+primary = "workflow"
+workflow = "three-viewers"
+tests = [
+    "test_app.py::test_wf_three_viewers_filters",
+    "test_app.py::test_wf_three_viewers_phone_badge_filters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Signed download links"
+text = "Download issues a link valid for the configured lifetime that re-runs the availability decision on every use, answering the published not-found or expired page as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "link-death"
+tests = [
+    "test_app.py::test_wf_link_death_expiry_edges",
+    "test_app.py::test_wf_link_death_keyboard_download_expires",
+    "test_app.py::test_wf_link_death_phone_download_again_target",
+    "test_app.py::test_wf_link_death_engagement_end_description",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Revocation ends access live"
+text = "When an owner or legal reviewer revokes a grant, the holder's open library changes the badge without reload and the link they already hold answers not found."
+kind = "behavior"
+primary = "workflow"
+workflow = "link-death"
+tests = [
+    "test_app.py::test_wf_link_death_revocation",
+    "test_app.py::test_wf_link_death_revoke_dialog_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Proof upload checks"
+text = "Proof uploads are accepted only as PNG, JPEG or PDF detected by content and up to the configured size, with the published refusals."
+kind = "behavior"
+primary = "pytest"
+workflow = "proof"
+tests = [
+    "test_app.py::test_wf_proof_upload_checks",
+    "test_app.py::test_wf_proof_phone_tap_upload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Proof review"
+text = "A reviewer accepts or rejects a pending proof from their own session and the requester sees the grant turn Active, or the rejection reason, live."
+kind = "behavior"
+primary = "workflow"
+workflow = "proof"
+tests = [
+    "test_app.py::test_wf_proof_review_live",
+    "test_app.py::test_wf_proof_keyboard_reject_saving",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Storage outage"
+text = "With MinIO unreachable, health reports unavailable with 200, proof upload, release and download show the published storage copy, and chapters, library and queue keep working."
+kind = "behavior"
+primary = "pytest"
+workflow = "proof"
+tests = [
+    "test_app.py::test_wf_proof_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Size contracts on release"
+text = "An asset is released only after storage confirms every derivative object and each matches its class's size contract, otherwise the release is refused with one published line per failing derivative."
+kind = "behavior"
+primary = "pytest"
+workflow = "publication"
+tests = [
+    "test_app.py::test_wf_publication_size_contract",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Publication rules"
+text = "A version that references any unreleased asset cannot be published and the refusal names each one, while a successful publish or republish supersedes the previous version in one step."
+kind = "behavior"
+primary = "pytest"
+workflow = "publication"
+tests = [
+    "test_app.py::test_wf_publication_blocked_then_published",
+    "test_app.py::test_wf_publication_keyboard_publish_tile_lines",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Draft to published version"
+text = "An author submits a version, a brand reviewer approves it, the owner publishes it once its assets are released, and anonymous readers see the new version line and copy at once."
+kind = "behavior"
+primary = "workflow"
+workflow = "publication"
+tests = [
+    "test_app.py::test_wf_publication_author_to_reader",
+    "test_app.py::test_wf_publication_keyboard_request_changes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Citing rules by identifier"
+text = "Requests cite live rule identifiers whose links open the chapter with that statement focused, all operable by keyboard."
+kind = "behavior"
+primary = "workflow"
+workflow = "statements"
+tests = [
+    "test_app.py::test_wf_statements_rule_link_focus",
+    "test_app.py::test_wf_statements_desktop_rule_link_targets",
+    "test_app.py::test_wf_statements_rule_index_keyboard",
+    "test_app.py::test_wf_statements_dialog_cites_live_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Withdrawn rules"
+text = "A withdrawn identifier's rule page names the version that withdrew it and links its replacement, and unknown identifiers answer not found."
+kind = "behavior"
+primary = "pytest"
+workflow = "statements"
+tests = [
+    "test_app.py::test_wf_statements_withdrawn_rule",
+    "test_app.py::test_wf_statements_phone_tap_replacement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Deadline timers and mail"
+text = "Each request carries a stored deadline by application tier, with a warning mail at the configured share of the window, escalation to the owner at the deadline and expiry at the configured multiple, all fired by the app clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "deadlines"
+tests = [
+    "test_app.py::test_wf_deadlines_timers",
+    "test_app.py::test_wf_deadlines_breach_live_two_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Deadline-ordered queue"
+text = "A reviewer's queue lists their open stages by deadline then request id with the due time, and an owner sees a breached stage arrive live with the escalation label."
+kind = "behavior"
+primary = "workflow"
+workflow = "deadlines"
+tests = [
+    "test_app.py::test_wf_deadlines_queue_order",
+    "test_app.py::test_wf_deadlines_desktop_queue_links_by_due",
+    "test_app.py::test_wf_deadlines_queue_keyboard_path",
+    "test_app.py::test_wf_deadlines_phone_queue_tap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Concurrent decisions and duplicate submits"
+text = "Of two simultaneous decisions on one stage exactly one wins and the other gets the published refusal, a decision after withdrawal is refused, and a double-submitted request creates one request."
+kind = "behavior"
+primary = "pytest"
+workflow = "races"
+tests = [
+    "test_app.py::test_wf_races_concurrent_decisions",
+    "test_app.py::test_wf_races_phone_decide_then_late_decider",
+    "test_app.py::test_wf_races_stale_owner_refused",
+    "test_app.py::test_wf_races_withdraw_then_stale_decide",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Retirement during review"
+text = "Retiring an asset needs a released successor, shows the successor on its card and rejects every open request on it with the published successor reason."
+kind = "behavior"
+primary = "pytest"
+workflow = "races"
+tests = [
+    "test_app.py::test_wf_races_retirement",
+    "test_app.py::test_wf_races_retire_keyboard_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Audit records and chain"
+text = "Every published action appends one attributed record whose hash covers the previous hash and its canonical form, the log cannot be changed through the API, and verification reports the first broken record."
+kind = "behavior"
+primary = "pytest"
+workflow = "audit"
+tests = [
+    "test_app.py::test_wf_audit_chain",
+    "test_app.py::test_wf_audit_verify_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Audit screen"
+text = "The owner filters the audit log to one request, reads exact before and after cells, and verifies the chain from the screen, seeing the broken record after tampering."
+kind = "behavior"
+primary = "workflow"
+workflow = "audit"
+tests = [
+    "test_app.py::test_wf_audit_screen",
+    "test_app.py::test_wf_audit_cells_by_header",
+    "test_app.py::test_wf_audit_escalation_row_legal",
+    "test_app.py::test_wf_audit_retirement_row",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Weight slider"
+text = "The typography chapter's weight slider works fully by keyboard with the published range, readout, rendered weight, transition and delayed announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "weight-and-colour"
+tests = [
+    "test_app.py::test_wf_weight_and_colour_weight_slider",
+    "test_app.py::test_wf_weight_and_colour_page_keys_clamp",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Colour wheel and swatch table"
+text = "The colour chapter's wheel of ten family buttons is operable by arrow keys and Enter, filters the published swatch table and announces the published count sentence."
+kind = "behavior"
+primary = "pytest"
+workflow = "weight-and-colour"
+tests = [
+    "test_app.py::test_wf_weight_and_colour_palette_wheel",
+    "test_app.py::test_wf_weight_and_colour_phone_wheel_taps",
+    "test_app.py::test_wf_weight_and_colour_wheel_semantics",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Motion timeline"
+text = "The motion chapter's playhead moves by keyboard, drag, touch and keyframe buttons in whole seconds, the readout and values table follow the published keyframes, and Play behaves as published including under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "motion"
+tests = [
+    "test_app.py::test_wf_motion_timeline",
+    "test_app.py::test_wf_motion_playhead_page_keys_and_keyframes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Curve editor"
+text = "The curve editor's two handles move by arrow keys, Shift+arrow, mouse and touch drag with the published steps and clamps, the printed curve updates, and Reset curve restores the default."
+kind = "behavior"
+primary = "pytest"
+workflow = "motion"
+tests = [
+    "test_app.py::test_wf_motion_curve_editor",
+    "test_app.py::test_wf_motion_curve_touch_snap_then_shift_clamp",
+    "test_app.py::test_wf_motion_replay_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Phone review in a bottom sheet"
+text = "A reviewer at phone width opens a request from the queue cards and decides it in a bottom sheet with large touch targets while the requester on desktop sees the change live."
+kind = "behavior"
+primary = "workflow"
+workflow = "phone-review"
+tests = [
+    "test_app.py::test_wf_phone_review_bottom_sheet",
+    "test_app.py::test_wf_phone_review_sheet_keyboard_escape",
+    "test_app.py::test_wf_phone_review_changes_live_announced",
+    "test_app.py::test_wf_phone_review_sheet_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Changes requested and resubmission"
+text = "Request changes returns the request to its requester as holder, and resubmission reopens the same stage with the same reviewer and a fresh deadline."
+kind = "behavior"
+primary = "pytest"
+workflow = "phone-review"
+tests = [
+    "test_app.py::test_wf_phone_review_changes_requested",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\"."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package with its licence; shipped packages are the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package is licensed MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or BlueOak-1.0.0."
+tests = [
+    "test_app.py::test_if_licence_allowlist",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "No datastore, cache or queue beyond PostgreSQL, MinIO and Mailpit is used (no SQLite, Redis or file-based database)."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The app loads no web font and no asset from another origin; every glyph and mark is inline vector art written for this product."
+tests = [
+    "test_app.py::test_if_no_foreign_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service configuration (the compose files and their environment values) is left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "package-lock.json is committed and install uses it."
+tests = [
+    "test_app.py::test_if_lockfile_used",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "variant-request"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_variant_request_keyboard_happy",
+    "test_app.py::test_wf_variant_request_grant_scope",
+    "test_app.py::test_wf_variant_request_routing",
+    "test_app.py::test_wf_variant_request_escalation",
+    "test_app.py::test_wf_variant_request_dialog_semantics",
+    "test_app.py::test_wf_variant_request_phone_tap",
+    "test_app.py::test_wf_variant_request_phone_dialog_checkboxes",
+]
+
+[[workflows]]
+id = "approval-chain"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_approval_chain_three_sessions",
+    "test_app.py::test_wf_approval_chain_grant_window",
+    "test_app.py::test_wf_approval_chain_keyboard_queue_decision",
+    "test_app.py::test_wf_approval_chain_desktop_queue_targets",
+    "test_app.py::test_wf_approval_chain_changes_requested_live",
+    "test_app.py::test_wf_approval_chain_reduced_sheet",
+]
+
+[[workflows]]
+id = "three-viewers"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_three_viewers_badges",
+    "test_app.py::test_wf_three_viewers_projection",
+    "test_app.py::test_wf_three_viewers_filters",
+    "test_app.py::test_wf_three_viewers_phone_badge_filters",
+    "test_app.py::test_wf_three_viewers_press_reasons",
+    "test_app.py::test_wf_three_viewers_release_live",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "link-death"
+requirements = [
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_link_death_expiry_edges",
+    "test_app.py::test_wf_link_death_revocation",
+    "test_app.py::test_wf_link_death_keyboard_download_expires",
+    "test_app.py::test_wf_link_death_phone_download_again_target",
+    "test_app.py::test_wf_link_death_revoke_dialog_keyboard",
+    "test_app.py::test_wf_link_death_engagement_end_description",
+]
+
+[[workflows]]
+id = "proof"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_proof_upload_checks",
+    "test_app.py::test_wf_proof_review_live",
+    "test_app.py::test_wf_proof_storage_outage",
+    "test_app.py::test_wf_proof_keyboard_reject_saving",
+    "test_app.py::test_wf_proof_phone_tap_upload",
+]
+
+[[workflows]]
+id = "publication"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_publication_size_contract",
+    "test_app.py::test_wf_publication_blocked_then_published",
+    "test_app.py::test_wf_publication_author_to_reader",
+    "test_app.py::test_wf_publication_keyboard_request_changes",
+    "test_app.py::test_wf_publication_keyboard_publish_tile_lines",
+]
+
+[[workflows]]
+id = "statements"
+requirements = [
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_statements_rule_link_focus",
+    "test_app.py::test_wf_statements_desktop_rule_link_targets",
+    "test_app.py::test_wf_statements_withdrawn_rule",
+    "test_app.py::test_wf_statements_rule_index_keyboard",
+    "test_app.py::test_wf_statements_phone_tap_replacement",
+    "test_app.py::test_wf_statements_dialog_cites_live_rules",
+]
+
+[[workflows]]
+id = "deadlines"
+requirements = [
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_deadlines_timers",
+    "test_app.py::test_wf_deadlines_queue_order",
+    "test_app.py::test_wf_deadlines_desktop_queue_links_by_due",
+    "test_app.py::test_wf_deadlines_breach_live_two_sessions",
+    "test_app.py::test_wf_deadlines_queue_keyboard_path",
+    "test_app.py::test_wf_deadlines_phone_queue_tap",
+]
+
+[[workflows]]
+id = "races"
+requirements = [
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_races_concurrent_decisions",
+    "test_app.py::test_wf_races_phone_decide_then_late_decider",
+    "test_app.py::test_wf_races_retirement",
+    "test_app.py::test_wf_races_stale_owner_refused",
+    "test_app.py::test_wf_races_withdraw_then_stale_decide",
+    "test_app.py::test_wf_races_retire_keyboard_live",
+]
+
+[[workflows]]
+id = "audit"
+requirements = [
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_audit_chain",
+    "test_app.py::test_wf_audit_screen",
+    "test_app.py::test_wf_audit_cells_by_header",
+    "test_app.py::test_wf_audit_verify_keyboard",
+    "test_app.py::test_wf_audit_escalation_row_legal",
+    "test_app.py::test_wf_audit_retirement_row",
+]
+
+[[workflows]]
+id = "weight-and-colour"
+requirements = [
+    "DP-39",
+    "DP-40",
+]
+critical = [
+    "test_app.py::test_wf_weight_and_colour_weight_slider",
+    "test_app.py::test_wf_weight_and_colour_palette_wheel",
+    "test_app.py::test_wf_weight_and_colour_page_keys_clamp",
+    "test_app.py::test_wf_weight_and_colour_phone_wheel_taps",
+    "test_app.py::test_wf_weight_and_colour_wheel_semantics",
+]
+
+[[workflows]]
+id = "motion"
+requirements = [
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_motion_timeline",
+    "test_app.py::test_wf_motion_curve_editor",
+    "test_app.py::test_wf_motion_playhead_page_keys_and_keyframes",
+    "test_app.py::test_wf_motion_curve_touch_snap_then_shift_clamp",
+    "test_app.py::test_wf_motion_replay_reduced_motion",
+]
+
+[[workflows]]
+id = "phone-review"
+requirements = [
+    "DP-43",
+    "DP-44",
+]
+critical = [
+    "test_app.py::test_wf_phone_review_bottom_sheet",
+    "test_app.py::test_wf_phone_review_changes_requested",
+    "test_app.py::test_wf_phone_review_sheet_keyboard_escape",
+    "test_app.py::test_wf_phone_review_changes_live_announced",
+    "test_app.py::test_wf_phone_review_sheet_reduced_motion",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_signin",
+    "test_app.py::test_wf_cross_cutting_invitation",
+    "test_app.py::test_wf_cross_cutting_keyboard_signin_nav",
+    "test_app.py::test_wf_cross_cutting_focus_outline",
+    "test_app.py::test_wf_cross_cutting_phone_cue_tap",
+]
+checkpoints = [
+    "B1",
+    "B4",
+    "B12",
+]
+critical_checkpoints = [
+    "B1",
+]

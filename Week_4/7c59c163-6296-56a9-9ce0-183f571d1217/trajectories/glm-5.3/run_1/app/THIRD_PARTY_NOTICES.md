@@ -1,0 +1,151 @@
+# Third-party notices
+
+This file lists every shipped npm package — the production dependency tree from
+`npm ls --omit=dev --all --json` — with its licence, plus the two font families
+bundled with the app.
+
+## npm packages (production tree)
+
+All licences below are Apache-2.0, MIT, ISC or 0BSD, except pako which carries
+`(MIT AND Zlib)` — both of its terms are among the allowed licences.
+
+- @aws-crypto/crc32 — Apache-2.0
+- @aws-crypto/crc32c — Apache-2.0
+- @aws-crypto/sha1-browser — Apache-2.0
+- @aws-crypto/sha256-browser — Apache-2.0
+- @aws-crypto/sha256-js — Apache-2.0
+- @aws-crypto/supports-web-crypto — Apache-2.0
+- @aws-crypto/util — Apache-2.0
+- @aws-sdk/client-s3 — Apache-2.0
+- @aws-sdk/client-sso — Apache-2.0
+- @aws-sdk/core — Apache-2.0
+- @aws-sdk/credential-provider-env — Apache-2.0
+- @aws-sdk/credential-provider-http — Apache-2.0
+- @aws-sdk/credential-provider-ini — Apache-2.0
+- @aws-sdk/credential-provider-node — Apache-2.0
+- @aws-sdk/credential-provider-process — Apache-2.0
+- @aws-sdk/credential-provider-sso — Apache-2.0
+- @aws-sdk/credential-provider-web-identity — Apache-2.0
+- @aws-sdk/middleware-bucket-endpoint — Apache-2.0
+- @aws-sdk/middleware-expect-continue — Apache-2.0
+- @aws-sdk/middleware-flexible-checksums — Apache-2.0
+- @aws-sdk/middleware-host-header — Apache-2.0
+- @aws-sdk/middleware-location-constraint — Apache-2.0
+- @aws-sdk/middleware-logger — Apache-2.0
+- @aws-sdk/middleware-recursion-detection — Apache-2.0
+- @aws-sdk/middleware-sdk-s3 — Apache-2.0
+- @aws-sdk/middleware-ssec — Apache-2.0
+- @aws-sdk/middleware-user-agent — Apache-2.0
+- @aws-sdk/nested-clients — Apache-2.0
+- @aws-sdk/region-config-resolver — Apache-2.0
+- @aws-sdk/s3-request-presigner — Apache-2.0
+- @aws-sdk/signature-v4-multi-region — Apache-2.0
+- @aws-sdk/token-providers — Apache-2.0
+- @aws-sdk/types — Apache-2.0
+- @aws-sdk/util-arn-parser — Apache-2.0
+- @aws-sdk/util-endpoints — Apache-2.0
+- @aws-sdk/util-format-url — Apache-2.0
+- @aws-sdk/util-locate-window — Apache-2.0
+- @aws-sdk/util-user-agent-browser — Apache-2.0
+- @aws-sdk/util-user-agent-node — Apache-2.0
+- @aws-sdk/xml-builder — Apache-2.0
+- @ioredis/commands — MIT
+- @smithy/config-resolver — Apache-2.0
+- @smithy/core — Apache-2.0
+- @smithy/credential-provider-imds — Apache-2.0
+- @smithy/eventstream-serde-browser — Apache-2.0
+- @smithy/eventstream-serde-config-resolver — Apache-2.0
+- @smithy/eventstream-serde-node — Apache-2.0
+- @smithy/fetch-http-handler — Apache-2.0
+- @smithy/hash-blob-browser — Apache-2.0
+- @smithy/hash-node — Apache-2.0
+- @smithy/hash-stream-node — Apache-2.0
+- @smithy/invalid-dependency — Apache-2.0
+- @smithy/is-array-buffer — Apache-2.0
+- @smithy/is-array-buffer — Apache-2.0
+- @smithy/md5-js — Apache-2.0
+- @smithy/middleware-content-length — Apache-2.0
+- @smithy/middleware-endpoint — Apache-2.0
+- @smithy/middleware-retry — Apache-2.0
+- @smithy/middleware-serde — Apache-2.0
+- @smithy/middleware-stack — Apache-2.0
+- @smithy/node-config-provider — Apache-2.0
+- @smithy/node-http-handler — Apache-2.0
+- @smithy/property-provider — Apache-2.0
+- @smithy/protocol-http — Apache-2.0
+- @smithy/querystring-builder — Apache-2.0
+- @smithy/shared-ini-file-loader — Apache-2.0
+- @smithy/signature-v4 — Apache-2.0
+- @smithy/smithy-client — Apache-2.0
+- @smithy/types — Apache-2.0
+- @smithy/url-parser — Apache-2.0
+- @smithy/util-base64 — Apache-2.0
+- @smithy/util-body-length-browser — Apache-2.0
+- @smithy/util-body-length-node — Apache-2.0
+- @smithy/util-buffer-from — Apache-2.0
+- @smithy/util-config-provider — Apache-2.0
+- @smithy/util-defaults-mode-browser — Apache-2.0
+- @smithy/util-defaults-mode-node — Apache-2.0
+- @smithy/util-endpoints — Apache-2.0
+- @smithy/util-middleware — Apache-2.0
+- @smithy/util-retry — Apache-2.0
+- @smithy/util-stream — Apache-2.0
+- @smithy/util-utf8 — Apache-2.0
+- @smithy/util-utf8 — Apache-2.0
+- @smithy/util-waiter — Apache-2.0
+- @swc/helpers — Apache-2.0
+- base64-js — MIT
+- base64-js — MIT
+- bowser — MIT
+- brotli — MIT
+- browserify-zlib — MIT
+- clone — MIT
+- cluster-key-slot — Apache-2.0
+- crypto-js — MIT
+- debug — MIT
+- denque — Apache-2.0
+- dfa — MIT
+- fast-deep-equal — MIT
+- fast-xml-parser — MIT
+- fontkit — MIT
+- ioredis — MIT
+- jose — MIT
+- jpeg-exif — MIT
+- linebreak — MIT
+- lodash.defaults — MIT
+- lodash.isarguments — MIT
+- ms — MIT
+- oauth4webapi — MIT
+- openid-client — MIT
+- pako — MIT
+- pako — (MIT AND Zlib)
+- pdfkit — MIT
+- pg — MIT
+- pg-cloudflare — MIT
+- pg-connection-string — MIT
+- pg-int8 — ISC
+- pg-pool — MIT
+- pg-protocol — MIT
+- pg-types — MIT
+- pgpass — MIT
+- png-js — MIT
+- postgres-array — MIT
+- postgres-bytea — MIT
+- postgres-date — MIT
+- postgres-interval — MIT
+- redis-errors — MIT
+- redis-parser — MIT
+- restructure — MIT
+- split2 — ISC
+- standard-as-callback — MIT
+- strnum — MIT
+- tiny-inflate — MIT
+- tslib — 0BSD
+- unicode-properties — MIT
+- unicode-trie — MIT
+- xtend — MIT
+
+## Fonts
+
+- Parkinsans (Regular, Bold) — SIL Open Font License 1.1 (see `public/fonts/parkinsans-OFL.txt`)
+- Urbanist (Regular, SemiBold, Bold) — SIL Open Font License 1.1 (see `public/fonts/urbanist-OFL.txt`)

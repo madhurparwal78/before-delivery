@@ -1,0 +1,1194 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 52
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "registration_setup",
+    "month_grid_keyboard",
+    "carry_forward",
+    "reminders_dst",
+    "rule_changes",
+    "overdue_server",
+    "extensions",
+    "client_approval_phone",
+    "filing_packet",
+    "amendments",
+    "outage_recovery",
+    "year_view_export",
+    "two_tab_conflict",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B18",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+    "B19",
+    "B17",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 104
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B18 = 3
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 3
+B11 = 5
+B12 = 3
+B13 = 3
+B14 = 3
+B15 = 3
+B16 = 5
+B19 = 3
+B17 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 5
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+GRADING_KEY = "duefield-grading-key"
+SERVICE_RETRY_SECONDS = "2"
+SESSION_TTL_SECONDS = "604800"
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Duefield <reminders@duefield.test>"
+
+[[services]]
+name = "gotenberg"
+
+[services.env]
+
+[[outages]]
+id = "mail-down"
+port = 4174
+url_env = "MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "19025"
+DATABASE_URL = "${DATABASE_URL}_maildown"
+
+[[outages]]
+id = "pdf-down"
+port = 4175
+url_env = "PDF_DOWN_URL"
+
+[outages.env]
+GOTENBERG_URL = "http://127.0.0.1:19026"
+DATABASE_URL = "${DATABASE_URL}_pdfdown"
+
+[[requirements]]
+id = "DP-01"
+title = "Practice sign-up and sign-in."
+text = "A bookkeeper creates a practice at `/sign-up`, which starts with the six-state catalogue from Seed data, and anyone with an account signs in at `/sign-in` and lands on their role's home screen."
+kind = "behavior"
+primary = "workflow"
+workflow = "registration_setup"
+tests = [
+    "test_app.py::test_wf_registration_setup_signup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Clients and owner accounts."
+text = "The bookkeeper adds a client with its owner's sign-in from the Clients screen, and that owner can then sign in and reach that client only."
+kind = "behavior"
+primary = "pytest"
+workflow = "registration_setup"
+tests = [
+    "test_app.py::test_client_owner_account",
+    "test_app.py::test_wf_registration_setup_owner_identity_before_registration",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "State registration with a filing frequency."
+text = "Registering a client in a state by keyboard creates that registration's returns with due dates in the state's own zone, and an open owner screen lists them within the live band."
+kind = "behavior"
+primary = "workflow"
+workflow = "registration_setup"
+tests = [
+    "test_app.py::test_wf_registration_setup_keyboard_register",
+    "test_app.py::test_wf_registration_setup_quarterly_calendar",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Registration validation."
+text = "A registration without a state, a frequency or a matching first period is refused with the published field messages, shown beside the field and announced."
+kind = "behavior"
+primary = "pytest"
+workflow = "registration_setup"
+tests = [
+    "test_app.py::test_wf_registration_setup_invalid_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Month grid of due dates."
+text = "`/month/<yyyy>-<mm>` shows `grid \"Due dates\"` whose day cells carry the published names, dates and counts, with one chip per return that names its state and status in words."
+kind = "behavior"
+primary = "pytest"
+workflow = "month_grid_keyboard"
+tests = [
+    "test_app.py::test_month_grid_cells",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Keyboard-complete month grid."
+text = "The grid has one tab stop and works fully by arrows, Home, End, PageUp, PageDown, Enter and Escape as published, with focus returning to the same cell."
+kind = "behavior"
+primary = "workflow"
+workflow = "month_grid_keyboard"
+tests = [
+    "test_app.py::test_wf_month_grid_keyboard_navigation",
+    "test_app.py::test_wf_month_grid_keyboard_phone_switch_day",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Midnight meridian band."
+text = "Opening a day shows the band under its week with one strip per return due that day, placed by its state's offset from Central at that deadline, with the now line and past marks from the practice clock, growing and sliding within the published durations."
+kind = "behavior"
+primary = "pytest"
+workflow = "month_grid_keyboard"
+tests = [
+    "test_app.py::test_wf_month_grid_keyboard_band",
+]
+criteria = [
+    "B14",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Midnight meridian under reduced motion."
+text = "With reduced motion the band appears at full height with every strip already in its final place and nothing moving, and `table \"Deadlines\"` lists the same deadlines."
+kind = "behavior"
+primary = "pytest"
+workflow = "month_grid_keyboard"
+tests = [
+    "test_app.py::test_wf_month_grid_keyboard_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Due dates from the period and edition."
+text = "Each return's nominal due date comes from its frequency, its period and the edition in effect at the state-local period start, with the due day clamped to the end of the month."
+kind = "behavior"
+primary = "pytest"
+workflow = "carry_forward"
+tests = [
+    "test_app.py::test_due_dates_from_period",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Weekend and holiday carry-forward."
+text = "A `next_business` due date moves forward past weekends and the state's holidays, a `fixed` date never moves, and the deadline is the last millisecond of the carried date in the state's zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "carry_forward"
+tests = [
+    "test_app.py::test_carry_forward",
+]
+criteria = []
+parameter_cases = [
+    "next_business",
+    "holiday",
+    "fixed",
+    "arizona",
+]
+
+[[requirements]]
+id = "DP-11"
+title = "Carried dates on the grid and phone day list."
+text = "A carried return sits on its carried day with the `Carried from` line in the grid, in the 375-pixel day list and on the return screen."
+kind = "behavior"
+primary = "workflow"
+workflow = "carry_forward"
+tests = [
+    "test_app.py::test_wf_carry_forward_grid_and_phone",
+    "test_app.py::test_wf_carry_forward_cross_month_ghost",
+    "test_app.py::test_wf_carry_forward_phone_band_immediately_after_carried_day",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Holiday list updates."
+text = "Saving a state's holiday list recalculates the due dates of its `not_started` returns at once and leaves every other return unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "carry_forward"
+tests = [
+    "test_app.py::test_wf_carry_forward_holiday_edit",
+    "test_app.py::test_wf_carry_forward_remove_holiday_live",
+    "test_app.py::test_wf_carry_forward_extended_holiday_recarry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Reminder schedule in the practice zone."
+text = "Each unfiled return has 7-day and 1-day reminders scheduled at the bookkeeper's reminder hour in Central time, holding that wall-clock hour across both daylight saving changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "reminders_dst"
+tests = [
+    "test_app.py::test_reminder_schedule_dst",
+    "test_app.py::test_wf_reminders_dst_hour_change_keeps_sent",
+    "test_app.py::test_wf_reminders_dst_saved_hour_refreshes_in_other_settings_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Reminder delivery confirmed by mail."
+text = "A reminder becomes Sent, exactly once, only after Mailpit accepted it, and the bookkeeper's open screen shows and announces it within the live band."
+kind = "behavior"
+primary = "workflow"
+workflow = "reminders_dst"
+tests = [
+    "test_app.py::test_wf_reminders_dst_clock_steps",
+    "test_app.py::test_wf_reminders_dst_rewind_keeps_sent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Approval, approved, sent back and filed notices."
+text = "Each published notice goes once per event to the published recipient with the published subject, and waits through a mail outage as reminders do."
+kind = "behavior"
+primary = "pytest"
+workflow = "reminders_dst"
+tests = [
+    "test_app.py::test_wf_reminders_dst_notices",
+    "test_app.py::test_wf_reminders_dst_unchanged_amounts_notice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Publish a rule change."
+text = "The bookkeeper publishes a state rule edition by keyboard from the States screen, and open screens show the recalculated returns within the live band."
+kind = "behavior"
+primary = "workflow"
+workflow = "rule_changes"
+tests = [
+    "test_app.py::test_wf_rule_changes_publish_keyboard",
+    "test_app.py::test_wf_rule_changes_extension_limit_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Earlier periods keep their edition."
+text = "Returns for periods that start before an edition, and every return already past `not_started`, keep their stored due date, due day, rate and edition on the grid, the year view, the CSV and the packet."
+kind = "behavior"
+primary = "pytest"
+workflow = "rule_changes"
+tests = [
+    "test_app.py::test_wf_rule_changes_earlier_periods",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Editions start at state-local midnight."
+text = "An edition applies to a period that starts on its effective date in the state's zone and not to the period before, whatever the viewer's zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "rule_changes"
+tests = [
+    "test_app.py::test_edition_state_local_midnight",
+    "test_app.py::test_wf_rule_changes_insert_before_later_edition",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Overdue decided by the practice clock."
+text = "A return is overdue only when it is unfiled and the practice's current instant is after its deadline: never at the deadline itself, and never because of the browser's clock or zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "overdue_server"
+tests = [
+    "test_app.py::test_overdue_edge",
+    "test_app.py::test_wf_overdue_server_open_band_clock_edges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Overdue reaches open screens live."
+text = "When the practice clock passes a deadline, every open bookkeeper and owner screen showing that return marks it Overdue and announces it within the live band, with no reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "overdue_server"
+tests = [
+    "test_app.py::test_wf_overdue_server_live",
+    "test_app.py::test_wf_overdue_server_several",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Counts match the returns."
+text = "Day counts, the Overdue and Awaiting approval counts and the year view result count always equal the number of matching returns, after every status change and clock change."
+kind = "behavior"
+primary = "pytest"
+workflow = "overdue_server"
+tests = [
+    "test_app.py::test_counts_match_returns",
+    "test_app.py::test_wf_overdue_server_rewind_filtered_year",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "File an extension by keyboard."
+text = "The bookkeeper files an extension from the return screen by keyboard, and the granted extension is announced and shown on every open screen within the live band."
+kind = "behavior"
+primary = "workflow"
+workflow = "extensions"
+tests = [
+    "test_app.py::test_wf_extensions_keyboard",
+    "test_app.py::test_wf_extensions_after_live_amount_save",
+    "test_app.py::test_wf_extensions_refusal_shift_tab_stays_in_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Extension deadline edge."
+text = "An extension is granted at the deadline instant itself and refused one millisecond later with `deadline_passed` and the published copy, changing nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "extensions"
+tests = [
+    "test_app.py::test_wf_extensions_edge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Extended due date and one extension."
+text = "A granted extension moves the due date by the edition's extension days from the unextended nominal date and carries it forward again, and a second extension is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "extensions"
+tests = [
+    "test_app.py::test_extension_once_and_carry",
+    "test_app.py::test_wf_extensions_zero_day_fixed",
+    "test_app.py::test_wf_extensions_approved_maximum",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Phone approval for the client owner."
+text = "On a 375-pixel touch screen the owner approves their own prepared return with a pinned full-width button at least 44 pixels tall, and the bookkeeper's open screen announces it within the live band."
+kind = "behavior"
+primary = "workflow"
+workflow = "client_approval_phone"
+tests = [
+    "test_app.py::test_wf_client_approval_phone_approve",
+    "test_app.py::test_wf_client_approval_phone_back_home_uses_live_version",
+]
+criteria = [
+    "B15",
+    "B16",
+    "B19",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Send back through the bottom sheet."
+text = "The owner sends a return back with a required reason through the `Send back` bottom sheet, which slides up within the published time, appears at once under reduced motion and returns focus to its opener."
+kind = "behavior"
+primary = "pytest"
+workflow = "client_approval_phone"
+tests = [
+    "test_app.py::test_wf_client_approval_phone_send_back",
+    "test_app.py::test_wf_client_approval_phone_approved_send_back_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Owners reach only their own client."
+text = "Another client's return, packet, reminders or approval action answers the same 404 and not-found screen as a return that does not exist."
+kind = "behavior"
+primary = "pytest"
+workflow = "client_approval_phone"
+tests = [
+    "test_app.py::test_owner_other_client_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Owner actions refused by the server."
+text = "An owner session is refused with 403 for filing, extensions, amendments, amounts, registrations, holidays and rule editions, and the matching controls are absent from owner screens."
+kind = "behavior"
+primary = "pytest"
+workflow = "client_approval_phone"
+tests = [
+    "test_app.py::test_owner_actions_forbidden",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Mark filed."
+text = "The bookkeeper marks a client-approved return filed through `dialog \"Mark filed\"` by keyboard, focus returns to the return screen, and `Packet pending` shows until the packet is ready."
+kind = "behavior"
+primary = "workflow"
+workflow = "filing_packet"
+tests = [
+    "test_app.py::test_wf_filing_packet_keyboard",
+    "test_app.py::test_wf_filing_packet_cancel_preserves_return",
+    "test_app.py::test_wf_filing_packet_sent_reminder_retained",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Packeted only after the PDF."
+text = "A return becomes Packeted and offers `link \"Filing packet\"` only after Gotenberg returned its PDF, and a held or failed render leaves it Filed with `Packet pending`."
+kind = "behavior"
+primary = "pytest"
+workflow = "filing_packet"
+tests = [
+    "test_app.py::test_wf_filing_packet_pdf_held",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Filing packet contents."
+text = "The packet PDF served to the bookkeeper and the owner carries the published facts about the return, its edition, approval, extension and amendments."
+kind = "behavior"
+primary = "pytest"
+workflow = "filing_packet"
+tests = [
+    "test_app.py::test_packet_contents",
+    "test_app.py::test_wf_filing_packet_quarterly_owner_pdf",
+    "test_app.py::test_wf_filing_packet_inflight_first_render_keeps_amendment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Record an amendment."
+text = "The bookkeeper records an amendment on a filed or packeted return by keyboard, and every open screen shows Amended and announces it within the live band."
+kind = "behavior"
+primary = "workflow"
+workflow = "amendments"
+tests = [
+    "test_app.py::test_wf_amendments_keyboard",
+    "test_app.py::test_wf_amendments_note_limit",
+    "test_app.py::test_wf_amendments_error_dialog_retains_keyboard_containment_after_live_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Originals kept and packet revisions."
+text = "An amendment keeps the original amounts beside the new ones, the earlier packet stays served until the new revision is ready, and the return goes back to Packeted only after the new PDF."
+kind = "behavior"
+primary = "pytest"
+workflow = "amendments"
+tests = [
+    "test_app.py::test_amendment_originals_and_revisions",
+    "test_app.py::test_wf_amendments_before_first_packet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Amended returns in lists and exports."
+text = "Amended returns show the Amended status and the amended amounts in the grid, the year view, its filters and the CSV, and are never overdue."
+kind = "behavior"
+primary = "pytest"
+workflow = "amendments"
+tests = [
+    "test_app.py::test_wf_amendments_lists",
+    "test_app.py::test_wf_amendments_grid_displays_amended_amounts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Service outage banners."
+text = "When mail or the PDF service cannot be reached, `region \"Service notice\"` shows the published banner within two retry periods and clears it within two retry periods of recovery."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage_recovery"
+tests = [
+    "test_app.py::test_outage_banners",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Waiting work goes out without restart."
+text = "Reminders, notices and packets stay pending through an outage, then go out or render once the service returns, with no restart, and open screens update within the live band."
+kind = "behavior"
+primary = "workflow"
+workflow = "outage_recovery"
+tests = [
+    "test_app.py::test_wf_outage_recovery_mail",
+    "test_app.py::test_wf_outage_recovery_pdf",
+    "test_app.py::test_wf_outage_recovery_approved_and_filed_notices",
+    "test_app.py::test_wf_outage_recovery_replacement_packet_owner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Health reports service reachability."
+text = "`GET /api/health` always answers 200, with `{\"status\":\"ok\"}`, or with `{\"status\":\"unavailable\"}` while mail or PDF is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "outage_recovery"
+tests = [
+    "test_app.py::test_health_reachability",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Year view filters in the URL."
+text = "`/year/<yyyy>` lists returns in `table \"Returns\"`, its status and state filter chips work by keyboard and live in the URL query, and a reload keeps them."
+kind = "behavior"
+primary = "workflow"
+workflow = "year_view_export"
+tests = [
+    "test_app.py::test_wf_year_view_export_filters",
+    "test_app.py::test_wf_year_view_export_exclusive_filters",
+    "test_app.py::test_wf_year_view_export_filter_survives_delayed_live_refresh",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Result count matches the table."
+text = "`status \"Result count\"` always equals the rows in the filtered table and the rows in the matching CSV."
+kind = "behavior"
+primary = "pytest"
+workflow = "year_view_export"
+tests = [
+    "test_app.py::test_result_count_matches",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "CSV export."
+text = "`link \"Export CSV\"` downloads the filtered year as CSV with the published header, columns, order and quoting."
+kind = "behavior"
+primary = "pytest"
+workflow = "year_view_export"
+tests = [
+    "test_app.py::test_wf_year_view_export_csv",
+    "test_app.py::test_wf_year_view_export_extension_changes_year",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Version-checked saves."
+text = "Every write carries the version the caller last saw, a stale one answers 409 `conflict` and changes nothing, and every persisted change adds one to the version."
+kind = "behavior"
+primary = "pytest"
+workflow = "two_tab_conflict"
+tests = [
+    "test_app.py::test_wf_two_tab_conflict_race",
+    "test_app.py::test_wf_two_tab_conflict_extension_uses_live_version",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Stale-tab conflict on screen."
+text = "A tab whose save loses keeps its typed draft and its focus, announces the published conflict line and shows the winning values in `region \"Latest saved return\"` within the live band."
+kind = "behavior"
+primary = "workflow"
+workflow = "two_tab_conflict"
+tests = [
+    "test_app.py::test_wf_two_tab_conflict_draft",
+    "test_app.py::test_wf_two_tab_conflict_prepare_keeps_draft_version",
+    "test_app.py::test_wf_two_tab_conflict_held_extension_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "One error order for the API."
+text = "Every route answers errors in the published order, so a stale save with invalid amounts answers 409, and another client's id answers 404 before any role or validation check."
+kind = "behavior"
+primary = "pytest"
+workflow = "two_tab_conflict"
+tests = [
+    "test_app.py::test_error_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Today specimen screen."
+text = "The bookkeeper's `/today` shows the wordmark, the published sentence, the week's name list, one large specimen tile for the selected return, its due line and one orange next-step action, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B18",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Specimen catalogue drag rows."
+text = "`/catalogue` shows one horizontally draggable tile row per client with Previous and Next buttons and arrow-key scrolling, gliding in under half a second and jumping at once under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_catalogue_rows",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Specimen visual language."
+text = "Every screen and the packet carry the specimen-catalogue direction: flat coloured tiles in a steady per-state rotation, Tilt Warp only for the wordmark and the next deadline, Plus Jakarta Sans for everything else, square working surfaces and acid-yellow banners."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B17",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Responsive layouts and touch targets."
+text = "Every screen works at 375x812, 768x1024 and 1280x800 with no sideways page scroll, and every control on a phone is at least 44 pixels tall."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layout",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "desktop",
+]
+
+[[requirements]]
+id = "DP-48"
+title = "One announcement region and accessible screens."
+text = "Every screen has the single `status \"Duefield announcements\"` region carrying the published lines and passes automated WCAG 2.2 AA checks, with no spinner or looping animation."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_announcements_and_accessibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Run manifest and boot."
+text = "`/app/run.json` installs, builds and serves the app on port 4173, honouring `APP_PUBLIC_PORT`, and the app serves even when mail or PDF is unreachable at boot."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_run_manifest_and_boot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Server boundary."
+text = "The server is same-origin only, enforces the published body limits and never serves source, credentials, `.env` or `.git` files."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_signed_out_unknown_page_renders_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Grading fixture and practice clock."
+text = "The published grading routes build a practice and set its current instant behind `GRADING_KEY`, and answer 404 without the right key."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_routes",
+    "test_app.py::test_today_week_refreshes_after_practice_clock_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Credentials from the environment."
+text = "Every service URL and credential is read from the published environment variables at start, and is never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` is a JSON object with string `install`, `build` and `serve` and `\"_schema\":\"run-manifest-v1\"`, and nothing else is needed to start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` lists every shipped package (the production dependency tree from `npm ls --omit=dev --all --json`) with its licence, plus the bundled Tilt Warp and Plus Jakarta Sans font files (OFL-1.1) and Lucide icons."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Shipped packages use only MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1 (fonts) licences."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Postgres is the only datastore: no SQLite, Redis, file-based state or in-memory store that outlives a request beyond caches rebuilt from Postgres."
+tests = [
+    "test_app.py::test_if_postgres_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "`package-lock.json` is committed and matches `package.json`."
+tests = [
+    "test_app.py::test_if_lockfile_matches",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service configuration and compose files are left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Fonts and icons are bundled in the app, and the built frontend makes no request to another origin."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "registration_setup"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_wf_registration_setup_signup",
+    "test_app.py::test_wf_registration_setup_keyboard_register",
+    "test_app.py::test_client_owner_account",
+    "test_app.py::test_wf_registration_setup_quarterly_calendar",
+    "test_app.py::test_wf_registration_setup_invalid_recovery",
+    "test_app.py::test_wf_registration_setup_owner_identity_before_registration",
+]
+
+[[workflows]]
+id = "month_grid_keyboard"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_wf_month_grid_keyboard_navigation",
+    "test_app.py::test_wf_month_grid_keyboard_band",
+    "test_app.py::test_month_grid_cells",
+    "test_app.py::test_wf_month_grid_keyboard_phone_switch_day",
+    "test_app.py::test_wf_month_grid_keyboard_reduced_motion",
+]
+checkpoints = [
+    "B14",
+]
+
+[[workflows]]
+id = "carry_forward"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+]
+critical = [
+    "test_app.py::test_wf_carry_forward_grid_and_phone",
+    "test_app.py::test_wf_carry_forward_holiday_edit",
+    "test_app.py::test_carry_forward",
+    "test_app.py::test_wf_carry_forward_cross_month_ghost",
+    "test_app.py::test_wf_carry_forward_remove_holiday_live",
+    "test_app.py::test_wf_carry_forward_extended_holiday_recarry",
+    "test_app.py::test_wf_carry_forward_phone_band_immediately_after_carried_day",
+]
+
+[[workflows]]
+id = "reminders_dst"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_reminders_dst_clock_steps",
+    "test_app.py::test_wf_reminders_dst_notices",
+    "test_app.py::test_wf_reminders_dst_hour_change_keeps_sent",
+    "test_app.py::test_wf_reminders_dst_rewind_keeps_sent",
+    "test_app.py::test_wf_reminders_dst_unchanged_amounts_notice",
+    "test_app.py::test_wf_reminders_dst_saved_hour_refreshes_in_other_settings_tab",
+]
+
+[[workflows]]
+id = "rule_changes"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_rule_changes_publish_keyboard",
+    "test_app.py::test_wf_rule_changes_earlier_periods",
+    "test_app.py::test_wf_rule_changes_extension_limit_recovery",
+    "test_app.py::test_edition_state_local_midnight",
+    "test_app.py::test_wf_rule_changes_insert_before_later_edition",
+]
+
+[[workflows]]
+id = "overdue_server"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+]
+critical = [
+    "test_app.py::test_wf_overdue_server_live",
+    "test_app.py::test_overdue_edge",
+    "test_app.py::test_counts_match_returns",
+    "test_app.py::test_wf_overdue_server_several",
+    "test_app.py::test_wf_overdue_server_rewind_filtered_year",
+    "test_app.py::test_wf_overdue_server_open_band_clock_edges",
+]
+
+[[workflows]]
+id = "extensions"
+requirements = [
+    "DP-22",
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_extensions_keyboard",
+    "test_app.py::test_wf_extensions_edge",
+    "test_app.py::test_wf_extensions_after_live_amount_save",
+    "test_app.py::test_wf_extensions_zero_day_fixed",
+    "test_app.py::test_wf_extensions_approved_maximum",
+    "test_app.py::test_wf_extensions_refusal_shift_tab_stays_in_dialog",
+]
+
+[[workflows]]
+id = "client_approval_phone"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_client_approval_phone_approve",
+    "test_app.py::test_wf_client_approval_phone_send_back",
+    "test_app.py::test_owner_other_client_not_found",
+    "test_app.py::test_owner_actions_forbidden",
+    "test_app.py::test_wf_client_approval_phone_approved_send_back_limit",
+    "test_app.py::test_wf_client_approval_phone_back_home_uses_live_version",
+]
+checkpoints = [
+    "B15",
+    "B16",
+    "B19",
+]
+critical_checkpoints = [
+    "B16",
+]
+
+[[workflows]]
+id = "filing_packet"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_filing_packet_keyboard",
+    "test_app.py::test_wf_filing_packet_pdf_held",
+    "test_app.py::test_wf_filing_packet_cancel_preserves_return",
+    "test_app.py::test_wf_filing_packet_sent_reminder_retained",
+    "test_app.py::test_wf_filing_packet_quarterly_owner_pdf",
+    "test_app.py::test_wf_filing_packet_inflight_first_render_keeps_amendment",
+]
+
+[[workflows]]
+id = "amendments"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_amendments_keyboard",
+    "test_app.py::test_wf_amendments_lists",
+    "test_app.py::test_wf_amendments_note_limit",
+    "test_app.py::test_amendment_originals_and_revisions",
+    "test_app.py::test_wf_amendments_before_first_packet",
+    "test_app.py::test_wf_amendments_error_dialog_retains_keyboard_containment_after_live_refresh",
+    "test_app.py::test_wf_amendments_grid_displays_amended_amounts",
+]
+
+[[workflows]]
+id = "outage_recovery"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_outage_banners",
+    "test_app.py::test_wf_outage_recovery_mail",
+    "test_app.py::test_wf_outage_recovery_pdf",
+    "test_app.py::test_wf_outage_recovery_approved_and_filed_notices",
+    "test_app.py::test_wf_outage_recovery_replacement_packet_owner",
+]
+
+[[workflows]]
+id = "year_view_export"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+]
+critical = [
+    "test_app.py::test_wf_year_view_export_filters",
+    "test_app.py::test_result_count_matches",
+    "test_app.py::test_wf_year_view_export_exclusive_filters",
+    "test_app.py::test_wf_year_view_export_csv",
+    "test_app.py::test_wf_year_view_export_extension_changes_year",
+    "test_app.py::test_wf_year_view_export_filter_survives_delayed_live_refresh",
+]
+
+[[workflows]]
+id = "two_tab_conflict"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_two_tab_conflict_draft",
+    "test_app.py::test_wf_two_tab_conflict_race",
+    "test_app.py::test_wf_two_tab_conflict_extension_uses_live_version",
+    "test_app.py::test_wf_two_tab_conflict_prepare_keeps_draft_version",
+    "test_app.py::test_wf_two_tab_conflict_held_extension_dialog",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_catalogue_rows",
+    "test_app.py::test_responsive_layout",
+    "test_app.py::test_announcements_and_accessibility",
+    "test_app.py::test_run_manifest_and_boot",
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_signed_out_unknown_page_renders_not_found",
+    "test_app.py::test_grading_routes",
+    "test_app.py::test_today_week_refreshes_after_practice_clock_change",
+]
+checkpoints = [
+    "B1",
+    "B5",
+    "B8",
+]
+critical_checkpoints = [
+    "B1",
+]

@@ -1,0 +1,1819 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 99
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "security",
+    "loft-setup",
+    "rig-measurement",
+    "sail-drawing",
+    "nesting",
+    "roll-claims",
+    "cut-confirmation",
+    "stock-ledger",
+    "cut-sheet-issue",
+    "owner-sight",
+    "admin-console",
+    "standing",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+    "Q9",
+]
+rubric_total_weight = 89
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "keycloak", env = {} },
+    { name = "minio", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 5
+B6 = 5
+B7 = 5
+B8 = 3
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+Q9 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-hold"
+port = 4175
+url_env = "APP_SHORT_HOLD_URL"
+
+[outages.env]
+CLAIM_HOLD_SECONDS = "5"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[outages]]
+id = "minute-hold"
+port = 4176
+url_env = "APP_MINUTE_HOLD_URL"
+
+[outages.env]
+CLAIM_HOLD_SECONDS = "65"
+DATABASE_URL = "${DATABASE_URL}_minute"
+S3_BUCKET = "${S3_BUCKET}-minute"
+
+[[outages]]
+id = "twin-a"
+port = 4177
+url_env = "APP_TWIN_A_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_twin"
+S3_BUCKET = "${S3_BUCKET}-twin"
+
+[[outages]]
+id = "twin-b"
+port = 4178
+url_env = "APP_TWIN_B_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_twin"
+S3_BUCKET = "${S3_BUCKET}-twin"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from `/app/run.json` on the published port and answers the health address as qualified in Technical requirements."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Recovery without restart"
+text = "With Postgres or Keycloak unreachable the app answers the published unavailable bodies, and it recovers within the Server boundary limit after the dependency returns, with no restart and with every missing seeded account re-created."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_recovery",
+]
+criteria = []
+parameter_cases = [
+    "database",
+    "identity",
+]
+
+[[requirements]]
+id = "DP-03"
+title = "Sign-in and session cookie"
+text = "Signing in with email and password sets the published session cookie and returns a bearer token, and a write carrying only the cookie is refused as unauthenticated."
+kind = "behavior"
+primary = "pytest"
+workflow = "security"
+tests = [
+    "test_app.py::test_session_cookie",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Bearer token verification"
+text = "Unsigned, tampered, wrongly signed, expired and deleted-account tokens all receive the identical unauthenticated refusal."
+kind = "behavior"
+primary = "pytest"
+workflow = "security"
+tests = [
+    "test_app.py::test_bearer_tokens_refused",
+]
+criteria = []
+parameter_cases = [
+    "unsigned",
+    "tampered",
+    "wrong-key",
+    "expired",
+    "deleted",
+]
+
+[[requirements]]
+id = "DP-05"
+title = "Role, ownership and authority from stored records"
+text = "Every call takes the caller's role, ownership and cutting authority from the stored records, never from token claims, so an owner only ever reaches their own boats and granted drawings, and a deletion or authority withdrawal by the sailmaker takes effect on the caller's very next request."
+kind = "behavior"
+primary = "pytest"
+workflow = "security"
+tests = [
+    "test_app.py::test_roles_from_stored_records",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Uniform not-found"
+text = "A record that belongs to someone else and a record that never existed answer the byte-identical not-found body with the identical set of response headers at every address, nested addresses included."
+kind = "behavior"
+primary = "pytest"
+workflow = "security"
+tests = [
+    "test_app.py::test_wf_security_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "One refusal ladder"
+text = "Every endpoint ranks its refusals in the single published order, so a request that breaks two rules receives only the higher-ranked status."
+kind = "behavior"
+primary = "pytest"
+workflow = "security"
+tests = [
+    "test_app.py::test_refusal_ladder",
+    "test_app.py::test_wf_security_rate_limit_rank",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Unknown and privileged members ignored"
+text = "Every write stores only the members its endpoint publishes, leaves privileged members exactly as stored, and echoes the stored record."
+kind = "behavior"
+primary = "pytest"
+workflow = "security"
+tests = [
+    "test_app.py::test_mass_assignment_ignored",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "No secret reaches the browser"
+text = "No page, script, attribute or source map carries a credential, token or seeded password, and every page carries the published content security policy with no inline script or inline handler."
+kind = "behavior"
+primary = "pytest"
+workflow = "security"
+tests = [
+    "test_app.py::test_no_secrets_and_csp",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Accounts made by the sailmaker"
+text = "The sailmaker creates owner and loft hand accounts that exist in the Keycloak realm with their realm role, and can delete them, after which the account's records remain under the published deleted-account name and its email stays taken."
+kind = "behavior"
+primary = "pytest"
+workflow = "loft-setup"
+tests = [
+    "test_app.py::test_accounts_in_realm",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Versioned saves"
+text = "Saving a boat, a stock item or a future rule set needs its current revision, and a missing or stale revision is refused with its published status and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "loft-setup"
+tests = [
+    "test_app.py::test_versioned_saves",
+]
+criteria = []
+parameter_cases = [
+    "boat",
+    "stock",
+    "ruleset",
+]
+
+[[requirements]]
+id = "DP-12"
+title = "Receiving a roll"
+text = "Receiving a roll creates stock with its cloth, mill lot, width and length and posts one balanced ledger receipt pair."
+kind = "behavior"
+primary = "pytest"
+workflow = "loft-setup"
+tests = [
+    "test_app.py::test_receive_roll",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Loft setup journey"
+text = "The sailmaker signs in, creates an owner, adds the owner's boat with tape measurements and a photo, receives a roll of a named lot, and sees all of it on the loft, boat and stock screens."
+kind = "behavior"
+primary = "workflow"
+workflow = "loft-setup"
+tests = [
+    "test_app.py::test_wf_loft_setup_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Tolerance bands and Remeasure"
+text = "A new measurement outside the pinned tolerance band of the previous one marks the dimension Remeasure and blocks drawing any sail that uses it, until a measurement inside the band settles it."
+kind = "behavior"
+primary = "pytest"
+workflow = "rig-measurement"
+tests = [
+    "test_app.py::test_tolerance_remeasure",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Remeasure deadline in loft working days"
+text = "A Remeasure dimension carries a due date counted in loft working days after the measurement date, skipping weekends and seeded loft closures, reproducing the worked example in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "rig-measurement"
+tests = [
+    "test_app.py::test_remeasure_due_working_days",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Tape photographs in the store"
+text = "A tape photograph is recorded on its measurement only after the bytes read back from MinIO under the published key have its length and SHA-256, it is streamed back only to callers who may see that boat, and a store outage mid-upload leaves the measurement without a photo."
+kind = "behavior"
+primary = "pytest"
+workflow = "rig-measurement"
+tests = [
+    "test_app.py::test_photo_store_confirmation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Owner request limit"
+text = "An owner's measurement submissions and cut-sheet fetches are limited per account per window across every instance, and refusals carry the published retry copy and a whole-second Retry-After while other accounts are unaffected."
+kind = "behavior"
+primary = "pytest"
+workflow = "rig-measurement"
+tests = [
+    "test_app.py::test_owner_rate_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Owner submission journey"
+text = "An owner signs in, submits a hand-measured figure for their own boat in millimetres, decimal inches or feet and inches, sees it pending exactly as typed beside its conversion, and later sees the sailmaker's decision on it."
+kind = "behavior"
+primary = "workflow"
+workflow = "rig-measurement"
+tests = [
+    "test_app.py::test_wf_rig_measurement_owner_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Sail areas computed once on the server"
+text = "Mainsail, foretriangle and headsail areas follow the published formulae with the pinned roach factor, are computed and rounded once on the server, and every surface that shows one area shows the same digits."
+kind = "behavior"
+primary = "pytest"
+workflow = "sail-drawing"
+tests = [
+    "test_app.py::test_areas_on_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Paired units on every surface"
+text = "Every length shows millimetres then inches and every area square metres then square feet, converted and rounded by the published rule on screens, in the cut sheet and in the API, with an owner's figure also shown exactly as submitted."
+kind = "behavior"
+primary = "pytest"
+workflow = "sail-drawing"
+tests = [
+    "test_app.py::test_paired_units",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Crosscut panel geometry"
+text = "Drawing a sail produces crosscut panels perpendicular to the leech at the cloth's usable width less the pinned seam overlap, with outlines and areas exactly as the published construction gives."
+kind = "behavior"
+primary = "pytest"
+workflow = "sail-drawing"
+tests = [
+    "test_app.py::test_crosscut_panels",
+]
+criteria = []
+parameter_cases = [
+    "BR-0191",
+    "BR-0132",
+    "BR-0141",
+]
+
+[[requirements]]
+id = "DP-22"
+title = "Rule sets that take effect at their instant"
+text = "A rule-set version becomes current exactly at its effective instant with no job or restart, and a drawing keeps the version it pinned when it was drawn."
+kind = "behavior"
+primary = "pytest"
+workflow = "sail-drawing"
+tests = [
+    "test_app.py::test_ruleset_effective_instant",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Drawing state machine"
+text = "A sail drawing moves only along the published transitions, and every illegal move answers its published refusal."
+kind = "behavior"
+primary = "pytest"
+workflow = "sail-drawing"
+tests = [
+    "test_app.py::test_drawing_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Drawing a sail journey"
+text = "The sailmaker moves a measured drawing to its Draw step, draws the sail, and sees its panels on the cobalt canvas with the governing area at poster size in both units with its basis."
+kind = "behavior"
+primary = "workflow"
+workflow = "sail-drawing"
+tests = [
+    "test_app.py::test_wf_sail_drawing_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Lay rules"
+text = "A panel lays only inside the claimed length and the stock's usable width, turned 0° or 180°, without overlapping another panel on the same hold, at the requested position or at its automatic position."
+kind = "behavior"
+primary = "pytest"
+workflow = "nesting"
+tests = [
+    "test_app.py::test_lay_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Keyboard nesting"
+text = "With the keyboard alone the sailmaker selects a panel, nudges it by the small or large step, turns it 180°, lays it and undoes it, with visible focus, and the published keys work wherever focus sits in the nesting region except a text field or an open dialog, while Enter on a focused button only activates that button."
+kind = "behavior"
+primary = "pytest"
+workflow = "nesting"
+tests = [
+    "test_app.py::test_wf_nesting_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Touch nesting on tablet and phone"
+text = "On the tablet and phone layouts a panel is laid by dragging it onto the roll strip and lands at the position under the finger, as qualified in Interactions for the phone's collapsed panel list."
+kind = "behavior"
+primary = "pytest"
+workflow = "nesting"
+tests = [
+    "test_app.py::test_touch_nesting",
+]
+criteria = []
+parameter_cases = [
+    "tablet",
+    "phone",
+]
+
+[[requirements]]
+id = "DP-28"
+title = "Thread Lay"
+text = "A laid panel lifts, travels to its server nest position without ever turning a quarter turn, lands with its number, and the remaining figures count to the new value, with the published timings and an instant reduced-motion substitute."
+kind = "behavior"
+primary = "pytest"
+workflow = "nesting"
+tests = [
+    "test_app.py::test_thread_lay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Nesting journey"
+text = "The sailmaker claims length, lays every panel of a drawing onto the roll strip, sees the drawing move to Nested, and undoes and re-lays a panel."
+kind = "behavior"
+primary = "workflow"
+workflow = "nesting"
+tests = [
+    "test_app.py::test_wf_nesting_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Claims on free length"
+text = "A claim holds length on a roll or offcut, for a drawing of the same cloth and pinned lot, only while that length is free of other live holds."
+kind = "behavior"
+primary = "pytest"
+workflow = "roll-claims"
+tests = [
+    "test_app.py::test_claims_free_length",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "One winner per race"
+text = "Of simultaneous claims, cuts, decisions, releases, issues, payments or account creations on the same record, exactly one wins, the rest answer the published refusal, and nothing is written twice, also across instances sharing one database."
+kind = "behavior"
+primary = "pytest"
+workflow = "roll-claims"
+tests = [
+    "test_app.py::test_wf_roll_claims_race",
+]
+criteria = []
+parameter_cases = [
+    "claim",
+    "cut",
+    "decision",
+    "release",
+    "issue",
+]
+
+[[requirements]]
+id = "DP-32"
+title = "Holds lapse on the server"
+text = "A hold lapses on the server at its deadline with no job, its laid panels return to the drawing, and a lapsed hold can never be cut."
+kind = "behavior"
+primary = "pytest"
+workflow = "roll-claims"
+tests = [
+    "test_app.py::test_holds_lapse_short",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Countdown from the server deadline"
+text = "The tablet counts down from the server's remaining seconds by elapsed time, ignores the device clock, and asks the server again at zero, showing whatever status the server answers."
+kind = "behavior"
+primary = "pytest"
+workflow = "roll-claims"
+tests = [
+    "test_app.py::test_countdown_server_deadline",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Loft hand claim journey"
+text = "The loft hand opens an assigned drawing on the cutting floor, claims length and sees the hold countdown, and when the sailmaker has already taken the last length, the loft hand sees the conflict copy with the sailmaker's name."
+kind = "behavior"
+primary = "workflow"
+workflow = "roll-claims"
+tests = [
+    "test_app.py::test_wf_roll_claims_conflict_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Confirm cut posts paired lines"
+text = "Confirming a cut takes the whole claimed length off the stock as balanced ledger pairs to the drawing's panels, a new offcut and waste, and the stored on-hand always equals the ledger."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-confirmation"
+tests = [
+    "test_app.py::test_wf_cut_confirmation_ledger_pairs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Confirm cut once per key"
+text = "A retried confirmation with the same key returns the same status and byte-identical body and posts nothing more, even when the two arrive together, at two instances, or the retry follows a session refresh, and a different key on a cut hold is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-confirmation"
+tests = [
+    "test_app.py::test_cut_idempotency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Remnants become offcuts"
+text = "The unused tail of a cut hold that meets the pinned minimum size becomes offcut stock with its own length and its parent's width and lot, and it can take later panels."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-confirmation"
+tests = [
+    "test_app.py::test_remnant_becomes_offcut",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Cutting authority on the claim's date"
+text = "A loft hand may take and cut holds only under a cutting authority in force when the hold was taken, so neither a later withdrawal nor a later grant reaches back."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-confirmation"
+tests = [
+    "test_app.py::test_authority_on_claim_date",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Cutting journey"
+text = "The loft hand confirms the cut on the tablet, a double tap or an expired session does no harm, and the roll strip, the stock shelf and the ledger footer show the new remaining length together."
+kind = "behavior"
+primary = "workflow"
+workflow = "cut-confirmation"
+tests = [
+    "test_app.py::test_wf_cut_confirmation_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Shelf counts"
+text = "Recording a shelf count either matches the ledger or posts a counted adjustment pair with its reason, so the ledger always equals the last count."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-ledger"
+tests = [
+    "test_app.py::test_shelf_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Ledger pages"
+text = "The cloth ledger pages newest first by opaque cursor with the published cap and tie-break, so walking every page returns each line exactly once even while new lines are posted."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-ledger"
+tests = [
+    "test_app.py::test_wf_stock_ledger_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Whole-set totals and reconciliation"
+text = "Every total covers every ledger line, and the reconciliation address answers the stored and computed on-hand with a difference of zero and a ledger sum of zero."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-ledger"
+tests = [
+    "test_app.py::test_totals_reconciliation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "One figure on three surfaces"
+text = "After a cut, the roll strip, the stock shelf card and the ledger footer show the same remaining length, offcut count and on-hand area in both units, as scoped in the API under Same figures on three surfaces."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-ledger"
+tests = [
+    "test_app.py::test_wf_stock_ledger_three_surfaces",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Newest answer wins"
+text = "When the ledger filter or page changes, including by Back or Forward, while an earlier answer is still in flight, the table and footer show only the newest answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-ledger"
+tests = [
+    "test_app.py::test_newest_answer_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Issued only after the store confirms the bytes"
+text = "A drawing shows Issued only after the bytes read back from its cut-sheet key have the rendered length and a computed SHA-256 equal to the render, a key holding other bytes is overwritten once, and issuing again writes no second object."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-sheet-issue"
+tests = [
+    "test_app.py::test_wf_cut_sheet_issue_confirmed_bytes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Pending store and recovery"
+text = "With the store unreachable, issuing leaves the drawing Pending store with the published outage copy, and the drawing becomes Issued by itself once the store answers, with no restart and no duplicate object."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-sheet-issue"
+tests = [
+    "test_app.py::test_pending_store_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Cut sheet document"
+text = "The cut sheet is an SVG at a permanent content-addressed key, every figure in it carries its pinned rule set, method and tolerance, re-rendering it gives byte-identical output, and the sailmaker and the owner fetch the same bytes."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-sheet-issue"
+tests = [
+    "test_app.py::test_cut_sheet_document",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Revisions and superseded sheets"
+text = "Revising an issued drawing creates a successor, and once the successor is issued, the predecessor stays readable at its own address, marked as superseded by the successor."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-sheet-issue"
+tests = [
+    "test_app.py::test_revisions_superseded",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Issue journey"
+text = "The sailmaker issues the cut sheet of a Cut drawing, sees Pending store turn to Issued on the open page, and opens the sheet."
+kind = "behavior"
+primary = "workflow"
+workflow = "cut-sheet-issue"
+tests = [
+    "test_app.py::test_wf_cut_sheet_issue_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Sight grants"
+text = "The sailmaker grants an owner sight of an issued drawing at a grant address and can withdraw it, after which that address answers not-found for that owner on the next request and never works again, while other grants are unaffected and every instance sharing the database answers the grant identically."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-sight"
+tests = [
+    "test_app.py::test_sight_grants",
+    "test_app.py::test_wf_owner_sight_fetch_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Sight end dates"
+text = "The server treats a grant that carries an end instant as withdrawn from that instant on, whatever the owner's device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-sight"
+tests = [
+    "test_app.py::test_sight_end_dates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Owner viewing journey"
+text = "An owner opens a shared cut sheet showing both units and the sail account, signs out on a shared tablet for another owner, and after the sailmaker withdraws sight the owner sees the published refusal."
+kind = "behavior"
+primary = "workflow"
+workflow = "owner-sight"
+tests = [
+    "test_app.py::test_wf_owner_sight_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Bulk submission decisions"
+text = "Deciding several submissions at once applies each one independently and answers a per-item result list in submitted order, with the pending count moving once per applied item."
+kind = "behavior"
+primary = "pytest"
+workflow = "admin-console"
+tests = [
+    "test_app.py::test_bulk_decisions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Audit trail"
+text = "Every state change made by a request writes one audit row in the same transaction with actor, target, before and after state, and reason, listed newest first, and the bulk path attributes like the single path."
+kind = "behavior"
+primary = "pytest"
+workflow = "admin-console"
+tests = [
+    "test_app.py::test_audit_trail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Role matrix"
+text = "The console shows the published role table, and any attempt to change an account's role is refused and still audited."
+kind = "behavior"
+primary = "pytest"
+workflow = "admin-console"
+tests = [
+    "test_app.py::test_role_matrix",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Ledger export"
+text = "The ledger CSV export follows the published byte-exact format over every line, newest first, matching a walk of every ledger page line for line, and ends with exactly one line feed."
+kind = "behavior"
+primary = "pytest"
+workflow = "admin-console"
+tests = [
+    "test_app.py::test_ledger_export_csv",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Console journey"
+text = "The sailmaker selects pending submissions, accepts some and rejects others with a reason, sees refused items reported, and finds the decisions in the audit trail."
+kind = "behavior"
+primary = "workflow"
+workflow = "admin-console"
+tests = [
+    "test_app.py::test_wf_admin_console_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Tape standing"
+text = "The season's tape standing per owner is derived on every request from one consistent snapshot of submission decisions by the published counted, accepted, streak, ranking and standing rules, and a reversal removes volume but never breaks a streak."
+kind = "behavior"
+primary = "pytest"
+workflow = "standing"
+tests = [
+    "test_app.py::test_tape_standing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Standing journey"
+text = "The sailmaker opens the standing tab, hears the owner count announced, reverses an accepted submission, and on returning sees that owner's accepted count fall while the streak, rank and chip follow the published rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "standing"
+tests = [
+    "test_app.py::test_wf_standing_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Motion timings and reduced motion"
+text = "The meter, the counting figures, the staggered ledger rows, the moving shelf cards, the card lift and the step transitions run with the published timings, and under reduced motion every one of them has exactly zero duration and delay and reaches the same end state."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_reduced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Responsive layout without shift"
+text = "Every screen fits every published width with nothing scrolling sideways, every control is a comfortable tap target, and no element shifts after first paint on public routes."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Published copy verbatim"
+text = "Every published string renders, and is announced in its named live region, character for character."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_published_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Landing statement"
+text = "The landing page carries the duotone statement hero: the poster headline,````task.spec.yaml (continued from DP-63) the sail drawn in white strokes, and the single tomato action."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Duotone working screens"
+text = "Working screens follow the published field rotation: the cobalt drawing canvas, the black roll strip, the single tomato action, and poster-size governing figures in both units."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Wiring from the environment"
+text = "Every service credential and URL is read from the environment, the browser never talks to a service directly, and each domain rule is decided in one place in the source."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Lot-true sails"
+text = "A drawing pins the mill lot of its first Held or Cut claim, unpins it only when every claim is released or lapsed with none cut and without any job, and refuses a claim on stock of another lot with the published field copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "roll-claims"
+tests = [
+    "test_app.py::test_lot_true_sails",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Unit-slip guard and decimal inches"
+text = "A millimetre figure that reads as inches typed into the millimetre field is refused, and an owner may instead send decimal inches, converted half away from zero in integer arithmetic and kept exactly as submitted."
+kind = "behavior"
+primary = "pytest"
+workflow = "rig-measurement"
+tests = [
+    "test_app.py::test_unit_slip_guard_and_decimal_inches",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Tape photo kept as uploaded"
+text = "A tape photograph streams back byte for byte with its uploaded content type and its SHA-256 as ETag, the same bytes again write nothing, and different bytes are refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "rig-measurement"
+tests = [
+    "test_app.py::test_wf_rig_measurement_photo_bytes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Only the published API surface"
+text = "Any API address or method outside the endpoint table answers the uniform not-found body and headers whether or not the caller is signed in, and no response carries framework, method-list or cross-origin headers."
+kind = "behavior"
+primary = "pytest"
+workflow = "security"
+tests = [
+    "test_app.py::test_wf_security_unpublished_surface",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Published landing route after each action"
+text = "Creating a boat or drawing, drawing a sail, revising, receiving a roll, finishing a cut and signing out each land on the published address with focus on the published control, and reloading that address shows the same screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "loft-setup"
+tests = [
+    "test_app.py::test_landing_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Exact live layout breakpoints"
+text = "The draw and nest steps and the tables switch between desktop, tablet and phone layouts exactly at 1024 px and 600 px wide, live on resize with no reload, keeping selection, ghost and hold."
+kind = "behavior"
+primary = "pytest"
+workflow = "sail-drawing"
+tests = [
+    "test_app.py::test_wf_sail_drawing_breakpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Collapsed panel list on the phone"
+text = "On the phone layout the panel list stays collapsed behind its Panels button and collapses again whenever the phone layout is entered, and while it is collapsed no panel button can be seen, focused, tapped or found in the accessibility tree."
+kind = "behavior"
+primary = "pytest"
+workflow = "nesting"
+tests = [
+    "test_app.py::test_phone_panel_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Hold countdown keeps the screen state"
+text = "The hold countdown's ticks never close an open dialog, clear a typed figure, or move focus, the ghost or the selection, and at lapse the screen shows what the server answers with the published copy and focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "roll-claims"
+tests = [
+    "test_app.py::test_countdown_keeps_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Expired session resumes the action"
+text = "A write refused as unauthenticated refreshes the session once and repeats with the same body and key, and a failed refresh sends the user to sign in and back to the same page."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-confirmation"
+tests = [
+    "test_app.py::test_expired_session_resume",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Ledger address holds filter and page"
+text = "The ledger's stock filter and page cursor live in the address so reload, Back and Forward restore them, and a cursor from another filter is refused with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-ledger"
+tests = [
+    "test_app.py::test_ledger_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Live in place updates"
+text = "A drawing page open in Pending store turns Issued in place and the cutting floor shows a newly assigned drawing, each without a reload and within the Business rules limit, announcing once and keeping focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-sheet-issue"
+tests = [
+    "test_app.py::test_floor_new_assignment_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Owner projection"
+text = "Owners receive boats, drawings, photos, submissions and sail accounts only as the published owner projection, with no notes, revisions, store keys, claims, lot, assignment, decider or recorder."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-sight"
+tests = [
+    "test_app.py::test_wf_owner_sight_projection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "CSV formula neutralisation"
+text = "Every ledger CSV text field that starts with a formula character is prefixed with a single quote before quoting, and numbers are never prefixed."
+kind = "behavior"
+primary = "pytest"
+workflow = "admin-console"
+tests = [
+    "test_app.py::test_wf_admin_console_csv_neutralised",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Standing announced and fresh"
+text = "Each standing load and season change announces the published owner count, the tab and season live in the address, and the standing never shows a table from before a reversal."
+kind = "behavior"
+primary = "pytest"
+workflow = "standing"
+tests = [
+    "test_app.py::test_wf_standing_announced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Feet, inches and sixteenths"
+text = "An owner may send a figure from the tape's feet-and-inches side, with straight or phone-curled marks and a reduced fraction from halves to sixteenths, converted half away from zero in integer arithmetic and stored exactly as typed."
+kind = "behavior"
+primary = "pytest"
+workflow = "rig-measurement"
+tests = [
+    "test_app.py::test_feet_inches_sixteenths",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Automatic first-fit position"
+text = "The automatic position of every unlaid panel on a hold is the published first-fit search over 0° and 180°, decided in exact integer arithmetic and published on the claim, reproducing the worked examples in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "nesting"
+tests = [
+    "test_app.py::test_first_fit_worked_example",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Ghost held on the cloth"
+text = "Keyboard and touch moves of the ghost are clamped so its turned outline stays inside the claimed length and the usable width, and the readout shows the clamped figure."
+kind = "behavior"
+primary = "pytest"
+workflow = "nesting"
+tests = [
+    "test_app.py::test_ghost_clamped",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Cutting after a partial lapse"
+text = "In Cutting, a lapse, release or undo keeps the drawing in Cutting with its lot pinned, and a further cut needs every uncut panel laid on a Held claim."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-confirmation"
+tests = [
+    "test_app.py::test_cutting_after_partial_lapse",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "A lot that runs out mid-sail"
+text = "A drawing may be nested across several holds of its pinned lot, the panels that fit on the last length of one roll are laid there and the rest on another roll of the same lot, as the worked example in Business rules shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "roll-claims"
+tests = [
+    "test_app.py::test_lot_runs_out_mid_sail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Cut sheets keep the values recorded at Draw"
+text = "Renaming a boat or an account changes every live surface but never an issued cut sheet, whose preview stays byte-identical to its stored object, while a successor drawn after the rename carries the new name."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-sheet-issue"
+tests = [
+    "test_app.py::test_rename_keeps_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Interrupted Thread Lay"
+text = "An undo or a further lay pressed while a panel is travelling acts on the server state at once, and no stale animation ever moves a panel the server has since lifted or moved."
+kind = "behavior"
+primary = "pytest"
+workflow = "nesting"
+tests = [
+    "test_app.py::test_interrupted_thread_lay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-87"
+title = "One-minute hold warning"
+text = "When a hold passes one minute remaining by elapsed time, the polite region announces the published warning exactly once for that hold, whatever the device clock says, and disturbs nothing on screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "roll-claims"
+tests = [
+    "test_app.py::test_one_minute_warning",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-88"
+title = "Twin boot on one empty database"
+text = "Two instances started together on one empty database and bucket apply schema and seed exactly once, serve the identical seeded loft, and continue one shared code sequence."
+kind = "behavior"
+primary = "pytest"
+workflow = "loft-setup"
+tests = [
+    "test_app.py::test_wf_loft_setup_twin_boot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-89"
+title = "Tape photo signature and headers"
+text = "A tape photo whose bytes do not start with the signature of its declared JPEG or PNG type is refused 415 with nothing written, and every photo is served with nosniff, an inline file name and no caching."
+kind = "behavior"
+primary = "pytest"
+workflow = "rig-measurement"
+tests = [
+    "test_app.py::test_photo_signature_and_headers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-90"
+title = "Answers scoped to the caller"
+text = "Interleaved requests from different owners only ever answer the caller's own records with private no-store caching, and after sign-out the next account never sees the previous account's data, by repaint or by Back."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-sight"
+tests = [
+    "test_app.py::test_answers_scoped",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-91"
+title = "Ledger and audit refused at the database"
+text = "The tables `ledger_line` and `audit_trail` refuse UPDATE and DELETE at the database for every role, and each audit row names the acting account from its stored record, including loft hand claim actions."
+kind = "behavior"
+primary = "pytest"
+workflow = "admin-console"
+tests = [
+    "test_app.py::test_audit_immutable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-92"
+title = "Renames reach every surface"
+text = "Correcting an account's display name shows on the next request on the standing, submissions, boats, grants, comboboxes and conflict copy, and is audited with the before and after names."
+kind = "behavior"
+primary = "pytest"
+workflow = "standing"
+tests = [
+    "test_app.py::test_renames_everywhere",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-93"
+title = "Withdrawal reaches an open viewer"
+text = "An owner's open cut-sheet viewer checks its grant at least every 5 seconds and replaces the sheet with the published refusal within 10 seconds of a withdrawal or end instant, with no reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner-sight"
+tests = [
+    "test_app.py::test_viewer_withdrawal_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-94"
+title = "One email, one account"
+text = "Account emails are compared after Unicode normalisation and lower-casing, so a case or composition variant of a stored email and two simultaneous creates of one email leave exactly one account."
+kind = "behavior"
+primary = "pytest"
+workflow = "loft-setup"
+tests = [
+    "test_app.py::test_wf_loft_setup_one_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-95"
+title = "Four-step sail flow"
+text = "Each drawing moves through Measure, Draw, Nest and Confirm steps at their own addresses, a reload resumes the same step from server state, a step reached by typing its address before the earlier steps are met lands on the first unmet step, and stepping back clears every later step's figures."
+kind = "behavior"
+primary = "pytest"
+workflow = "sail-drawing"
+tests = [
+    "test_app.py::test_wf_sail_drawing_four_steps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-96"
+title = "Step transitions"
+text = "Moving between steps fades the outgoing step out and the incoming step in with the published timings while the step marker slides, and the two steps are never laid out at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "sail-drawing"
+tests = [
+    "test_app.py::test_step_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-97"
+title = "Card grids for the shelf and the cutting queue"
+text = "The stock shelf and the cutting queue are card grids with the published column count at each layout, the published gap, equal card heights in a row, comfortable targets, a lift on hover, a focus ring and reading-order Tab."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-ledger"
+tests = [
+    "test_app.py::test_card_grids",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-98"
+title = "Sail account in exact pence"
+text = "Every Cut, Pending store or Issued drawing carries a sail account whose charge, tax, total, deposit and balance are integer pence rounded half away from zero, reproducing the worked example in Business rules, with paid, credited and balance always summing to the total."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-sheet-issue"
+tests = [
+    "test_app.py::test_sail_account_exact_pence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-99"
+title = "Payments that never overpay"
+text = "A payment or credit note is refused when it exceeds the balance, a payment replayed with its key answers byte-identically and posts once, and two payments fired together can never take the balance below zero."
+kind = "behavior"
+primary = "pytest"
+workflow = "cut-sheet-issue"
+tests = [
+    "test_app.py::test_payments_never_overpay",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with `_schema` `run-manifest-v1` and string `install`, `build` and `serve` members, and nothing else is needed to start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` lists every shipped package (the production dependency tree from `npm ls --omit=dev --all --json`) and both font families, each with its licence."
+tests = [
+    "test_app.py::test_if_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the production dependency tree from `npm ls --omit=dev --all --json`) and font carries one of MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in the provided Postgres, Keycloak and MinIO, and uses no other database, cache, queue or file-based store."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and dev compose files stay unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Server and browser source is TypeScript with strict type checking on, and the build runs the type check."
+tests = [
+    "test_app.py::test_if_strict_typescript",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Fonts and scripts are served from the app itself, and no page loads anything from another origin."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "security"
+requirements = [
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-69",
+]
+critical = [
+    "test_app.py::test_session_cookie",
+    "test_app.py::test_bearer_tokens_refused",
+    "test_app.py::test_roles_from_stored_records",
+    "test_app.py::test_wf_security_not_found",
+    "test_app.py::test_refusal_ladder",
+    "test_app.py::test_wf_security_rate_limit_rank",
+    "test_app.py::test_mass_assignment_ignored",
+    "test_app.py::test_no_secrets_and_csp",
+    "test_app.py::test_wf_security_unpublished_surface",
+]
+
+[[workflows]]
+id = "loft-setup"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-70",
+    "DP-88",
+    "DP-94",
+]
+critical = [
+    "test_app.py::test_accounts_in_realm",
+    "test_app.py::test_versioned_saves",
+    "test_app.py::test_receive_roll",
+    "test_app.py::test_wf_loft_setup_journey",
+    "test_app.py::test_landing_routes",
+    "test_app.py::test_wf_loft_setup_twin_boot",
+    "test_app.py::test_wf_loft_setup_one_email",
+]
+
+[[workflows]]
+id = "rig-measurement"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-67",
+    "DP-68",
+    "DP-80",
+    "DP-89",
+]
+critical = [
+    "test_app.py::test_tolerance_remeasure",
+    "test_app.py::test_remeasure_due_working_days",
+    "test_app.py::test_photo_store_confirmation",
+    "test_app.py::test_owner_rate_limit",
+    "test_app.py::test_wf_rig_measurement_owner_journey",
+    "test_app.py::test_unit_slip_guard_and_decimal_inches",
+    "test_app.py::test_wf_rig_measurement_photo_bytes",
+    "test_app.py::test_feet_inches_sixteenths",
+    "test_app.py::test_photo_signature_and_headers",
+]
+
+[[workflows]]
+id = "sail-drawing"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-71",
+    "DP-95",
+    "DP-96",
+]
+critical = [
+    "test_app.py::test_areas_on_server",
+    "test_app.py::test_paired_units",
+    "test_app.py::test_crosscut_panels",
+    "test_app.py::test_ruleset_effective_instant",
+    "test_app.py::test_drawing_state_machine",
+    "test_app.py::test_wf_sail_drawing_journey",
+    "test_app.py::test_wf_sail_drawing_breakpoints",
+    "test_app.py::test_wf_sail_drawing_four_steps",
+    "test_app.py::test_step_transitions",
+]
+
+[[workflows]]
+id = "nesting"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-72",
+    "DP-81",
+    "DP-82",
+    "DP-86",
+]
+critical = [
+    "test_app.py::test_lay_rules",
+    "test_app.py::test_wf_nesting_keyboard",
+    "test_app.py::test_touch_nesting",
+    "test_app.py::test_thread_lay",
+    "test_app.py::test_wf_nesting_journey",
+    "test_app.py::test_phone_panel_list",
+    "test_app.py::test_first_fit_worked_example",
+    "test_app.py::test_ghost_clamped",
+    "test_app.py::test_interrupted_thread_lay",
+]
+
+[[workflows]]
+id = "roll-claims"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-66",
+    "DP-73",
+    "DP-84",
+    "DP-87",
+]
+critical = [
+    "test_app.py::test_claims_free_length",
+    "test_app.py::test_wf_roll_claims_race",
+    "test_app.py::test_holds_lapse_short",
+    "test_app.py::test_countdown_server_deadline",
+    "test_app.py::test_wf_roll_claims_conflict_journey",
+    "test_app.py::test_lot_true_sails",
+    "test_app.py::test_countdown_keeps_state",
+    "test_app.py::test_lot_runs_out_mid_sail",
+    "test_app.py::test_one_minute_warning",
+]
+
+[[workflows]]
+id = "cut-confirmation"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-74",
+    "DP-83",
+]
+critical = [
+    "test_app.py::test_wf_cut_confirmation_ledger_pairs",
+    "test_app.py::test_cut_idempotency",
+    "test_app.py::test_remnant_becomes_offcut",
+    "test_app.py::test_authority_on_claim_date",
+    "test_app.py::test_wf_cut_confirmation_journey",
+    "test_app.py::test_expired_session_resume",
+    "test_app.py::test_cutting_after_partial_lapse",
+]
+
+[[workflows]]
+id = "stock-ledger"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-75",
+    "DP-97",
+]
+critical = [
+    "test_app.py::test_shelf_counts",
+    "test_app.py::test_wf_stock_ledger_pages",
+    "test_app.py::test_totals_reconciliation",
+    "test_app.py::test_wf_stock_ledger_three_surfaces",
+    "test_app.py::test_newest_answer_wins",
+    "test_app.py::test_ledger_address",
+    "test_app.py::test_card_grids",
+]
+
+[[workflows]]
+id = "cut-sheet-issue"
+requirements = [
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-76",
+    "DP-85",
+    "DP-98",
+    "DP-99",
+]
+critical = [
+    "test_app.py::test_wf_cut_sheet_issue_confirmed_bytes",
+    "test_app.py::test_pending_store_recovery",
+    "test_app.py::test_cut_sheet_document",
+    "test_app.py::test_revisions_superseded",
+    "test_app.py::test_wf_cut_sheet_issue_journey",
+    "test_app.py::test_floor_new_assignment_live",
+    "test_app.py::test_rename_keeps_sheet",
+    "test_app.py::test_sail_account_exact_pence",
+    "test_app.py::test_payments_never_overpay",
+]
+
+[[workflows]]
+id = "owner-sight"
+requirements = [
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-77",
+    "DP-90",
+    "DP-93",
+]
+critical = [
+    "test_app.py::test_sight_grants",
+    "test_app.py::test_wf_owner_sight_fetch_limit",
+    "test_app.py::test_sight_end_dates",
+    "test_app.py::test_wf_owner_sight_journey",
+    "test_app.py::test_wf_owner_sight_projection",
+    "test_app.py::test_answers_scoped",
+    "test_app.py::test_viewer_withdrawal_live",
+]
+
+[[workflows]]
+id = "admin-console"
+requirements = [
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-78",
+    "DP-91",
+]
+critical = [
+    "test_app.py::test_bulk_decisions",
+    "test_app.py::test_audit_trail",
+    "test_app.py::test_role_matrix",
+    "test_app.py::test_ledger_export_csv",
+    "test_app.py::test_wf_admin_console_journey",
+    "test_app.py::test_wf_admin_console_csv_neutralised",
+    "test_app.py::test_audit_immutable",
+]
+
+[[workflows]]
+id = "standing"
+requirements = [
+    "DP-58",
+    "DP-59",
+    "DP-79",
+    "DP-92",
+]
+critical = [
+    "test_app.py::test_tape_standing",
+    "test_app.py::test_wf_standing_journey",
+    "test_app.py::test_wf_standing_announced",
+    "test_app.py::test_renames_everywhere",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-60",
+    "DP-61",
+    "DP-62",
+    "DP-63",
+    "DP-64",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_health",
+    "test_app.py::test_wf_cross_cutting_recovery",
+    "test_app.py::test_motion_reduced",
+    "test_app.py::test_responsive_layout",
+    "test_app.py::test_published_copy",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B12",
+]
+critical_checkpoints = [
+    "B1",
+]

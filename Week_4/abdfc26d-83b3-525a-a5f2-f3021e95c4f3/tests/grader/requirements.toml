@@ -1,0 +1,1261 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "cross-cutting",
+    "describe-and-tune",
+    "keyframe-timeline",
+    "render-export",
+    "render-failures",
+    "publish-editions",
+    "edition-lens-hold",
+    "checkout-and-pay",
+    "invoice-and-receipt",
+    "collector-library",
+    "remix-and-splits",
+    "refunds",
+    "plans-and-ledgers",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 89
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "keycloak", env = {} },
+    { name = "killbill", env = {} },
+    { name = "minio", env = {} },
+    { name = "rabbitmq", env = {} },
+    { name = "wiremock", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Phosphene Yard <studio@brightmoss.example>" } },
+    { name = "gotenberg", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 5
+B10 = 5
+B11 = 3
+B12 = 3
+B13 = 3
+B14 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 5
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "wiremock-down"
+port = 4175
+url_env = "APP_WIREMOCK_DOWN_URL"
+
+[outages.env]
+WIREMOCK_URL = "http://127.0.0.1:9"
+RENDER_QUEUE = "render.jobs.wiremock-down"
+
+[[outages]]
+id = "gotenberg-down"
+port = 4176
+url_env = "APP_GOTENBERG_DOWN_URL"
+
+[outages.env]
+GOTENBERG_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_gotenberg_down"
+S3_BUCKET = "${S3_BUCKET}-gotenberg-down"
+RENDER_QUEUE = "render.jobs.gotenberg-down"
+
+[[outages]]
+id = "mailpit-down"
+port = 4177
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+RENDER_QUEUE = "render.jobs.mailpit-down"
+DATABASE_URL = "${DATABASE_URL}_mailpit_down"
+S3_BUCKET = "${S3_BUCKET}-mailpit-down"
+
+[[outages]]
+id = "mailpit-recovered"
+port = 4178
+url_env = "APP_MAILPIT_RECOVERED_URL"
+
+[outages.env]
+RENDER_QUEUE = "render.jobs.mailpit-down"
+DATABASE_URL = "${DATABASE_URL}_mailpit_down"
+S3_BUCKET = "${S3_BUCKET}-mailpit-down"
+
+[[outages]]
+id = "minio-down"
+port = 4179
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+RENDER_QUEUE = "render.jobs.minio-down"
+DATABASE_URL = "${DATABASE_URL}_minio_down"
+
+[[outages]]
+id = "short-timer"
+port = 4180
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+HOLD_SECONDS = "5"
+PROVIDER_TIMEOUT_SECONDS = "3"
+RENDER_BACKOFF_SECONDS = "1"
+REFUND_WINDOW_SECONDS = "20"
+IDEMPOTENCY_TTL_SECONDS = "10"
+RENDER_QUEUE = "render.jobs.short"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health check."
+text = "`/app/run.json` installs, builds and serves the app on port 4173 (or `APP_PUBLIC_PORT`), and `GET /api/health` answers 200 `{\"status\":\"ok\"}`."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Keycloak sign-in and roles."
+text = "Every account signs in through Keycloak, and the creator, collector and founder-operator roles gate each action as listed in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "One error shape and precedence."
+text = "Every API error uses the single error body and the single precedence order from API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Same-origin server boundary."
+text = "The server enforces the body limits, content types and never-served list from Server boundary, and keeps serving when a dependency is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Configuration from the environment."
+text = "Every service URL, credential and timer is read from the environment variables in Configuration and secrets, and none reaches the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Featured edition stage."
+text = "The landing page opens on the featured edition stage, five-verb workflow stack, describe-a-piece prompt bar and featured piece strip arranged as in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Five-verb workflow stack."
+text = "The five verbs show one filled active verb that advances on a timer, pauses off-screen and holds still under reduced motion, as in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_hero_verbs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Nocturnal working screens."
+text = "Gallery, editor, library and console screens carry the near-black ground, single yellow accent, type pairing, corner rules, tables and empty and error states of Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Reduced motion and still canvases."
+text = "With reduced motion every canvas shows one still frame, entrances appear in place and loops stop while every control keeps working, and without WebGL each canvas shows its still fallback."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion_and_still_canvases",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Published viewports without overflow."
+text = "At 375x812, 768x1024 and 1280x800 every screen shows the layout from Screens and layout with no horizontal page scroll and touch targets at least 44 px."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_viewports_without_overflow",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "desktop",
+]
+
+[[requirements]]
+id = "DP-11"
+title = "Studio header."
+text = "The studio header stays at the top of every screen, gains its dark glass fill after scrolling past the hero, and collapses to one menu button below 768 px."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_header",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Describe a piece from a prompt."
+text = "Submitting the describe-a-piece prompt bar asks the AI provider for a shader graph and opens a new draft piece in the editor with the provider's shader and faders."
+kind = "behavior"
+primary = "pytest"
+workflow = "describe-and-tune"
+tests = [
+    "test_app.py::test_wf_describe_and_tune_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Assistant render-status pixel panel."
+text = "The assistant render-status pixel panel shows its idle, drafting, rendering and error states and flickers single cells only while work is pending."
+kind = "behavior"
+primary = "pytest"
+workflow = "describe-and-tune"
+tests = [
+    "test_app.py::test_assistant_pixel_panel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Instrument panel faders."
+text = "Each uniform of a piece is a fader on the instrument panel that changes the live canvas at once and is saved with the piece."
+kind = "behavior"
+primary = "pytest"
+workflow = "describe-and-tune"
+tests = [
+    "test_app.py::test_wf_describe_and_tune_faders",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Versioned saves reject stale edits."
+text = "Saving a piece requires its current version, and a save over a newer version is refused with 412 and the conflict copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "describe-and-tune"
+tests = [
+    "test_app.py::test_wf_describe_and_tune_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Editor layout at published breakpoints."
+text = "The editor shows its three zones side by side from 1280 px and stacked from 768 px, and below 768 px it turns the timeline into a stacked track list."
+kind = "behavior"
+primary = "pytest"
+workflow = "describe-and-tune"
+tests = [
+    "test_app.py::test_wf_describe_and_tune_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Keyframe timeline and export panel."
+text = "The keyframe timeline and export panel shows layers, diamond keyframes, the easing editor, the audio waveform and the export choices, and stores uploaded assets in MinIO."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyframe-timeline"
+tests = [
+    "test_app.py::test_wf_keyframe_timeline_assets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Keyboard keyframe editing."
+text = "A creator adds, moves, re-eases and deletes keyframes from the keyboard, and each change is announced in the studio status region."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyframe-timeline"
+tests = [
+    "test_app.py::test_wf_keyframe_timeline_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Timeline under reduced motion."
+text = "With reduced motion the editor canvas shows the still frame at the playhead, and scrubbing, keyframe editing and rendering work unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "keyframe-timeline"
+tests = [
+    "test_app.py::test_wf_keyframe_timeline_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Render cost reserved at accept."
+text = "Accepting a render reserves its credit cost from the creator's balance, or refuses it with 402 when the balance is short."
+kind = "behavior"
+primary = "pytest"
+workflow = "render-export"
+tests = [
+    "test_app.py::test_render_cost_reserved",
+    "test_app.py::test_render_reserve_concurrent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Render submit replays."
+text = "A render submitted again with the same idempotency key returns the first render and reserves nothing more, and the same key with a different body answers 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "render-export"
+tests = [
+    "test_app.py::test_render_submit_replays",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Ready only after stored and checksummed."
+text = "A render shows ready only after its export is stored in MinIO with a matching SHA-256, and then it captures its credits once and sends the render-ready email once, even if the job is delivered twice."
+kind = "behavior"
+primary = "pytest"
+workflow = "render-export"
+tests = [
+    "test_app.py::test_render_ready_after_checksum",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Render status announcements."
+text = "Each render state change is announced in the render status region with the exact copy from Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "render-export"
+tests = [
+    "test_app.py::test_wf_render_export_announcements",
+]
+criteria = []
+parameter_cases = [
+    "ready",
+    "timed_out",
+]
+
+[[requirements]]
+id = "DP-24"
+title = "Render-to-ready journey."
+text = "A creator renders an export of a draft piece and watches it move from queued to ready, with the balance, the stored file and the email all matching."
+kind = "behavior"
+primary = "workflow"
+workflow = "render-export"
+tests = [
+    "test_app.py::test_wf_render_export_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Provider timeouts and retries."
+text = "A render provider call that errors or exceeds the provider timeout is retried with backoff for at most three attempts, and then the job is dead-lettered."
+kind = "behavior"
+primary = "pytest"
+workflow = "render-failures"
+tests = [
+    "test_app.py::test_render_retries",
+    "test_app.py::test_wf_render_failures_provider_error",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Failed and cancelled renders return credits."
+text = "A render that fails, times out, is dead-lettered, returns a malformed file or is cancelled while queued releases its reserved credits exactly once."
+kind = "behavior"
+primary = "pytest"
+workflow = "render-failures"
+tests = [
+    "test_app.py::test_render_failures_release_credits",
+]
+criteria = []
+parameter_cases = [
+    "provider_error",
+    "timeout",
+    "malformed",
+    "storage_error",
+    "cancelled",
+]
+
+[[requirements]]
+id = "DP-27"
+title = "Shader assistant outage."
+text = "When the AI provider is unreachable or answers badly, describing a piece answers 503 or 502 with the outage copy, keeps the prompt and creates no piece."
+kind = "behavior"
+primary = "pytest"
+workflow = "render-failures"
+tests = [
+    "test_app.py::test_describe_provider_failures",
+    "test_app.py::test_wf_render_failures_assistant_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Publish a numbered edition run."
+text = "A creator publishes a draft with a ready export as a run of 1 to 500 numbered editions at a fixed price, and illegal transitions are refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-editions"
+tests = [
+    "test_app.py::test_publish_edition_run",
+    "test_app.py::test_wf_publish_editions_publish",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Withdraw keeps owners' downloads."
+text = "Withdrawing a published piece removes it from the gallery and frees open holds, while every owner keeps their export and invoice downloads."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-editions"
+tests = [
+    "test_app.py::test_withdraw_keeps_downloads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Live gallery and carousels."
+text = "The gallery shows the featured run and live piece cards in three, two or one-and-a-peek columns at the published breakpoints, with swipeable carousels and the show-more pill with count."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-editions"
+tests = [
+    "test_app.py::test_wf_publish_editions_gallery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Gallery empty states."
+text = "Empty gallery sections, an empty studio and an empty library show the exact empty copy and one next-action button."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-editions"
+tests = [
+    "test_app.py::test_wf_publish_editions_empty_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Public pages hide buyer data."
+text = "Gallery pages, piece pages and their API answers never include any collector's email, billing country or invoice number."
+kind = "behavior"
+primary = "pytest"
+workflow = "publish-editions"
+tests = [
+    "test_app.py::test_public_pages_hide_buyer_data",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Edition Lens."
+text = "On the featured edition stage and the piece page the lens maps pointer position to edition N, renders N's seed variation inside the lens, shows the numeral and status caption, and sets `?edition=N`."
+kind = "behavior"
+primary = "pytest"
+workflow = "edition-lens-hold"
+tests = [
+    "test_app.py::test_wf_edition_lens_hold_pointer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Lens by keyboard and touch."
+text = "The lens is a slider that steps with the arrow, Page, Home and End keys and follows a touch drag, and Enter or a click asks for a hold."
+kind = "behavior"
+primary = "pytest"
+workflow = "edition-lens-hold"
+tests = [
+    "test_app.py::test_wf_edition_lens_hold_keyboard_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Server-timed edition hold."
+text = "A hold reserves edition N for one collector for the server-timed hold period (10 minutes by default), survives a reload with its remaining time, and frees N when it expires."
+kind = "behavior"
+primary = "pytest"
+workflow = "edition-lens-hold"
+tests = [
+    "test_app.py::test_hold_timing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "One winner per edition number."
+text = "When collectors claim the same edition number at once, exactly one gets the hold and every other gets 409 with the nearest free number, which their lens moves to."
+kind = "behavior"
+primary = "pytest"
+workflow = "edition-lens-hold"
+tests = [
+    "test_app.py::test_one_winner_per_edition",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Hold announcements."
+text = "Hold granted, minute countdown, expiry and number-taken events are announced in the checkout status region with the exact copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "edition-lens-hold"
+tests = [
+    "test_app.py::test_wf_edition_lens_hold_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Keyboard checkout sheet."
+text = "The checkout sheet opens as a dialog that keeps Tab and Shift+Tab inside, closes on Escape and returns focus to the lens."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-and-pay"
+tests = [
+    "test_app.py::test_wf_checkout_and_pay_sheet_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Buy charges through Kill Bill."
+text = "Buying a held edition creates a Kill Bill invoice and payment for the gross price on the collector's account and moves the order to paying, or answers 503 while Kill Bill is down."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-and-pay"
+tests = [
+    "test_app.py::test_buy_charges_kill_bill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Buy replays."
+text = "A Buy repeated with the same idempotency key returns the first order and creates no second Kill Bill charge."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-and-pay"
+tests = [
+    "test_app.py::test_buy_replays",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Paid only on Kill Bill confirmation."
+text = "An order becomes paid only when Kill Bill confirms its payment, and the edition assignment, split rows and invoice number are then written together."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-and-pay"
+tests = [
+    "test_app.py::test_paid_only_on_confirmation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Verified once-only payment callbacks."
+text = "Payment callbacks without the tenant token are refused with 401, and forged, replayed or out-of-order events change nothing beyond what the Kill Bill API confirms."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout-and-pay"
+tests = [
+    "test_app.py::test_killbill_callbacks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Lens-to-paid journey."
+text = "A collector picks an edition with the keyboard, holds it, checks out, and sees the payment confirmed, the receipt in the inbox and the edition in the library."
+kind = "behavior"
+primary = "workflow"
+workflow = "checkout-and-pay"
+tests = [
+    "test_app.py::test_wf_checkout_and_pay_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Gapless invoice numbers."
+text = "Each confirmed order gets the next number in a gapless per-year sequence, assigned once and never changed or reused."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoice-and-receipt"
+tests = [
+    "test_app.py::test_gapless_invoice_numbers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "VAT by billing country."
+text = "The invoice's VAT rate comes from the buyer's billing country through the published rate table, and unsupported countries are refused at checkout."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoice-and-receipt"
+tests = [
+    "test_app.py::test_vat_by_country",
+]
+criteria = []
+parameter_cases = [
+    "US",
+    "GB",
+    "DE",
+    "FR",
+    "NL",
+    "IE",
+    "SE",
+    "OTHER",
+]
+
+[[requirements]]
+id = "DP-46"
+title = "Invoice PDF and receipt email."
+text = "Each paid order gets a Gotenberg-rendered invoice PDF in MinIO and one receipt email with the PDF attached, and only then shows receipted."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoice-and-receipt"
+tests = [
+    "test_app.py::test_wf_invoice_and_receipt_receipted",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Invoice pending during a rendering outage."
+text = "When Gotenberg is down, a paid order shows \"Paid, invoice pending\" with its invoice number, the receipt waits, and retries keep the same number."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoice-and-receipt"
+tests = [
+    "test_app.py::test_wf_invoice_and_receipt_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Mail outbox sends once."
+text = "When mail is down, receipts, render-ready emails, refund notices and statements wait in the outbox, and each is sent exactly once when an instance that can reach mail serves the same database, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "invoice-and-receipt"
+tests = [
+    "test_app.py::test_mail_outbox_sends_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Collector library."
+text = "The library lists the signed-in collector's orders with edition, state and download actions, newest first."
+kind = "behavior"
+primary = "pytest"
+workflow = "collector-library"
+tests = [
+    "test_app.py::test_wf_collector_library_rows",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Owner-only short-lived downloads."
+text = "Export and invoice downloads issue a fresh short-lived link only to the order's owner, and every other user gets the same 404 as for a missing order."
+kind = "behavior"
+primary = "pytest"
+workflow = "collector-library"
+tests = [
+    "test_app.py::test_wf_collector_library_downloads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Remix a published piece."
+text = "A creator remixes another creator's published piece into a new draft that credits the original, and the remix publishes its own edition run."
+kind = "behavior"
+primary = "pytest"
+workflow = "remix-and-splits"
+tests = [
+    "test_app.py::test_wf_remix_and_splits_remix",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Exact sale split."
+text = "Each sale's net price is split into creator, remixer and platform rows by the published rule, and the rows always sum to the net price."
+kind = "behavior"
+primary = "pytest"
+workflow = "remix-and-splits"
+tests = [
+    "test_app.py::test_sale_split",
+]
+criteria = []
+parameter_cases = [
+    "remix",
+    "plain",
+]
+
+[[requirements]]
+id = "DP-53"
+title = "Royalty statement without buyer data."
+text = "A creator's running and closed statements list sales and royalties without any buyer email, billing country or invoice number."
+kind = "behavior"
+primary = "pytest"
+workflow = "remix-and-splits"
+tests = [
+    "test_app.py::test_wf_remix_and_splits_statement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Refunds with credit notes."
+text = "A founder-operator refunds a receipted order in full or in part within the refund window through Kill Bill, issuing a numbered credit note PDF and a refund notice."
+kind = "behavior"
+primary = "pytest"
+workflow = "refunds"
+tests = [
+    "test_app.py::test_wf_refunds_console",
+    "test_app.py::test_refund_limits_and_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Refund reverses the split."
+text = "Each refund writes reversing split rows computed by the same rule, and a full refund reverses every party's share to the cent."
+kind = "behavior"
+primary = "pytest"
+workflow = "refunds"
+tests = [
+    "test_app.py::test_wf_refunds_reversal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Plans and credit packs."
+text = "Creators choose the Studio or Pro plan or buy a credit pack through Kill Bill on the plan and credit list, and credits are granted only when Kill Bill confirms the payment."
+kind = "behavior"
+primary = "pytest"
+workflow = "plans-and-ledgers"
+tests = [
+    "test_app.py::test_wf_plans_and_ledgers_plan",
+    "test_app.py::test_credit_pack",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "End-of-term cancel uses Kill Bill dates."
+text = "Cancelling a confirmed plan ends it at Kill Bill's charged-through date, shown as the plan's end date, and a plan still awaiting confirmation cannot be cancelled."
+kind = "behavior"
+primary = "pytest"
+workflow = "plans-and-ledgers"
+tests = [
+    "test_app.py::test_plan_cancel_end_of_term",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Balanced credit ledger."
+text = "Every credit movement is a balanced pair of ledger rows, and each account's balance always equals the sum of its rows."
+kind = "behavior"
+primary = "pytest"
+workflow = "plans-and-ledgers"
+tests = [
+    "test_app.py::test_balanced_credit_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Monthly payout statements."
+text = "Closing an ended month renders each creator's payout statement PDF, stores it in MinIO and emails it once."
+kind = "behavior"
+primary = "pytest"
+workflow = "plans-and-ledgers"
+tests = [
+    "test_app.py::test_monthly_statements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Founder outage banners."
+text = "The founder console shows the exact outage banner for each unreachable service and clears it once the service answers."
+kind = "behavior"
+primary = "pytest"
+workflow = "plans-and-ledgers"
+tests = [
+    "test_app.py::test_wf_plans_and_ledgers_outage_banners",
+]
+criteria = []
+parameter_cases = [
+    "killbill",
+    "render_provider",
+    "gotenberg",
+    "mail",
+    "storage",
+]
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with string `install`, `build`, `serve` and `\"_schema\":\"run-manifest-v1\"`, and nothing else is needed to run the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` lists every shipped package (the production dependency tree from `npm ls --omit=dev --all --json`) with its licence, plus the fonts (Archivo, Unbounded, Hanken Grotesk, JetBrains Mono under OFL-1.1) and Lucide icons (ISC)."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package is licensed MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, OFL-1.1 or CC0-1.0."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "No datastore, queue, cache or external service beyond those named in this brief is added (no SQLite, Redis or file-based database). No state lives only in memory or on local disk, except each instance's latest service-check results, which the brief keeps per instance."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided development compose files and service configuration are left unmodified."
+tests = [
+    "test_app.py::test_if_compose_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The npm lockfile is committed, and the backend and frontend TypeScript compile with `strict` enabled."
+tests = [
+    "test_app.py::test_if_lockfile_and_strict",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_sign_in",
+    "test_app.py::test_wf_cross_cutting_header",
+]
+
+[[workflows]]
+id = "describe-and-tune"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_wf_describe_and_tune_happy",
+    "test_app.py::test_wf_describe_and_tune_conflict",
+    "test_app.py::test_wf_describe_and_tune_layout",
+]
+checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "keyframe-timeline"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_keyframe_timeline_keyboard",
+    "test_app.py::test_wf_keyframe_timeline_reduced_motion",
+]
+checkpoints = [
+    "B14",
+]
+
+[[workflows]]
+id = "render-export"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_render_export_happy",
+    "test_app.py::test_render_submit_replays",
+    "test_app.py::test_render_ready_after_checksum",
+]
+
+[[workflows]]
+id = "render-failures"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_render_failures_provider_error",
+    "test_app.py::test_wf_render_failures_assistant_outage",
+]
+
+[[workflows]]
+id = "publish-editions"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_publish_editions_publish",
+    "test_app.py::test_wf_publish_editions_gallery",
+    "test_app.py::test_wf_publish_editions_empty_states",
+    "test_app.py::test_public_pages_hide_buyer_data",
+]
+checkpoints = [
+    "B9",
+    "B13",
+]
+critical_checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "edition-lens-hold"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_edition_lens_hold_keyboard_touch",
+    "test_app.py::test_wf_edition_lens_hold_announcements",
+    "test_app.py::test_one_winner_per_edition",
+]
+
+[[workflows]]
+id = "checkout-and-pay"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_checkout_and_pay_journey",
+    "test_app.py::test_wf_checkout_and_pay_sheet_keyboard",
+    "test_app.py::test_buy_replays",
+    "test_app.py::test_killbill_callbacks",
+    "test_app.py::test_buy_charges_kill_bill",
+    "test_app.py::test_paid_only_on_confirmation",
+]
+
+[[workflows]]
+id = "invoice-and-receipt"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_invoice_and_receipt_receipted",
+    "test_app.py::test_wf_invoice_and_receipt_outage",
+]
+
+[[workflows]]
+id = "collector-library"
+requirements = [
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_collector_library_rows",
+    "test_app.py::test_wf_collector_library_downloads",
+]
+
+[[workflows]]
+id = "remix-and-splits"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_remix_and_splits_remix",
+    "test_app.py::test_wf_remix_and_splits_statement",
+    "test_app.py::test_sale_split",
+]
+
+[[workflows]]
+id = "refunds"
+requirements = [
+    "DP-54",
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_refunds_console",
+    "test_app.py::test_wf_refunds_reversal",
+    "test_app.py::test_refund_limits_and_outage",
+]
+
+[[workflows]]
+id = "plans-and-ledgers"
+requirements = [
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_plans_and_ledgers_plan",
+    "test_app.py::test_wf_plans_and_ledgers_outage_banners",
+    "test_app.py::test_balanced_credit_ledger",
+    "test_app.py::test_plan_cancel_end_of_term",
+    "test_app.py::test_credit_pack",
+]
+checkpoints = [
+    "B12",
+    "B7",
+]

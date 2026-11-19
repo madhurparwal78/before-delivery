@@ -1,0 +1,45 @@
+{% extends "console_base.html" %}
+{% from "_dept.html" import dept %}
+{% block title %}Change log · {{ table.name }} · Keystone Tables{% endblock %}
+{% block head %}
+<div class="page-head">
+  <h1>Change log</h1>
+  <div class="meta">{{ dept(table.department) }}<span>Table <strong><a href="/console/tables/{{ table.slug }}">{{ table.name }}</a></strong></span><span>Slug <strong>{{ table.slug }}</strong></span><span class="num"><strong>{{ total }}</strong> entries</span></div>
+</div>
+{% endblock %}
+{% block body %}
+<form class="panel stack" method="get" action="/console/tables/{{ table.slug }}/log" aria-label="Filter the change log">
+  <div class="form-grid two" style="max-width: 640px">
+    <div class="field"><label for="f-action">Action</label><select class="select" id="f-action" name="action"><option value="">All actions</option>{% for a in ['create', 'update', 'delete'] %}<option value="{{ a }}"{% if a == action %} selected{% endif %}>{{ a }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="f-account">Account</label><input class="input" id="f-account" name="account" value="{{ who }}" autocomplete="off"></div>
+  </div>
+  <div class="btn-row"><button type="submit" class="btn">Apply filters</button></div>
+</form>
+<div style="margin-top: 16px">
+{% if entries %}
+<div class="table-panel" role="region" aria-label="Change log entries" tabindex="0">
+  <table class="data">
+    <thead><tr><th scope="col" class="num">Ordinal</th><th scope="col">Recorded at</th><th scope="col">Account</th><th scope="col">Action</th><th scope="col">Column</th><th scope="col">Before</th><th scope="col">After</th></tr></thead>
+    <tbody>
+      {% for e in entries %}
+      <tr data-staged style="--i: {{ loop.index0 }}"><th scope="row" class="num">{{ e.ordinal }}</th><td><time datetime="{{ e.recorded_at.isoformat() }}">{{ e.recorded_at|stamp }}</time></td><td>{{ e.account }}</td><td>{{ e.action }}</td><td>{{ e.column_caption or '' }}</td><td>{{ e.before|tojson if e.before is not none else '' }}</td><td>{{ e.after|tojson if e.after is not none else '' }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<nav class="pager" aria-label="Change log pages">
+  <span class="where">Page {{ number }} of {{ pages }}</span>
+  {% set qs %}{% if action %}&amp;action={{ action }}{% endif %}{% if who %}&amp;account={{ who|urlencode }}{% endif %}{% endset %}
+  <div class="btn-row">
+    {% if number > 1 %}<a class="btn" href="?page={{ number - 1 }}{{ qs }}">Previous page</a>{% endif %}
+    {% for p in range(1, pages + 1) %}{% if p == 1 or p == pages or (p >= number - 2 and p <= number + 2) %}
+    {% if p == number %}<a class="btn" href="?page={{ p }}{{ qs }}" aria-current="page" aria-label="Page {{ p }}"><strong>{{ p }}</strong></a>{% else %}<a class="btn" href="?page={{ p }}{{ qs }}" aria-label="Page {{ p }}">{{ p }}</a>{% endif %}
+    {% elif p == number - 3 or p == number + 3 %}<span class="where" aria-hidden="true">…</span>{% endif %}{% endfor %}
+    {% if number < pages %}<a class="btn" href="?page={{ number + 1 }}{{ qs }}">Next page</a>{% endif %}
+  </div>
+</nav>
+{% else %}
+<div class="panel empty"><p>No amendments recorded yet.</p></div>
+{% endif %}
+</div>
+{% endblock %}

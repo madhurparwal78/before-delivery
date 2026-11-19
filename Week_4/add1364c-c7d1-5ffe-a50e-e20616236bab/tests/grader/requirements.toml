@@ -1,0 +1,1511 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 79
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "sign-in-and-reveal",
+    "vault-drawer",
+    "renames-and-audit",
+    "joiner",
+    "leaver",
+    "movers-and-travel",
+    "rules",
+    "night-ruler",
+    "rotations",
+    "access-reviews",
+    "billing",
+    "health",
+    "legacy-import",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 85
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "keycloak", env = {} },
+    { name = "killbill", env = {} },
+    { name = "wiremock", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 5
+B7 = 5
+B8 = 3
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_kbdown"
+OFFICE_KEY = "blkd"
+
+[[outages]]
+id = "feed-down"
+port = 4175
+url_env = "APP_FEED_DOWN_URL"
+
+[outages.env]
+WIREMOCK_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_feeddown"
+OFFICE_KEY = "blfd"
+
+[[outages]]
+id = "evening"
+port = 4176
+url_env = "APP_EVENING_URL"
+
+[outages.env]
+LOCKSET_CLOCK_START = "2026-11-05T23:40:00-06:00"
+DATABASE_URL = "${DATABASE_URL}_evening"
+OFFICE_KEY = "blev"
+
+[[outages]]
+id = "midnight"
+port = 4177
+url_env = "APP_MIDNIGHT_URL"
+
+[outages.env]
+LOCKSET_CLOCK_START = "2026-12-31T23:53:00-06:00"
+DATABASE_URL = "${DATABASE_URL}_midnight"
+OFFICE_KEY = "blmn"
+
+[[outages]]
+id = "closing"
+port = 4178
+url_env = "APP_CLOSING_URL"
+
+[outages.env]
+LOCKSET_CLOCK_START = "2026-11-05T18:58:00-06:00"
+DATABASE_URL = "${DATABASE_URL}_closing"
+OFFICE_KEY = "blcl"
+
+[[outages]]
+id = "short-timers"
+port = 4179
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+REVEAL_SESSION_SECONDS = "40"
+SIGN_IN_LOCK_SECONDS = "30"
+BREACH_CHECK_SECONDS = "5"
+DATABASE_URL = "${DATABASE_URL}_short"
+OFFICE_KEY = "blst"
+
+[[requirements]]
+id = "DP-01"
+title = "Landing drawer hero"
+text = "The landing page is the teal tabbed-folder-stack hero described in Visual design, with the published headline, sentence, five folders and `Open the drawer` button."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Keycloak sign-in"
+text = "A person signs in with their handle and Keycloak password, and Lockset starts a server session or refuses with the published sign-in errors, including the DP-69 lockout."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-reveal"
+tests = [
+    "test_app.py::test_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Reveal session limit"
+text = "The server ends each reveal session at the limit stated in Business rules and refuses every later request with the session-ended error, whatever the page or device clock shows."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-reveal"
+tests = [
+    "test_app.py::test_session_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Reveal and copy audited"
+text = "Revealing or copying a login returns its secret only to a person whose vault is visible to them now, and writes one audit entry recording the rule in force at that instant."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-reveal"
+tests = [
+    "test_app.py::test_reveal_copy_audited",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Leeway refusal"
+text = "A login that has been out of policy beyond the leeway in Business rules cannot be revealed or copied until it is turned."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-reveal"
+tests = [
+    "test_app.py::test_leeway_refusal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Reveal on the road journey"
+text = "A staff accountant on a phone signs in, reveals and copies two logins, and opens the Turn dialog, and each secret hides on its own timer with the published copy and announcements."
+kind = "behavior"
+primary = "workflow"
+workflow = "sign-in-and-reveal"
+tests = [
+    "test_app.py::test_wf_sign_in_and_reveal_road",
+    "test_app.py::test_wf_sign_in_and_reveal_sign_in_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Folder-stack drawer journey"
+text = "The office manager opens the drawer, moves between vault folders by tab and keyboard, files a new vault, and files a new login in it, each visible at once."
+kind = "behavior"
+primary = "workflow"
+workflow = "vault-drawer"
+tests = [
+    "test_app.py::test_wf_vault_drawer_tabs",
+    "test_app.py::test_wf_vault_drawer_filing",
+    "test_app.py::test_wf_vault_drawer_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Server-scoped vault visibility"
+text = "Every vault list, vault, login and as-of answer includes only what the server decides the caller may see now, and other vaults answer as not found."
+kind = "behavior"
+primary = "pytest"
+workflow = "vault-drawer"
+tests = [
+    "test_app.py::test_vault_visibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Empty vault"
+text = "A vault with no logins shows the empty folder with the published empty-state copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "vault-drawer"
+tests = [
+    "test_app.py::test_empty_vault",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Logins on file"
+text = "Vaults, vendors and logins are created and stored in Postgres with the login secret encrypted at rest, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "vault-drawer"
+tests = [
+    "test_app.py::test_logins_stored",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Forward records on rename"
+text = "Renaming a vendor or vault writes a forward record and shows the new name with the formerly text on every current surface, while past audit entries keep the old name."
+kind = "behavior"
+primary = "pytest"
+workflow = "renames-and-audit"
+tests = [
+    "test_app.py::test_renames_forward",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Rebrand journey"
+text = "The office manager renames the payroll vendor, then sees the new name with the old one on vault slips, the rotation calendar and review lines, with the audit trail unchanged."
+kind = "behavior"
+primary = "workflow"
+workflow = "renames-and-audit"
+tests = [
+    "test_app.py::test_wf_renames_and_audit_rebrand",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Append-only audit trail"
+text = "Every state change Lockset makes writes the entries listed for it in the Business rules audit table, each with a published action name and a commit-ordered seq, and no endpoint edits or removes entries."
+kind = "behavior"
+primary = "pytest"
+workflow = "renames-and-audit"
+tests = [
+    "test_app.py::test_audit_entries",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Audit day in office time"
+text = "Audit entries are bucketed by their America/Chicago office day and listed one office day at a time."
+kind = "behavior"
+primary = "pytest"
+workflow = "renames-and-audit"
+tests = [
+    "test_app.py::test_audit_office_day",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Back of the drawer footer"
+text = "For the office manager and managing partner, the newest ten audit entries of the office day form the footer on desk screens, uncovered from behind the content as the page scrolls to its end, and the full sheet pages on with `More entries`."
+kind = "behavior"
+primary = "pytest"
+workflow = "renames-and-audit"
+tests = [
+    "test_app.py::test_wf_renames_and_audit_footer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Joiner on record"
+text = "Adding a joiner creates the person in Postgres and an enabled Keycloak user with a complete profile, as qualified for outside bookkeepers in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "joiner"
+tests = [
+    "test_app.py::test_joiner_on_record",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Joiner seat in Kill Bill"
+text = "A joiner's seat is a new Kill Bill seat subscription on this office's account, and the joiner counts as seated only after Kill Bill confirms it."
+kind = "behavior"
+primary = "pytest"
+workflow = "joiner"
+tests = [
+    "test_app.py::test_joiner_seat",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Joiner journey"
+text = "The office manager adds a joiner and sees the person at once, with the seat cell waiting on billing until billing confirms it."
+kind = "behavior"
+primary = "workflow"
+workflow = "joiner"
+tests = [
+    "test_app.py::test_wf_joiner_add",
+    "test_app.py::test_wf_joiner_invalid_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Leaver loses access at once"
+text = "Confirming a leave disables the person's Keycloak user, ends their Keycloak and Lockset sessions, and removes every vault scope in one action, so their old browser is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "leaver"
+tests = [
+    "test_app.py::test_leave_effects",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Turns due after scope loss"
+text = "Whenever a person loses a vault scope, each login in that vault gets a turn due two office business days later, counted in office time and written to the audit trail with who confirmed it."
+kind = "behavior"
+primary = "pytest"
+workflow = "leaver"
+tests = [
+    "test_app.py::test_turns_due_after_leave",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Leaver seat release"
+text = "A leaver's seat is cancelled in Kill Bill by the published proration rule, and the seat count drops only when Kill Bill confirms it."
+kind = "behavior"
+primary = "pytest"
+workflow = "leaver"
+tests = [
+    "test_app.py::test_leaver_seat_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Idempotent people changes"
+text = "Joiner, leave and import requests honour the Idempotency-Key header with the published replay and conflict rules, and of simultaneous leave confirmations exactly one wins."
+kind = "behavior"
+primary = "pytest"
+workflow = "leaver"
+tests = [
+    "test_app.py::test_idempotent_people",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Leaver journey"
+text = "The office manager confirms a leaver through the confirmation dialog and sees the published success copy, the turns due and the seat state."
+kind = "behavior"
+primary = "workflow"
+workflow = "leaver"
+tests = [
+    "test_app.py::test_wf_leaver_evening",
+    "test_app.py::test_wf_leaver_cancel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Mover scope changes"
+text = "Changing a person's role or vaults takes effect at once on the server, as qualified in Business rules, and the office manager cannot edit their own record."
+kind = "behavior"
+primary = "pytest"
+workflow = "movers-and-travel"
+tests = [
+    "test_app.py::test_mover_changes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Travel windows"
+text = "During a travel window, the server withholds from that person every vault marked off when travelling, from the start office minute to the end office minute."
+kind = "behavior"
+primary = "pytest"
+workflow = "movers-and-travel"
+tests = [
+    "test_app.py::test_travel_windows",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Engagement term"
+text = "An outside bookkeeper can sign in and see their vaults only within the engagement term, which ends on its last day as stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "movers-and-travel"
+tests = [
+    "test_app.py::test_engagement_term",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Open pages follow the server"
+text = "An open page drops vaults within five seconds of a server-decided access boundary and never shows them again from its own clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "movers-and-travel"
+tests = [
+    "test_app.py::test_open_page_follows_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Travel journey"
+text = "A staff accountant sets a travel window and, when it opens, sees their open drawer change with the published announcement."
+kind = "behavior"
+primary = "workflow"
+workflow = "movers-and-travel"
+tests = [
+    "test_app.py::test_wf_movers_and_travel_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Rule lifecycle"
+text = "Rules move from drafted to scheduled to in force to superseded only along the published edges, and each illegal edge is refused with its published code in the published order."
+kind = "behavior"
+primary = "pytest"
+workflow = "rules"
+tests = [
+    "test_app.py::test_rule_lifecycle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Rule in force by office midnight"
+text = "The server decides once, from effective-dated rules in office time, which rule is in force at any instant, and checks each secret edit against the rule in force at the moment of the edit."
+kind = "behavior"
+primary = "pytest"
+workflow = "rules"
+tests = [
+    "test_app.py::test_rule_in_force",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Out-of-policy flag"
+text = "Each login's out-of-policy flag and leeway end come from the rule in force, so two people looking at the same login see the same values."
+kind = "behavior"
+primary = "pytest"
+workflow = "rules"
+tests = [
+    "test_app.py::test_out_of_policy_flag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Rule signing journey"
+text = "The office manager drafts a rule and the managing partner signs the version they opened, and the rule then sits on a perforated pending stub with the published takes-force copy."
+kind = "behavior"
+primary = "workflow"
+workflow = "rules"
+tests = [
+    "test_app.py::test_wf_rules_sign",
+    "test_app.py::test_wf_rules_past_date",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "As-of drawer"
+text = "For any of the next 60 office midnights, the server answers which rule is in force in each vault, what the stub text is, and how many logins are out of policy."
+kind = "behavior"
+primary = "pytest"
+workflow = "night-ruler"
+tests = [
+    "test_app.py::test_as_of",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Night ruler control"
+text = "The night ruler is a slider over the next 60 office midnights, each labelled with its date and offset, moved by pointer drag, arrow keys, Home and End."
+kind = "behavior"
+primary = "pytest"
+workflow = "night-ruler"
+tests = [
+    "test_app.py::test_night_ruler_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Lockset cylinders and stubs"
+text = "Each vault tab's lockset cylinder, each pending stub and the out-of-policy count show the server's as-of answer for the chosen night in both drag directions, with the published motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "night-ruler"
+tests = [
+    "test_app.py::test_cylinders_follow",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Midnight push"
+text = "When the server clock crosses an office midnight at which rules take force, an open drawer turns the affected cylinders in drawer order and announces each one, within five seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "night-ruler"
+tests = [
+    "test_app.py::test_midnight_push",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Night ruler journey"
+text = "The office manager scrubs the ruler forward and back across a pending rule's night, and the cylinders, stubs and counts follow the server's answer."
+kind = "behavior"
+primary = "workflow"
+workflow = "night-ruler"
+tests = [
+    "test_app.py::test_wf_night_ruler_scrub",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Rotation schedule across DST"
+text = "Rotation runs keep their office wall-clock time, and spring-forward and fall-back nights follow the published rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "rotations"
+tests = [
+    "test_app.py::test_rotation_dst",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Rotation states"
+text = "Turns move from scheduled to due to overdue to turned by the published office-time rules, and each run becomes due exactly once."
+kind = "behavior"
+primary = "pytest"
+workflow = "rotations"
+tests = [
+    "test_app.py::test_rotation_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Rotation calendar journey"
+text = "The office manager schedules a rotation and finds it on the rotation calendar's office-day rows, with moved runs marked."
+kind = "behavior"
+primary = "workflow"
+workflow = "rotations"
+tests = [
+    "test_app.py::test_wf_rotations_schedule",
+    "test_app.py::test_wf_rotations_moved_run",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Quarterly review calendar"
+text = "A quarterly access review opens on the first office business day of each quarter and becomes overdue after the published number of office business days."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-reviews"
+tests = [
+    "test_app.py::test_review_calendar",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Review decisions and sign-off"
+text = "The office manager keeps a line at once or removes it through the confirmation dialog, and removal revokes the scope at once; each line is decided once, lines also close or open with scope changes as in DP-72, and only the managing partner signs off, once every line is decided."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-reviews"
+tests = [
+    "test_app.py::test_review_decisions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Review journey"
+text = "The office manager decides every review line from the keyboard and the managing partner signs off the review, with the published status and progress copy at each step."
+kind = "behavior"
+primary = "workflow"
+workflow = "access-reviews"
+tests = [
+    "test_app.py::test_wf_access_reviews_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Billing from Kill Bill"
+text = "Seat count, next invoice and licence term end shown anywhere equal Kill Bill's confirmed subscription state on this office's own account."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing"
+tests = [
+    "test_app.py::test_billing_from_killbill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Waiting on billing"
+text = "When Kill Bill is unreachable, seat changes are kept as waiting on billing, never counted, and retried without a restart, and the billing outage copy is shown."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing"
+tests = [
+    "test_app.py::test_wf_billing_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Billing review journey"
+text = "The managing partner reviews seats, next invoice, licence term end and waiting changes on a tablet, and sees them change in place when billing confirms a joiner."
+kind = "behavior"
+primary = "workflow"
+workflow = "billing"
+tests = [
+    "test_app.py::test_wf_billing_tablet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Breach range lookup"
+text = "Password exposure checks send only the five-character hash prefix with the `Add-Padding: true` header to the breach feed, and read the published range and breached-domain responses, ignoring padding rows."
+kind = "behavior"
+primary = "pytest"
+workflow = "health"
+tests = [
+    "test_app.py::test_breach_range",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Daily health report"
+text = "The health report is grouped by office day and shows exposure, vendor breaches, out-of-policy logins and turns due from the latest good check."
+kind = "behavior"
+primary = "pytest"
+workflow = "health"
+tests = [
+    "test_app.py::test_health_report_daily",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Feed outage and recovery"
+text = "When the breach feed is unreachable, the health report shows the published outage copy with the last good check time, and the next check after the feed returns succeeds with no restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "health"
+tests = [
+    "test_app.py::test_feed_outage_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Health journey"
+text = "The office manager opens the health report and runs a check, sees an outage band while the feed is down, and sees a successful check once it returns."
+kind = "behavior"
+primary = "workflow"
+workflow = "health"
+tests = [
+    "test_app.py::test_wf_health_check",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Import matching order"
+text = "Each name in an imported row matches an existing person by email, then exact full name, then unique alias, using the published comparison, and import never creates people."
+kind = "behavior"
+primary = "pytest"
+workflow = "legacy-import"
+tests = [
+    "test_app.py::test_import_matching",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Held rows"
+text = "A row with an unmatched or ambiguous name is held and shows its candidates, and it files its login only after the office manager has chosen for every held name."
+kind = "behavior"
+primary = "pytest"
+workflow = "legacy-import"
+tests = [
+    "test_app.py::test_held_rows",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Re-import creates nothing"
+text = "Importing the same file again creates no people, vendors or logins, and reports already-filed rows as already on file."
+kind = "behavior"
+primary = "pytest"
+workflow = "legacy-import"
+tests = [
+    "test_app.py::test_reimport",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Import journey"
+text = "The office manager uploads the Excel-saved legacy spreadsheet, reads the row outcomes under the file's short name, and resolves held names on screen."
+kind = "behavior"
+primary = "workflow"
+workflow = "legacy-import"
+tests = [
+    "test_app.py::test_wf_legacy_import_upload",
+    "test_app.py::test_wf_legacy_import_bad_file",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Published layouts"
+text = "At 375x812, 768x1024 and 1280x800, every desk screen shows its published layout and element order with no horizontal page overflow."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_published_layouts",
+]
+criteria = []
+parameter_cases = [
+    "375",
+    "768",
+    "1280",
+]
+
+[[requirements]]
+id = "DP-56"
+title = "Teal-on-paper working screens"
+text = "Every working screen keeps the filing-drawer look in one teal ink on paper tones, as described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Motion and reduced motion"
+text = "Each published motion has its stated meaning and timing, nothing loops for decoration, and reduced motion replaces movement with instant changes in the same order."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_reduced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Keyboard and announcements"
+text = "Every public control can be reached and operated by keyboard in the published order, dialogs trap focus and return it, and announcements use the named live regions with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_announcements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Health, boot and boundary"
+text = "The app starts and answers its health check with any of Keycloak, Kill Bill or the breach feed down, and enforces the same-origin, size and serving limits in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_boot_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Secrets and config wiring"
+text = "Service URLs and credentials come only from the published environment variables, and secrets and full hashes never leave the server, as the source shows."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Independent hide timers"
+text = "Each revealed login hides 30 seconds after its own latest reveal and announces it, without hiding another slip early, closing an open dialog, wiping typed text or clearing `Desk alert`."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-reveal"
+tests = [
+    "test_app.py::test_hide_timers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Paged audit sheet"
+text = "The audit API pages one office day by opaque keyset cursor with a capped limit, and following the cursors returns every entry committed before the first page exactly once, even while new entries are written."
+kind = "behavior"
+primary = "pytest"
+workflow = "renames-and-audit"
+tests = [
+    "test_app.py::test_audit_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Keyboard review decisions"
+text = "Review decisions work entirely from the keyboard: focus moves to the next undecided line after each decision, and the Remove confirmation traps focus and returns it, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-reviews"
+tests = [
+    "test_app.py::test_wf_access_reviews_remove_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Spreadsheet read as bytes"
+text = "Imports are uploaded as the file's bytes and read by the published BOM, line-end and quoting rules, files that are not UTF-8 are refused with the published copy, and each file is filed under the last segment of its path."
+kind = "behavior"
+primary = "pytest"
+workflow = "legacy-import"
+tests = [
+    "test_app.py::test_import_bytes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Back folders and closed menu inert"
+text = "Folders behind the open one expose only their tab and the closed `Menu` exposes no links, so their contents are neither focusable nor in the accessibility tree at any viewport."
+kind = "behavior"
+primary = "pytest"
+workflow = "vault-drawer"
+tests = [
+    "test_app.py::test_inert_panels",
+]
+criteria = []
+parameter_cases = [
+    "375",
+    "768",
+    "1280",
+]
+
+[[requirements]]
+id = "DP-66"
+title = "Landing routes"
+text = "Sign-in lands on a safe `next` route the role may open, or else on the first visible vault; a signed-out desk visit carries `next` to sign-in, and filing a vault lands on its route with focus on its heading."
+kind = "behavior"
+primary = "pytest"
+workflow = "vault-drawer"
+tests = [
+    "test_app.py::test_landing_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Touch night ruler"
+text = "The night ruler handle follows mouse, touch and pen drags with a hit area of at least 44 by 44 pixels, snaps to office midnights, and never scrolls the page while dragging, also under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "night-ruler"
+tests = [
+    "test_app.py::test_wf_night_ruler_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Billing figures update in place"
+text = "Open Billing and People screens update seats, next invoice, licence term end, the waiting list and seat cells in place within five seconds of Kill Bill's confirmation, keeping scroll position, focus and any open dialog."
+kind = "behavior"
+primary = "pytest"
+workflow = "joiner"
+tests = [
+    "test_app.py::test_people_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Sign-in lockout"
+text = "Five failed sign-ins for one handle within the lock window lock that handle with `429 sign_in_locked`, `Retry-After` and the published reopen stamp, and handles not on record answer identically, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in-and-reveal"
+tests = [
+    "test_app.py::test_sign_in_lockout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Published fields only"
+text = "Every write body accepts only the keys its endpoint publishes, and any other key or a wrongly typed published key answers 422 on that key and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "vault-drawer"
+tests = [
+    "test_app.py::test_published_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Versioned rule edits"
+text = "Every rule carries a version that edits and signatures must send, a stale version answers `409 rule_changed` in the published order, and of simultaneous edits exactly one wins."
+kind = "behavior"
+primary = "pytest"
+workflow = "rules"
+tests = [
+    "test_app.py::test_rule_versions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Review lines follow scope changes"
+text = "While a review is open or overdue, lost scopes close their undecided lines as removed by scope change and new scopes add undecided lines, and open review pages update their lines and progress in place within five seconds without moving focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "access-reviews"
+tests = [
+    "test_app.py::test_review_lines_follow_scope",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Import never echoes a secret"
+text = "Rejected import rows carry only the published reasons in the published check order, and no import response, error body, audit detail or log line contains a Password cell."
+kind = "behavior"
+primary = "pytest"
+workflow = "legacy-import"
+tests = [
+    "test_app.py::test_import_no_secret_echo",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "One office per account and prefix"
+text = "Seats, next invoice and licence term end count only the Kill Bill account whose external key is the office key, and sign-in and People consider only this office's Keycloak users, although the tenant and realm are shared with other offices."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing"
+tests = [
+    "test_app.py::test_one_office",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Day and month in the address"
+text = "The audit day and the rotation calendar month live in the address, so reload, deep links, Back and Forward restore them, and a missing or invalid value is replaced by office today or the current office month."
+kind = "behavior"
+primary = "pytest"
+workflow = "renames-and-audit"
+tests = [
+    "test_app.py::test_day_and_month_in_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Latest office day wins"
+text = "The health report always ends on the last office day picked, whatever order answers arrive in, and overlapping breach checks share one run."
+kind = "behavior"
+primary = "pytest"
+workflow = "health"
+tests = [
+    "test_app.py::test_wf_health_latest_day",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "One rotation per login"
+text = "Simultaneous schedules for one login create exactly one schedule and one audit entry, a schedule change replaces only future runs, and `Save schedule` files once however often it is pressed."
+kind = "behavior"
+primary = "pytest"
+workflow = "rotations"
+tests = [
+    "test_app.py::test_one_rotation_per_login",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "One joiner per handle"
+text = "Simultaneous joiners with one handle or email create exactly one person, one Keycloak user, one Kill Bill seat bundle and one audit entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "joiner"
+tests = [
+    "test_app.py::test_one_joiner_per_handle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Dropped vault leaves the open page"
+text = "A mover change or review removal that drops a vault removes that folder, its revealed secrets and any open Turn dialog on it from the person's open page within five seconds, with the published alert, while their session stays alive."
+kind = "behavior"
+primary = "pytest"
+workflow = "movers-and-travel"
+tests = [
+    "test_app.py::test_wf_movers_and_travel_dropped",
+]
+criteria = []
+parameter_cases = [
+    "mover_change",
+    "review_removal",
+]
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json is valid JSON with \"_schema\":\"run-manifest-v1\" and string install, build and serve commands, and those commands alone are enough to start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app names every shipped package with its licence, plus the Funnel Display and Funnel Sans fonts; shipped packages are the production dependency tree given by npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (same definition as IF-02) and every font uses one of MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Postgres is the only datastore; no SQLite, files, Valkey or other store holds application records, sign-in counts or locks."
+tests = [
+    "test_app.py::test_if_postgres_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The app serves its own fonts and all client assets, and no page loads anything from another origin."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Application source is TypeScript, and a committed package-lock.json pins the dependency tree."
+tests = [
+    "test_app.py::test_if_typescript_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The provided dev service definitions and their credentials are left unchanged, and Keycloak's realm brute-force settings are not changed."
+tests = [
+    "test_app.py::test_if_services_untouched",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "sign-in-and-reveal"
+requirements = [
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-61",
+    "DP-69",
+]
+critical = [
+    "test_app.py::test_wf_sign_in_and_reveal_road",
+    "test_app.py::test_wf_sign_in_and_reveal_sign_in_errors",
+    "test_app.py::test_hide_timers",
+    "test_app.py::test_sign_in_lockout",
+]
+
+[[workflows]]
+id = "vault-drawer"
+requirements = [
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-65",
+    "DP-66",
+    "DP-70",
+]
+critical = [
+    "test_app.py::test_wf_vault_drawer_tabs",
+    "test_app.py::test_wf_vault_drawer_filing",
+    "test_app.py::test_wf_vault_drawer_layout",
+    "test_app.py::test_inert_panels",
+    "test_app.py::test_landing_routes",
+    "test_app.py::test_published_fields",
+]
+
+[[workflows]]
+id = "renames-and-audit"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-62",
+    "DP-75",
+]
+critical = [
+    "test_app.py::test_wf_renames_and_audit_rebrand",
+    "test_app.py::test_wf_renames_and_audit_footer",
+    "test_app.py::test_audit_paging",
+    "test_app.py::test_day_and_month_in_address",
+]
+
+[[workflows]]
+id = "joiner"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-68",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_joiner_add",
+    "test_app.py::test_wf_joiner_invalid_recovery",
+    "test_app.py::test_joiner_seat",
+    "test_app.py::test_people_live",
+    "test_app.py::test_one_joiner_per_handle",
+]
+
+[[workflows]]
+id = "leaver"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_wf_leaver_evening",
+    "test_app.py::test_wf_leaver_cancel",
+    "test_app.py::test_leave_effects",
+    "test_app.py::test_leaver_seat_release",
+    "test_app.py::test_idempotent_people",
+]
+
+[[workflows]]
+id = "movers-and-travel"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-79",
+]
+critical = [
+    "test_app.py::test_wf_movers_and_travel_window",
+    "test_app.py::test_wf_movers_and_travel_dropped",
+    "test_app.py::test_open_page_follows_server",
+    "test_app.py::test_mover_changes",
+    "test_app.py::test_travel_windows",
+]
+
+[[workflows]]
+id = "rules"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_wf_rules_sign",
+    "test_app.py::test_wf_rules_past_date",
+    "test_app.py::test_rule_in_force",
+    "test_app.py::test_rule_versions",
+]
+
+[[workflows]]
+id = "night-ruler"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_night_ruler_scrub",
+    "test_app.py::test_wf_night_ruler_touch",
+    "test_app.py::test_as_of",
+    "test_app.py::test_midnight_push",
+]
+
+[[workflows]]
+id = "rotations"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-77",
+]
+critical = [
+    "test_app.py::test_wf_rotations_schedule",
+    "test_app.py::test_wf_rotations_moved_run",
+    "test_app.py::test_rotation_dst",
+]
+
+[[workflows]]
+id = "access-reviews"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-63",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_access_reviews_keyboard",
+    "test_app.py::test_wf_access_reviews_remove_dialog",
+    "test_app.py::test_review_lines_follow_scope",
+    "test_app.py::test_review_calendar",
+]
+
+[[workflows]]
+id = "billing"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-74",
+]
+critical = [
+    "test_app.py::test_wf_billing_tablet",
+    "test_app.py::test_wf_billing_outage",
+    "test_app.py::test_billing_from_killbill",
+    "test_app.py::test_one_office",
+]
+
+[[workflows]]
+id = "health"
+requirements = [
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_wf_health_check",
+    "test_app.py::test_wf_health_latest_day",
+    "test_app.py::test_feed_outage_recovery",
+]
+
+[[workflows]]
+id = "legacy-import"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-64",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_legacy_import_upload",
+    "test_app.py::test_wf_legacy_import_bad_file",
+    "test_app.py::test_reimport",
+    "test_app.py::test_import_bytes",
+    "test_app.py::test_import_no_secret_echo",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_health_boot_boundary",
+    "test_app.py::test_keyboard_announcements",
+]
+checkpoints = [
+    "B1",
+    "B6",
+    "B7",
+]
+critical_checkpoints = [
+    "B1",
+]

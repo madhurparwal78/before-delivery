@@ -1,0 +1,1331 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 62
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "ingest-directive",
+    "revision-splice",
+    "effectivity-and-withdrawal",
+    "claim-and-inspect",
+    "sign-off-timing",
+    "countersign-and-succession",
+    "fleet-board",
+    "legacy-import",
+    "restore-and-erasure",
+    "notices",
+    "compliance-pack",
+    "read-only-oversight",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B13",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B15",
+    "B14",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 97
+solo_criteria = [
+    "B7",
+    "B13",
+    "B8",
+    "B9",
+    "B12",
+    "B15",
+    "B14",
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 5
+B13 = 3
+B8 = 5
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 5
+B15 = 3
+B14 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 3
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 5
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Tailboard at Fenwick Regional <tailboard@fenwick-regional.test>"
+NOTICE_HOLD_SECONDS = "30"
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_minio_down"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+DATABASE_URL = "${DATABASE_URL}_mailpit_down"
+S3_BUCKET = "${S3_BUCKET}-mailpit-down"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health check"
+text = "The app installs, builds and serves from the run manifest and answers the health check, as specified in Deployment."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_shell",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Service credentials from the environment"
+text = "Every service URL and credential is read from the environment variables listed in Configuration and secrets, and none is hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Schema and seed applied on every start"
+text = "Each start applies the schema and the seed data idempotently, so a freshly emptied database and bucket come up with exactly the records in Seed data."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_seed_on_fresh_store",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Starts and serves with a dependency down"
+text = "With object storage or mail unreachable at boot, the app still starts, answers the health check and serves the board, and recovers as qualified in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_outage_boot_and_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Server boundary and request limits"
+text = "The server enforces the body-size, content-type, same-origin and never-served rules in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "One error shape and precedence"
+text = "Every API error uses the single error body and the single precedence order defined in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_precedence",
+]
+criteria = []
+parameter_cases = [
+    "chain",
+    "control-byte-ids",
+    "claim-nonuuid",
+    "claim-absent",
+    "release-nonuuid",
+    "release-absent",
+    "inspection-nonuuid",
+    "inspection-absent",
+    "countersign-nonuuid",
+    "countersign-absent",
+    "deferral-nonuuid",
+    "deferral-absent",
+    "effectivity-nonuuid",
+    "effectivity-absent",
+    "reopen-nonuuid",
+    "reopen-absent",
+    "revisions-nonuuid",
+    "revisions-absent",
+    "withdrawal-nonuuid",
+    "withdrawal-absent",
+    "erasure-nonuuid",
+    "erasure-absent",
+    "scope-nonuuid",
+    "scope-absent",
+]
+
+[[requirements]]
+id = "DP-07"
+title = "Seeded sign-in and sessions"
+text = "Seeded users sign in with their passcodes and get a session cookie, and an ended session answers as unauthenticated on its next request."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_sign_in_and_sessions",
+    "test_app.py::test_wf_cross_cutting_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Role permissions enforced by the server"
+text = "Every write action is accepted only from the roles that the Business rules permission table names, and every other role is refused by the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "read-only-oversight"
+tests = [
+    "test_app.py::test_role_permissions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Regulator auditor is read-only"
+text = "The regulator auditor can read every board, thread, pack, export, notice and audit entry, and every write action from that role is refused by the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "read-only-oversight"
+tests = [
+    "test_app.py::test_auditor_read_only",
+    "test_app.py::test_wf_read_only_oversight_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Ingest a new directive"
+text = "A planner ingests a directive with its PDF stored in object storage, and one thread is created for each tail inside its model and serial effectivity."
+kind = "behavior"
+primary = "pytest"
+workflow = "ingest-directive"
+tests = [
+    "test_app.py::test_ingest_directive",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Due instant and due-soon window"
+text = "Each thread's due instant and due-soon start follow the time rules in Business rules, judged by the server clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "ingest-directive"
+tests = [
+    "test_app.py::test_due_instant_and_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Governing limit and limit rails"
+text = "Each thread reports which limit governs and how much of each limit is used, as defined in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "ingest-directive"
+tests = [
+    "test_app.py::test_governing_limit_and_rails",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Planner adds a directive from the board"
+text = "In the browser, a planner fills the \"New directive\" dialog and the new column appears with Open cells and raised counts."
+kind = "behavior"
+primary = "workflow"
+workflow = "ingest-directive"
+tests = [
+    "test_app.py::test_wf_ingest_directive_happy",
+    "test_app.py::test_wf_ingest_directive_invalid",
+]
+criteria = [
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Supersession retargets one thread per lineage"
+text = "Ingesting a superseding revision moves each existing thread to the new revision in place, never creates a second thread for the same tail and directive, and appends the old revision to the thread's history."
+kind = "behavior"
+primary = "pytest"
+workflow = "revision-splice"
+tests = [
+    "test_app.py::test_wf_revision_splice_own",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Closed records stay pinned to their revision"
+text = "A thread closed before the new revision's effective date, under a revision that credits prior work, keeps the limits, method and wording it was signed under on every surface."
+kind = "behavior"
+primary = "pytest"
+workflow = "revision-splice"
+tests = [
+    "test_app.py::test_supersession_pinned",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Effectivity changes on a new revision"
+text = "Tails that enter effectivity get new open threads, and tails that leave become not-applicable stubs that keep their full history."
+kind = "behavior"
+primary = "pytest"
+workflow = "revision-splice"
+tests = [
+    "test_app.py::test_supersession_lineage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Supersession reaches every surface in one step"
+text = "After a revision ingest commits, the board, threads, search, counts, regulator export and queued notices all reflect the new revision on the very next read."
+kind = "behavior"
+primary = "pytest"
+workflow = "revision-splice"
+tests = [
+    "test_app.py::test_supersession_surfaces",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Revision splice animation"
+text = "On every open board, a superseding revision plays the revision splice described in Motion and effects and ends with every cell matching the server."
+kind = "visual"
+primary = "pytest"
+workflow = "revision-splice"
+tests = [
+    "test_app.py::test_revision_splice_animation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Reduced-motion splice summary"
+text = "With reduced motion requested, the column swaps to its final state without movement, and the Revision changes banner gives the splice counts as filter links."
+kind = "visual"
+primary = "pytest"
+workflow = "revision-splice"
+tests = [
+    "test_app.py::test_reduced_motion_splice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "A colleague's revision splices live"
+text = "When one planner ingests a revision, a second planner's open board plays the splice and shows the recounted totals without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "revision-splice"
+tests = [
+    "test_app.py::test_wf_revision_splice_live",
+]
+criteria = [
+    "B9",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Effectivity confirmation"
+text = "A planner confirms or rejects each retargeted thread's effectivity before any further work is allowed on it."
+kind = "behavior"
+primary = "pytest"
+workflow = "effectivity-and-withdrawal"
+tests = [
+    "test_app.py::test_effectivity_confirmation",
+    "test_app.py::test_wf_effectivity_and_withdrawal_confirm",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Withdrawn directive placeholder"
+text = "Withdrawing a directive leaves a placeholder column with full history, no open work and no counted cells."
+kind = "behavior"
+primary = "pytest"
+workflow = "effectivity-and-withdrawal"
+tests = [
+    "test_app.py::test_withdrawal_placeholder",
+    "test_app.py::test_wf_effectivity_and_withdrawal_withdraw",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Single holder per work card"
+text = "Of any number of simultaneous claims on one work card, exactly one wins, and every other claim gets the published conflict naming the holder."
+kind = "behavior"
+primary = "pytest"
+workflow = "claim-and-inspect"
+tests = [
+    "test_app.py::test_single_holder_concurrent",
+    "test_app.py::test_wf_claim_and_inspect_contended",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Evidence attached to the thread"
+text = "The card holder attaches photos or scans that are stored in object storage by content and listed on the thread."
+kind = "behavior"
+primary = "pytest"
+workflow = "claim-and-inspect"
+tests = [
+    "test_app.py::test_evidence_attach",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Inspection signature bound to a revision"
+text = "The card holder's inspection signature records the exact revision the inspector signed under and is refused if the thread has since moved to another revision."
+kind = "behavior"
+primary = "pytest"
+workflow = "claim-and-inspect"
+tests = [
+    "test_app.py::test_inspection_bound_to_revision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Replayed requests return the original result"
+text = "A claim, sign, defer, import or pack request replayed with the same idempotency key returns the original response and records nothing new."
+kind = "behavior"
+primary = "pytest"
+workflow = "claim-and-inspect"
+tests = [
+    "test_app.py::test_idempotent_replay",
+]
+criteria = []
+parameter_cases = [
+    "claim",
+    "inspection",
+    "import",
+    "pack",
+]
+
+[[requirements]]
+id = "DP-27"
+title = "Inspector works a card in the drawer"
+text = "In the browser, an inspector claims a card, attaches evidence and signs the inspection, and the drawer shows the signature and the assigned certifier."
+kind = "behavior"
+primary = "workflow"
+workflow = "claim-and-inspect"
+tests = [
+    "test_app.py::test_wf_claim_and_inspect_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Server decides on time or overdue"
+text = "Every inspection signature is judged on time or overdue by the server clock under the inclusive-edge rule, whatever the client sends."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-off-timing"
+tests = [
+    "test_app.py::test_server_timeliness_edges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Flight-hours log"
+text = "A planner logs sector hours against a tail, and every thread on that tail recomputes its hours rail, due-soon state and overdue state from the new total."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-off-timing"
+tests = [
+    "test_app.py::test_flight_hours_log",
+    "test_app.py::test_wf_sign_off_timing_hours",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Deferral within the published grace"
+text = "A planner can defer an open thread once per revision, before its due instant, which extends its limits by the published grace."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-off-timing"
+tests = [
+    "test_app.py::test_deferral_grace",
+    "test_app.py::test_wf_sign_off_timing_defer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Countersignature checked against scope at commit"
+text = "A countersignature is accepted only from a certifying engineer whose current scope covers the tail's model at the moment it commits, and a scope change applies on the next request."
+kind = "behavior"
+primary = "pytest"
+workflow = "countersign-and-succession"
+tests = [
+    "test_app.py::test_scope_checked_at_commit",
+    "test_app.py::test_countersign_control_byte_ids",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Scope changes and certifier succession"
+text = "When a scope change removes a model, each thread awaiting that engineer passes to the next covering engineer on the model's standby list, or shows that it is awaiting a certifier."
+kind = "behavior"
+primary = "pytest"
+workflow = "countersign-and-succession"
+tests = [
+    "test_app.py::test_scope_change_succession",
+    "test_app.py::test_wf_countersign_and_succession_scope",
+    "test_app.py::test_scope_change_control_byte_ids",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Certifier closes a thread from the drawer"
+text = "In the browser, a certifying engineer countersigns an inspected thread and the cell turns Complied."
+kind = "behavior"
+primary = "workflow"
+workflow = "countersign-and-succession"
+tests = [
+    "test_app.py::test_wf_countersign_and_succession_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Fleet board counts equal a recount"
+text = "The board's per-directive and fleet counts always equal a fresh recount of the thread states, as defined in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "fleet-board"
+tests = [
+    "test_app.py::test_board_counts_recount",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Live board feed"
+text = "Every signed-in board receives thread and revision changes from the server's event stream within the delay stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "fleet-board"
+tests = [
+    "test_app.py::test_live_event_stream",
+    "test_app.py::test_wf_fleet_board_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Fleet search"
+text = "Search finds directives, threads and people by the fields in Business rules and always shows each directive's current revision."
+kind = "behavior"
+primary = "pytest"
+workflow = "fleet-board"
+tests = [
+    "test_app.py::test_fleet_search",
+    "test_app.py::test_wf_fleet_board_search",
+    "test_app.py::test_search_takes_keystrokes_in_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Status shown by glyph, text and contrast"
+text = "Each thread status on the board has its own glyph and text label as well as colour, at the contrast stated in Feedback states."
+kind = "visual"
+primary = "pytest"
+workflow = "fleet-board"
+tests = [
+    "test_app.py::test_status_glyph_and_text",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Legacy import matching"
+text = "Imported spreadsheet rows match threads by normalised tail, directive and revision, as published in Business rules, and matched rows merge into thread history."
+kind = "behavior"
+primary = "pytest"
+workflow = "legacy-import"
+tests = [
+    "test_app.py::test_import_matching",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Orphans and rejected rows reported"
+text = "Every unmatched row is reported as an orphan with its reason, and every malformed row is reported as rejected with its field."
+kind = "behavior"
+primary = "pytest"
+workflow = "legacy-import"
+tests = [
+    "test_app.py::test_import_orphans_and_rejections",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Re-import creates nothing"
+text = "Importing the same file again returns the earlier result and changes no record and no count."
+kind = "behavior"
+primary = "pytest"
+workflow = "legacy-import"
+tests = [
+    "test_app.py::test_reimport_creates_nothing",
+    "test_app.py::test_wf_legacy_import_reimport",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Clerk imports history in the browser"
+text = "In the browser, a records clerk imports a CSV file and sees the merged, duplicate, orphan and rejected results."
+kind = "behavior"
+primary = "workflow"
+workflow = "legacy-import"
+tests = [
+    "test_app.py::test_wf_legacy_import_happy",
+]
+criteria = [
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Exact restore of a wrongly closed thread"
+text = "A records clerk's reopen returns a certified thread to work with the same work card, holder and evidence objects, and keeps its prior signatures as void with history."
+kind = "behavior"
+primary = "pytest"
+workflow = "restore-and-erasure"
+tests = [
+    "test_app.py::test_reopen_exact_restore",
+    "test_app.py::test_wf_restore_and_erasure_reopen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Contractor erasure"
+text = "A records clerk's erasure replaces a contractor's name and licence number with a stable anonymised signer token, while signatures, evidence objects and audit entries survive."
+kind = "behavior"
+primary = "pytest"
+workflow = "restore-and-erasure"
+tests = [
+    "test_app.py::test_contractor_erasure",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Erasure reaches every copy"
+text = "After an erasure, the person's name and licence number appear nowhere in search, exports, stored packs, queued notices or pack emails sent after the erasure, and mail already delivered is not altered."
+kind = "behavior"
+primary = "pytest"
+workflow = "restore-and-erasure"
+tests = [
+    "test_app.py::test_wf_restore_and_erasure_erase",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Queued notices"
+text = "Staff notices wait in a visible queue for the hold period, and a supersession or erasure that lands meanwhile rewrites or withdraws them before they are sent."
+kind = "behavior"
+primary = "pytest"
+workflow = "notices"
+tests = [
+    "test_app.py::test_notice_rewrite_queue",
+    "test_app.py::test_wf_notices_rewrite",
+    "test_app.py::test_wf_notices_withdraw",
+    "test_app.py::test_wf_notices_erasure",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Compliance pack stored and emailed"
+text = "A records clerk's pack request stores the pack PDF and CSV manifest under content-addressed keys and emails the authority once, with the link and checksums."
+kind = "behavior"
+primary = "pytest"
+workflow = "compliance-pack"
+tests = [
+    "test_app.py::test_pack_stored_and_emailed",
+    "test_app.py::test_pack_control_byte_ids",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Pack is all or nothing"
+text = "A pack is stored, emailed and marked transmitted together, or none of the three happens."
+kind = "behavior"
+primary = "pytest"
+workflow = "compliance-pack"
+tests = [
+    "test_app.py::test_pack_all_or_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Pack queued through an outage"
+text = "A pack requested while object storage or mail is down waits as queued and goes out by itself, exactly once, after the service returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "compliance-pack"
+tests = [
+    "test_app.py::test_pack_outage_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Regulator CSV export"
+text = "The regulator CSV export and the pack manifest neutralise every cell that a spreadsheet could read as a formula, under the published rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "compliance-pack"
+tests = [
+    "test_app.py::test_regulator_csv_export",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Clerk sends a pack from the browser"
+text = "In the browser, a records clerk sends a compliance pack and sees it listed as queued or transmitted, with the status changing without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "compliance-pack"
+tests = [
+    "test_app.py::test_wf_compliance_pack_send",
+    "test_app.py::test_wf_compliance_pack_queued",
+]
+criteria = [
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Board as it stood under a revision"
+text = "Any role can read a directive's column exactly as it stood when a prior revision was superseded."
+kind = "behavior"
+primary = "pytest"
+workflow = "read-only-oversight"
+tests = [
+    "test_app.py::test_board_as_of",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Append-only audit trail"
+text = "Every state change writes one attributed audit entry, and entries can never be edited or deleted through the API."
+kind = "behavior"
+primary = "pytest"
+workflow = "read-only-oversight"
+tests = [
+    "test_app.py::test_audit_append_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Auditor reviews a prior revision"
+text = "In the browser, the regulator auditor views a column under its prior revision and reads the audit trail, and sees no write controls."
+kind = "behavior"
+primary = "workflow"
+workflow = "read-only-oversight"
+tests = [
+    "test_app.py::test_wf_read_only_oversight_auditor",
+]
+criteria = [
+    "B12",
+    "B15",
+    "B14",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Three panes across viewports"
+text = "The board uses the three-pane layout at 1280 by 800 and the adapted layouts at 768 by 1024 and 375 by 812, with no horizontal page overflow."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_viewport_layouts",
+    "test_app.py::test_wf_cross_cutting_phone_menu",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Thread drawer contents"
+text = "The thread drawer shows the work card, the sign-off chain and the revision history ribbon, with the controls for the signed-in role."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_thread_drawer_contents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Keyboard and focus"
+text = "Every control works from the keyboard in the published tab order, and dialogs and the full-screen drawer trap focus, close on Escape and return focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_keyboard_and_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Feedback states"
+text = "Every async action shows its pending, success, error and outage copy and announces it through the named live regions."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_feedback_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Visual direction"
+text = "The board follows the visual design: a near-black instrument panel, one amber caution accent, hairline rules, condensed headings and tabular right-aligned figures."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Revision splice craft"
+text = "The revision splice reads as one connected change to a single column, ending in a still, legible state."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B7",
+    "B13",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Open work survives a board refresh"
+text = "A board refetch from the live feed or the 60-second timer updates the matrix, counts and rail in place without closing or resetting an open \"New directive\" dialog, its typed values, the focused element and its caret or the matrix scroll, and each board plays a given splice at most once."
+kind = "behavior"
+primary = "pytest"
+workflow = "ingest-directive"
+tests = [
+    "test_app.py::test_wf_ingest_directive_refresh_keeps_work",
+]
+criteria = []
+parameter_cases = [
+    "dialog-values",
+    "caret",
+    "scroll",
+    "pending-copy",
+    "splice-once",
+]
+
+[[requirements]]
+id = "DP-61"
+title = "A colleague's decision reaches open drawers"
+text = "When a planner confirms effectivity, marks a thread not applicable or withdraws a directive, every other signed-in board updates the affected cells, counts, rail and any open drawer for those threads in place within the live-feed delay, and removes the controls the new stage no longer allows."
+kind = "behavior"
+primary = "pytest"
+workflow = "effectivity-and-withdrawal"
+tests = [
+    "test_app.py::test_wf_effectivity_and_withdrawal_colleague_drawer",
+]
+criteria = []
+parameter_cases = [
+    "cells-counts-rail",
+    "drawer-in-place",
+    "controls-removed",
+    "focus-to-heading",
+    "stale-press-conflict",
+]
+
+[[requirements]]
+id = "DP-62"
+title = "The losing claimant sees the holder"
+text = "When one inspector wins a work card, every other signed-in board showing that thread's drawer replaces the claim control with the holder in place within the live-feed delay, and a stale claim that still reaches the server gets the published conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "claim-and-inspect"
+tests = [
+    "test_app.py::test_wf_claim_and_inspect_losing_claimant",
+]
+criteria = []
+parameter_cases = [
+    "drawer-in-place",
+    "claim-control-gone",
+    "focus-to-heading",
+    "stale-press-card-held",
+]
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with \"_schema\":\"run-manifest-v1\" and string install, build and serve fields, and it calls Python tools through .venv/bin/ or python -m."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package and bundled font or icon set with its licence, where shipped packages means the production dependency tree (the non-development dependency group of the Python lockfile or requirements file installed into .venv, plus any front-end packages listed by npm ls --omit=dev --all --json)."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package, font and icon set uses MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC, PSF-2.0, MPL-2.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores data only in the provided Postgres and MinIO: no SQLite, no other database or cache server, and no files used as a datastore."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and dev compose files are left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The app makes no runtime request to any third-party origin, and fonts and icons are served from the app."
+tests = [
+    "test_app.py::test_if_same_origin",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Python dependencies are installed into /app/.venv and nowhere else."
+tests = [
+    "test_app.py::test_if_venv_only",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "ingest-directive"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_ingest_directive_happy",
+    "test_app.py::test_wf_ingest_directive_invalid",
+    "test_app.py::test_due_instant_and_window",
+    "test_app.py::test_ingest_directive",
+    "test_app.py::test_wf_ingest_directive_refresh_keeps_work",
+]
+checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "revision-splice"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_revision_splice_own",
+    "test_app.py::test_wf_revision_splice_live",
+    "test_app.py::test_supersession_surfaces",
+    "test_app.py::test_supersession_pinned",
+    "test_app.py::test_supersession_lineage",
+    "test_app.py::test_reduced_motion_splice",
+]
+checkpoints = [
+    "B7",
+    "B9",
+    "B13",
+]
+
+[[workflows]]
+id = "effectivity-and-withdrawal"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_effectivity_and_withdrawal_confirm",
+    "test_app.py::test_wf_effectivity_and_withdrawal_withdraw",
+    "test_app.py::test_withdrawal_placeholder",
+    "test_app.py::test_effectivity_confirmation",
+    "test_app.py::test_wf_effectivity_and_withdrawal_colleague_drawer",
+]
+
+[[workflows]]
+id = "claim-and-inspect"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_claim_and_inspect_happy",
+    "test_app.py::test_wf_claim_and_inspect_contended",
+    "test_app.py::test_single_holder_concurrent",
+    "test_app.py::test_idempotent_replay",
+    "test_app.py::test_evidence_attach",
+    "test_app.py::test_inspection_bound_to_revision",
+    "test_app.py::test_wf_claim_and_inspect_losing_claimant",
+]
+
+[[workflows]]
+id = "sign-off-timing"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_sign_off_timing_hours",
+    "test_app.py::test_wf_sign_off_timing_defer",
+    "test_app.py::test_server_timeliness_edges",
+    "test_app.py::test_deferral_grace",
+]
+
+[[workflows]]
+id = "countersign-and-succession"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_countersign_and_succession_happy",
+    "test_app.py::test_wf_countersign_and_succession_scope",
+    "test_app.py::test_scope_checked_at_commit",
+    "test_app.py::test_scope_change_succession",
+    "test_app.py::test_countersign_control_byte_ids",
+    "test_app.py::test_scope_change_control_byte_ids",
+]
+
+[[workflows]]
+id = "fleet-board"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_fleet_board_live",
+    "test_app.py::test_wf_fleet_board_search",
+    "test_app.py::test_board_counts_recount",
+    "test_app.py::test_status_glyph_and_text",
+    "test_app.py::test_fleet_search",
+    "test_app.py::test_live_event_stream",
+]
+
+[[workflows]]
+id = "legacy-import"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_legacy_import_happy",
+    "test_app.py::test_wf_legacy_import_reimport",
+    "test_app.py::test_reimport_creates_nothing",
+    "test_app.py::test_import_matching",
+    "test_app.py::test_import_orphans_and_rejections",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "restore-and-erasure"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-44",
+]
+critical = [
+    "test_app.py::test_wf_restore_and_erasure_reopen",
+    "test_app.py::test_wf_restore_and_erasure_erase",
+    "test_app.py::test_reopen_exact_restore",
+    "test_app.py::test_contractor_erasure",
+]
+
+[[workflows]]
+id = "notices"
+requirements = [
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_notices_rewrite",
+    "test_app.py::test_wf_notices_withdraw",
+    "test_app.py::test_wf_notices_erasure",
+    "test_app.py::test_notice_rewrite_queue",
+]
+
+[[workflows]]
+id = "compliance-pack"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_compliance_pack_send",
+    "test_app.py::test_wf_compliance_pack_queued",
+    "test_app.py::test_pack_all_or_nothing",
+    "test_app.py::test_pack_outage_recovery",
+    "test_app.py::test_pack_stored_and_emailed",
+    "test_app.py::test_regulator_csv_export",
+    "test_app.py::test_pack_control_byte_ids",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "read-only-oversight"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_read_only_oversight_auditor",
+    "test_app.py::test_wf_read_only_oversight_refused",
+    "test_app.py::test_auditor_read_only",
+    "test_app.py::test_board_as_of",
+    "test_app.py::test_role_permissions",
+    "test_app.py::test_audit_append_only",
+]
+checkpoints = [
+    "B12",
+    "B15",
+    "B14",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+]
+critical = [
+    "test_app.py::test_viewport_layouts",
+    "test_app.py::test_wf_cross_cutting_sign_in",
+    "test_app.py::test_wf_cross_cutting_phone_menu",
+    "test_app.py::test_health_and_shell",
+    "test_app.py::test_seed_on_fresh_store",
+    "test_app.py::test_error_shape_and_precedence",
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_keyboard_and_focus",
+    "test_app.py::test_feedback_states",
+    "test_app.py::test_outage_boot_and_recovery",
+]

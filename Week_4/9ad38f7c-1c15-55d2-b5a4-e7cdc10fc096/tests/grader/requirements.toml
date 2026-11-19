@@ -1,0 +1,1231 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 65
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "deployment",
+    "accounts",
+    "access",
+    "teams",
+    "flags",
+    "scoring",
+    "certificate",
+    "event-data",
+    "event-page",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 72
+services = [
+    { name = "postgres", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 1
+S1 = 3
+S2 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/downtime"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "postgres-down"
+port = 4174
+url_env = "APP_POSTGRES_DOWN_URL"
+
+[outages.env]
+DATABASE_URL = "postgresql://gf_app@127.0.0.1:9/gf_down"
+
+[[requirements]]
+id = "DP-01"
+title = "Deployment"
+text = "Start from /app/run.json on the port in APP_PUBLIC_PORT bound to 0.0.0.0, serving the event page at /downtime and the JSON interface under /api on one origin."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_deployment_one_origin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Health and readiness"
+text = "GET /api/health checks the database on every call, answering 503 starting until that instance has its schema and complete seed, including while the database is unreachable from start, 200 ok from then on, and 503 unavailable when the database becomes unreachable after that."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_health_readiness",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Seeded exactly once"
+text = "Two instances started together on an empty database both become healthy with the seed written exactly once, and a restart neither duplicates nor resets any row."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_seed_written_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Shared state in PostgreSQL"
+text = "Data lives in PostgreSQL in the named collections, and sessions, throttles, locks and live events hold across every running instance, so a token, a lockout or a team solve on one instance takes effect on all of them."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_shared_state_across_instances",
+    "test_app.py::test_wf_deployment_peer_board",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Database outage and recovery"
+text = "While the database is unreachable, from start or while running, every API route other than health answers 503 unavailable within five seconds and no process exits, and within five seconds of its return routes, existing sessions and the live stream work again without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_outage_from_start",
+    "test_app.py::test_outage_midrun_and_recovery",
+    "test_app.py::test_wf_deployment_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Sign up"
+text = "POST /api/auth/signup creates an account whose email is unique in any letter case and returns a bearer token, refusing invalid fields and a taken email as specified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_signup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Simultaneous sign-ups"
+text = "Simultaneous sign-ups for one email in any letter case or surrounding whitespace, on any instances, create exactly one account and one 201, and every other request answers 409 email_taken without changing or storing anything."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_signup_race",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Account fields and passwords"
+text = "Email, display name and password are checked against the published limits counted in Unicode code points, control and text-direction characters are refused in names, no password is truncated, and no password or hash is stored in clear or returned."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_account_field_limits",
+    "test_app.py::test_passwords_exact_and_hidden",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Sign in and sign out"
+text = "POST /api/auth/login issues a token and refuses a wrong password and an unknown email with the same 401, and POST /api/auth/logout ends that token on every instance."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_login_logout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Sign-in throttle"
+text = "Ten failed sign-ins in a row for one email lock that email out of sign-in for the configured lock time with 429 and Retry-After, identically for unknown emails and exactly under bursts across instances, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_sign_in_throttle",
+    "test_app.py::test_sign_in_throttle_burst",
+    "test_app.py::test_sign_in_lock_expires",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Account pages"
+text = "/signup and /login show the specified fields, inline errors and linked error summary, carry the return address between them, and the header's Log out returns a signed-in player to the event page."
+kind = "behavior"
+primary = "workflow"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_wf_accounts_signup_return",
+    "test_app.py::test_wf_accounts_login_errors",
+    "test_app.py::test_wf_accounts_logout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Safe return addresses"
+text = "After sign-up or sign-in the browser follows redirect only when it is a same-origin path, keeping its query and fragment, and lands on /downtime for any other value."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_return_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Server-side authorization"
+text = "Every write and personal read refuses a signed-out caller with 401, a player only ever reads their own team room, and personal responses are never cached."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_signed_out_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Captain-only actions"
+text = "Only the team's captain may remove a member or issue a new invite code, with the refusals specified in API for anyone else, an unknown member and the captain themselves."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_captain_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Field projection"
+text = "Team room members carry only the published member fields, and leaderboard entries, feed items and stream events never carry an email, a user id or an invite code."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_field_projection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Captaincy under simultaneous changes"
+text = "Leaves, removals and joins on one team take effect one at a time, so the captain is always a current member or nobody, and every simultaneous case resolves as specified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_captaincy_races",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Captain controls"
+text = "In the team room the captain alone sees a Remove control per other member, confirmed in a dialog, and a New invite code control, each announcing its result."
+kind = "behavior"
+primary = "workflow"
+workflow = "access"
+tests = [
+    "test_app.py::test_wf_access_captain_remove",
+    "test_app.py::test_wf_access_member_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Create a team"
+text = "A teamless player creates a uniquely named team with an eight-character invite code and becomes its captain, and invalid or taken names are refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "teams"
+tests = [
+    "test_app.py::test_create_team",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Join by invite code"
+text = "A teamless player joins with the current invite code in any letter case, and an unknown or replaced code or a player already in a team is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "teams"
+tests = [
+    "test_app.py::test_join_by_code",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Twenty-member cap"
+text = "A team never holds more than twenty members, a full team refuses the next join, and simultaneous joins for the last place add exactly one member."
+kind = "behavior"
+primary = "pytest"
+workflow = "teams"
+tests = [
+    "test_app.py::test_team_cap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Team room data"
+text = "GET /api/teams/mine returns the team, its members oldest join first with their tickets, its score and the eight scenario states, or 404 for a teamless player."
+kind = "behavior"
+primary = "pytest"
+workflow = "teams"
+tests = [
+    "test_app.py::test_team_room_data",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Leaving a team"
+text = "Leaving passes captaincy to the earliest-joined remaining member, keeps points with the team and tickets with the player, and never lets a new team score an old completion."
+kind = "behavior"
+primary = "pytest"
+workflow = "teams"
+tests = [
+    "test_app.py::test_leaving_team",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Invite code rotation"
+text = "A new invite code and every member removal replace the team's code with a different one at once, and the old code then joins nobody."
+kind = "behavior"
+primary = "pytest"
+workflow = "teams"
+tests = [
+    "test_app.py::test_invite_rotation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Removal takes effect at once"
+text = "A removed player loses the team room and flag submission on their very next request, keeps their completions and tickets, and the team keeps every point."
+kind = "behavior"
+primary = "pytest"
+workflow = "teams"
+tests = [
+    "test_app.py::test_removal_immediate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Emptied teams"
+text = "A team whose last member leaves keeps its points, rank, name and invite code with no captain, and the first player to join it becomes captain."
+kind = "behavior"
+primary = "pytest"
+workflow = "teams"
+tests = [
+    "test_app.py::test_emptied_team",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Team band dialogs"
+text = "Signed in, Create a team and Join an existing team open their dialogs, show the specified inline errors and land in the team room on success."
+kind = "behavior"
+primary = "workflow"
+workflow = "teams"
+tests = [
+    "test_app.py::test_wf_teams_join_errors",
+    "test_app.py::test_wf_event_page_hero",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Team room page"
+text = "/downtime/team shows the team name, the invite code with Copy code, the score, the members with UTC join times, tickets and the captain marker, and one state per scenario, all updating within two seconds without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "teams"
+tests = [
+    "test_app.py::test_wf_teams_create_join",
+    "test_app.py::test_wf_teams_leave",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Flag matching and refusals"
+text = "A flag is compared exactly, letter case included, after trimming surrounding whitespace, every seeded flag solves its scenario, and a blank flag, a teamless player and an unknown scenario are refused with their specified statuses."
+kind = "behavior"
+primary = "pytest"
+workflow = "flags"
+tests = [
+    "test_app.py::test_flag_matching",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Team credit once"
+text = "A team's first correct flag on a scenario stores one team solve and adds that scenario's points, and the flag response carries the documented fields."
+kind = "behavior"
+primary = "pytest"
+workflow = "flags"
+tests = [
+    "test_app.py::test_team_credit_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Personal tickets"
+text = "A player's first correct flag on a scenario stores one completion and one ticket, a teammate's later solve adds a ticket but no team points, and a repeat changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "flags"
+tests = [
+    "test_app.py::test_personal_tickets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Simultaneous solves"
+text = "The same correct flag sent at the same moment by two teammates, or twice by one player, credits the team exactly once and each player at most once."
+kind = "behavior"
+primary = "pytest"
+workflow = "flags"
+tests = [
+    "test_app.py::test_simultaneous_solves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Wrong-flag lock"
+text = "Five wrong flags in a row from one player on one scenario lock that player on that scenario for sixty seconds by the database clock, surviving team changes and restarting the count when it ends, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "flags"
+tests = [
+    "test_app.py::test_wrong_flag_lock",
+    "test_app.py::test_wrong_flag_burst",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Scenario page"
+text = "/downtime/scenarios/<slug> shows the scenario facts and a flag form whose results appear inline and in the Flag result live region with the specified copy."
+kind = "behavior"
+primary = "workflow"
+workflow = "flags"
+tests = [
+    "test_app.py::test_wf_flags_solve",
+    "test_app.py::test_wf_flags_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Solved marker"
+text = "Every solved, passed or completed state on every surface shows a tick glyph beside its word, never colour alone, and the solved badge pops with a small overshoot."
+kind = "behavior"
+primary = "pytest"
+workflow = "flags"
+tests = [
+    "test_app.py::test_solved_ticks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Derived scores"
+text = "Scenario points are fixed as listed in Seed data, and a team's score, its time of last scoring and a player's tickets are always computed from stored team solves, completions and webinar claims."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_derived_scores",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Webinar bonus"
+text = "The webinar flag adds 2 tickets once per player, with or without a team, refusing a wrong flag and a second claim as specified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_webinar_bonus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Leaderboard ranking"
+text = "Teams rank by points, then by who reached their points first, then oldest first, with zero-point and emptied teams kept, and each row shows the status words, challenges and points."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_leaderboard_ranking",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Leaderboard pages"
+text = "GET /api/leaderboard pages five teams by default with global ranks, treats limits above 50 as 50, answers an empty page past the end and refuses malformed paging values."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_leaderboard_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Activity feed and live stream"
+text = "The feed lists the ten newest team solves newest first, and GET /api/stream on every instance sends a score event for every team solve within two seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_feed_and_stream",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Leaderboard on the event page"
+text = "The event page shows the captioned leaderboard table with pagination and the activity feed, hides the simulator columns on a phone, and updates both within two seconds without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_wf_scoring_live_board",
+    "test_app.py::test_wf_scoring_board_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Leaderboard page in the address"
+text = "The leaderboard page lives in the event page address as board, so paging adds history, Back, Forward, reload and shared links reopen that page, and invalid or past-the-end values are normalised by replacement."
+kind = "behavior"
+primary = "pytest"
+workflow = "scoring"
+tests = [
+    "test_app.py::test_board_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Certificate rule"
+text = "A current member of a team that has solved all eight scenarios gets a certificate whose issued time is the moment of the team's eighth solve, and every other player is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "certificate"
+tests = [
+    "test_app.py::test_certificate_rule",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Certificate contents"
+text = "The certificate body and its well-formed SVG image carry only the display name, team name, event name and issued time as literal text, never an email, an id or an invite code."
+kind = "behavior"
+primary = "pytest"
+workflow = "certificate"
+tests = [
+    "test_app.py::test_certificate_contents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Certificate page"
+text = "/downtime/certificate shows the UTC completion time and downloads the certificate for a finished team or says how many scenarios remain, and a finished team room links to it."
+kind = "behavior"
+primary = "workflow"
+workflow = "certificate"
+tests = [
+    "test_app.py::test_wf_certificate_collect",
+    "test_app.py::test_wf_certificate_download_pending",
+    "test_app.py::test_wf_certificate_not_complete",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Event window and calendar"
+text = "GET /api/event returns the event fields and GET /api/event/calendar.ics a strict RFC 5545 calendar of the event window, which Add to calendar downloads."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-data"
+tests = [
+    "test_app.py::test_event_and_calendar",
+    "test_app.py::test_wf_event_data_calendar",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Scenario list and flag secrecy"
+text = "GET /api/scenarios lists the eight scenarios in number order with their kinds and points, no endpoint returns a flag, and only each flag's SHA-256 is stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-data"
+tests = [
+    "test_app.py::test_scenarios_and_flag_secrecy",
+    "test_app.py::test_wf_event_data_scenario_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Published API surface"
+text = "An unpublished address under /api answers a JSON 404, an unpublished method a JSON 405 with Allow, and a wrong content type or oversized body its JSON error, never an HTML page or a 200."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-data"
+tests = [
+    "test_app.py::test_published_surface",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Strict JSON bodies"
+text = "A body with NaN or Infinity, duplicate keys, a lone surrogate, invalid UTF-8, a non-object top level or nesting deeper than 32 answers 400 invalid_json within one second and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-data"
+tests = [
+    "test_app.py::test_strict_json",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Opaque errors"
+text = "Malformed path ids, slugs and query values and body fields holding U+0000 get their published JSON 400 or 404, and no response is ever a 500, an HTML error page, database driver text or a stack trace, as qualified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-data"
+tests = [
+    "test_app.py::test_opaque_errors",
+    "test_app.py::test_query_bounds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Hero and event bar"
+text = "The only h1 is named It's Downtime! while it shows SHOW struck through with DOWN above under a spotlight, orbiting sparks and a pointer-following tail sit in the hero, and the Event bar region exists only once the hero has left view."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-page"
+tests = [
+    "test_app.py::test_hero_and_event_bar",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Event page sections"
+text = "The case file, topic pills, Prizes dialog, event details card, perks, closing bands and seventeen-question FAQ show the specified copy and arrangement."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-page"
+tests = [
+    "test_app.py::test_event_page_sections",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Webinar section"
+text = "The webinar section's Copy link copies the event page address ending in /downtime#webinar, and signed in its Claim tickets form answers in the Webinar messages live region."
+kind = "behavior"
+primary = "workflow"
+workflow = "event-page"
+tests = [
+    "test_app.py::test_wf_event_page_webinar",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Briefing film"
+text = "The briefing film plays muted, looping and inline with English captions, pauses on request, off-screen and under reduced motion, and both media files are served byte for byte."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-page"
+tests = [
+    "test_app.py::test_briefing_film",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Sound"
+text = "Sound stays off until the header toggle turns it on, the ambient loop is fetched only then, the choice is remembered without autoplay, and flag cues play only while sound is on."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-page"
+tests = [
+    "test_app.py::test_sound",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Scenario trail"
+text = "Eight linked scenario blocks alternate along a winding trail that draws with scroll and rewinds on the way back, lights each orb as it arrives, straightens down the left on a phone and shows a signed-in player's state."
+kind = "behavior"
+primary = "pytest"
+workflow = "event-page"
+tests = [
+    "test_app.py::test_scenario_trail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Global chrome and platform pages"
+text = "The header, footer, skip link and phone menu follow Screens and layout, and every header and footer link reaches a real page that answers 200, while an unknown page address answers 404 with a link to the event page."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_global_chrome",
+    "test_app.py::test_wf_cross_cutting_not_found",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Consent"
+text = "A first visit shows the cookie panel, Allow All closes it for good, Cookie Settings opens a dialog offering Essential only, and no analytics identifier is stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_consent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Visual system"
+text = "The event page reads as a haunted night-time page: near-black with a navy cast, one lime accent, soft blue glows, frosted glass panels and the specified type families and scale."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Motion and reduced motion"
+text = "Content rises into place as it enters view, looping decoration is hidden from assistive technology, and a reduced-motion preference stops every endless loop, draws the trail in full, shows the title in its final state and keeps the film paused."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Accessibility"
+text = "Every page meets WCAG 2.2 AA, every focused control shows a lime outline, controls are at least 44 pixels square to tap, and dialogs trap focus, close on Escape and return focus to their opener."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_accessibility",
+    "test_app.py::test_wf_cross_cutting_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Responsive layout"
+text = "Nothing scrolls sideways at any width from 320 pixels, and the three viewports follow the arrangements in Screens and layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Scenario steps"
+text = "The scenario page steps to the previous or next scenario in place, without reloading, adding one history entry per step, and Back and Forward show the scenario named in the address without reloading or moving focus, as qualified in Interactions."
+kind = "behavior"
+primary = "workflow"
+workflow = "flags"
+tests = [
+    "test_app.py::test_wf_flags_scenario_steps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Invite links"
+text = "The team room copies an invite link to the event page, and an event page address carrying `join` drops it by replacement, then opens the filled join dialog for a signed-in player or sends a visitor through sign-in and back, as qualified in Interactions."
+kind = "behavior"
+primary = "workflow"
+workflow = "teams"
+tests = [
+    "test_app.py::test_wf_teams_invite_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Signed-in account pages"
+text = "Opening /signup or /login with a session that GET /api/me accepts replaces the address with the return address without adding a history entry, and a session it refuses is forgotten while the page stays, as qualified in Interactions."
+kind = "behavior"
+primary = "workflow"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_wf_accounts_signed_in_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Live certificate page"
+text = "The certificate page reads the certificate again in place on every score event and every team event for the player's team, hiding it behind the not-complete copy when refused and showing it again when allowed, as qualified in Interactions."
+kind = "behavior"
+primary = "workflow"
+workflow = "certificate"
+tests = [
+    "test_app.py::test_wf_certificate_live",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\":\"run-manifest-v1\", and its commands install into and run from /app/.venv."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/USER_README.md lists the seeded logins, including captain@example.com with the password deku-demo-pw-2026, and the SIGN_IN_LOCK_SECONDS setting."
+tests = [
+    "test_app.py::test_if_user_readme",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Empty .browser_screenshots/ and .downloads/ directories exist at the app root."
+tests = [
+    "test_app.py::test_if_empty_dirs",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package with its version and licence, where shipped packages are the production dependency tree the manifest's install command puts into /app/.venv, excluding test-only and dev-only requirements."
+tests = [
+    "test_app.py::test_if_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Every shipped package and font carries a permissive or open licence: MIT, BSD, Apache-2.0, ISC, PSF, MPL-2.0 or SIL OFL."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The only datastore is the PostgreSQL database at DATABASE_URL; no other datastore, cache, broker, mail transport, model provider, third-party service or edge function is added."
+tests = [
+    "test_app.py::test_if_single_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The two CC0 files in /app/assets/ stay unmodified and are the only media binaries, and no binary is copied from any website, except open-licence font files."
+tests = [
+    "test_app.py::test_if_media_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "No analytics identifier is stored in the browser or on the server."
+tests = [
+    "test_app.py::test_if_no_analytics",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-09"
+text = "No social share buttons, third-party sign-in, plan checkout, demo booking, contact forms or site search ship."
+tests = [
+    "test_app.py::test_if_out_of_scope",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-10"
+text = "No persistent volumes, fixed container names or custom networks are declared."
+tests = [
+    "test_app.py::test_if_no_volumes",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "deployment"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+]
+critical = [
+    "test_app.py::test_wf_deployment_peer_board",
+    "test_app.py::test_wf_deployment_outage",
+    "test_app.py::test_seed_written_once",
+    "test_app.py::test_outage_midrun_and_recovery",
+    "test_app.py::test_outage_from_start",
+]
+
+[[workflows]]
+id = "accounts"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_accounts_signed_in_pages",
+    "test_app.py::test_wf_accounts_signup_return",
+    "test_app.py::test_wf_accounts_logout",
+    "test_app.py::test_signup_race",
+    "test_app.py::test_return_address",
+    "test_app.py::test_sign_in_throttle",
+    "test_app.py::test_account_field_limits",
+    "test_app.py::test_sign_in_throttle_burst",
+]
+
+[[workflows]]
+id = "access"
+requirements = [
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_access_captain_remove",
+    "test_app.py::test_captain_only",
+    "test_app.py::test_field_projection",
+    "test_app.py::test_captaincy_races",
+]
+
+[[workflows]]
+id = "teams"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-63",
+]
+critical = [
+    "test_app.py::test_wf_teams_create_join",
+    "test_app.py::test_wf_teams_join_errors",
+    "test_app.py::test_invite_rotation",
+    "test_app.py::test_removal_immediate",
+    "test_app.py::test_team_cap",
+    "test_app.py::test_wf_teams_invite_link",
+]
+
+[[workflows]]
+id = "flags"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_flags_solve",
+    "test_app.py::test_wrong_flag_lock",
+    "test_app.py::test_wrong_flag_burst",
+    "test_app.py::test_simultaneous_solves",
+    "test_app.py::test_solved_ticks",
+    "test_app.py::test_wf_flags_scenario_steps",
+]
+
+[[workflows]]
+id = "scoring"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_scoring_live_board",
+    "test_app.py::test_board_address",
+    "test_app.py::test_derived_scores",
+    "test_app.py::test_leaderboard_pages",
+]
+
+[[workflows]]
+id = "certificate"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_certificate_live",
+    "test_app.py::test_wf_certificate_collect",
+    "test_app.py::test_wf_certificate_download_pending",
+    "test_app.py::test_certificate_contents",
+    "test_app.py::test_certificate_rule",
+]
+
+[[workflows]]
+id = "event-data"
+requirements = [
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_wf_event_data_calendar",
+    "test_app.py::test_published_surface",
+    "test_app.py::test_strict_json",
+    "test_app.py::test_opaque_errors",
+    "test_app.py::test_query_bounds",
+]
+
+[[workflows]]
+id = "event-page"
+requirements = [
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+]
+critical = [
+    "test_app.py::test_wf_event_page_webinar",
+    "test_app.py::test_scenario_trail",
+    "test_app.py::test_hero_and_event_bar",
+    "test_app.py::test_sound",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_keyboard",
+]

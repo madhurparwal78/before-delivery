@@ -1,0 +1,38 @@
+import { h } from '../lib/els.js';
+import { plate } from '../lib/plates.js';
+
+export function homePage(): HTMLElement {
+  return h('div', null,
+    h('section', { class: 'hero grid12' },
+      h('div', { class: 'hero-plate-top' }, plate({ seed: 'hero-coast-road', caption: 'Hesketh Mere, the wet road in from the coast', ratio: '16 / 10' })),
+      h('h1', null, h('span', { class: 'hero-line1' }, 'Empty seats,'), h('br'), h('span', { class: 'hero-line2' }, 'long roads.')),
+      h('div', { class: 'hero-plate-tall' }, plate({ seed: 'hero-rear-seat', caption: 'Kestrevel, the folded coat on the rear seat at the ferry ramp', ratio: '4 / 5' })),
+      h('p', { class: 'hero-sentence' }, 'Share the drive between eight towns, at the price the distance sets.'),
+      h('div', { class: 'hero-cta' },
+        h('a', { class: 'find-seat', href: '/search' },
+          h('span', { class: 'split-label' }, 'Find a seat'),
+          h('span', { class: 'split-arrow', 'aria-hidden': 'true' }, '→'),
+        ),
+      ),
+    ),
+    h('section', { class: 'section grid12' },
+      h('div', { class: 'plate-third' }, plate({ seed: 'passage-fields-vardholm', caption: 'Vardholm, hedgerows running down to the water', ratio: '4 / 5' })),
+      h('div', { class: 'passage', style: { gridColumn: '6 / 9', alignSelf: 'center' } },
+        h('p', null, 'A driver already making the trip lists the empty seats. The price is set by the distance: the further you ride, the more of the fuel you share.'),
+      ),
+      h('div', { class: 'plate-half-right' }, plate({ seed: 'passage-road-oakhythe', caption: 'Oakhythe, the long straight past the mill', ratio: '16 / 10' })),
+    ),
+    h('section', { class: 'section grid12' },
+      h('div', { class: 'passage', style: { gridColumn: '2 / 5', alignSelf: 'center' } },
+        h('p', null, 'Book the whole route or one stretch of it. The server prices your stretch from the kilometres you ride, holds your seat while you confirm, and refunds by a rule you can read before you book.'),
+      ),
+      h('div', { class: 'plate-tall-right' }, plate({ seed: 'passage-ferry-corrandy', caption: 'Corrandy, the ramp at first light', ratio: '4 / 5' })),
+    ),
+    h('section', { class: 'section grid12' },
+      h('div', { class: 'plate-wide-left' }, plate({ seed: 'passage-interior-hesketh', caption: 'Hesketh Mere, three seats waiting on the forecourt', ratio: '16 / 10' })),
+      h('div', { class: 'passage', style: { gridColumn: '8 / 12', alignSelf: 'center' } },
+        h('p', null, 'Every driver shows a verified ID before they can offer a ride, and every rating stays sealed until both sides have spoken.'),
+      ),
+    ),
+  );
+}

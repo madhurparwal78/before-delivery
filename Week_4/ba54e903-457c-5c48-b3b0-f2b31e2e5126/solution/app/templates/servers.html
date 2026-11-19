@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block main %}
+<section class="dir-hero">
+  <h1 class="display dir-title">FIND YOUR NEXT COMMUNITY</h1>
+  <p class="lede">Browse published communities, then join the ones that feel like home.</p>
+  <div class="dir-search">
+    <input class="search-input" type="search" id="dir-q" aria-label="Search popular communities" placeholder="Search popular communities" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="chips" role="group" aria-label="Categories" id="dir-chips">
+    {% for value, label in categories %}
+    <button class="chip" type="button" data-category="{{ value }}" data-label="{{ label }}" aria-pressed="{{ 'true' if value == 'all' else 'false' }}">{{ label }} ({{ '{:,}'.format(counts[value]) }})</button>
+    {% endfor %}
+  </div>
+</section>
+<section class="dir-results">
+  {#- The first page is drawn here exactly as directory.js draws it, so the cards, count and pager are in the first
+      paint and nothing below them moves when the script redraws the same answer (layout shift). -#}
+  {%- set answer = initial.answer if initial else none %}
+  <p class="results-count" role="status" aria-label="Directory results" id="dir-status">{% if answer %}{{ '1 community' if answer.total == 1 else answer.total ~ ' communities' }}{% endif %}</p>
+  <div class="card-grid" id="dir-grid">
+    {%- if answer %}{% for item in answer.data -%}
+    <article class="card"><img class="card-splash" src="{{ item.splash_url }}" alt="" width="520" height="228" loading="lazy"><div class="card-body"><img class="card-icon" src="{{ item.icon_url }}" alt="{{ item.name }} icon" width="56" height="56"><h2 class="card-title"><a href="/servers/{{ item.slug|urlencode }}">{{ item.name }}</a></h2><p class="card-desc">{{ item.description }}</p>
+      {%- if item.verified or item.partnered %}<p class="card-badges"><span class="{{ 'badge badge--verified' if item.verified else 'badge badge--partner' }}">{{ 'Verified' if item.verified else 'Partnered' }}</span></p>{% endif -%}
+      <p class="card-counts"><span>{{ '{:,}'.format(item.presence_count) }} Online</span><span>{{ '{:,}'.format(item.member_count) }} Members</span></p></div></article>
+    {%- endfor %}{% endif -%}
+  </div>
+  <div class="empty" id="dir-empty"{% if not answer or answer.total != 0 %} hidden{% endif %}>
+    <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8.5 11h5"/></svg>
+    <p class="empty-title">No communities match your search.</p>
+    <button class="btn btn-accent" type="button" id="dir-reset">Reset filters</button>
+  </div>
+  <nav class="pager" aria-label="Pages" id="dir-pager">
+    {%- if answer %}{% set pages = [1, ((answer.total + 11) // 12)]|max %}{% set base = '/servers?' ~ (('q=' ~ (initial.q|urlencode) ~ '&') if initial.q else '') ~ (('category=' ~ initial.category ~ '&') if initial.category != 'all' else '') -%}
+    {%- if initial.page > 1 %}<a href="{{ (base ~ 'page=' ~ (initial.page - 1)) if initial.page - 1 > 1 else (base[:-1] if base.endswith(('&', '?')) else base) }}">Previous page</a>{% endif -%}
+    {%- if initial.page < pages %}<a href="{{ base ~ 'page=' ~ (initial.page + 1) }}">Next page</a>{% endif -%}
+    {%- endif -%}
+  </nav>
+</section>
+{% endblock %}
+{% block scripts %}{% if initial %}<script type="application/json" id="dir-initial">{{ initial|tojson }}</script>{% endif %}<script src="/static/js/directory.js?v={{ version }}"></script>{% endblock %}

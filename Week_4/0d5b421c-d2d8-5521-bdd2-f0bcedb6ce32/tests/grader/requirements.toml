@@ -1,0 +1,1281 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 63
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "browse-rooms",
+    "find-a-time",
+    "hold-a-table",
+    "book-a-table",
+    "book-with-deposit",
+    "cancel-booking",
+    "waitlist-offer",
+    "waitlist-claim",
+    "host-floor",
+    "host-service",
+    "walk-in",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+    "Q9",
+]
+rubric_total_weight = 113
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "killbill", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Saffron & Slate <tables@saffronslate.example>" } },
+    { name = "valkey", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 5
+B9 = 5
+B10 = 5
+B11 = 5
+B12 = 5
+B13 = 5
+B14 = 3
+B15 = 3
+B16 = 3
+S1 = 5
+S2 = 5
+S3 = 5
+S4 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+Q9 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "valkey-down"
+port = 4175
+url_env = "APP_VALKEY_DOWN_URL"
+
+[outages.env]
+VALKEY_URL = "redis://127.0.0.1:9"
+
+[[outages]]
+id = "short-timer"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+HOLD_SECONDS = "5"
+OFFER_SECONDS = "5"
+VALKEY_KEY_PREFIX = "short:"
+DATABASE_URL = "${DATABASE_URL}_short"
+
+[[outages]]
+id = "clock"
+port = 4177
+url_env = "APP_CLOCK_URL"
+
+[outages.env]
+APP_CLOCK_CONTROL = "1"
+VALKEY_KEY_PREFIX = "clock:"
+DATABASE_URL = "${DATABASE_URL}_clock"
+
+[[outages]]
+id = "flap"
+port = 4178
+url_env = "APP_FLAP_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:18080"
+VALKEY_URL = "redis://127.0.0.1:16379"
+VALKEY_KEY_PREFIX = "flap:"
+DATABASE_URL = "${DATABASE_URL}_flap"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "/app/run.json installs, builds and serves the app on port 4173 or APP_PUBLIC_PORT, and GET /api/health answers 200 {\"status\":\"ok\"}, as qualified in Deployment."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_answers_with_dependencies_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Configuration from the environment"
+text = "Every service URL, credential and timer is read from the environment variables listed in Configuration and secrets, and none of them reaches the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Server boundary"
+text = "The server accepts same-origin JSON within the published size limit, never serves source or credentials, keeps serving when Kill Bill or Valkey is unreachable, and keeps every rule when several instances share one database and Valkey, as qualified in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_boundary_same_origin_json_and_size",
+    "test_app.py::test_boundary_never_serves_source_or_credentials",
+    "test_app.py::test_boundary_instances_share_state",
+    "test_app.py::test_boot_exits_without_postgres",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "One error shape and order"
+text = "Every error answers with the one published error body and the status chosen by the published precedence rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Booking page breakpoints"
+text = "The booking page shows its published stacked, two-column and three-column layouts at 375, 768 and 1280 pixels wide with no sideways scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "find-a-time"
+tests = [
+    "test_app.py::test_wf_find_a_time_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "desktop",
+]
+
+[[requirements]]
+id = "DP-06"
+title = "Keyboard-complete booking"
+text = "A guest completes party size, date, time, table, details, deposit and cancel confirmation with the keyboard alone, including arrow keys on the floor plan."
+kind = "behavior"
+primary = "pytest"
+workflow = "book-a-table"
+tests = [
+    "test_app.py::test_wf_book_a_table_keyboard_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Dialogs keep focus"
+text = "Every dialog keeps Tab and Shift+Tab inside it, closes on Escape unless its request is pending, and returns focus as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_dialog_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Reduced-motion equivalents"
+text = "With reduced motion requested, the room run, the table lay and lift-off and the hold ring switch to their published static equivalents and lose no information."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion_equivalents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Taps, not hover"
+text = "On a touch phone every table is chosen by tap and every status a guest needs is visible as text without hovering."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_touch_phone",
+    "test_app.py::test_waitlist_controls_are_tappable_on_a_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Pinned-poster look"
+text = "Every screen carries the pink field, black title, lime only where you act, Geist type and square corners described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Floor plan drawn true"
+text = "Each table on the plan is a solid slate shape in its room with as many seat positions as its maximum seats."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+    "B9",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Status by pattern and words"
+text = "Every table status on the guest and host plans shows as a fill pattern plus a text label, never by colour alone."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Rules decided by the server"
+text = "Table fit, turn windows, deposits, covers, cutoffs, sessions and expiry are each decided once on the server, and the browser only renders what the API returns."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Pinned room run"
+text = "The home page pins the black word-mark over the six room portraits in published order, with the guest sentence and a Book a table button, as laid out in Screens and layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-rooms"
+tests = [
+    "test_app.py::test_pinned_room_run",
+    "test_app.py::test_wf_browse_rooms_phone_touch_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Live room captions"
+text = "Each room caption shows its seats, its covers free at tonight's next bookable time and its next table for two tonight, and changes its text in place inside the same figure within two seconds of any change without scrolling the page."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-rooms"
+tests = [
+    "test_app.py::test_live_captions_change_in_place",
+    "test_app.py::test_wf_browse_rooms_live_caption_journey",
+    "test_app.py::test_wf_browse_rooms_shared_count",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Published floor and rules"
+text = "GET /api/floor and GET /api/rules return the seeded rooms, tables, joinable pairs, turn times, deposit rule and timers."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_published_floor_and_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Party and date bounds"
+text = "Guests choose a party of 1 to 8 and a date from today to 30 days ahead in Lisbon, and the API rejects anything else with 422."
+kind = "behavior"
+primary = "pytest"
+workflow = "find-a-time"
+tests = [
+    "test_app.py::test_party_and_date_bounds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Slots in restaurant time"
+text = "The slot list shows every quarter hour from 18:00 to 22:00 Lisbon time, with the guest's own time beside each slot when their zone differs, and marks slots inside the booking lead as not bookable."
+kind = "behavior"
+primary = "pytest"
+workflow = "find-a-time"
+tests = [
+    "test_app.py::test_slots_and_booking_lead",
+    "test_app.py::test_wf_find_a_time_new_york_guest",
+    "test_app.py::test_waitlist_only_when_nothing_fits_a_party_of_two",
+    "test_app.py::test_waitlist_only_suffix_drops_when_a_pair_frees",
+    "test_app.py::test_waitlist_only_is_decided_per_party",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Slot covers from the shared count"
+text = "Each slot's covers-free figure is the same derived count that the room captions and host totals use, as defined in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "find-a-time"
+tests = [
+    "test_app.py::test_slot_covers_match_room_sum",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Table fit on the plan"
+text = "For the chosen party and slot, exactly the tables the published fit rule makes eligible render as outlines, and every other table renders muted or taken."
+kind = "behavior"
+primary = "pytest"
+workflow = "find-a-time"
+tests = [
+    "test_app.py::test_table_fit_on_plan",
+    "test_app.py::test_plan_reads_taken_after_a_booking",
+    "test_app.py::test_plan_separates_taken_from_held_by_you",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Turn windows"
+text = "A hold, offer, booking or walk-in occupies its table for the party's published turn time plus the reset and blocks every overlapping window on that table, while windows that only touch are allowed."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-a-table"
+tests = [
+    "test_app.py::test_turn_windows_overlap_and_touch",
+    "test_app.py::test_hold_refusal_codes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Server-held hold"
+text = "Choosing a fitting table creates a server hold that answers 201 with its server expiry and sets one Valkey key per table per quarter-hour slot its turn window covers, all or none, each ending with the hold."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-a-table"
+tests = [
+    "test_app.py::test_hold_sets_one_claim_per_covered_slot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "One winner per table"
+text = "Of simultaneous holds, offers or walk-ins on one table with overlapping windows, exactly one succeeds, every other answers 409 table_taken, and a losing pair hold leaves no key on either table."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-a-table"
+tests = [
+    "test_app.py::test_wf_hold_a_table_race",
+    "test_app.py::test_losing_pair_hold_leaves_no_key",
+    "test_app.py::test_offer_and_hold_race_on_freed_table",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Laying the table"
+text = "Nothing changes on a chosen table until the hold's 201, after which it fills in ink and lays one place setting per guest clockwise from twelve o'clock with the draining ring and text countdown, as timed in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-a-table"
+tests = [
+    "test_app.py::test_laying_the_table_waits_for_201",
+    "test_app.py::test_lost_race_turns_taken_without_settings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Countdown on the server clock"
+text = "The hold and offer countdowns run to the server's expiry instant, corrected by the server clock offset, whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-a-table"
+tests = [
+    "test_app.py::test_wf_hold_a_table_device_clock_wrong",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Hold ends at expiry"
+text = "A hold ends at its server expiry: within four seconds every open plan lifts the settings off, the booking page shows the published notice while keeping the typed details, and a confirm from that instant on answers 410."
+kind = "behavior"
+primary = "pytest"
+workflow = "book-a-table"
+tests = [
+    "test_app.py::test_wf_book_a_table_hold_ends_while_typing",
+    "test_app.py::test_hold_expiry_edge_on_server_clock",
+    "test_app.py::test_lift_off_runs_from_the_last_setting",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Releasing a hold"
+text = "Releasing a hold, or picking another table, frees the previous table for every open plan within two seconds, and a release the server refuses leaves the table shown as held with its countdown running."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-a-table"
+tests = [
+    "test_app.py::test_release_frees_table_for_open_plans",
+    "test_app.py::test_wf_hold_a_table_refused_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Holds paused"
+text = "While Valkey is unreachable, every hold, release, confirm, walk-in and claim answers 503 holds_paused and the booking page shows the published banner, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-a-table"
+tests = [
+    "test_app.py::test_holds_paused_on_every_table_action",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Book a table for two"
+text = "A guest picks a party, date, time and fitting table, enters their details and lands on the confirmation page, as told in Journey 2."
+kind = "behavior"
+primary = "workflow"
+workflow = "book-a-table"
+tests = [
+    "test_app.py::test_wf_book_a_table_happy_path",
+    "test_app.py::test_confirm_field_errors_are_published",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Idempotent money and table actions"
+text = "Confirm, cancel, claim and walk-in require an Idempotency-Key, a replay returns the stored final response before any 404 or 410 check with no second booking, charge, refund or email, and a different request under that key answers 409, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "book-with-deposit"
+tests = [
+    "test_app.py::test_idempotent_retry_after_payment_failure",
+    "test_app.py::test_idempotency_on_all_keyed_actions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Confirmation email"
+text = "Every online or waitlist booking sends one confirmation email with its manage link and deposit after the booking commits, and walk-ins send none, as specified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "book-a-table"
+tests = [
+    "test_app.py::test_confirmation_email_contents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Manage link as capability"
+text = "The manage link opens only its own booking and answers 410 once the booking is cancelled, completed or marked no-show."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancel-booking"
+tests = [
+    "test_app.py::test_manage_link_is_a_capability",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Deposit amount"
+text = "The deposit is €15 per guest in integer cents on every online or waitlist booking for a party of 5 or more or at Chef's Counter, computed once on the server and identical in the quote, Kill Bill, the email and the host view."
+kind = "behavior"
+primary = "pytest"
+workflow = "book-with-deposit"
+tests = [
+    "test_app.py::test_deposit_amount_everywhere",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Book with a deposit"
+text = "A party of six accepts the deposit, pays and lands on the confirmation page showing the paid deposit, as told in Journey 3."
+kind = "behavior"
+primary = "workflow"
+workflow = "book-with-deposit"
+tests = [
+    "test_app.py::test_wf_book_with_deposit_happy_path",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Payment confirmed by Kill Bill"
+text = "A deposit booking exists and shows paid only after Kill Bill records a successful PURCHASE for it on the guest's account."
+kind = "behavior"
+primary = "pytest"
+workflow = "book-with-deposit"
+tests = [
+    "test_app.py::test_deposit_booking_waits_for_kill_bill",
+    "test_app.py::test_kill_bill_account_key_is_only_the_lowercased_email",
+    "test_app.py::test_mixed_case_addresses_share_one_kill_bill_account",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "All or nothing"
+text = "A deposit confirm that fails at Kill Bill leaves no booking, no successful charge and no email, keeps the hold live, and every retry reuses the hold's one reserved booking reference."
+kind = "behavior"
+primary = "pytest"
+workflow = "book-with-deposit"
+tests = [
+    "test_app.py::test_wf_book_with_deposit_failure_leaves_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Deposits paused"
+text = "While Kill Bill is unreachable, the published banner shows, deposit confirms and refundable cancels answer 503 deposits_paused, and bookings without a deposit still go through."
+kind = "behavior"
+primary = "pytest"
+workflow = "book-with-deposit"
+tests = [
+    "test_app.py::test_wf_book_with_deposit_paused_then_paid",
+    "test_app.py::test_deposits_paused_instance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Cancel from the manage link"
+text = "A guest opens their manage link, sees whether cancelling now refunds, confirms in the dialog, hears the published result and lands on the cancelled heading, as told in Journey 4."
+kind = "behavior"
+primary = "workflow"
+workflow = "cancel-booking"
+tests = [
+    "test_app.py::test_wf_cancel_booking_refunded_journey",
+    "test_app.py::test_wf_cancel_booking_payments_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "24-hour refund edge"
+text = "A cancel landing at least 24 hours before the slot's Lisbon start instant is refunded, and any later cancel is retained, as judged by the server when the cancel lands."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancel-booking"
+tests = [
+    "test_app.py::test_refund_edge_at_24_hours",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Refund confirmed by Kill Bill"
+text = "A refunded cancel answers, and shows Refunded, only after Kill Bill records the full REFUND on the deposit payment."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancel-booking"
+tests = [
+    "test_app.py::test_refund_waits_for_kill_bill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Cancellation notice"
+text = "Each cancel sends exactly one email saying refunded, retained or no deposit after the cancel commits, and a replayed cancel sends none."
+kind = "behavior"
+primary = "pytest"
+workflow = "cancel-booking"
+tests = [
+    "test_app.py::test_cancellation_email_variants",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Join the waitlist"
+text = "A guest joins the waitlist for a date, party and time window and is told their position, and a repeated join for the same email and date returns the existing entry instead of creating another."
+kind = "behavior"
+primary = "pytest"
+workflow = "waitlist-offer"
+tests = [
+    "test_app.py::test_join_waitlist_rules",
+    "test_app.py::test_wf_waitlist_offer_double_join_journey",
+    "test_app.py::test_waitlist_form_is_one_column_at_every_width",
+    "test_app.py::test_waitlist_summary_line_stays_pinned",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Offers in join order"
+text = "A freed table goes to the earliest waiting entry it fits, skipping entries whose party or window excludes it, with at most one live offer per table."
+kind = "behavior"
+primary = "pytest"
+workflow = "waitlist-offer"
+tests = [
+    "test_app.py::test_offers_follow_join_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Offer email and link"
+text = "Each offer emails a claim link and the expiry time, and the link opens only that offer."
+kind = "behavior"
+primary = "pytest"
+workflow = "waitlist-offer"
+tests = [
+    "test_app.py::test_offer_email_and_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Claim an offer"
+text = "A waitlisted guest opens the emailed link, sees the countdown and claims the table onto the confirmation page, as told in Journey 5."
+kind = "behavior"
+primary = "workflow"
+workflow = "waitlist-claim"
+tests = [
+    "test_app.py::test_wf_waitlist_claim_happy_path",
+    "test_app.py::test_wf_waitlist_claim_dead_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Claim edge and winner"
+text = "A claim before the offer's server expiry can succeed, a claim at or after it answers 410 offer_expired, and of simultaneous claims on one offer exactly one creates a booking while the others answer 410 offer_claimed."
+kind = "behavior"
+primary = "pytest"
+workflow = "waitlist-claim"
+tests = [
+    "test_app.py::test_wf_waitlist_claim_parallel_claims",
+    "test_app.py::test_claim_edge_on_server_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Lapse and next offer"
+text = "An unclaimed offer lapses at its expiry, sends the lapsed notice and offers the table to the next fitting entry, and a claim racing the lapse yields either one booking or one lapse, never both."
+kind = "behavior"
+primary = "pytest"
+workflow = "waitlist-offer"
+tests = [
+    "test_app.py::test_lapse_notifies_and_moves_to_next_entry",
+    "test_app.py::test_claim_racing_lapse_has_one_outcome",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Claim with a deposit"
+text = "Claiming a table that needs a deposit charges the same server-computed deposit through Kill Bill exactly once, before the booking exists, even when claims race each other or the lapse."
+kind = "behavior"
+primary = "pytest"
+workflow = "waitlist-claim"
+tests = [
+    "test_app.py::test_claim_with_deposit_charges_once",
+    "test_app.py::test_claim_failure_keeps_offer_live",
+    "test_app.py::test_losing_claims_never_reach_kill_bill",
+    "test_app.py::test_claim_after_the_winner_charges_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Host sign-in"
+text = "The host signs in with the seeded account, and every host endpoint answers 401 without a live host session."
+kind = "behavior"
+primary = "pytest"
+workflow = "host-service"
+tests = [
+    "test_app.py::test_host_session_and_every_endpoint_guarded",
+    "test_app.py::test_wf_host_service_sign_in_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Live floor"
+text = "The host plan and its Floor updates announcements show every hold, booking, offer, seating, clearing and no-show within two seconds without reloading."
+kind = "behavior"
+primary = "pytest"
+workflow = "host-floor"
+tests = [
+    "test_app.py::test_live_floor_shows_every_change",
+    "test_app.py::test_floor_announces_a_hold_at_its_own_slot",
+    "test_app.py::test_floor_tells_a_released_hold_from_an_ended_one",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Host floor breakpoints"
+text = "The host floor shows its published stacked, two-column and three-column layouts at 375, 768 and 1280 pixels wide with no sideways scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "host-floor"
+tests = [
+    "test_app.py::test_host_floor_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "desktop",
+]
+
+[[requirements]]
+id = "DP-52"
+title = "Tonight's covers from the shared count"
+text = "The host totals per room and overall equal the shared covers count for the Showing time after every hold, cancel and walk-in, and always describe the last Showing time chosen."
+kind = "behavior"
+primary = "pytest"
+workflow = "host-floor"
+tests = [
+    "test_app.py::test_wf_host_floor_shared_totals",
+    "test_app.py::test_wf_host_floor_latest_showing_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Seat and clear"
+text = "The host seats a booked table and clears a seated one, and any other transition answers 409 invalid_transition."
+kind = "behavior"
+primary = "pytest"
+workflow = "host-service"
+tests = [
+    "test_app.py::test_seat_and_clear_transitions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "No-show from fifteen minutes"
+text = "The host can mark a booking as a no-show only from 15 minutes after its slot starts, and the deposit is retained."
+kind = "behavior"
+primary = "pytest"
+workflow = "host-service"
+tests = [
+    "test_app.py::test_no_show_edge_keeps_deposit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Run the evening"
+text = "The host signs in, watches a guest's hold land and lapse, seats a booking, clears it and marks another as a no-show, as told in Journey 6."
+kind = "behavior"
+primary = "workflow"
+workflow = "host-service"
+tests = [
+    "test_app.py::test_wf_host_service_run_the_evening",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Walk-ins"
+text = "The host seats a walk-in, with no deposit and no email, at a table that is free for its turn window from the current slot's start, and it counts against covers at that slot at once, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "walk-in"
+tests = [
+    "test_app.py::test_walk_in_rules",
+    "test_app.py::test_wf_walk_in_race_with_holds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Seat a walk-in from the plan"
+text = "The host seats a walk-in from tonight's floor, on a phone with the whole table dialog inside the viewport, and a guest's open plan shows the table taken, as told in Journey 7."
+kind = "behavior"
+primary = "workflow"
+workflow = "walk-in"
+tests = [
+    "test_app.py::test_wf_walk_in_phone_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Booking choices in the URL"
+text = "The booking page keeps party, date and time in its URL, so reload restores the choice, Back and Forward step through earlier choices and release any live hold, and invalid values fall back to the published defaults."
+kind = "behavior"
+primary = "pytest"
+workflow = "find-a-time"
+tests = [
+    "test_app.py::test_wf_find_a_time_url_back_forward",
+    "test_app.py::test_booking_url_defaults",
+    "test_app.py::test_changing_choice_while_holding",
+    "test_app.py::test_booking_page_keeps_a_future_date_from_the_url",
+    "test_app.py::test_booking_page_keeps_the_last_allowed_date",
+    "test_app.py::test_booking_page_never_asks_for_today_on_a_future_url",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Live event replay"
+text = "Every live event carries an increasing id kept for 10 minutes, a stream reopened with Last-Event-ID replays every later event for its date in commit order, and open pages reconnect within two seconds of a drop."
+kind = "behavior"
+primary = "pytest"
+workflow = "host-floor"
+tests = [
+    "test_app.py::test_event_ids_replay_and_privacy",
+    "test_app.py::test_host_stream_adds_detail",
+    "test_app.py::test_open_page_reopens_dropped_stream",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Host session ends on the server clock"
+text = "A host session ends 12 hours after sign-in on the server's clock, after which the floor sends the host to sign-in with the published notice and returns them to the same Showing time and table dialog without replaying the interrupted action."
+kind = "behavior"
+primary = "pytest"
+workflow = "host-service"
+tests = [
+    "test_app.py::test_wf_host_service_session_ended",
+    "test_app.py::test_host_session_ends_on_server_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Landing after booking"
+text = "A successful confirm lands on exactly /manage/<token> with focus on the confirmation heading, and Back returns to /book with the same party, date and time, no held table, the booked table Taken, an empty details form and no second confirm, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "book-a-table"
+tests = [
+    "test_app.py::test_wf_book_a_table_landing_and_back",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Recovery without restart"
+text = "With no restart, GET /api/status reports ok within 10 seconds of a dependency answering again, tables freed during a Valkey outage are offered within 15 seconds of its return, and banners and live streams recover by themselves, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "waitlist-offer"
+tests = [
+    "test_app.py::test_wf_waitlist_offer_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Closed streams release their connections"
+text = "The app's Postgres and Valkey connection counts return to their earlier level within 30 seconds of event streams closing, and fifty open streams leave the host floor and API reads within the published three-second limit, as qualified in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "host-floor"
+tests = [
+    "test_app.py::test_streams_release_connections",
+    "test_app.py::test_fifty_streams_keep_reads_within_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json is the run-manifest-v1 shape from Deployment, with exactly the keys _schema, install, build and serve, all strings."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package with its version and licence, plus the bundled Geist fonts. Shipped packages are the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font carries one of MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses only Postgres, Valkey, Kill Bill and Mailpit, and adds no other datastore, queue, file store or hosted service."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Fonts and images are served by the app itself, and pages make no request to any third-party origin."
+tests = [
+    "test_app.py::test_if_no_third_party_requests",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service configuration (the dev compose service definitions and their credentials) is left unmodified."
+tests = [
+    "test_app.py::test_if_service_configuration_untouched",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "browse-rooms"
+requirements = [
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_browse_rooms_live_caption_journey",
+    "test_app.py::test_wf_browse_rooms_shared_count",
+    "test_app.py::test_wf_browse_rooms_phone_touch_reduced_motion",
+]
+
+[[workflows]]
+id = "find-a-time"
+requirements = [
+    "DP-05",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-58",
+]
+critical = [
+    "test_app.py::test_wf_find_a_time_url_back_forward",
+    "test_app.py::test_wf_find_a_time_new_york_guest",
+    "test_app.py::test_wf_find_a_time_breakpoints",
+]
+
+[[workflows]]
+id = "hold-a-table"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_hold_a_table_refused_release",
+    "test_app.py::test_wf_hold_a_table_device_clock_wrong",
+    "test_app.py::test_wf_hold_a_table_race",
+]
+
+[[workflows]]
+id = "book-a-table"
+requirements = [
+    "DP-06",
+    "DP-26",
+    "DP-29",
+    "DP-31",
+    "DP-61",
+]
+critical = [
+    "test_app.py::test_wf_book_a_table_happy_path",
+    "test_app.py::test_wf_book_a_table_landing_and_back",
+    "test_app.py::test_wf_book_a_table_hold_ends_while_typing",
+    "test_app.py::test_wf_book_a_table_keyboard_only",
+]
+
+[[workflows]]
+id = "book-with-deposit"
+requirements = [
+    "DP-30",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_book_with_deposit_happy_path",
+    "test_app.py::test_wf_book_with_deposit_failure_leaves_nothing",
+    "test_app.py::test_wf_book_with_deposit_paused_then_paid",
+    "test_app.py::test_idempotent_retry_after_payment_failure",
+    "test_app.py::test_deposit_booking_waits_for_kill_bill",
+]
+
+[[workflows]]
+id = "cancel-booking"
+requirements = [
+    "DP-32",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_cancel_booking_refunded_journey",
+    "test_app.py::test_wf_cancel_booking_payments_down",
+    "test_app.py::test_refund_edge_at_24_hours",
+    "test_app.py::test_manage_link_is_a_capability",
+]
+
+[[workflows]]
+id = "waitlist-offer"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-47",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_waitlist_offer_double_join_journey",
+    "test_app.py::test_wf_waitlist_offer_recovery",
+]
+
+[[workflows]]
+id = "waitlist-claim"
+requirements = [
+    "DP-45",
+    "DP-46",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_waitlist_claim_happy_path",
+    "test_app.py::test_wf_waitlist_claim_parallel_claims",
+    "test_app.py::test_wf_waitlist_claim_dead_links",
+    "test_app.py::test_claim_edge_on_server_clock",
+]
+
+[[workflows]]
+id = "host-floor"
+requirements = [
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-59",
+    "DP-63",
+]
+critical = [
+    "test_app.py::test_wf_host_floor_latest_showing_wins",
+    "test_app.py::test_wf_host_floor_shared_totals",
+    "test_app.py::test_streams_release_connections",
+]
+
+[[workflows]]
+id = "host-service"
+requirements = [
+    "DP-49",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_host_service_run_the_evening",
+    "test_app.py::test_wf_host_service_session_ended",
+    "test_app.py::test_wf_host_service_sign_in_copy",
+]
+
+[[workflows]]
+id = "walk-in"
+requirements = [
+    "DP-56",
+    "DP-57",
+]
+critical = [
+    "test_app.py::test_wf_walk_in_phone_journey",
+    "test_app.py::test_wf_walk_in_race_with_holds",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_dialog_focus",
+    "test_app.py::test_wf_cross_cutting_touch_phone",
+]
+checkpoints = [
+    "B8",
+    "B10",
+    "B13",
+]
+critical_checkpoints = [
+    "B8",
+]

@@ -1,0 +1,1105 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 53
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "corridor-navigation",
+    "flight-coverage",
+    "asset-intake",
+    "finding-editing",
+    "submit-and-mail",
+    "review-link-access",
+    "forester-decisions",
+    "revision-cycle",
+    "storage-outage",
+    "mail-outage",
+    "field-crew",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 87
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Spanwise <reviews@larchline.example>" } },
+]
+
+[criterion_weights]
+B1 = 3
+B2 = 3
+B3 = 5
+B4 = 5
+B5 = 5
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 5
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 5
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 5
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "short-ttl"
+port = 4176
+url_env = "APP_SHORT_TTL_URL"
+
+[outages.env]
+REVIEW_LINK_TTL_SECONDS = "5"
+DATABASE_URL = "${DATABASE_URL}_shortttl"
+S3_BUCKET = "${S3_BUCKET}-shortttl"
+
+[[requirements]]
+id = "DP-01"
+title = "Staff sign-in"
+text = "Contractor staff sign in with their seeded access code and receive a session cookie, and an unknown code returns 401 with the published sign-in error."
+kind = "behavior"
+primary = "pytest"
+workflow = "corridor-navigation"
+tests = [
+    "test_app.py::test_staff_session_api",
+    "test_app.py::test_wf_corridor_navigation_bad_code",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Inspection due dates"
+text = "Each corridor reports its inspection due date in its utility's time zone and is marked Overdue from the day after that date in that zone, decided on every read."
+kind = "behavior"
+primary = "pytest"
+workflow = "corridor-navigation"
+tests = [
+    "test_app.py::test_inspection_due_and_overdue",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Staff tenant isolation"
+text = "Staff see and change only their own tenant's corridors, assets, findings sets and findings, and anything belonging to another tenant answers 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "corridor-navigation"
+tests = [
+    "test_app.py::test_tenant_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Corridor overview journey"
+text = "A signed-in analyst sees the corridor list with due dates, Overdue badges and current set states, and opens a corridor workspace showing its globe, findings rail and span ribbon."
+kind = "behavior"
+primary = "workflow"
+workflow = "corridor-navigation"
+tests = [
+    "test_app.py::test_wf_corridor_navigation_happy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Span ribbon mapping and keys"
+text = "The span ribbon maps horizontal position linearly and monotonically to chainage from zero to corridor length, draws a tick per tower, and its Corridor chainage slider steps by the published keys with the published value text."
+kind = "behavior"
+primary = "pytest"
+workflow = "corridor-navigation"
+tests = [
+    "test_app.py::test_ribbon_keys_and_mapping",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Scrub update sequence"
+text = "Every scrub input updates the chainage readout, span label and nearby-finding marks at once, then places the drone marker at the position the flight endpoint returns for that input and eases the camera to the chase pose, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "flight-coverage"
+tests = [
+    "test_app.py::test_wf_flight_coverage_scrub",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "View state in the URL"
+text = "Workspace and review URLs carry chainage, scrub time, selected finding and camera pose; releasing the playhead replaces the history entry, selecting a finding adds one, back and forward restore them, and opening a URL lands on that exact view."
+kind = "behavior"
+primary = "pytest"
+workflow = "corridor-navigation"
+tests = [
+    "test_app.py::test_wf_corridor_navigation_url_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Flight position by chainage"
+text = "The flight endpoint returns the CZML position interpolated linearly against the track's epoch for a given chainage or time, using the earliest in-interval flight time that reaches the chainage even where a reverse pass overlaps, and ignoring samples outside every availability interval."
+kind = "behavior"
+primary = "pytest"
+workflow = "flight-coverage"
+tests = [
+    "test_app.py::test_flight_position",
+]
+criteria = []
+parameter_cases = [
+    "chainage_634",
+    "earlier_pass_2387",
+    "reverse_pass_time",
+    "stray_sample_0900",
+    "stray_sample_2600",
+    "out_of_range",
+    "both_params",
+]
+
+[[requirements]]
+id = "DP-09"
+title = "No flight coverage"
+text = "A chainage or time without bracketing samples inside one availability interval reports the published no-coverage label instead of an extrapolated position, coverage is reported as merged, ascending, non-overlapping ranges, and the ribbon hatches and labels each uncovered range."
+kind = "behavior"
+primary = "pytest"
+workflow = "flight-coverage"
+tests = [
+    "test_app.py::test_coverage_and_gap_api",
+    "test_app.py::test_wf_flight_coverage_gap_hatch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Asset declaration"
+text = "The survey processor declares a tileset, terrain or flight track asset with a manifest of file paths, sizes and SHA-256 digests, and an invalid manifest is rejected with 422 field errors."
+kind = "behavior"
+primary = "pytest"
+workflow = "asset-intake"
+tests = [
+    "test_app.py::test_asset_manifest",
+]
+criteria = []
+parameter_cases = [
+    "bad_kind",
+    "no_files",
+    "too_many_files",
+    "tileset_without_tileset_json",
+    "terrain_without_layer_json",
+    "two_czml_files",
+    "duplicate_path",
+    "parent_segment_path",
+    "zero_size",
+    "oversize",
+    "uppercase_sha",
+    "analyst_forbidden",
+    "valid_terrain",
+]
+
+[[requirements]]
+id = "DP-11"
+title = "Storage-confirmed assets"
+text = "A file is Stored only after object storage reports the declared size and SHA-256 for the written object, an asset is Stored exactly once with one stored time when all its files are, even when they arrive concurrently at several processes, and a mismatch rejects the asset and leaves no object behind."
+kind = "behavior"
+primary = "pytest"
+workflow = "asset-intake"
+tests = [
+    "test_app.py::test_asset_storage_confirmation",
+    "test_app.py::test_wf_asset_intake_mismatch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Originals byte for byte"
+text = "Every stored file reads back, whole or by byte range, with exactly the uploaded bytes and its SHA-256 as the ETag, never compressed or re-serialised."
+kind = "behavior"
+primary = "pytest"
+workflow = "asset-intake"
+tests = [
+    "test_app.py::test_file_reads_byte_for_byte",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Asset upload journey"
+text = "The survey processor uploads files through the upload dialog and sees each asset move from Pending to Stored only when the server reports storage confirmation."
+kind = "behavior"
+primary = "workflow"
+workflow = "asset-intake"
+tests = [
+    "test_app.py::test_wf_asset_intake_upload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Finding geometry and clearance"
+text = "The server stores each finding as a float64 WGS84 ECEF position, derives its chainage, span, canopy top height, clearance to the span's conductor line and Violation or Clear status by the published rules, and labels findings uniquely and without gaps in commit order even under concurrent creates."
+kind = "behavior"
+primary = "pytest"
+workflow = "finding-editing"
+tests = [
+    "test_app.py::test_finding_geometry_and_clearance",
+    "test_app.py::test_finding_labels_concurrent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Finding validation"
+text = "Creating or editing a finding with out-of-range values is rejected with 422 and the published field messages, both in the API and in the editor."
+kind = "behavior"
+primary = "pytest"
+workflow = "finding-editing"
+tests = [
+    "test_app.py::test_finding_validation_api",
+    "test_app.py::test_wf_finding_editing_invalid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Keyboard findings triage"
+text = "The analyst steps the ribbon, moves between findings, opens the editor, saves and submits without a pointer, using the published shortcuts, with Tab wrapping inside every dialog, Escape closing it and focus returning to its opener."
+kind = "behavior"
+primary = "pytest"
+workflow = "finding-editing"
+tests = [
+    "test_app.py::test_keyboard_triage_dialogs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Finding save feedback"
+text = "Saving a finding announces pending, success and failure in the Save status region with the published copy, and the editor's error summary links to each invalid field."
+kind = "behavior"
+primary = "pytest"
+workflow = "finding-editing"
+tests = [
+    "test_app.py::test_finding_save_feedback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Terrain re-resolution"
+text = "When a finer terrain tile containing a draft finding arrives, the ground height is re-resolved once for that level, the clearance is recomputed and announced in the Terrain updates region, the server refuses an equal or coarser level with 409, and under concurrent requests the stored level only ever increases and ends at the highest submitted."
+kind = "behavior"
+primary = "pytest"
+workflow = "finding-editing"
+tests = [
+    "test_app.py::test_terrain_refinement_concurrent",
+    "test_app.py::test_wf_finding_editing_terrain",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Clamped clearance polygons"
+text = "Each finding's canopy footprint is draped on the finest loaded terrain and never sinks below it or floats above it, including while refinement is under way."
+kind = "visual"
+primary = "rubric"
+workflow = "finding-editing"
+tests = []
+criteria = [
+    "B10",
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Findings triage journey"
+text = "The analyst opens a draft, adds a finding at the playhead from the keyboard, edits another, and sees the rail summary and globe markers reflect the new violation count."
+kind = "behavior"
+primary = "workflow"
+workflow = "finding-editing"
+tests = [
+    "test_app.py::test_wf_finding_editing_triage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Submit and freeze"
+text = "Submitting a draft freezes its finding and violation counts, writes the evidence pack and mints one review link with the configured lifetime, and later edits, refinements or deletions of that set are refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "submit-and-mail"
+tests = [
+    "test_app.py::test_submit_freezes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Submit and link idempotency"
+text = "A submit, resend or new-link request replayed with the same Idempotency-Key returns the stored response, a reused key with a different body returns 409, and of simultaneous submits of one draft exactly one succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "submit-and-mail"
+tests = [
+    "test_app.py::test_submit_idempotency",
+    "test_app.py::test_concurrent_submits",
+    "test_app.py::test_link_idempotency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Review link email"
+text = "A successful submit sends one Mailpit email to the utility's forester with the published subject and link, the link's email state reads sent only after the mail server accepted its latest email, and a failed submit sends nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "submit-and-mail"
+tests = [
+    "test_app.py::test_review_email_on_submit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Link resend, revoke and regenerate"
+text = "Resend emails the same live link and never mints a second, revoke stops the link at once, and regenerate mints a new link while the old one stops working."
+kind = "behavior"
+primary = "pytest"
+workflow = "submit-and-mail"
+tests = [
+    "test_app.py::test_link_resend_revoke_regenerate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Review link scope and read-only state"
+text = "A review link reads only its own findings set, corridor and assets, answers 404 for anything else, and can no longer change anything once decisions are sent."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-link-access"
+tests = [
+    "test_app.py::test_wf_review_link_access_scope",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Review link expiry"
+text = "The server clock decides link expiry, after which every request with the link answers 410 and the page shows the expired copy whatever the browser clock says, while before expiry the page states when the link expires."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-link-access"
+tests = [
+    "test_app.py::test_wf_review_link_access_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Review page breakpoints"
+text = "The review page shows its desktop, tablet and phone layouts at 1280x800, 768x1024 and 375x812 with the published order and no horizontal overflow."
+kind = "behavior"
+primary = "pytest"
+workflow = "review-link-access"
+tests = [
+    "test_app.py::test_wf_review_link_access_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "desktop",
+]
+
+[[requirements]]
+id = "DP-28"
+title = "Forester decisions"
+text = "Through the link the forester accepts or disputes each finding, a dispute needs a note, sending decisions moves the set to accepted or disputed, and the submitting analyst receives the decision summary email."
+kind = "behavior"
+primary = "pytest"
+workflow = "forester-decisions"
+tests = [
+    "test_app.py::test_forester_decisions_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Shared view links"
+text = "A view link pasted into a finding comment renders on the review page as an Open this view link, and opening it lands the forester on that camera pose, scrub time and selected finding."
+kind = "behavior"
+primary = "pytest"
+workflow = "forester-decisions"
+tests = [
+    "test_app.py::test_wf_forester_decisions_view_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Forester review journey"
+text = "The forester opens the emailed link, scrubs along the corridor, decides each finding, sends the decisions and sees the decisions-final state."
+kind = "behavior"
+primary = "workflow"
+workflow = "forester-decisions"
+tests = [
+    "test_app.py::test_wf_forester_decisions_phone_review",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Findings set state machine"
+text = "Findings sets move only along the published transitions, each illegal transition answers 409 with the published body, and a corridor has at most one set that is not closed."
+kind = "behavior"
+primary = "pytest"
+workflow = "revision-cycle"
+tests = [
+    "test_app.py::test_set_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Revision after dispute"
+text = "Revising a disputed set closes it and creates a new draft revision linked to it with the findings copied, and of simultaneous revise requests exactly one succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "revision-cycle"
+tests = [
+    "test_app.py::test_concurrent_revise",
+    "test_app.py::test_wf_revision_cycle_start_revision",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Evidence pack"
+text = "Each submit writes a JSON evidence pack to object storage under the published key, and the evidence endpoint returns exactly those stored bytes."
+kind = "behavior"
+primary = "pytest"
+workflow = "revision-cycle"
+tests = [
+    "test_app.py::test_evidence_pack",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Dispute evidence journey"
+text = "After a dispute the survey processor opens the corridor's assets and downloads the original flight track and tileset files, whose bytes match what was uploaded."
+kind = "behavior"
+primary = "workflow"
+workflow = "revision-cycle"
+tests = [
+    "test_app.py::test_wf_revision_cycle_dispute_evidence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Working without tile storage"
+text = "With object storage unreachable, even from boot, the app starts and serves, reports storage as unreachable, keeps answering flight positions and coverage, and lets the analyst read and edit draft findings."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_wf_storage_outage_edit",
+    "test_app.py::test_storage_recovers_without_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Storage outage copy"
+text = "While storage is unreachable, the workspace shows the published outage banner and empty-viewport copy character for character instead of a blank globe, and tile reads answer 503."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_wf_storage_outage_banner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Queued review email"
+text = "With mail unreachable, submit still succeeds and reports the email as queued with the queued copy, and the queued email is delivered exactly once, without a restart and within the published delay, by any app process sharing the outbox that can reach mail."
+kind = "behavior"
+primary = "pytest"
+workflow = "mail-outage"
+tests = [
+    "test_app.py::test_wf_mail_outage_queued_submit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Touch globe gestures"
+text = "On a touch screen, one-finger drag pans, pinch zooms, two-finger twist turns the heading and two-finger vertical drag tilts the globe, and the camera readout reflects each change."
+kind = "behavior"
+primary = "pytest"
+workflow = "field-crew"
+tests = [
+    "test_app.py::test_wf_field_crew_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Reduced motion"
+text = "With the reduce-motion setting on, the camera cuts to each new pose, the playhead jumps, and sheets and dialogs appear without movement, while every readout, ring, URL and announcement still updates."
+kind = "behavior"
+primary = "pytest"
+workflow = "field-crew"
+tests = [
+    "test_app.py::test_wf_field_crew_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Crew span finder"
+text = "On a tablet the field crew lead opens the link after acceptance, finds an accepted finding's span and nearest tower, flies to it and steps span by span with the ribbon buttons."
+kind = "behavior"
+primary = "workflow"
+workflow = "field-crew"
+tests = [
+    "test_app.py::test_wf_field_crew_span_finder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Workspace breakpoints"
+text = "The staff workspace and corridor list show their desktop, tablet and phone layouts at the three published viewports with the published order and no horizontal overflow."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "desktop",
+]
+
+[[requirements]]
+id = "DP-42"
+title = "Motion timing"
+text = "Playhead glides, camera chase eases, sheet and dialog entries and fly-to moves take the published durations, and nothing animates in a loop while nothing is changing."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_timing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Globe streaming and fallback"
+text = "The seed corridor workspace becomes usable and stays responsive while streaming within the published limits, and without WebGL the globe area shows the published fallback copy while the ribbon and rail keep working."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_globe_ready_and_responsive",
+    "test_app.py::test_wf_cross_cutting_no_webgl",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "API error contract"
+text = "Every API error uses the one published error shape and follows the published precedence order."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_api_error_contract",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Server boundary and health"
+text = "The server answers the health check, serves only its built assets and API routes from one origin, enforces the published size and type limits, and never serves source files or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Cartographic visual identity"
+text = "The interface reads as a survey document, with paper and ink colours, a serif display face over a plain sans body, tabular mono numbers with units, hairline chainage rules, and the warm accent used only for violations and always paired with a glyph and a text label."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Source integrity"
+text = "Credentials and service URLs come from the environment, positions stay float64 and are rendered relative to the eye, mesh, texture and terrain decoding runs off the main thread, a service that answers again after an outage is used again without a restart, and no route fakes provider state."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Collapsed phone sheet"
+text = "On a phone the collapsed findings sheet exposes only its summary line and toggle, keeps everything else out of the accessibility tree, the Tab order and pointer reach, moves focus to the toggle when collapsed from inside, and still lets J and K select and announce findings."
+kind = "behavior"
+primary = "pytest"
+workflow = "corridor-navigation"
+tests = [
+    "test_app.py::test_wf_corridor_navigation_phone_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Latest scrub input wins"
+text = "The drone marker, the readout's drone and flight time lines and the URL time always reflect the flight endpoint's answer to the latest scrub input, showing the published locating copy while it is outstanding and discarding late answers to earlier inputs."
+kind = "behavior"
+primary = "pytest"
+workflow = "flight-coverage"
+tests = [
+    "test_app.py::test_wf_flight_coverage_latest_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "One effect per press"
+text = "Double-pressing Confirm submit, Resend link, New link, Withdraw link or Send decisions performs the action once, the button stays disabled while its request is pending, one submit dialog opening reuses one Idempotency-Key, and the announcement is the first request's outcome."
+kind = "behavior"
+primary = "pytest"
+workflow = "submit-and-mail"
+tests = [
+    "test_app.py::test_wf_submit_and_mail_double_confirm",
+    "test_app.py::test_wf_submit_and_mail_link_buttons",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Honest decision state"
+text = "A forester's Accept or Dispute shows as pressed only after the server stores it, a failed save keeps the stored decision and announces the published failure copy, a revoked or expired link replaces the page with its link-problem message, and a review closed elsewhere shows the decisions-final state."
+kind = "behavior"
+primary = "pytest"
+workflow = "forester-decisions"
+tests = [
+    "test_app.py::test_wf_forester_decisions_failed_save",
+    "test_app.py::test_review_link_problems_replace_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Status checks preserve work"
+text = "Status checks and the asset refreshes they trigger never close dialogs, clear typed values, move focus, collapse sheets, switch rail tabs or expanded rows, and never insert the storage alert more than once per outage."
+kind = "behavior"
+primary = "pytest"
+workflow = "storage-outage"
+tests = [
+    "test_app.py::test_wf_storage_outage_work_survives",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Live email state"
+text = "Each review link reports whether its latest email is queued or sent, and the workspace link line switches from Email queued to Email sent in place on a status check once any app process delivers it."
+kind = "behavior"
+primary = "pytest"
+workflow = "mail-outage"
+tests = [
+    "test_app.py::test_wf_mail_outage_link_line",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve fields and \"_schema\":\"run-manifest-v1\", and the commands run from /app with no interactive prompts."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) with its licence, plus the bundled fonts and icons with theirs."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the production dependency tree from npm ls --omit=dev --all --json) is licensed MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or Zlib, and fonts are SIL OFL 1.1. A licence given as an SPDX OR expression passes when at least one option is on that list, and an AND expression passes only when every part is."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The only datastores are the provided PostgreSQL database and object storage bucket; there is no SQLite, Redis, embedded database or local file holding application state."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration and its development credentials are used as given and not modified."
+tests = [
+    "test_app.py::test_if_service_config",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "All terrain, meshes, textures and flight tracks are generated by code in the repository, nothing is fetched from the public internet at runtime, and fonts are self-hosted."
+tests = [
+    "test_app.py::test_if_generated_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "/app/package-lock.json is committed and install uses it."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "corridor-navigation"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-07",
+    "DP-48",
+]
+critical = [
+    "test_app.py::test_wf_corridor_navigation_happy",
+    "test_app.py::test_wf_corridor_navigation_url_state",
+    "test_app.py::test_wf_corridor_navigation_phone_sheet",
+    "test_app.py::test_ribbon_keys_and_mapping",
+]
+checkpoints = [
+    "B1",
+    "B2",
+]
+
+[[workflows]]
+id = "flight-coverage"
+requirements = [
+    "DP-06",
+    "DP-08",
+    "DP-09",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_wf_flight_coverage_scrub",
+    "test_app.py::test_wf_flight_coverage_latest_wins",
+]
+checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "asset-intake"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_asset_intake_upload",
+    "test_app.py::test_file_reads_byte_for_byte",
+]
+
+[[workflows]]
+id = "finding-editing"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_finding_editing_triage",
+    "test_app.py::test_wf_finding_editing_terrain",
+    "test_app.py::test_keyboard_triage_dialogs",
+]
+checkpoints = [
+    "B10",
+    "B5",
+]
+critical_checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "submit-and-mail"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-50",
+]
+critical = [
+    "test_app.py::test_wf_submit_and_mail_double_confirm",
+    "test_app.py::test_review_email_on_submit",
+]
+
+[[workflows]]
+id = "review-link-access"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_review_link_access_scope",
+    "test_app.py::test_wf_review_link_access_expiry",
+    "test_app.py::test_wf_review_link_access_breakpoints",
+]
+
+[[workflows]]
+id = "forester-decisions"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_forester_decisions_phone_review",
+    "test_app.py::test_wf_forester_decisions_failed_save",
+    "test_app.py::test_wf_forester_decisions_view_link",
+]
+
+[[workflows]]
+id = "revision-cycle"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_revision_cycle_dispute_evidence",
+    "test_app.py::test_concurrent_revise",
+]
+
+[[workflows]]
+id = "storage-outage"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_storage_outage_edit",
+    "test_app.py::test_wf_storage_outage_banner",
+    "test_app.py::test_wf_storage_outage_work_survives",
+    "test_app.py::test_storage_recovers_without_restart",
+]
+
+[[workflows]]
+id = "mail-outage"
+requirements = [
+    "DP-37",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_wf_mail_outage_queued_submit",
+    "test_app.py::test_wf_mail_outage_link_line",
+]
+
+[[workflows]]
+id = "field-crew"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+]
+critical = [
+    "test_app.py::test_wf_field_crew_span_finder",
+    "test_app.py::test_wf_field_crew_reduced_motion",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_breakpoints",
+]
+checkpoints = [
+    "B3",
+    "B4",
+    "B7",
+]

@@ -1,0 +1,158 @@
+# Third-party notices
+
+This file lists every shipped package (the production dependency tree from `npm ls --omit=dev --all --json`), the font and the icons with their licences. Every shipped package uses MIT (including the MIT-0 variant), ISC, BSD-2-Clause or BSD-3-Clause.
+
+## Shipped packages
+
+- express — MIT
+- express > accepts — MIT
+- express > accepts > mime-types — MIT
+- express > accepts > mime-types > mime-db — MIT
+- express > accepts > negotiator — MIT
+- express > array-flatten — MIT
+- express > body-parser — MIT
+- express > body-parser > bytes — MIT
+- express > body-parser > content-type — MIT
+- express > body-parser > debug — MIT
+- express > body-parser > depd — MIT
+- express > body-parser > destroy — MIT
+- express > body-parser > http-errors — MIT
+- express > body-parser > iconv-lite — MIT
+- express > body-parser > iconv-lite > safer-buffer — MIT
+- express > body-parser > on-finished — MIT
+- express > body-parser > qs — BSD-3-Clause
+- express > body-parser > raw-body — MIT
+- express > body-parser > raw-body > bytes — MIT
+- express > body-parser > raw-body > http-errors — MIT
+- express > body-parser > raw-body > iconv-lite — MIT
+- express > body-parser > raw-body > unpipe — MIT
+- express > body-parser > type-is — MIT
+- express > body-parser > unpipe — MIT
+- express > content-disposition — MIT
+- express > content-disposition > safe-buffer — MIT
+- express > content-type — MIT
+- express > cookie — MIT
+- express > cookie-signature — MIT
+- express > debug — MIT
+- express > debug > ms — MIT
+- express > depd — MIT
+- express > encodeurl — MIT
+- express > escape-html — MIT
+- express > etag — MIT
+- express > finalhandler — MIT
+- express > finalhandler > debug — MIT
+- express > finalhandler > encodeurl — MIT
+- express > finalhandler > escape-html — MIT
+- express > finalhandler > on-finished — MIT
+- express > finalhandler > parseurl — MIT
+- express > finalhandler > statuses — MIT
+- express > finalhandler > unpipe — MIT
+- express > fresh — MIT
+- express > http-errors — MIT
+- express > http-errors > depd — MIT
+- express > http-errors > inherits — ISC
+- express > http-errors > setprototypeof — ISC
+- express > http-errors > statuses — MIT
+- express > http-errors > toidentifier — MIT
+- express > merge-descriptors — MIT
+- express > methods — MIT
+- express > on-finished — MIT
+- express > on-finished > ee-first — MIT
+- express > parseurl — MIT
+- express > path-to-regexp — MIT
+- express > proxy-addr — MIT
+- express > proxy-addr > forwarded — MIT
+- express > proxy-addr > ipaddr.js — MIT
+- express > qs — BSD-3-Clause
+- express > qs > es-define-property — MIT
+- express > qs > side-channel — MIT
+- express > qs > side-channel > es-errors — MIT
+- express > qs > side-channel > object-inspect — MIT
+- express > qs > side-channel > side-channel-list — MIT
+- express > qs > side-channel > side-channel-list > es-errors — MIT
+- express > qs > side-channel > side-channel-list > object-inspect — MIT
+- express > qs > side-channel > side-channel-map — MIT
+- express > qs > side-channel > side-channel-map > call-bound — MIT
+- express > qs > side-channel > side-channel-map > call-bound > call-bind-apply-helpers — MIT
+- express > qs > side-channel > side-channel-map > call-bound > call-bind-apply-helpers > es-errors — MIT
+- express > qs > side-channel > side-channel-map > call-bound > call-bind-apply-helpers > function-bind — MIT
+- express > qs > side-channel > side-channel-map > call-bound > get-intrinsic — MIT
+- express > qs > side-channel > side-channel-map > es-errors — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > call-bind-apply-helpers — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > es-define-property — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > es-errors — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > es-object-atoms — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > es-object-atoms > es-errors — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > function-bind — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > get-proto — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > get-proto > dunder-proto — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > get-proto > dunder-proto > call-bind-apply-helpers — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > get-proto > dunder-proto > es-errors — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > get-proto > dunder-proto > gopd — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > get-proto > es-object-atoms — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > gopd — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > has-symbols — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > hasown — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > hasown > function-bind — MIT
+- express > qs > side-channel > side-channel-map > get-intrinsic > math-intrinsics — MIT
+- express > qs > side-channel > side-channel-map > object-inspect — MIT
+- express > qs > side-channel > side-channel-weakmap — MIT
+- express > qs > side-channel > side-channel-weakmap > call-bound — MIT
+- express > qs > side-channel > side-channel-weakmap > es-errors — MIT
+- express > qs > side-channel > side-channel-weakmap > get-intrinsic — MIT
+- express > qs > side-channel > side-channel-weakmap > object-inspect — MIT
+- express > qs > side-channel > side-channel-weakmap > side-channel-map — MIT
+- express > range-parser — MIT
+- express > safe-buffer — MIT
+- express > send — MIT
+- express > send > debug — MIT
+- express > send > depd — MIT
+- express > send > destroy — MIT
+- express > send > encodeurl — MIT
+- express > send > escape-html — MIT
+- express > send > etag — MIT
+- express > send > fresh — MIT
+- express > send > http-errors — MIT
+- express > send > mime — MIT
+- express > send > ms — MIT
+- express > send > on-finished — MIT
+- express > send > range-parser — MIT
+- express > send > statuses — MIT
+- express > serve-static — MIT
+- express > serve-static > encodeurl — MIT
+- express > serve-static > escape-html — MIT
+- express > serve-static > parseurl — MIT
+- express > serve-static > send — MIT
+- express > setprototypeof — ISC
+- express > statuses — MIT
+- express > type-is — MIT
+- express > type-is > media-typer — MIT
+- express > type-is > mime-types — MIT
+- express > utils-merge — MIT
+- express > vary — MIT
+- nodemailer — MIT-0
+- pg — MIT
+- pg > pg-cloudflare — MIT
+- pg > pg-connection-string — MIT
+- pg > pg-native — peer dependency, not installed or shipped
+- pg > pg-pool — MIT
+- pg > pg-pool > pg — MIT
+- pg > pg-protocol — MIT
+- pg > pg-types — MIT
+- pg > pg-types > pg-int8 — ISC
+- pg > pg-types > postgres-array — MIT
+- pg > pg-types > postgres-bytea — MIT
+- pg > pg-types > postgres-date — MIT
+- pg > pg-types > postgres-interval — MIT
+- pg > pg-types > postgres-interval > xtend — MIT
+- pg > pgpass — MIT
+- pg > pgpass > split2 — ISC
+
+## Font
+
+- Instrument Sans (variable) — SIL Open Font License 1.1, shipped at `public/fonts/InstrumentSans-VF.ttf` with its licence at `public/fonts/InstrumentSans-OFL.txt`.
+
+## Icons
+
+- Everyweek icon glyphs — original artwork drawn for this app, MIT licensed as part of this repository. No third-party icon set is shipped.

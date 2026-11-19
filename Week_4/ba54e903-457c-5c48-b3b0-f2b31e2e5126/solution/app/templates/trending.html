@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block main %}
+<section class="page-hero">
+  <h1 class="display page-title">TRENDING GAMES</h1>
+  <p class="lede">The games crews played and streamed most this week, with the communities that gather around them.</p>
+  <div class="week" role="group" aria-label="Week">
+    <button class="btn btn-ghost" type="button" id="week-prev"{% if initial and initial.prev_week_date is none %} disabled{% endif %}>Previous week</button>
+    {%- set months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] -%}
+    {%- macro pct(v) %}{{ '+' if v >= 0 else '-' }}{{ v|abs }}%{% endmacro -%}
+    {%- macro wlabel(d) %}{% set y, m, dd = d.split('-') %}Week of {{ months[m|int - 1] }} {{ dd|int }}, {{ y }}{% endmacro -%}
+    <span class="week-label" id="week-label">{% if initial %}{{ wlabel(initial.week_date) }}{% endif %}</span>
+    <button class="btn btn-ghost" type="button" id="week-next"{% if initial and initial.next_week_date is none %} disabled{% endif %}>Next week</button>
+  </div>
+  <div class="chips chips--dark" role="group" aria-label="Game categories" id="game-chips">
+    {% for value, label in categories %}
+    <button class="chip" type="button" data-category="{{ value }}" aria-pressed="{{ 'true' if value == 'all' else 'false' }}">{{ label }}</button>
+    {% endfor %}
+  </div>
+</section>
+<section class="trend" id="trend">
+  {#- The first chart is drawn here, the way trending.js draws it, so the footer is already where it stays when the
+      script arrives (a chart drawn by the script after the first paint pushed the footer down: layout shift). -#}
+  {%- set games = initial.games if initial else [] %}
+  <article class="featured" aria-label="Featured game" id="featured"{% if not games %} hidden{% endif %}>
+    {%- if games %}{% set game = games[0] -%}
+    <img class="featured-cover" src="{{ game.cover_url }}" alt="{{ game.name }} cover art" width="480" height="270"><div class="featured-body"><p class="rank rank--big">#{{ game.rank }}</p><h2><a href="/game/{{ game.slug|urlencode }}">{{ game.name }}</a></h2><dl class="metrics"><div><dt>Plays</dt><dd{% if game.plays_change_pct < 0 %} class="down"{% endif %}>{{ pct(game.plays_change_pct) }}</dd></div><div><dt>Streams</dt><dd{% if game.streams_change_pct < 0 %} class="down"{% endif %}>{{ pct(game.streams_change_pct) }}</dd></div></dl>
+      {%- if game.community %}<p class="community-line"><span>{{ '{:,}'.format(game.community.member_count) }} Members</span><a href="/servers/{{ game.community.slug|urlencode }}">Join {{ game.community.name }}</a></p>{% endif -%}
+    </div>
+    {%- endif -%}
+  </article>
+  <ol class="ranked" aria-label="Ranked games" id="ranked">
+    {%- for game in games[1:] -%}
+    <li class="ranked-row"><span class="rank">#{{ game.rank }}</span><img class="ranked-cover" src="{{ game.cover_url }}" alt="{{ game.name }} cover art" width="120" height="68"><h3 class="ranked-title"><a href="/game/{{ game.slug|urlencode }}">{{ game.name }}</a></h3><p class="ranked-meta"><span>Plays {{ pct(game.plays_change_pct) }}</span><span>Streams {{ pct(game.streams_change_pct) }}</span>
+      {%- if game.community %}<span>{{ '{:,}'.format(game.community.member_count) }} Members</span><a href="/servers/{{ game.community.slug|urlencode }}">Join {{ game.community.name }}</a>{% endif -%}
+    </p></li>
+    {%- endfor -%}
+  </ol>
+  <p class="trend-empty" id="trend-empty"{% if not initial or games %} hidden{% endif %}>No games in this category this week.</p>
+</section>
+{% endblock %}
+{% block scripts %}{% if initial %}<script type="application/json" id="trend-initial">{{ initial|tojson }}</script>{% endif %}<script src="/static/js/trending.js?v={{ version }}"></script>{% endblock %}

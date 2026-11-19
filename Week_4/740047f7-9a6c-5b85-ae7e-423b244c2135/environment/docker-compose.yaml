@@ -1,0 +1,163 @@
+services:
+  main:
+    environment:
+      APP_PUBLIC_PORT: '4173'
+      APP_PUBLIC_URL: http://127.0.0.1:4173
+      DATABASE_URL: postgresql://gf_app:gf-app-dev-2b7d41@postgres:5432/gf_dev
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: gf-dev
+      S3_FORCE_PATH_STYLE: 'true'
+      S3_ACCESS_KEY_ID: gf-dev-root-71c3e0
+      S3_SECRET_ACCESS_KEY: gf-dev-secret-4b8d92
+      VALKEY_URL: redis://app:gfkit-dev@valkey:6379/0
+      WIREMOCK_URL: http://wiremock:8080
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    depends_on:
+      postgres-seed:
+        condition: service_completed_successfully
+      minio-seed:
+        condition: service_completed_successfully
+      valkey:
+        condition: service_healthy
+      wiremock:
+        condition: service_healthy
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-dev-9e4a02
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  postgres-seed:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      PGHOST: postgres
+      PGUSER: gf_admin
+      PGPASSWORD: gf-admin-dev-9e4a02
+      PGDATABASE: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      psql -Atqc "SELECT 1 FROM pg_roles WHERE rolname = 'gf_app'" | grep -q 1 ||
+        psql -qc "CREATE ROLE gf_app LOGIN PASSWORD 'gf-app-dev-2b7d41'"
+      psql -Atqc "SELECT 1 FROM pg_database WHERE datname = 'gf_dev'" | grep -q 1 ||
+        psql -qc "CREATE DATABASE gf_dev OWNER gf_app"
+  minio:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-dev-root-71c3e0
+      MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92
+    command: server /data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - MC_HOST_local=http://$$MINIO_ROOT_USER:$$MINIO_ROOT_PASSWORD@localhost:9000 mc ready local >/dev/null
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  minio-seed:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-dev-root-71c3e0
+      MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      export MC_HOST_local="http://$$MINIO_ROOT_USER:$$MINIO_ROOT_PASSWORD@minio:9000"
+      mc mb --ignore-existing local/gf-dev
+      mc anonymous set none local/gf-dev
+  valkey:
+    image: valkey/valkey:9.1.3-alpine@sha256:bf09d58e96d6b4524a15396b65b242bbe18beebbcc15a04d8ee75ddac62fae0b
+    command:
+    - valkey-server
+    - --requirepass
+    - gfkit-dev-admin
+    - --save
+    - ''
+    - --appendonly
+    - 'no'
+    - --user
+    - app
+    - 'on'
+    - '>gfkit-dev'
+    - ~*
+    - '&*'
+    - +@all
+    - -@admin
+    - -flushall
+    - -flushdb
+    healthcheck:
+      test:
+      - CMD
+      - valkey-cli
+      - -a
+      - gfkit-dev-admin
+      - --no-auth-warning
+      - ping
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  wiremock:
+    image: wiremock/wiremock:3.13.2@sha256:0d4ecb3e4dc8213fd7a4d37d6a78f6e6b553a6d2e15bd51b0999781282ac61b3
+    entrypoint:
+    - sh
+    - -c
+    - if [ -n "$$WIREMOCK_STUBS" ]; then printf '%s' "$$WIREMOCK_STUBS" > /home/wiremock/mappings/baseline.json;
+      fi; exec /docker-entrypoint.sh --port 8080 --disable-banner --max-request-journal-entries 20000 --admin-api-basic-auth
+      gfkit-admin:gfkit-dev
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -sf
+      - -u
+      - gfkit-admin:gfkit-dev
+      - http://127.0.0.1:8080/__admin/health
+      interval: 2s
+      timeout: 5s
+      retries: 60
+    environment:
+      WIREMOCK_STUBS: '{"mappings": [{"request": {"method": "GET", "urlPath": "/v1/marine"}, "response": {"body":
+        "{\"latitude\":63.4512,\"longitude\":8.7321,\"issued_at\":\"{{now offset=''-1 hours'' timezone=''UTC'' format=\"yyyy-MM-dd''T''HH:mm:ss''Z''\"}}\",\"hourly_units\":{\"time\":\"iso8601\",\"ocean_current_velocity\":\"m/s\",\"wave_height\":\"m\"},\"hourly\":{\"time\":[\"{{now
+        offset=''-1 hours'' timezone=''UTC'' format=\"yyyy-MM-dd''T''HH'':00Z''\"}}\",\"{{now timezone=''UTC'' format=\"yyyy-MM-dd''T''HH'':00Z''\"}}\",\"{{now
+        offset=''1 hours'' timezone=''UTC'' format=\"yyyy-MM-dd''T''HH'':00Z''\"}}\",\"{{now offset=''2 hours''
+        timezone=''UTC'' format=\"yyyy-MM-dd''T''HH'':00Z''\"}}\",\"{{now offset=''3 hours'' timezone=''UTC'' format=\"yyyy-MM-dd''T''HH'':00Z''\"}}\",\"{{now
+        offset=''4 hours'' timezone=''UTC'' format=\"yyyy-MM-dd''T''HH'':00Z''\"}}\",\"{{now offset=''5 hours''
+        timezone=''UTC'' format=\"yyyy-MM-dd''T''HH'':00Z''\"}}\",\"{{now offset=''6 hours'' timezone=''UTC'' format=\"yyyy-MM-dd''T''HH'':00Z''\"}}\",\"{{now
+        offset=''7 hours'' timezone=''UTC'' format=\"yyyy-MM-dd''T''HH'':00Z''\"}}\",\"{{now offset=''8 hours''
+        timezone=''UTC'' format=\"yyyy-MM-dd''T''HH'':00Z''\"}}\",\"{{now offset=''9 hours'' timezone=''UTC'' format=\"yyyy-MM-dd''T''HH'':00Z''\"}}\",\"{{now
+        offset=''10 hours'' timezone=''UTC'' format=\"yyyy-MM-dd''T''HH'':00Z''\"}}\"],\"ocean_current_velocity\":[0.22,0.25,0.27,0.29,0.31,0.30,0.28,0.26,0.24,0.23,0.22,0.24],\"wave_height\":[0.6,0.6,0.7,0.7,0.8,0.9,0.9,0.8,0.7,0.7,0.6,0.6]}}\n",
+        "headers": {"Content-Type": "application/json"}, "status": 200, "transformers": ["response-template"]}},
+        {"request": {"method": "POST", "urlPath": "/v1/chat/completions"}, "response": {"headers": {"Content-Type":
+        "application/json"}, "jsonBody": {"choices": [{"finish_reason": "tool_calls", "index": 0, "message": {"content":
+        "D-0001 and D-0002 need repair before restocking: D-0001 is a 565 cm\u00b2 hole in panel F3 and D-0002 is
+        a seam tear in K1.", "role": "assistant", "tool_calls": [{"function": {"arguments": "{\"defect_ids\":[\"D-0001\",\"D-0002\"]}",
+        "name": "focus_defects"}, "id": "call_focus_1", "type": "function"}, {"function": {"arguments": "{\"defect_id\":\"D-0001\",\"method\":\"patch\",\"note\":\"Sew
+        a net patch over the hole and re-check the seam\"}", "name": "propose_repair"}, "id": "call_repair_1", "type":
+        "function"}]}}], "id": "chatcmpl-pensight-baseline", "model": "pensight-findings-1", "object": "chat.completion"},
+        "status": 200}}]}'
+x-minio-root:
+  MINIO_ROOT_USER: gf-dev-root-71c3e0
+  MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92

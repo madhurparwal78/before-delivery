@@ -1,0 +1,1048 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "signup-verify",
+    "vote-score",
+    "home-feed",
+    "image-post",
+    "composer",
+    "deep-replies",
+    "fold-rail",
+    "remove-post",
+    "lock-pin",
+    "mod-team",
+    "account-security",
+    "restricted-community",
+    "illegal-report",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 83
+solo_criteria = []
+services = [
+    { name = "postgres", env = { GRADING_KEY = "moothall-grading-4f1c9a" } },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Moothall <no-reply@moothall.test>" } },
+    { name = "valkey", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 5
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "storage-down"
+port = 4174
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "valkey-down"
+port = 4175
+url_env = "APP_VALKEY_DOWN_URL"
+
+[outages.env]
+VALKEY_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-timers"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+LOCK_HOUR_SECONDS = "4"
+REPORT_DEADLINE_SECONDS = "8"
+RESET_LINK_TTL_SECONDS = "8"
+VERIFY_LINK_TTL_SECONDS = "8"
+LOGIN_LOCKOUT_SECONDS = "10"
+COMMENT_EDIT_WINDOW_SECONDS = "8"
+VOTE_RATE_LIMIT = "5"
+VALKEY_KEY_PREFIX = "short:"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Keyboard sign-up and email confirmation"
+text = "At 375 px wide a visitor completes sign-up with the keyboard alone. They see field errors tied to their fields, with focus on the first invalid one, and reach the \"check your inbox\" screen. They cannot vote until they open the verification link from the mail; after that their vote counts and is announced."
+kind = "behavior"
+primary = "workflow"
+workflow = "signup-verify"
+tests = [
+    "test_app.py::test_wf_signup_verify_keyboard_happy",
+    "test_app.py::test_wf_signup_verify_invalid_recovery",
+    "test_app.py::test_wf_signup_verify_resend",
+    "test_app.py::test_wf_signup_verify_both_taken_focus",
+    "test_app.py::test_wf_signup_verify_resend_limit_announced",
+]
+criteria = [
+    "B9",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Account and verification rules"
+text = "Sign-up, verification, resend and the unverified gate follow the account rules in Business rules, and the verification mail is recorded in Mailpit as described in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup-verify"
+tests = [
+    "test_app.py::test_signup_validation_and_conflicts",
+    "test_app.py::test_unverified_gate_and_verification",
+    "test_app.py::test_verify_resend_limit",
+    "test_app.py::test_verify_link_expiry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Voting across open tabs"
+text = "A member votes by pointer and by keyboard (a, z, Enter, Space). They see aria-pressed and the score change at once, with the vote announcement, and can switch and undo. The state survives a reload, and a second member's open tab shows every new score within 3 seconds."
+kind = "behavior"
+primary = "workflow"
+workflow = "vote-score"
+tests = [
+    "test_app.py::test_wf_vote_score_keyboard_across_tabs",
+    "test_app.py::test_wf_vote_score_rate_limit_rollback",
+    "test_app.py::test_wf_vote_score_signed_out_prompt",
+]
+criteria = [
+    "B4",
+    "B5",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "One stored vote per member"
+text = "Votes made with PUT keep one row per member per target, so repeating a vote changes nothing and switching moves the score by exactly 2. Score, comment count and hot rank change in the same transaction as the row, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "vote-score"
+tests = [
+    "test_app.py::test_vote_rows_and_arithmetic",
+    "test_app.py::test_vote_concurrency",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Vote rate limit"
+text = "Votes beyond VOTE_RATE_LIMIT in a rolling 60 seconds answer 429 with Retry-After. The browser then rolls back the optimistic change and announces the slow-down message."
+kind = "behavior"
+primary = "pytest"
+workflow = "vote-score"
+tests = [
+    "test_app.py::test_vote_rate_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Home sorts and paging"
+text = "The Hot, New and Top tablist works with arrow keys and updates ?sort=. \"Load more posts\" appends the next page with focus on its first new card, j and k move focus between cards, and removed posts never appear."
+kind = "behavior"
+primary = "workflow"
+workflow = "home-feed"
+tests = [
+    "test_app.py::test_wf_home_feed_sort_and_paging",
+    "test_app.py::test_wf_home_feed_counts_agree",
+    "test_app.py::test_wf_home_feed_url_sort_and_empty",
+    "test_app.py::test_wf_home_feed_empty_copy_every_sort",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Hot rank and keyset pages"
+text = "Feeds follow the published Hot, New and Top orders with ties broken by id descending, in pages of 25 behind an opaque cursor. A post that moves earlier between loads is never returned on a later page, and the feed never shows a post twice."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-feed"
+tests = [
+    "test_app.py::test_feed_order_and_cursor",
+    "test_app.py::test_feed_moved_post_not_repeated",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Field lists by role"
+text = "Every JSON response carries exactly the published keys for the caller's role. No response ever includes another member's email, a private note outside the moderators' view, or a removed body outside its author's and moderators' views."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-feed"
+tests = [
+    "test_app.py::test_projection_keys_by_role",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Image post on a phone"
+text = "At 375 px a member uploads six images by touch, reorders them with the move buttons by keyboard, writes alt text and marks the post as a spoiler. A reader sees the images blurred until they press \"Show spoiler\", then moves through the gallery by swipe or arrow keys."
+kind = "behavior"
+primary = "workflow"
+workflow = "image-post"
+tests = [
+    "test_app.py::test_wf_image_post_phone_gallery",
+    "test_app.py::test_wf_image_post_alt_fallback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Image processing and variants"
+text = "Uploads are accepted by content sniffing within the published size and pixel limits. They are re-encoded to WebP without EXIF, XMP or IPTC metadata, stored at the published widths and keys, and served with a w-descriptor srcset."
+kind = "behavior"
+primary = "pytest"
+workflow = "image-post"
+tests = [
+    "test_app.py::test_image_processing_variants",
+    "test_app.py::test_image_upload_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Storage-confirmed image posts"
+text = "An image post is created only after storage confirms every image. When storage is unreachable, the upload and the post both answer 503 and no post row exists."
+kind = "behavior"
+primary = "pytest"
+workflow = "image-post"
+tests = [
+    "test_app.py::test_image_post_storage_confirmation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Composer drafting and storage outage"
+text = "The composer previews markdown and publishes once however often \"Post\" is pressed. Authors can edit the body but never the title. On the storage-outage instance the composer keeps the draft, shows the storage outage copy on each failed image tile and moves focus to the first \"Retry upload\"."
+kind = "behavior"
+primary = "workflow"
+workflow = "composer"
+tests = [
+    "test_app.py::test_wf_composer_single_publish",
+    "test_app.py::test_wf_composer_storage_outage",
+    "test_app.py::test_wf_composer_validation",
+    "test_app.py::test_wf_composer_marks_every_invalid_field",
+    "test_app.py::test_wf_composer_images_field_error",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Sanitised markdown"
+text = "Post and comment bodies render the published CommonMark subset through the published allow-list, and every published script fixture renders inert."
+kind = "behavior"
+primary = "pytest"
+workflow = "composer"
+tests = [
+    "test_app.py::test_markdown_sanitiser",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Idempotent creation"
+text = "Post and comment creation require an Idempotency-Key. A replay returns the stored response without a new row, concurrent replays create one row, and the same key with a different body answers 422."
+kind = "behavior"
+primary = "pytest"
+workflow = "composer"
+tests = [
+    "test_app.py::test_idempotent_creation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Post edit and delete"
+text = "Authors can edit a post's body, which then shows as edited, but never its title. Deleting a post leaves a placeholder that keeps the comments, under the guards in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "composer"
+tests = [
+    "test_app.py::test_post_edit_and_delete",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Deep threads and live replies"
+text = "A depth-12 thread shows 8 levels at 768 px and wider and 5 levels at 375 px, with \"Continue this thread\". A reply past the shown depth lands focused and highlighted on the continue page. Another member's open tab receives it within 3 seconds with the new-reply announcement and no change of focus."
+kind = "behavior"
+primary = "workflow"
+workflow = "deep-replies"
+tests = [
+    "test_app.py::test_wf_deep_replies_continue_and_live",
+    "test_app.py::test_wf_deep_replies_double_reply",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Comment tree and comment rules"
+text = "The comment tree API returns nested replies to the requested depth with stored descendant counts and supports Top and New sorts. The edit window and the deletion placeholders work as described in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "deep-replies"
+tests = [
+    "test_app.py::test_comment_tree_api",
+    "test_app.py::test_comment_edit_window_and_deletion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Live event stream"
+text = "GET /api/stream sends the published Server-Sent Events with id: lines and a heartbeat, and resumes from Last-Event-ID without gaps or duplicates."
+kind = "behavior"
+primary = "pytest"
+workflow = "deep-replies"
+tests = [
+    "test_app.py::test_stream_events_and_resume",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Fold rail by keyboard and touch"
+text = "Each comment with replies has a fold rail button that folds its branch into a pill showing the server's descendant count, with focus on the pill. Tree keys and taps fold and unfold, a folded branch is inert, its count rises live while folded, and ?fold= restores folds after a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "fold-rail"
+tests = [
+    "test_app.py::test_wf_fold_rail_keyboard",
+    "test_app.py::test_wf_fold_rail_tap",
+    "test_app.py::test_wf_fold_rail_nested_live_count",
+    "test_app.py::test_wf_fold_rail_tap_refold",
+]
+criteria = [
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Fold rail motion"
+text = "Folding and unfolding run the three-step sequence in under half a second, using only movement and fading. A live reply grows in with a short accent glow on its parent's rail and doesn't move content above it. Reduced motion makes every step instant and uses the static New tag."
+kind = "behavior"
+primary = "pytest"
+workflow = "fold-rail"
+tests = [
+    "test_app.py::test_fold_motion_and_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Moderator removal with watchers"
+text = "A moderator removes a post through the keyboard-operable \"Remove post\" dialog, where Escape returns focus to the menu button. The author's open tab shows the removal heading live, a reader's feed drops the card live with an announcement, and the public mod log shows the action without the private note."
+kind = "behavior"
+primary = "workflow"
+workflow = "remove-post"
+tests = [
+    "test_app.py::test_wf_remove_post_watchers",
+    "test_app.py::test_wf_remove_post_validation_restore",
+]
+criteria = [
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Removal rules and statement of reasons"
+text = "Removal requires a public reason and stores an optional private note. A removed body is hidden from everyone except its author and the community's moderators. Post removals can be restored, and each post removal mails the post's author a statement of reasons."
+kind = "behavior"
+primary = "pytest"
+workflow = "remove-post"
+tests = [
+    "test_app.py::test_removal_rules_and_visibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Public mod log"
+text = "The mod log is append-only and lists only actions that succeeded, newest first. Each entry shows its action, target, public reason and time; moderator names appear only when the community turns them on, and private notes only to its moderators."
+kind = "behavior"
+primary = "pytest"
+workflow = "remove-post"
+tests = [
+    "test_app.py::test_mod_log_entries_and_views",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Lock and pin journey"
+text = "A moderator locks a thread for 1 hour from the \"Lock thread\" dialog. A reader's open tab hides its reply controls and shows the lock banner live, and the reply box returns when the server ends the lock, even with a wrong device clock. Pinning a third post opens \"Replace a pin\" with a radio group operated by arrow keys."
+kind = "behavior"
+primary = "workflow"
+workflow = "lock-pin"
+tests = [
+    "test_app.py::test_wf_lock_pin_wrong_clock",
+    "test_app.py::test_wf_lock_pin_replace_pin",
+    "test_app.py::test_wf_lock_pin_race_lost",
+    "test_app.py::test_wf_lock_pin_keyboard_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Server-timed locks"
+text = "Locks are indefinite or last 1, 24 or 168 lock hours. They end on the server's clock without any client action, and while a lock is active replies answer 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "lock-pin"
+tests = [
+    "test_app.py::test_server_timed_locks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Pin slots and moderator races"
+text = "A community has at most two pinned posts, and every moderator action carries the post's version. Of several simultaneous conflicting actions exactly one succeeds; the others answer 409 with the current state and leave no mod log entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "lock-pin"
+tests = [
+    "test_app.py::test_moderator_races_and_pin_slots",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Removing a moderator"
+text = "When the owner removes a moderator, the moderator's open post page loses the \"Moderator actions\" button within 3 seconds, with an announcement. Private notes disappear from their open mod log."
+kind = "behavior"
+primary = "workflow"
+workflow = "mod-team"
+tests = [
+    "test_app.py::test_wf_mod_team_revoke_post_page",
+    "test_app.py::test_wf_mod_team_revoke_mod_log",
+    "test_app.py::test_wf_mod_team_add_moderator",
+    "test_app.py::test_wf_mod_team_keyboard_phone",
+    "test_app.py::test_wf_mod_team_revoke_moderator_column",
+    "test_app.py::test_wf_mod_team_revoke_other_community",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Moderator roles"
+text = "Owners add and remove moderators, and only moderators can use moderator endpoints. A removed moderator's next moderator request answers 403."
+kind = "behavior"
+primary = "pytest"
+workflow = "mod-team"
+tests = [
+    "test_app.py::test_moderator_roles",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Moderator two-factor setup"
+text = "A moderator of a community above MOD_2FA_MEMBER_THRESHOLD members who opens moderator tools is sent to two-factor setup. They see the secret as text and turn two-factor on with a valid code; later sign-ins ask for a code."
+kind = "behavior"
+primary = "workflow"
+workflow = "account-security"
+tests = [
+    "test_app.py::test_wf_account_security_2fa_setup",
+    "test_app.py::test_wf_account_security_lockout_reset",
+    "test_app.py::test_wf_account_security_reset_expired_wrong_clock",
+    "test_app.py::test_wf_account_security_keyboard_signin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Sign-in, TOTP and lockout"
+text = "When two-factor is on, sign-in checks an RFC 6238 code. After LOGIN_LOCKOUT_ATTEMPTS failures the account is locked for LOGIN_LOCKOUT_SECONDS, the lockout copy is shown and the owner is mailed once per lockout."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-security"
+tests = [
+    "test_app.py::test_login_totp_and_lockout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Password reset"
+text = "A reset link from the mail sets a new password once and ends every session. The link expires after RESET_LINK_TTL_SECONDS."
+kind = "behavior"
+primary = "pytest"
+workflow = "account-security"
+tests = [
+    "test_app.py::test_password_reset",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Restricted community posting"
+text = "In a Restricted community, a member who isn't approved sees the approved-posters notice in their open composer. A moderator approves them from the \"Approved posters\" tab, and within 3 seconds the member's open page enables posting, with an announcement."
+kind = "behavior"
+primary = "workflow"
+workflow = "restricted-community"
+tests = [
+    "test_app.py::test_wf_restricted_community_approve_live",
+    "test_app.py::test_wf_restricted_community_member_count",
+    "test_app.py::test_wf_restricted_community_create",
+    "test_app.py::test_wf_restricted_community_keyboard_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Community creation rules"
+text = "Creating a community enforces the name rules, reserved names, case-insensitive uniqueness, the account-age gate and the limit of five owned communities, each with its published refusal."
+kind = "behavior"
+primary = "pytest"
+workflow = "restricted-community"
+tests = [
+    "test_app.py::test_community_creation_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Membership and approved posters"
+text = "Joining and leaving are idempotent and update the stored member count in the same transaction. The count agrees on the community card, the header and the API, and only approved posters and moderators can post in Restricted communities."
+kind = "behavior"
+primary = "pytest"
+workflow = "restricted-community"
+tests = [
+    "test_app.py::test_membership_and_approved_posters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Illegal-content report and admin queue"
+text = "A visitor files a report by keyboard from a post's \"More actions\" menu, sees the reference and receives the confirmation mail. The admin's queue shows the server-computed deadline and turns the row overdue when it passes, and the admin suspends the author."
+kind = "behavior"
+primary = "workflow"
+workflow = "illegal-report"
+tests = [
+    "test_app.py::test_wf_illegal_report_visitor_to_suspension",
+    "test_app.py::test_wf_illegal_report_wrong_clock_deadline",
+    "test_app.py::test_wf_illegal_report_dialog_validation",
+]
+criteria = [
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Report deadlines"
+text = "Each report's deadline falls REPORT_DEADLINE_SECONDS after it is filed. The queue shows remaining time and overdue status computed by the server, and no endpoint ever returns the reporter's email."
+kind = "behavior"
+primary = "pytest"
+workflow = "illegal-report"
+tests = [
+    "test_app.py::test_report_deadlines_and_privacy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Account suspension"
+text = "Suspension ends every session of the account, and its open tabs show the signed-out state within 3 seconds. Every later request with its session, and every new sign-in, answers 403 SUSPENDED."
+kind = "behavior"
+primary = "pytest"
+workflow = "illegal-report"
+tests = [
+    "test_app.py::test_account_suspension",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from /app/run.json on port 4173 (or APP_PUBLIC_PORT). It applies its schema and seed idempotently on serve, and /api/health answers as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_seed_and_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Grading routes"
+text = "When GRADING_KEY is set, the grading routes create users, communities, posts, comment trees and aged reports exactly as published. Otherwise they answer 404."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Live-service outage"
+text = "With Valkey unreachable, reading, posting and replying still work. Votes answer 503 and the browser rolls them back with the vote failure copy, and open pages show the live-paused state."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_valkey_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Server boundary"
+text = "The server checks Origin on mutating requests and enforces body-size and content-type limits. It sends a nonce-based Content-Security-Policy and never serves source, configuration or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Responsive layout"
+text = "At 1280, 768 and 375 px wide every screen follows the published column layout with no horizontal overflow. On phones the community drawer is closed and inert by default, and every touch target is at least 44 px."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layout",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "desktop",
+]
+
+[[requirements]]
+id = "DP-43"
+title = "Motion and reduced motion"
+text = "Score digits roll in under a quarter second and dialogs enter in under a quarter second. No animation repeats forever, and with reduced motion every change is instant."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_and_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Broadsheet look"
+text = "Screens use the ruled broadsheet composition, the palette roles, the bundled display, body and mono faces, and the tabular score numerals described in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Configuration from environment"
+text = "Every service URL, credential, timer and limit is read from the published environment variables at start. None is hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string fields install, build and serve, plus \"_schema\":\"run-manifest-v1\", and running them in order starts the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and each bundled font, each with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and bundled asset is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0 or SIL OFL 1.1. Nothing under GPL, LGPL, AGPL or SSPL."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastores beyond Postgres, MinIO, Mailpit and Valkey: no SQLite or other file database, and no in-memory store as the source of truth."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The browser loads no font, image, stylesheet or script from any origin other than the app's own."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service configuration (the dev compose definitions and their credentials) is left unchanged."
+tests = [
+    "test_app.py::test_if_service_config_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The application source is TypeScript compiled with strict enabled, and the build fails on type errors."
+tests = [
+    "test_app.py::test_if_strict_typescript",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "signup-verify"
+requirements = [
+    "DP-01",
+    "DP-02",
+]
+critical = [
+    "test_app.py::test_wf_signup_verify_keyboard_happy",
+    "test_app.py::test_wf_signup_verify_invalid_recovery",
+    "test_app.py::test_unverified_gate_and_verification",
+    "test_app.py::test_wf_signup_verify_both_taken_focus",
+    "test_app.py::test_wf_signup_verify_resend_limit_announced",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "vote-score"
+requirements = [
+    "DP-03",
+    "DP-04",
+    "DP-05",
+]
+critical = [
+    "test_app.py::test_wf_vote_score_keyboard_across_tabs",
+    "test_app.py::test_wf_vote_score_rate_limit_rollback",
+    "test_app.py::test_vote_rows_and_arithmetic",
+]
+checkpoints = [
+    "B4",
+    "B5",
+]
+
+[[workflows]]
+id = "home-feed"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_wf_home_feed_sort_and_paging",
+    "test_app.py::test_wf_home_feed_counts_agree",
+    "test_app.py::test_projection_keys_by_role",
+    "test_app.py::test_wf_home_feed_empty_copy_every_sort",
+]
+
+[[workflows]]
+id = "image-post"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_wf_image_post_phone_gallery",
+    "test_app.py::test_wf_image_post_alt_fallback",
+    "test_app.py::test_image_post_storage_confirmation",
+]
+
+[[workflows]]
+id = "composer"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_composer_single_publish",
+    "test_app.py::test_wf_composer_storage_outage",
+    "test_app.py::test_idempotent_creation",
+    "test_app.py::test_wf_composer_marks_every_invalid_field",
+    "test_app.py::test_wf_composer_images_field_error",
+]
+
+[[workflows]]
+id = "deep-replies"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_deep_replies_continue_and_live",
+    "test_app.py::test_wf_deep_replies_double_reply",
+]
+
+[[workflows]]
+id = "fold-rail"
+requirements = [
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_fold_rail_keyboard",
+    "test_app.py::test_wf_fold_rail_tap",
+    "test_app.py::test_fold_motion_and_reduced_motion",
+    "test_app.py::test_wf_fold_rail_nested_live_count",
+    "test_app.py::test_wf_fold_rail_tap_refold",
+]
+checkpoints = [
+    "B10",
+]
+critical_checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "remove-post"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_wf_remove_post_watchers",
+    "test_app.py::test_wf_remove_post_validation_restore",
+    "test_app.py::test_removal_rules_and_visibility",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "lock-pin"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_lock_pin_wrong_clock",
+    "test_app.py::test_wf_lock_pin_race_lost",
+    "test_app.py::test_moderator_races_and_pin_slots",
+    "test_app.py::test_wf_lock_pin_keyboard_dialog",
+    "test_app.py::test_wf_lock_pin_replace_pin",
+]
+
+[[workflows]]
+id = "mod-team"
+requirements = [
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_wf_mod_team_revoke_post_page",
+    "test_app.py::test_wf_mod_team_revoke_mod_log",
+    "test_app.py::test_moderator_roles",
+    "test_app.py::test_wf_mod_team_keyboard_phone",
+    "test_app.py::test_wf_mod_team_revoke_moderator_column",
+    "test_app.py::test_wf_mod_team_revoke_other_community",
+]
+
+[[workflows]]
+id = "account-security"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+]
+critical = [
+    "test_app.py::test_wf_account_security_2fa_setup",
+    "test_app.py::test_wf_account_security_reset_expired_wrong_clock",
+    "test_app.py::test_login_totp_and_lockout",
+    "test_app.py::test_wf_account_security_keyboard_signin",
+]
+
+[[workflows]]
+id = "restricted-community"
+requirements = [
+    "DP-32",
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_wf_restricted_community_approve_live",
+    "test_app.py::test_wf_restricted_community_member_count",
+    "test_app.py::test_membership_and_approved_posters",
+    "test_app.py::test_wf_restricted_community_keyboard_phone",
+]
+
+[[workflows]]
+id = "illegal-report"
+requirements = [
+    "DP-35",
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_wf_illegal_report_visitor_to_suspension",
+    "test_app.py::test_wf_illegal_report_wrong_clock_deadline",
+    "test_app.py::test_report_deadlines_and_privacy",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_health_seed_and_restart",
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_valkey_outage",
+]

@@ -1,0 +1,15 @@
+export const limits = {
+  jsonBodyBytes: 65_536,
+  imageBytes: 15_000_000,
+  clipBytes: 60_000_000,
+  stillBytes: 8_000_000,
+  reviewExpiryWindowMs: 2_592_000_000,
+  reviewCommentsPerMinute: 5,
+  reviewCommentWindowMs: 60_000,
+  feedPageSize: 20,
+  feedPageSizeMax: 50,
+  referencePageSize: 50,
+  referencePageSizeMax: 100,
+  explorePagesMax: 10,
+  searchListSize: 20,
+} as const;

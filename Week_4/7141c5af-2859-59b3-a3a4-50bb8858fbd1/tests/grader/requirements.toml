@@ -1,0 +1,1383 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "desk-access",
+    "public-site",
+    "clients-and-pieces",
+    "condition-map-and-photographs",
+    "material-library",
+    "hide-layout",
+    "estimates",
+    "client-page",
+    "bench-calendar",
+    "courier-collections",
+    "old-workbook",
+    "conservation-dossier",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 89
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Semenza Desk <desk@bottega-semenza.example>" } },
+    { name = "gotenberg", env = {} },
+    { name = "meilisearch", env = {} },
+    { name = "wiremock", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 5
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 5
+S1 = 5
+S2 = 5
+S3 = 5
+S4 = 5
+Q1 = 3
+Q2 = 3
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_storage"
+S3_BUCKET = "${S3_BUCKET}-storage"
+SEARCH_INDEX_PREFIX = "storage"
+CLOSURE_WAIT_SECONDS = "5"
+
+[[outages]]
+id = "gotenberg-down"
+port = 4175
+url_env = "APP_GOTENBERG_DOWN_URL"
+
+[outages.env]
+GOTENBERG_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_render"
+S3_BUCKET = "${S3_BUCKET}-render"
+SEARCH_INDEX_PREFIX = "render"
+
+[[outages]]
+id = "meilisearch-down"
+port = 4176
+url_env = "APP_SEARCH_DOWN_URL"
+
+[outages.env]
+MEILISEARCH_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_search"
+S3_BUCKET = "${S3_BUCKET}-search"
+SEARCH_INDEX_PREFIX = "search"
+CLOSURE_WAIT_SECONDS = "5"
+
+[[outages]]
+id = "short-timers"
+port = 4177
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+SEARCH_INDEX_PREFIX = "short"
+CLIENT_PAGE_SECONDS = "20"
+REMINDER_AFTER_SECONDS = "10"
+ENQUIRY_RATE_WINDOW_SECONDS = "30"
+FILE_RATE_WINDOW_SECONDS = "30"
+STOCK_CACHE_SECONDS = "10"
+CLOSURE_WAIT_SECONDS = "20"
+
+[[outages]]
+id = "short-session"
+port = 4178
+url_env = "APP_SESSION_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_session"
+S3_BUCKET = "${S3_BUCKET}-session"
+SEARCH_INDEX_PREFIX = "session"
+SESSION_SECONDS = "20"
+
+[[outages]]
+id = "spare"
+port = 4179
+url_env = "APP_SPARE_URL"
+
+[outages.env]
+DATABASE_URL = "${DATABASE_URL}_spare"
+S3_BUCKET = "${S3_BUCKET}-spare"
+SEARCH_INDEX_PREFIX = "spare"
+
+[[requirements]]
+id = "DP-01"
+title = "Desk access"
+text = "A new desk signs up, signs in with its email and password, signs out, changes its password so that its other sessions end at once and the new password works, and the sign-in form lands on `/pieces` with a live session, with the status codes published in API."
+kind = "behavior"
+primary = "workflow"
+workflow = "desk-access"
+tests = [
+    "test_app.py::test_wf_desk_access_sign_up_and_in",
+    "test_app.py::test_wf_desk_access_password_change_ends_other_sessions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Clients on one desk"
+text = "The conservator creates, reads, renames and deletes a client, and a client of another desk answers 404 exactly like an unknown id in the same shape."
+kind = "behavior"
+primary = "pytest"
+workflow = "desk-access"
+tests = [
+    "test_app.py::test_wf_desk_access_other_desk_is_404",
+    "test_app.py::test_wf_desk_access_deleted_client_is_gone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Public site journey"
+text = "`Work` opens its panel with focus kept and Tab or Down entering, the work filter and the shared drawing move as published, the case rail follows its rule at top, middle and very bottom, and the 4th enquiry, a line break in a name and a known address behave as published; checked on `/work` and POST /api/enquiries with the Work panel: an oversized request with no session answers 413 as JSON, instants are whole-second UTC with a Z, the session cookie has its published attributes, SR1 to SR28 hold, its keyboard and 375x812 touch journeys check SR8, SR11, SR12, Announcements copy and Problems links, its rare-state copy, precision rule and motion on the reply, refused and interrupted paths are read, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_screen_rules_public_site",
+    "test_app.py::test_wf_public_site_keyboard",
+    "test_app.py::test_wf_public_site_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Public pages in the first response"
+text = "The home page, the work page and every case page carry their text and level-one heading in the server's first response with no script run, and each has its published title."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_public_pages_in_first_response",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Work panel"
+text = "The header's `Work` opens a panel of six case tiles and a preview that changes in place, closes on Escape with focus back on `Work`, is a full-height panel at 375, and its tiles leave the Tab order the moment it starts closing."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_work_panel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Work page and shared drawing"
+text = "The work page's kind filter lives in the URL with one history entry per change, leaving and entering items move as the same elements, and pressing a case moves its drawing to the case page's hero as one element, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_work_filter_and_shared_drawing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Case page rail"
+text = "A case page's six numbered sections have a rail that marks the section being read by the published line, jumps with focus on the heading when a number is pressed, and stays in view inside its own frame at 375."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_case_page_rail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Enquiries"
+text = "An enquiry reaches the conservator by mail with a line break in a name read as a space, the same address is limited per window with Retry-After, and new and known addresses get the same answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "public-site"
+tests = [
+    "test_app.py::test_wf_public_site_rate_limit",
+    "test_app.py::test_enquiry_line_break_and_known_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Clients and pieces journey"
+text = "The Pieces list keeps filters, sort and page in the URL and Back returns to the same place, paging is stable while pieces arrive, the action menu opens uncut on a framed table's last row, the stamp rules, search rules and closing rules hold on the primary, short-timers, MinIO-down and search-down copies; checked on `/pieces` and POST /api/pieces with the `New piece` dialog and the action menu: an oversized request with no session answers 413 as JSON, instants are whole-second UTC with a Z, the session cookie has its published attributes, SR1 to SR28 hold, its keyboard and 375x812 touch journeys check SR8, SR11, SR12, Announcements copy and Problems links, its rare-state copy, precision rule and motion on the reply, refused and interrupted paths are read, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "clients-and-pieces"
+tests = [
+    "test_app.py::test_screen_rules_pieces",
+    "test_app.py::test_wf_clients_and_pieces_keyboard",
+    "test_app.py::test_wf_clients_and_pieces_touch",
+    "test_app.py::test_wf_clients_and_pieces_search_down",
+    "test_app.py::test_other_desk_strict",
+    "test_app.py::test_clients_strict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Stamp numbers"
+text = "A stamp number has eight digits ending in a Luhn check digit and is unique on its desk, with the refusals published in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "clients-and-pieces"
+tests = [
+    "test_app.py::test_stamp_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Pieces list"
+text = "The Pieces list filters by client and state, sorts by title or due date, pages 25 at a time with a cursor that never repeats or skips a piece while new ones arrive, and every row's `Actions for <piece title>` menu opens uncut."
+kind = "behavior"
+primary = "pytest"
+workflow = "clients-and-pieces"
+tests = [
+    "test_app.py::test_pieces_list_paging_and_url",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Search through the engine"
+text = "GET /api/search answers only from Meilisearch across material names, codes, client names and piece titles, forgives one typing slip in a word of five letters or more, holds each desk apart, finds a new or renamed piece within 5 seconds, and refuses over-long text, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "clients-and-pieces"
+tests = [
+    "test_app.py::test_search_through_the_engine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Closing and erasing clients"
+text = "A closed client can be brought back within the wait exactly as it was, and after the wait is erased from Postgres, MinIO and Meilisearch, reading `Erased` only after both providers have confirmed each deletion."
+kind = "behavior"
+primary = "pytest"
+workflow = "clients-and-pieces"
+tests = [
+    "test_app.py::test_close_restore_and_erase",
+    "test_app.py::test_erasing_waits_for_both_providers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Condition and photographs journey"
+text = "By keyboard `Add a pin` starts a crosshair at the centre and saved pins keep their values and one Tab stop, the popover opens uncut at a drawing's edge, markup renders only as published, uploads run many at once with rows of their own, the file-size, content, repeat and outage rules hold, and the slider follows its rule; checked on `/pieces/<id>/condition` and POST /api/pieces/<id>/pins with the `Pin` dialog and popover: an oversized request with no session answers 413 as JSON, instants are whole-second UTC with a Z, the session cookie has its published attributes, SR1 to SR28 hold, its keyboard and 375x812 touch journeys check SR8, SR11, SR12, Announcements copy and Problems links, its rare-state copy, precision rule and motion on the reply, refused and interrupted paths are read, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "condition-map-and-photographs"
+tests = [
+    "test_app.py::test_screen_rules_condition",
+    "test_app.py::test_wf_condition_map_and_photographs_keyboard",
+    "test_app.py::test_wf_condition_map_and_photographs_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Condition pins"
+text = "Pins are placed by tap, click or keyboard crosshair at percent coordinates to one decimal, form one keyboard composite with a single Tab stop ordered by y then x, and removing one moves focus to the next or to `Add a pin`."
+kind = "behavior"
+primary = "pytest"
+workflow = "condition-map-and-photographs"
+tests = [
+    "test_app.py::test_pin_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Pin note markup"
+text = "Pin notes render bold, italic and links to http, https and mailto addresses only, and anything else shows as plain text on every screen, the client page and the PDF."
+kind = "behavior"
+primary = "pytest"
+workflow = "condition-map-and-photographs"
+tests = [
+    "test_app.py::test_pin_note_markup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Photograph upload"
+text = "A photograph is judged from its own header bytes, may be at most 8,000,000 bytes counted on the file alone, answers 413 before anything else above that, and is kept in MinIO byte for byte with `Stored` shown only after MinIO has confirmed."
+kind = "behavior"
+primary = "pytest"
+workflow = "condition-map-and-photographs"
+tests = [
+    "test_app.py::test_wf_condition_map_and_photographs_store_down",
+    "test_app.py::test_photograph_upload_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Before and after slider"
+text = "A before and after pair compares with a slider whose keys, URL value and spoken value follow the published rule in both reading directions."
+kind = "behavior"
+primary = "pytest"
+workflow = "condition-map-and-photographs"
+tests = [
+    "test_app.py::test_before_after_slider",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Material library journey"
+text = "Swatches keep one Tab stop per family with one choice across families, a focused swatch is never covered, the compare tray holds four, refresh is all or nothing, stock and holds make the published calls in the WireMock journal, and the 429, connection failure and no-single-lot refusals read their copy; checked on `/library` and POST /api/pieces/<id>/holds with the `Hold a dye lot` dialog: an oversized request with no session answers 413 as JSON, instants are whole-second UTC with a Z, the session cookie has its published attributes, SR1 to SR28 hold, its keyboard and 375x812 touch journeys check SR8, SR11, SR12, Announcements copy and Problems links, its rare-state copy, precision rule and motion on the reply, refused and interrupted paths are read, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "material-library"
+tests = [
+    "test_app.py::test_screen_rules_library",
+    "test_app.py::test_wf_material_library_keyboard",
+    "test_app.py::test_wf_material_library_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Library refresh"
+text = "`Refresh library` reads all supplier pages or changes nothing, and the new entries are searchable only once Meilisearch has confirmed."
+kind = "behavior"
+primary = "pytest"
+workflow = "material-library"
+tests = [
+    "test_app.py::test_library_refresh_all_or_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Swatches and compare tray"
+text = "Swatches are grouped under sticky family headings as radio groups with one choice across the library, a choice changes the chair drawing in place, and up to four go in a compare tray whose members close up as the same elements when one leaves."
+kind = "behavior"
+primary = "pytest"
+workflow = "material-library"
+tests = [
+    "test_app.py::test_swatches_and_compare_tray",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Stock reads"
+text = "Choosing a material shows its lots read by the server, the latest choice wins over a late answer, and the same code never calls the supplier twice within STOCK_CACHE_SECONDS."
+kind = "behavior"
+primary = "pytest"
+workflow = "material-library"
+tests = [
+    "test_app.py::test_stock_reads_and_cache",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Dye lot holds"
+text = "A hold makes one supplier call per piece, material and lot with one repeat key, all hides on a piece come from one lot, and hold state and retry minutes are decided by the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "material-library"
+tests = [
+    "test_app.py::test_wf_material_library_refusals",
+    "test_app.py::test_dye_lot_holds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Hide layout journey"
+text = "By keyboard, mouse at 1280 and bottom bar at 375, the five pattern pieces lift, move, rotate, return and place as published, each refusal reads its copy in order, with the piece still lifted by keyboard and bar and back home after a mouse drop refused for its place, the figure reads its exact values, a refresh with no new data starts no motion, another window's change moves that one piece and a stale save is refused; checked on `/pieces/<id>/hide` and PUT /api/pieces/<id>/layout/placements/<name> with the `Clear the hide` dialog: an oversized request with no session answers 413 as JSON, instants are whole-second UTC with a Z, the session cookie has its published attributes, SR1 to SR28 hold, its keyboard and 375x812 touch journeys check SR8, SR11, SR12, Announcements copy and Problems links, its rare-state copy, precision rule and motion on the reply, refused and interrupted paths are read, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "hide-layout"
+tests = [
+    "test_app.py::test_screen_rules_hide",
+    "test_app.py::test_wf_hide_layout_keyboard",
+    "test_app.py::test_wf_hide_layout_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Hide lay controls"
+text = "The hide is one keyboard composite with one Tab stop and published keys, a mouse drag at 1280 does the same, and at 375 a bottom bar does it all with no drag."
+kind = "behavior"
+primary = "pytest"
+workflow = "hide-layout"
+tests = [
+    "test_app.py::test_wf_hide_layout_mouse",
+    "test_app.py::test_hide_keyboard_composite",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Placement decisions"
+text = "The server refuses a rotation the grain forbids, then decides each placement in the order off the hide, then flaw, then overlap, with touching edges allowed, and answers the used-leather figure half up on the exact value."
+kind = "behavior"
+primary = "pytest"
+workflow = "hide-layout"
+tests = [
+    "test_app.py::test_placement_decisions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Hide lay motion"
+text = "Lift, step, rotation, tray move, return and figure roll run for their published times as the same element, a further press during a glide carries on from where the piece is, and reduced motion shows each end state at once with the same function."
+kind = "behavior"
+primary = "pytest"
+workflow = "hide-layout"
+tests = [
+    "test_app.py::test_hide_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Stale layout saves"
+text = "Saving over a layout changed elsewhere answers 412 with the lifted piece still lifted, and a piece stays lifted with its position through any refresh."
+kind = "behavior"
+primary = "pytest"
+workflow = "hide-layout"
+tests = [
+    "test_app.py::test_stale_layout_saves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Estimates journey"
+text = "Totals change in place on input with each settled change announced once, every worked amount and currency form is exact, hides, quarter metres and milestones are exact, a rate taking effect today applies only to new estimates, extra fields change nothing and a stale save keeps the dialog as typed; checked on `/pieces/<id>/estimate` and POST /api/pieces/<id>/estimates with the `Edit estimate` dialog: an oversized request with no session answers 413 as JSON, instants are whole-second UTC with a Z, the session cookie has its published attributes, SR1 to SR28 hold, its keyboard and 375x812 touch journeys check SR8, SR11, SR12, Announcements copy and Problems links, its rare-state copy, precision rule and motion on the reply, refused and interrupted paths are read, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "estimates"
+tests = [
+    "test_app.py::test_screen_rules_estimate",
+    "test_app.py::test_wf_estimates_keyboard",
+    "test_app.py::test_wf_estimates_touch",
+    "test_app.py::test_wf_estimates_stale",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Exact amounts and tax"
+text = "Amounts are half up on the exact value, stored in minor units and printed in the published form for EUR, GBP, USD, JPY and AED, with tax on the subtotal by the client's country."
+kind = "behavior"
+primary = "pytest"
+workflow = "estimates"
+tests = [
+    "test_app.py::test_exact_amounts",
+]
+criteria = []
+parameter_cases = [
+    "eur",
+    "gbp",
+    "usd",
+    "jpy",
+    "aed",
+]
+
+[[requirements]]
+id = "DP-31"
+title = "Hides, metres and milestones"
+text = "Hides come from pattern area plus waste over the chosen lot's average rounded up, fabric from quarter metres rounded up, and the three milestones always sum exactly by the published rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "estimates"
+tests = [
+    "test_app.py::test_hides_metres_milestones",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Labour rates by date"
+text = "A labour rate that takes effect on a Turin date applies to new estimates only, and earlier estimates keep theirs on every screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "estimates"
+tests = [
+    "test_app.py::test_labour_rates_by_date",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Estimate requests"
+text = "Saving an estimate replaces the piece's open one, ignores any price, total, state or other desk's id sent under an unpublished key in the body, answers 412 over a change made elsewhere, and a signed-off estimate never changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "estimates"
+tests = [
+    "test_app.py::test_estimate_requests",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Client page journey"
+text = "The page works touch first in all four languages with `lang` and `dir` in the first response, mirrored in Arabic, reads heights the local way, ends at its instant answering 410 from the server, carries an unguessable address and no private data, mails once and reminds once, folds typed names, refuses a replaced estimate, signs off one time across two windows and reaches the conservator within 5 seconds; checked on `/c/<token>` and POST /api/client-pages/<token>/answer with the `Your answer` sheet: an oversized request with no session answers 413 as JSON, instants are whole-second UTC with a Z, the session cookie has its published attributes, SR1 to SR28 hold, its keyboard and 375x812 touch journeys check SR8, SR11, SR12, Announcements copy and Problems links, its rare-state copy, precision rule and motion on the reply, refused and interrupted paths are read, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "client-page"
+tests = [
+    "test_app.py::test_screen_rules_client_page",
+    "test_app.py::test_wf_client_page_touch",
+    "test_app.py::test_wf_client_page_keyboard_arabic",
+    "test_app.py::test_client_page_carries_no_private_data",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Language of the client page"
+text = "Every string on the client page comes from the published copy table in the client's language, with the matching `lang`, and `dir=\"rtl\"` in Arabic, decided by the server before any script runs."
+kind = "behavior"
+primary = "pytest"
+workflow = "client-page"
+tests = [
+    "test_app.py::test_client_page_language",
+]
+criteria = []
+parameter_cases = [
+    "en",
+    "it",
+    "ja",
+    "ar",
+]
+
+[[requirements]]
+id = "DP-36"
+title = "Seat height"
+text = "The seat height is typed the local way, read by the published rule, stored as typed and answered as a decimal string, between 30 and 60 with one decimal at most."
+kind = "behavior"
+primary = "pytest"
+workflow = "client-page"
+tests = [
+    "test_app.py::test_seat_height",
+]
+criteria = []
+parameter_cases = [
+    "en-point",
+    "en-comma",
+    "en-low",
+    "en-edge-low",
+    "en-edge-high",
+    "en-high",
+    "en-two-decimals",
+    "it-comma",
+    "it-point",
+    "ja-point",
+    "ja-full-width",
+    "ar-indic",
+    "ar-latin",
+]
+
+[[requirements]]
+id = "DP-37"
+title = "Sign-off by typed name"
+text = "Signing off needs the client's full name under the published folding table, a replaced estimate answers 409, and two windows record one approval."
+kind = "behavior"
+primary = "pytest"
+workflow = "client-page"
+tests = [
+    "test_app.py::test_sign_off_by_typed_name",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Private address lifetime"
+text = "The private address carries an unguessable token, an unknown one answers 404 with one page, a new address ends the old one, and the page ends at the published instant answering 410."
+kind = "behavior"
+primary = "pytest"
+workflow = "client-page"
+tests = [
+    "test_app.py::test_private_address_lifetime",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Client mail and reminder"
+text = "The client's mail is in their language with the address and the due date in local wall time, one reminder follows only if no answer came, and neither carries a labour rate or another client's name."
+kind = "behavior"
+primary = "pytest"
+workflow = "client-page"
+tests = [
+    "test_app.py::test_client_mail_and_reminder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Bench calendar journey"
+text = "The week grid keeps a roving Tab stop, Alt+arrows move a card with focus kept through reply and refresh, the week's end and a taken bench read their copy, `Move <job> to…` is the way at 375, a drag settles and Escape glides home with nothing changed, the agenda has its published columns and glue times hold with a device clock three days on; checked on `/bench` and POST /api/bench-jobs with the `Move <job> to…` dialog: an oversized request with no session answers 413 as JSON, instants are whole-second UTC with a Z, the session cookie has its published attributes, SR1 to SR28 hold, its keyboard and 375x812 touch journeys check SR8, SR11, SR12, Announcements copy and Problems links, its rare-state copy, precision rule and motion on the reply, refused and interrupted paths are read, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "bench-calendar"
+tests = [
+    "test_app.py::test_screen_rules_bench",
+    "test_app.py::test_wf_bench_calendar_keyboard",
+    "test_app.py::test_wf_bench_calendar_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Bench moves"
+text = "A job card moves by mouse drag, Alt+arrow and dialog, one job per bench per day, with the published refusals."
+kind = "behavior"
+primary = "pytest"
+workflow = "bench-calendar"
+tests = [
+    "test_app.py::test_bench_moves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Glue cure"
+text = "Glue cures after 48 hours of real elapsed time across a 23-hour or 25-hour day, and a cover job goes on a day only if the glue has cured by the bench day's start, as decided by the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "bench-calendar"
+tests = [
+    "test_app.py::test_wf_bench_calendar_device_clock",
+    "test_app.py::test_glue_cure",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Courier collections journey"
+text = "A collection keeps its local wall time across the next clock change while its Turin time moves, quote and booking bodies reach the journal as published, repeats make one call with one key, `Booked` needs the courier and the label's bytes in MinIO, and the failure, 429, taken-time and non-existent-time refusals read their copy; checked on `/pieces/<id>/collection` and POST /api/pieces/<id>/collections with the `Book a collection` dialog: an oversized request with no session answers 413 as JSON, instants are whole-second UTC with a Z, the session cookie has its published attributes, SR1 to SR28 hold, its keyboard and 375x812 touch journeys check SR8, SR11, SR12, Announcements copy and Problems links, its rare-state copy, precision rule and motion on the reply, refused and interrupted paths are read, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "courier-collections"
+tests = [
+    "test_app.py::test_screen_rules_collection",
+    "test_app.py::test_wf_courier_collections_keyboard",
+    "test_app.py::test_wf_courier_collections_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Collection wall time"
+text = "A collection is booked in the client's local wall time, shows both towns' times in the published form, and is sent to the courier as a whole-second UTC instant."
+kind = "behavior"
+primary = "pytest"
+workflow = "courier-collections"
+tests = [
+    "test_app.py::test_collection_wall_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Confirmed booking"
+text = "A booking carries one repeat key per piece and quote, and shows `Booked` only after the courier has confirmed and its label is stored in MinIO."
+kind = "behavior"
+primary = "pytest"
+workflow = "courier-collections"
+tests = [
+    "test_app.py::test_wf_courier_collections_refusals",
+    "test_app.py::test_confirmed_booking",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Old workbook journey"
+text = "A file with a byte order mark, CRLF, semicolons and a quoted line break previews with row numbers by record, an extra or missing column refuses the whole file, a refused row never blocks the others, matched rows and a second save change nothing, the kept file equals the sent bytes, the list file's dangerous cells carry the apostrophe and errors carry one shape; checked on `/workbook` and POST /api/workbook/preview with the `Save this file` dialog: an oversized request with no session answers 413 as JSON, instants are whole-second UTC with a Z, the session cookie has its published attributes, SR1 to SR28 hold, its keyboard and 375x812 touch journeys check SR8, SR11, SR12, Announcements copy and Problems links, its rare-state copy, precision rule and motion on the reply, refused and interrupted paths are read, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "old-workbook"
+tests = [
+    "test_app.py::test_screen_rules_workbook",
+    "test_app.py::test_wf_old_workbook_keyboard",
+    "test_app.py::test_wf_old_workbook_touch",
+    "test_app.py::test_wf_old_workbook_refusals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Workbook reading"
+text = "The workbook file is read by the published format rules and previewed before anything is saved, with row numbers counting records."
+kind = "behavior"
+primary = "pytest"
+workflow = "old-workbook"
+tests = [
+    "test_app.py::test_workbook_reading",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Workbook saving"
+text = "Rows match on the stamp number, saving the same file twice changes nothing, the file is kept in MinIO byte for byte and text is stored exactly as written."
+kind = "behavior"
+primary = "pytest"
+workflow = "old-workbook"
+tests = [
+    "test_app.py::test_workbook_saving",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Materials list file"
+text = "The materials list file is comma separated UTF-8 with every field quoted and CRLF line ends, and any cell starting with =, +, -, @, a tab or a carriage return is prefixed with an apostrophe."
+kind = "behavior"
+primary = "pytest"
+workflow = "old-workbook"
+tests = [
+    "test_app.py::test_materials_list_file",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Conservation dossier journey"
+text = "The strip follows the server's state and draws each check once, the rail follows the case-page rule, the PDF holds what is published and never unsigned notes or the labour rate, `Stored` needs Gotenberg and MinIO with nothing half-written on either outage copy, the print view shows only content, the 6th download reads its copy and signing locks it with its history; checked on `/pieces/<id>/dossier` and POST /api/pieces/<id>/dossier with the `Sign dossier` dialog: an oversized request with no session answers 413 as JSON, instants are whole-second UTC with a Z, the session cookie has its published attributes, SR1 to SR28 hold, its keyboard and 375x812 touch journeys check SR8, SR11, SR12, Announcements copy and Problems links, its rare-state copy, precision rule and motion on the reply, refused and interrupted paths are read, and its screen meets the screen rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "conservation-dossier"
+tests = [
+    "test_app.py::test_screen_rules_dossier",
+    "test_app.py::test_wf_conservation_dossier_keyboard",
+    "test_app.py::test_wf_conservation_dossier_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Dossier contents"
+text = "The dossier PDF holds the piece, its stamp, signed condition pins as a table, materials with dye lot, before and after photographs and a care card in the client's language, and never unsigned notes or a labour rate."
+kind = "behavior"
+primary = "pytest"
+workflow = "conservation-dossier"
+tests = [
+    "test_app.py::test_dossier_contents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Render and store"
+text = "POST /api/pieces/<id>/dossier answers 202, the three-step strip shows the server's state, and `Stored` shows only after Gotenberg has answered and MinIO has confirmed."
+kind = "behavior"
+primary = "pytest"
+workflow = "conservation-dossier"
+tests = [
+    "test_app.py::test_wf_conservation_dossier_outages",
+    "test_app.py::test_render_and_store",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Downloads and signing"
+text = "Dossier downloads are limited per desk per window with Retry-After, a dossier signed by typed name never changes, and its history lists who did what and when with no way to change it."
+kind = "behavior"
+primary = "pytest"
+workflow = "conservation-dossier"
+tests = [
+    "test_app.py::test_downloads_and_signing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Route sweep"
+text = "Every signed-in route and the client page meet SR4, SR5, SR6, SR14, SR15, SR16, SR25 and SR26."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_route_sweep",
+]
+criteria = []
+parameter_cases = [
+    "pieces",
+    "piece",
+    "condition",
+    "photographs",
+    "hide",
+    "estimate",
+    "collection",
+    "dossier",
+    "clients",
+    "client",
+    "library",
+    "bench",
+    "workbook",
+    "rates",
+    "client-page",
+]
+
+[[requirements]]
+id = "DP-55"
+title = "Motion system"
+text = "Every motion across the whole app runs for exactly 160, 320 or 640 ms by the browser's own animation, none loops forever, and reduced motion shows every end state at once, as qualified in Screen rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_system",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Published surface and error order"
+text = "Only the published endpoints exist, every error has one shape with no internals in it, and one precedence order covers the whole API, as stated in Server boundary and API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_surface",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Sessions and return addresses"
+text = "Sign-in takes focus on its heading and lands on `/pieces`, an ended session keeps the address and the draft through signing in again, and a return address is honoured only if it is a same-origin relative path."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_return_addresses",
+    "test_app.py::test_sign_up_strict",
+    "test_app.py::test_password_strict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Exact starting seed"
+text = "A fresh database starts with exactly the records published in Seed data, on every copy, with dates set from the day the copy starts."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_seed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Bento look with grey grain"
+text = "Every screen carries the white ground, flat grey tiles and exactly one mint tile, and swatches and hides are told apart by dot grain, name and code with no leather colour."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Provider wiring in source"
+text = "Credentials and addresses are read from the environment and never reach the browser, search calls only Meilisearch, money is computed exactly, and no screen state is faked without its provider."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with string `install`, `build`, `serve` and `\"_schema\":\"run-manifest-v1\"`."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` lists every shipped package with its licence; shipped packages means the production dependency tree (`npm ls --omit=dev --all --json`)."
+tests = [
+    "test_app.py::test_if_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Shipped packages use only MIT, MIT-0, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, MPL-2.0, 0BSD, BlueOak-1.0.0 or CC0-1.0 licences, and a font package may be OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "No datastore beyond the listed services is added, and no state that must outlive a restart is kept in process memory or on local disk."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "No payment provider, payment code or payment screen exists anywhere."
+tests = [
+    "test_app.py::test_if_no_payment",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "No WebGL, canvas 3D or video file ships, and no image from outside the repository is copied in; imagery is generated by the app."
+tests = [
+    "test_app.py::test_if_no_video_files",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Provided service configuration is left untouched, and the app calls the supplier and courier only through `WIREMOCK_URL`."
+tests = [
+    "test_app.py::test_if_provider_through_wiremock",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "desk-access"
+requirements = [
+    "DP-01",
+    "DP-02",
+]
+critical = [
+    "test_app.py::test_wf_desk_access_sign_up_and_in",
+    "test_app.py::test_wf_desk_access_password_change_ends_other_sessions",
+    "test_app.py::test_wf_desk_access_other_desk_is_404",
+    "test_app.py::test_wf_desk_access_deleted_client_is_gone",
+]
+
+[[workflows]]
+id = "public-site"
+requirements = [
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_screen_rules_public_site",
+    "test_app.py::test_wf_public_site_keyboard",
+    "test_app.py::test_wf_public_site_touch",
+    "test_app.py::test_public_pages_in_first_response",
+    "test_app.py::test_work_panel",
+    "test_app.py::test_work_filter_and_shared_drawing",
+    "test_app.py::test_case_page_rail",
+    "test_app.py::test_wf_public_site_rate_limit",
+    "test_app.py::test_enquiry_line_break_and_known_address",
+]
+checkpoints = [
+    "B1",
+]
+
+[[workflows]]
+id = "clients-and-pieces"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_screen_rules_pieces",
+    "test_app.py::test_wf_clients_and_pieces_keyboard",
+    "test_app.py::test_wf_clients_and_pieces_touch",
+    "test_app.py::test_wf_clients_and_pieces_search_down",
+    "test_app.py::test_other_desk_strict",
+    "test_app.py::test_clients_strict",
+    "test_app.py::test_stamp_rules",
+    "test_app.py::test_pieces_list_paging_and_url",
+    "test_app.py::test_search_through_the_engine",
+    "test_app.py::test_close_restore_and_erase",
+    "test_app.py::test_erasing_waits_for_both_providers",
+]
+checkpoints = [
+    "B2",
+]
+
+[[workflows]]
+id = "condition-map-and-photographs"
+requirements = [
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_screen_rules_condition",
+    "test_app.py::test_wf_condition_map_and_photographs_keyboard",
+    "test_app.py::test_wf_condition_map_and_photographs_touch",
+    "test_app.py::test_pin_rules",
+    "test_app.py::test_pin_note_markup",
+    "test_app.py::test_wf_condition_map_and_photographs_store_down",
+    "test_app.py::test_photograph_upload_rules",
+    "test_app.py::test_before_after_slider",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "material-library"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+]
+critical = [
+    "test_app.py::test_screen_rules_library",
+    "test_app.py::test_wf_material_library_keyboard",
+    "test_app.py::test_wf_material_library_touch",
+    "test_app.py::test_library_refresh_all_or_nothing",
+    "test_app.py::test_swatches_and_compare_tray",
+    "test_app.py::test_stock_reads_and_cache",
+    "test_app.py::test_wf_material_library_refusals",
+    "test_app.py::test_dye_lot_holds",
+]
+checkpoints = [
+    "B4",
+    "B5",
+]
+
+[[workflows]]
+id = "hide-layout"
+requirements = [
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+]
+critical = [
+    "test_app.py::test_screen_rules_hide",
+    "test_app.py::test_wf_hide_layout_keyboard",
+    "test_app.py::test_wf_hide_layout_touch",
+    "test_app.py::test_wf_hide_layout_mouse",
+    "test_app.py::test_hide_keyboard_composite",
+    "test_app.py::test_placement_decisions",
+    "test_app.py::test_hide_motion",
+    "test_app.py::test_stale_layout_saves",
+]
+checkpoints = [
+    "B6",
+    "B7",
+    "B8",
+]
+critical_checkpoints = [
+    "B6",
+]
+
+[[workflows]]
+id = "estimates"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_screen_rules_estimate",
+    "test_app.py::test_wf_estimates_keyboard",
+    "test_app.py::test_wf_estimates_touch",
+    "test_app.py::test_wf_estimates_stale",
+    "test_app.py::test_exact_amounts",
+    "test_app.py::test_hides_metres_milestones",
+    "test_app.py::test_labour_rates_by_date",
+    "test_app.py::test_estimate_requests",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "client-page"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_screen_rules_client_page",
+    "test_app.py::test_wf_client_page_touch",
+    "test_app.py::test_wf_client_page_keyboard_arabic",
+    "test_app.py::test_client_page_carries_no_private_data",
+    "test_app.py::test_client_page_language",
+    "test_app.py::test_seat_height",
+    "test_app.py::test_sign_off_by_typed_name",
+    "test_app.py::test_private_address_lifetime",
+    "test_app.py::test_client_mail_and_reminder",
+]
+checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "bench-calendar"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_screen_rules_bench",
+    "test_app.py::test_wf_bench_calendar_keyboard",
+    "test_app.py::test_wf_bench_calendar_touch",
+    "test_app.py::test_bench_moves",
+    "test_app.py::test_wf_bench_calendar_device_clock",
+    "test_app.py::test_glue_cure",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "courier-collections"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_screen_rules_collection",
+    "test_app.py::test_wf_courier_collections_keyboard",
+    "test_app.py::test_wf_courier_collections_touch",
+    "test_app.py::test_collection_wall_time",
+    "test_app.py::test_wf_courier_collections_refusals",
+    "test_app.py::test_confirmed_booking",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "old-workbook"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_screen_rules_workbook",
+    "test_app.py::test_wf_old_workbook_keyboard",
+    "test_app.py::test_wf_old_workbook_touch",
+    "test_app.py::test_wf_old_workbook_refusals",
+    "test_app.py::test_workbook_reading",
+    "test_app.py::test_workbook_saving",
+    "test_app.py::test_materials_list_file",
+]
+
+[[workflows]]
+id = "conservation-dossier"
+requirements = [
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+]
+critical = [
+    "test_app.py::test_screen_rules_dossier",
+    "test_app.py::test_wf_conservation_dossier_keyboard",
+    "test_app.py::test_wf_conservation_dossier_touch",
+    "test_app.py::test_dossier_contents",
+    "test_app.py::test_wf_conservation_dossier_outages",
+    "test_app.py::test_render_and_store",
+    "test_app.py::test_downloads_and_signing",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_route_sweep",
+    "test_app.py::test_motion_system",
+    "test_app.py::test_wf_cross_cutting_surface",
+    "test_app.py::test_wf_cross_cutting_return_addresses",
+    "test_app.py::test_sign_up_strict",
+    "test_app.py::test_password_strict",
+    "test_app.py::test_wf_cross_cutting_seed",
+]
+checkpoints = [
+    "B3",
+]

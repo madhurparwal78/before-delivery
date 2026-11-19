@@ -1,0 +1,163 @@
+services:
+  main:
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    security_opt:
+    - seccomp=unconfined
+    - systempaths=unconfined
+    - apparmor=unconfined
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      wiremock:
+        condition: service_healthy
+      gotenberg:
+        condition: service_healthy
+      ntfy:
+        condition: service_healthy
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-5c1e8a37
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  minio:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-root-6d29b4
+      MINIO_ROOT_PASSWORD: gf-root-secret-a83f17c5
+    command: server /data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - MC_HOST_local=http://gf-root-6d29b4:gf-root-secret-a83f17c5@localhost:9000 mc ready local >/dev/null
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  wiremock:
+    image: wiremock/wiremock:3.13.2@sha256:0d4ecb3e4dc8213fd7a4d37d6a78f6e6b553a6d2e15bd51b0999781282ac61b3
+    entrypoint:
+    - sh
+    - -c
+    - if [ -n "$$WIREMOCK_STUBS" ]; then printf '%s' "$$WIREMOCK_STUBS" > /home/wiremock/mappings/baseline.json;
+      fi; exec /docker-entrypoint.sh --port 8080 --disable-banner --max-request-journal-entries 20000 --admin-api-basic-auth
+      gfkit-admin:gfkit-wm-4fce2a657cbe2442
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -sf
+      - -u
+      - gfkit-admin:gfkit-wm-4fce2a657cbe2442
+      - http://127.0.0.1:8080/__admin/health
+      interval: 2s
+      timeout: 5s
+      retries: 60
+    environment:
+      WIREMOCK_STUBS: '{"mappings": [{"request": {"method": "GET", "urlPath": "/v1/trade/vehicles/registration/S482KVT"},
+        "response": {"jsonBody": {"firstUsedDate": "1998-09-14", "make": "CALDER", "model": "MERROW GT", "motTests":
+        [{"completedDate": "2026-03-05T10:41:22.000Z", "defects": [{"dangerous": false, "text": "Offside sill corroded
+        but not seriously weakened", "type": "ADVISORY"}, {"dangerous": false, "text": "Front brake disc slightly
+        pitted", "type": "ADVISORY"}], "expiryDate": "2027-03-04", "motTestNumber": "730000000612", "odometerResultType":
+        "READ", "odometerUnit": "MI", "odometerValue": "71240", "testResult": "PASSED"}, {"completedDate": "2025-03-06T09:12:05.000Z",
+        "defects": [], "expiryDate": "2026-03-05", "motTestNumber": "730000000511", "odometerResultType": "READ",
+        "odometerUnit": "MI", "odometerValue": "69102", "testResult": "PASSED"}, {"completedDate": "2024-03-11T14:20:40.000Z",
+        "defects": [{"dangerous": false, "text": "Rear registration plate lamp flickering", "type": "MINOR"}], "expiryDate":
+        "2025-03-10", "motTestNumber": "730000000410", "odometerResultType": "READ", "odometerUnit": "KM", "odometerValue":
+        "107480", "testResult": "PASSED"}, {"completedDate": "2023-03-14T11:02:13.000Z", "defects": [], "expiryDate":
+        "2024-03-13", "motTestNumber": "730000000309", "odometerResultType": "NO_ODOMETER", "odometerUnit": null,
+        "odometerValue": null, "testResult": "PASSED"}, {"completedDate": "2022-03-09T15:33:51.000Z", "defects":
+        [], "expiryDate": "2023-03-08", "motTestNumber": "730000000208", "odometerResultType": "READ", "odometerUnit":
+        "MI", "odometerValue": "63905", "testResult": "PASSED"}, {"completedDate": "2022-03-02T10:15:09.000Z", "defects":
+        [{"dangerous": false, "text": "Nearside headlamp aim too high", "type": "MAJOR"}], "expiryDate": null, "motTestNumber":
+        "730000000207", "odometerResultType": "READ", "odometerUnit": "MI", "odometerValue": "63890", "testResult":
+        "FAILED"}, {"completedDate": "2021-03-12T13:47:30.000Z", "defects": [{"dangerous": false, "text": "Nearside
+        front tyre worn close to legal limit", "type": "ADVISORY"}], "expiryDate": "2022-03-11", "motTestNumber":
+        "730000000106", "odometerResultType": "READ", "odometerUnit": "MI", "odometerValue": "61240", "testResult":
+        "PASSED"}], "registration": "S482KVT"}, "status": 200}}, {"request": {"method": "GET", "urlPath": "/v1/trade/vehicles/registration/T317HJN"},
+        "response": {"jsonBody": {"firstUsedDate": "1999-04-02", "make": "CALDER", "model": "TERN 1.8", "motTests":
+        [{"completedDate": "2026-06-18T12:05:44.000Z", "defects": [{"dangerous": false, "text": "Rear subframe mount
+        slightly deteriorated", "type": "ADVISORY"}], "expiryDate": "2027-06-17", "motTestNumber": "730000000822",
+        "odometerResultType": "READ", "odometerUnit": "MI", "odometerValue": "88412", "testResult": "PASSED"}, {"completedDate":
+        "2025-06-19T09:50:17.000Z", "defects": [{"dangerous": false, "text": "Offside rear tyre slightly perished",
+        "type": "ADVISORY"}], "expiryDate": "2026-06-18", "motTestNumber": "730000000721", "odometerResultType":
+        "READ", "odometerUnit": "MI", "odometerValue": "86230", "testResult": "PASSED"}], "registration": "T317HJN"},
+        "status": 200}}, {"newScenarioState": "pulled", "request": {"method": "GET", "urlPath": "/v1/trade/vehicles/registration/K204PLM"},
+        "requiredScenarioState": "Started", "response": {"jsonBody": {"firstUsedDate": "1993-05-20", "make": "CALDER",
+        "model": "FELL 2.0", "motTests": [{"completedDate": "2025-05-14T10:20:11.000Z", "defects": [{"dangerous":
+        false, "text": "Exhaust back box slightly corroded", "type": "ADVISORY"}], "expiryDate": "2026-05-13", "motTestNumber":
+        "730000000931", "odometerResultType": "READ", "odometerUnit": "MI", "odometerValue": "98120", "testResult":
+        "PASSED"}], "registration": "K204PLM"}, "status": 200}, "scenarioName": "k204plm-record"}, {"request": {"method":
+        "GET", "urlPath": "/v1/trade/vehicles/registration/K204PLM"}, "requiredScenarioState": "pulled", "response":
+        {"jsonBody": {"firstUsedDate": "1993-05-20", "make": "CALDER", "model": "FELL 2.0", "motTests": [{"completedDate":
+        "2026-05-12T11:08:36.000Z", "defects": [{"dangerous": false, "text": "Offside rear brake hose slightly chafed",
+        "type": "ADVISORY"}], "expiryDate": "2027-05-11", "motTestNumber": "730000000933", "odometerResultType":
+        "READ", "odometerUnit": "MI", "odometerValue": "99340", "testResult": "PASSED"}, {"completedDate": "2025-11-04T14:31:02.000Z",
+        "defects": [], "expiryDate": "2026-11-03", "motTestNumber": "730000000932", "odometerResultType": "UNREADABLE",
+        "odometerUnit": null, "odometerValue": null, "testResult": "PASSED"}, {"completedDate": "2025-05-14T10:20:11.000Z",
+        "defects": [{"dangerous": false, "text": "Exhaust back box slightly corroded", "type": "ADVISORY"}], "expiryDate":
+        "2026-05-13", "motTestNumber": "730000000931", "odometerResultType": "READ", "odometerUnit": "MI", "odometerValue":
+        "98120", "testResult": "PASSED"}], "registration": "K204PLM"}, "status": 200}, "scenarioName": "k204plm-record"},
+        {"newScenarioState": "pulled", "request": {"method": "GET", "urlPath": "/v1/trade/vehicles/registration/L611RWD"},
+        "requiredScenarioState": "Started", "response": {"jsonBody": {"firstUsedDate": "1994-06-11", "make": "CALDER",
+        "model": "HARROW 2.2", "motTests": [{"completedDate": "2025-08-19T10:12:40.000Z", "defects": [{"dangerous":
+        false, "text": "Nearside rear brake pipe slightly corroded", "type": "ADVISORY"}], "expiryDate": "2026-08-18",
+        "motTestNumber": "730000001041", "odometerResultType": "READ", "odometerUnit": "MI", "odometerValue": "64210",
+        "testResult": "PASSED"}], "registration": "L611RWD"}, "status": 200}, "scenarioName": "l611rwd-record"},
+        {"request": {"method": "GET", "urlPath": "/v1/trade/vehicles/registration/L611RWD"}, "requiredScenarioState":
+        "pulled", "response": {"jsonBody": {"firstUsedDate": "1994-06-11", "make": "CALDER", "model": "HARROW 2.2",
+        "motTests": [{"completedDate": "2026-08-11T09:44:18.000Z", "defects": [{"dangerous": false, "text": "Nearside
+        rear brake pipe slightly corroded", "type": "ADVISORY"}], "expiryDate": "2027-08-10", "motTestNumber": "730000001142",
+        "odometerResultType": "READ", "odometerUnit": "MI", "odometerValue": "66012", "testResult": "PASSED"}, {"completedDate":
+        "2025-08-19T10:12:40.000Z", "defects": [{"dangerous": false, "text": "Nearside rear brake pipe slightly
+        corroded", "type": "ADVISORY"}], "expiryDate": "2026-08-18", "motTestNumber": "730000001041", "odometerResultType":
+        "READ", "odometerUnit": "MI", "odometerValue": "64210", "testResult": "PASSED"}], "registration": "L611RWD"},
+        "status": 200}, "scenarioName": "l611rwd-record"}, {"request": {"method": "GET", "urlPath": "/v1/trade/vehicles/registration/ZZ99NOF"},
+        "response": {"jsonBody": {"errorMessage": "No vehicle found"}, "status": 404}}, {"request": {"method": "GET",
+        "urlPath": "/v1/trade/vehicles/registration/ZZ99THR"}, "response": {"headers": {"Retry-After": "30"}, "jsonBody":
+        {"errorMessage": "Rate limit exceeded"}, "status": 429}}]}'
+  gotenberg:
+    image: gotenberg/gotenberg:8.39.0@sha256:13672f317b443c793e972b1bd2155ec62a3e7b6891b411e8196442cc053ee5f5
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - -o
+      - /dev/null
+      - http://127.0.0.1:3000/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  ntfy:
+    image: binwiederhier/ntfy:v2.36.0@sha256:fb48c413eb11d50339962b5d62cddce0f800e7f77c626d638a7c20cb7e9c4465
+    command:
+    - serve
+    environment:
+      NTFY_AUTH_FILE: /tmp/ntfy-auth.db
+      NTFY_AUTH_DEFAULT_ACCESS: deny-all
+      NTFY_VISITOR_REQUEST_LIMIT_EXEMPT_HOSTS: 0.0.0.0/0
+      NTFY_VISITOR_TOPIC_CREATION_LIMIT_BURST: '100000'
+      NTFY_AUTH_USERS: gfkit-admin:$$2a$$10$$X2Y40pdk5bhKVAWqN8CUuezX42K2J7bOmFECanwYwJCuYu7v/h.SG:admin
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - --spider
+      - http://127.0.0.1/v1/health
+      interval: 2s
+      timeout: 5s
+      retries: 30

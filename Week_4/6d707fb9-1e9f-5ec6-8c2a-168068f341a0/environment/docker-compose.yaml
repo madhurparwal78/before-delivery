@@ -1,0 +1,188 @@
+services:
+  main:
+    environment:
+      MAIL_FROM: Fio Contado Desk <desk@fio-contado.example>
+      APP_PUBLIC_PORT: '4173'
+      APP_PUBLIC_URL: http://127.0.0.1:4173
+      DATABASE_URL: postgresql://gf_app:gf-app-dev-2b7d41@postgres:5432/gf_dev
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: gf-dev
+      S3_FORCE_PATH_STYLE: 'true'
+      S3_ACCESS_KEY_ID: gf-dev-root-71c3e0
+      S3_SECRET_ACCESS_KEY: gf-dev-secret-4b8d92
+      SMTP_HOST: mailpit
+      SMTP_PORT: '1025'
+      MAILPIT_URL: http://mailpit:8025
+      GOTENBERG_URL: http://gotenberg:3000
+      WIREMOCK_URL: http://wiremock:8080
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    depends_on:
+      postgres-seed:
+        condition: service_completed_successfully
+      minio-seed:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_healthy
+      gotenberg:
+        condition: service_healthy
+      wiremock:
+        condition: service_healthy
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-dev-9e4a02
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  postgres-seed:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      PGHOST: postgres
+      PGUSER: gf_admin
+      PGPASSWORD: gf-admin-dev-9e4a02
+      PGDATABASE: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      psql -Atqc "SELECT 1 FROM pg_roles WHERE rolname = 'gf_app'" | grep -q 1 ||
+        psql -qc "CREATE ROLE gf_app LOGIN PASSWORD 'gf-app-dev-2b7d41'"
+      psql -Atqc "SELECT 1 FROM pg_database WHERE datname = 'gf_dev'" | grep -q 1 ||
+        psql -qc "CREATE DATABASE gf_dev OWNER gf_app"
+  minio:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-dev-root-71c3e0
+      MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92
+    command: server /data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - MC_HOST_local=http://$$MINIO_ROOT_USER:$$MINIO_ROOT_PASSWORD@localhost:9000 mc ready local >/dev/null
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  minio-seed:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-dev-root-71c3e0
+      MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      export MC_HOST_local="http://$$MINIO_ROOT_USER:$$MINIO_ROOT_PASSWORD@minio:9000"
+      mc mb --ignore-existing local/gf-dev
+      mc anonymous set none local/gf-dev
+  mailpit:
+    image: axllent/mailpit:v1.27@sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68
+    healthcheck:
+      test:
+      - CMD
+      - /mailpit
+      - readyz
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  gotenberg:
+    image: gotenberg/gotenberg:8.39.0@sha256:13672f317b443c793e972b1bd2155ec62a3e7b6891b411e8196442cc053ee5f5
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - -o
+      - /dev/null
+      - http://127.0.0.1:3000/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  wiremock:
+    image: wiremock/wiremock:3.13.2@sha256:0d4ecb3e4dc8213fd7a4d37d6a78f6e6b553a6d2e15bd51b0999781282ac61b3
+    entrypoint:
+    - sh
+    - -c
+    - if [ -n "$$WIREMOCK_STUBS" ]; then printf '%s' "$$WIREMOCK_STUBS" > mappings/baseline.json; fi; exec /docker-entrypoint.sh
+      --port 8080 --disable-banner --max-request-journal-entries 20000 --admin-api-basic-auth gfkit-admin:gfkit-dev
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -sf
+      - -u
+      - gfkit-admin:gfkit-dev
+      - http://127.0.0.1:8080/__admin/health
+      interval: 2s
+      timeout: 5s
+      retries: 60
+    environment:
+      WIREMOCK_STUBS: '{"mappings": [{"request": {"method": "GET", "urlPath": "/v2/editions"}, "response": {"jsonBody":
+        {"editions": [{"edition": "2026.2", "validFrom": "2026-01-01"}, {"edition": "2027.1", "validFrom": "2026-07-01"}]},
+        "status": 200}}, {"request": {"method": "GET", "queryParameters": {"cursor": {"absent": true}, "edition":
+        {"equalTo": "2027.1"}}, "urlPath": "/v2/factors"}, "response": {"jsonBody": {"edition": "2027.1", "nextCursor":
+        "p2", "rows": [{"climate": "4.02", "fossil": "36.5", "id": "organic-cotton", "kind": "material", "land":
+        "0.0412", "makingMjPerKg": "14.8", "microfibres": "52", "toxicity": "318", "water": "2840"}, {"climate":
+        "5.91", "fossil": "48.2", "id": "cotton", "kind": "material", "land": "0.0386", "makingMjPerKg": "14.8",
+        "microfibres": "52", "toxicity": "742", "water": "6120"}, {"climate": "1.87", "fossil": "21.4", "id": "recycled-cotton",
+        "kind": "material", "land": "0.0041", "makingMjPerKg": "11.2", "microfibres": "61", "toxicity": "96", "water":
+        "410"}, {"climate": "2.64", "fossil": "29.7", "id": "linen", "kind": "material", "land": "0.0295", "makingMjPerKg":
+        "13.5", "microfibres": "38", "toxicity": "204", "water": "1180"}, {"climate": "18.4", "fossil": "44.9",
+        "id": "wool", "kind": "material", "land": "0.214", "makingMjPerKg": "17.6", "microfibres": "44", "toxicity":
+        "512", "water": "3120"}, {"climate": "3.12", "fossil": "24.1", "id": "recycled-wool", "kind": "material",
+        "land": "0.0063", "makingMjPerKg": "12.3", "microfibres": "47", "toxicity": "118", "water": "640"}, {"climate":
+        "3.24", "fossil": "71.6", "id": "polyester", "kind": "material", "land": "0.0009", "makingMjPerKg": "21.4",
+        "microfibres": "410", "toxicity": "86", "water": "58"}, {"climate": "1.95", "fossil": "39.3", "id": "recycled-polyester",
+        "kind": "material", "land": "0.0005", "makingMjPerKg": "19.8", "microfibres": "430", "toxicity": "64", "water":
+        "41"}, {"climate": "4.77", "fossil": "58.8", "id": "viscose", "kind": "material", "land": "0.0172", "makingMjPerKg":
+        "24.3", "microfibres": "29", "toxicity": "377", "water": "1420"}, {"climate": "2.83", "fossil": "41.2",
+        "id": "lyocell", "kind": "material", "land": "0.0154", "makingMjPerKg": "19.1", "microfibres": "24", "toxicity":
+        "142", "water": "890"}]}, "status": 200}}, {"request": {"method": "GET", "queryParameters": {"cursor": {"equalTo":
+        "p2"}, "edition": {"equalTo": "2027.1"}}, "urlPath": "/v2/factors"}, "response": {"jsonBody": {"edition":
+        "2027.1", "nextCursor": "p3", "rows": [{"climate": "7.31", "fossil": "96.4", "id": "nylon", "kind": "material",
+        "land": "0.0011", "makingMjPerKg": "26.7", "microfibres": "385", "toxicity": "131", "water": "96"}, {"climate":
+        "12.6", "fossil": "142", "id": "elastane", "kind": "material", "land": "0.0018", "makingMjPerKg": "31.2",
+        "microfibres": "96", "toxicity": "268", "water": "210"}, {"climate": "0.0412", "fossil": "0.74", "id": "PT",
+        "kind": "grid", "land": "0.000041", "microfibres": "0", "toxicity": "0.021", "water": "0.118"}, {"climate":
+        "0.124", "fossil": "1.62", "id": "TR", "kind": "grid", "land": "0.000085", "microfibres": "0", "toxicity":
+        "0.043", "water": "0.215"}, {"climate": "0.158", "fossil": "1.93", "id": "VN", "kind": "grid", "land": "0.000102",
+        "microfibres": "0", "toxicity": "0.057", "water": "0.264"}, {"climate": "0.131", "fossil": "1.81", "id":
+        "EG", "kind": "grid", "land": "0.000076", "microfibres": "0", "toxicity": "0.049", "water": "0.302"}, {"climate":
+        "0.196", "fossil": "2.24", "id": "IN", "kind": "grid", "land": "0.000118", "microfibres": "0", "toxicity":
+        "0.072", "water": "0.341"}, {"climate": "0.172", "fossil": "2.07", "id": "BD", "kind": "grid", "land": "0.000109",
+        "microfibres": "0", "toxicity": "0.064", "water": "0.288"}, {"climate": "0.0107", "fossil": "0.148", "id":
+        "sea", "kind": "mode", "land": "0.000012", "microfibres": "0", "toxicity": "0.0088", "water": "0.0042"},
+        {"climate": "0.105", "fossil": "1.48", "id": "road", "kind": "mode", "land": "0.00021", "microfibres": "0",
+        "toxicity": "0.092", "water": "0.038"}]}, "status": 200}}, {"request": {"method": "GET", "queryParameters":
+        {"cursor": {"equalTo": "p3"}, "edition": {"equalTo": "2027.1"}}, "urlPath": "/v2/factors"}, "response":
+        {"jsonBody": {"edition": "2027.1", "nextCursor": null, "rows": [{"climate": "0.0281", "fossil": "0.392",
+        "id": "rail", "kind": "mode", "land": "0.000064", "microfibres": "0", "toxicity": "0.021", "water": "0.0113"},
+        {"climate": "0.602", "fossil": "8.41", "id": "air", "kind": "mode", "land": "0.00097", "microfibres": "0",
+        "toxicity": "0.33", "water": "0.176"}, {"climate": "0.0213", "fossil": "0.31", "id": "wash", "kind": "use",
+        "land": "0.000012", "microfibres": "3.8", "toxicity": "0.0064", "water": "14.2"}, {"climate": "0.0512",
+        "fossil": "0.19", "id": "disposal", "kind": "endOfLife", "land": "0.000034", "microfibres": "1.6", "toxicity":
+        "1.27", "water": "0.84"}]}, "status": 200}}, {"request": {"method": "POST", "urlPath": "/v1/textile/score"},
+        "response": {"jsonBody": {"per100g": 412, "runId": "run-baseline", "score": 1240}, "status": 200}}]}'
+x-minio-root:
+  MINIO_ROOT_USER: gf-dev-root-71c3e0
+  MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92

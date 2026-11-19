@@ -1,0 +1,11 @@
+import './health.ts';
+import './auth.ts';
+import './maps.ts';
+import './ops.ts';
+import './live.ts';
+import './grading.ts';
+import './share.ts';
+import './comments.ts';
+import './versions.ts';
+import './presentations.ts';
+import './files.ts';

@@ -1,0 +1,261 @@
+/* The operator console: compact two-pane list and detail in the journey palette. */
+.console-page { font-size: 0.9375rem; }
+html:has(.console-page) { scroll-padding-top: calc(var(--header-height, 61px) + 8px); }
+.console-page {
+  --icon-inbox: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='22 12 16 12 14 15 10 15 8 12 2 12'/%3E%3Cpath d='M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E");
+}
+.console-app { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; grid-template-columns: minmax(0, 1fr); }
+
+.console-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  padding: var(--space-2) var(--space-6);
+  border-bottom: 1px solid var(--panel);
+  background: var(--ground);
+}
+.wordmark { font: 700 1.25rem/1 var(--font-display); letter-spacing: -0.02em; display: inline-flex; align-items: baseline; gap: var(--space-2); }
+.console-nav { display: flex; gap: var(--space-1); flex: 1; }
+.console-nav[hidden] { display: none; }
+.console-nav a {
+  display: inline-flex; align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius);
+  text-decoration: none;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.console-nav a:hover { background-color: color-mix(in oklab, var(--ink) 8%, transparent); color: var(--ink); }
+.console-nav a[aria-current="page"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--signal); }
+#sign-out { margin-left: auto; }
+
+.console-main { min-width: 0; }
+.console-main > [hidden] { display: none !important; }
+
+/* The status line is the header's own last row, so it never covers a control. */
+.console-status {
+  order: 4;
+  flex-basis: 100%;
+  min-height: 1.5em;
+  margin: 0;
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--oxide);
+  color: var(--ink);
+  font-weight: 500;
+}
+/* While empty the row stays as a ruled tape line, so the band under the nav reads as intentional. */
+.console-status:empty { border-left-color: transparent; min-height: 0; height: 1px; background: var(--panel); padding: 0; }
+/* Signed out there is nothing to report yet, so the header keeps a single row. */
+.console-header:has(#console-nav[hidden]) .console-status:empty { display: none; }
+
+/* Sign in */
+.signin { display: grid; place-items: center; padding: var(--space-9) var(--space-5); }
+.signin-form {
+  width: min(420px, 100%);
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-7) var(--space-6);
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius-panel);
+  background: var(--ground-raised);
+  box-shadow: var(--inset);
+}
+.signin-form h1 { font-size: var(--step-3); }
+.hint { color: var(--ink-soft); font-size: 0.875rem; }
+
+/* Two panes */
+.two-pane {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  min-height: calc(100vh - 61px);
+}
+.list-pane {
+  border-right: 1px solid var(--panel);
+  background: var(--ground-raised);
+  padding: var(--space-5);
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.list-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.list-head h1 { font-size: var(--step-2); }
+.field.compact { gap: var(--space-1); }
+.record-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.record-list > li > button {
+  width: 100%;
+  display: grid;
+  gap: var(--space-1);
+  min-height: var(--tap);
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.record-list > li > button:hover { background-color: color-mix(in oklab, var(--ink) 6%, transparent); }
+.record-list > li > button[aria-current="true"] { border-color: var(--panel-line); background-color: var(--panel); box-shadow: inset 3px 0 0 var(--signal); }
+.row-top { display: flex; justify-content: space-between; gap: var(--space-3); align-items: baseline; }
+.row-title { font-weight: 600; }
+.row-meta { color: var(--ink-soft); font-size: 0.8125rem; }
+.row-badges { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.skeleton {
+  height: 64px;
+  border-radius: var(--radius);
+  background:
+    linear-gradient(var(--panel), var(--panel)) 12px 14px / 40% 10px no-repeat,
+    linear-gradient(var(--panel), var(--panel)) 12px 36px / 65% 8px no-repeat;
+}
+.empty { display: grid; justify-items: start; gap: var(--space-2); color: var(--ink-soft); padding: var(--space-4) 0; }
+.empty svg { width: 24px; height: 24px; color: var(--oxide); }
+
+.detail-pane { padding: var(--space-6); display: grid; align-content: start; gap: var(--space-6); min-width: 0; }
+@media (min-width: 641px) {
+  .two-pane { height: calc(100dvh - var(--header-height, 61px)); min-height: 0; }
+  .list-pane, .detail-pane { overflow-y: auto; }
+  /* The list keeps the rows in view in place itself when a reload inserts or removes rows above them. */
+  .list-pane { overflow-anchor: none; }
+}
+.button.more { justify-self: start; }
+/* Before a record is chosen: the Lucide inbox icon above one sentence, a third of the way down. */
+.detail-pane:empty { justify-items: center; align-content: start; gap: var(--space-3); padding-top: 28vh; }
+.detail-pane:empty::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  background-color: var(--ink-soft);
+  -webkit-mask: var(--icon-inbox) center / contain no-repeat;
+  mask: var(--icon-inbox) center / contain no-repeat;
+}
+.detail-pane:empty::after {
+  content: "Choose a record from the list.";
+  color: var(--ink-soft);
+}
+.detail-head { display: grid; gap: var(--space-2); }
+.detail-head h2 { font-size: var(--step-3); }
+.back-to-list { display: none; justify-self: start; }
+.panel {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--panel);
+  border-radius: var(--radius-panel);
+  background: var(--ground-raised);
+  box-shadow: var(--inset);
+}
+.panel h3 { font-size: var(--step-1); }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.form-grid .span { grid-column: 1 / -1; }
+.thresholds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-3); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-5); margin: 0; }
+.facts dt { color: var(--ink-soft); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.brief-text { white-space: pre-line; }
+.stem-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3); align-items: center; padding: var(--space-2) 0; border-bottom: 1px solid var(--panel); }
+.stem-info { color: var(--ink-soft); font-size: 0.875rem; }
+.stem-info.stored { color: var(--oxide); }
+.link-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.link-list li { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--panel); border-radius: var(--radius); }
+.link-list .actions { gap: var(--space-2); }
+.mini-table, .months-table, .preview-table { width: 100%; border-collapse: collapse; }
+.mini-table th, .mini-table td, .months-table th, .months-table td, .preview-table th, .preview-table td {
+  text-align: left; padding: var(--space-2); border-bottom: 1px solid var(--panel);
+}
+.mini-table thead th, .months-table thead th, .preview-table thead th {
+  font: 500 var(--label)/1.4 var(--font-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-soft);
+}
+.mini-table td.amount, .preview-table td.amount { text-align: right; }
+
+/* "Changed in another window": one entry per conflicting triage field. */
+.conflicts {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius-panel);
+}
+.conflicts[hidden] { display: none; }
+.conflicts h4 { font-size: var(--step-1); }
+.conflict { display: grid; gap: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--panel); }
+.choices { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); }
+.choice { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--tap); cursor: pointer; }
+.choice input { width: 20px; height: 20px; margin: 0; accent-color: var(--ink); }
+
+/* Milestone invoices sit directly above the single Invoice button. */
+.milestone-invoices { display: grid; gap: var(--space-3); justify-items: start; }
+.milestone-invoices[hidden] { display: none; }
+.milestone-list, .pending-emails { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; width: 100%; }
+.milestone-list li, .pending-emails li { padding: var(--space-2) 0; border-bottom: 1px solid var(--panel); overflow-wrap: anywhere; }
+.milestone-list li[data-state="invoiced"] { color: var(--oxide); }
+.milestone-list li[data-state="invoicing"] { color: var(--ink-soft); }
+.pending-emails li { font-variant-numeric: tabular-nums; }
+
+.mail-queue { display: grid; gap: var(--space-3); padding-top: var(--space-5); border-top: 1px solid var(--panel); }
+.mail-queue h2 { font-size: var(--step-2); }
+.mail-queue .hint:empty { display: none; }
+
+.single-pane { padding: var(--space-6); display: grid; gap: var(--space-5); align-content: start; max-width: 760px; }
+.months-table input { max-width: 120px; }
+.months-table .field-error { margin-top: var(--space-1); }
+
+/* Dialogs */
+/* Dialogs sit under the console header so its navigation stays usable; choosing a view closes them. */
+.dialog-backdrop {
+  position: fixed;
+  inset: var(--header-height, 61px) 0 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: color-mix(in oklab, var(--ground) 72%, transparent);
+  overflow-y: auto;
+}
+.dialog-backdrop[hidden] { display: none; }
+.dialog {
+  width: min(480px, 100%);
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius-panel);
+  background: var(--ground-raised);
+  box-shadow: var(--inset), 0 24px 64px color-mix(in oklab, black 60%, transparent);
+}
+.dialog.wide { width: min(720px, 100%); }
+.dialog h2 { font-size: var(--step-2); }
+.dialog-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.dialog-grid .span { grid-column: 1 / -1; }
+.dialog-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+
+@media (max-width: 1023px) {
+  .two-pane { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+  .console-header { padding: var(--space-2) var(--space-4); gap: var(--space-3); }
+  .form-grid, .thresholds { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 640px) {
+  .console-header { flex-wrap: wrap; padding: var(--space-2) 16px; }
+  .console-nav { order: 3; flex: 1 0 100%; overflow-x: auto; padding: 4px; margin: -4px; }
+  .console-nav a { flex: none; white-space: nowrap; padding: 0 var(--space-3); }
+  .two-pane { grid-template-columns: minmax(0, 1fr); }
+  .two-pane .detail-pane { display: none; }
+  .two-pane.show-detail .list-pane { display: none; }
+  .two-pane.show-detail .detail-pane { display: grid; }
+  .back-to-list { display: inline-flex; }
+  .list-pane { border-right: 0; padding: var(--space-4) 16px; }
+  .detail-pane, .single-pane { padding: var(--space-4) 16px var(--space-9); }
+  .form-grid, .dialog-grid, .thresholds { grid-template-columns: 1fr; }
+  .stem-row { grid-template-columns: 1fr; }
+  .facts { grid-template-columns: 1fr; gap: 0 0; }
+  .facts dd { margin-bottom: var(--space-2); }
+  .dialog { padding: var(--space-5) var(--space-4); }
+}

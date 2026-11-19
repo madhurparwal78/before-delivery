@@ -1,0 +1,1718 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 89
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "sign-in",
+    "estate-map",
+    "shop-detail",
+    "estate-table",
+    "nearest-shop",
+    "checkout",
+    "stock-hold",
+    "last-unit",
+    "repeat-submit",
+    "order-commit",
+    "opening-hours",
+    "fulfilment",
+    "order-history",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 78
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Tramela Estate <encomendas@tramela.example>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 3
+Q2 = 3
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_minio_down"
+
+[[outages]]
+id = "short-hold"
+port = 4175
+url_env = "APP_SHORT_HOLD_URL"
+
+[outages.env]
+HOLD_SECONDS = "5"
+HOLD_SWEEP_SECONDS = "2"
+DATABASE_URL = "${DATABASE_URL}_short_hold"
+S3_BUCKET = "${S3_BUCKET}-short-hold"
+
+[[outages]]
+id = "short-session"
+port = 4176
+url_env = "APP_SHORT_SESSION_URL"
+
+[outages.env]
+SESSION_SECONDS = "40"
+DATABASE_URL = "${DATABASE_URL}_session"
+S3_BUCKET = "${S3_BUCKET}-session"
+
+[[outages]]
+id = "twin"
+port = 4177
+url_env = "APP_TWIN_URL"
+
+[outages.env]
+
+[[requirements]]
+id = "DP-01"
+title = "Sign-in lands on the role route"
+text = "Signing in by keyboard or tap at 375 by 812, 768 by 1024 and 1280 by 800, and switching shop as a manager, puts the role's published route in the address bar, and reloading or opening that address shows the same screen, as qualified in Screens and layout."
+kind = "behavior"
+primary = "workflow"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_wf_sign_in_landing_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Session API and fixed lifetime"
+text = "The session endpoints sign in, report and end a session that lasts a fixed time from sign-in, signed-out and expired API calls answer the unauthenticated error, and signed-out page visits go to the sign-in screen with the requested address kept in next."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_session_api_and_lifetime",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Operator isolation on every answer"
+text = "Every list, search, count, review and map marker includes only records of the operator of the session that sent the request, however many sessions of however many operators are in flight at once on any app copy, and at 375 by 812 the signed-in screens show only that operator's name and figures."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_operator_isolation_interleaved",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Foreign ids answer as never existing"
+text = "Any shop, product, order, hold or return id that belongs to another operator, or that the person may not see, gets exactly the not-found answer of an id that never existed, in status, body, headers apart from Date and response time, and opening such an order or shop address shows the not-found screen with focus on its heading."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_foreign_ids_answer_as_never_existing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Sign-in throttle"
+text = "Five failed sign-ins for one email within the sign-in window, counted on the server across app copies and identically for unknown emails, lock that email with the too-many-attempts answer even for the right password, and at every published viewport the sign-in alert shows the published lock copy with Password cleared, focus on the alert, Sign in aria-disabled and the remaining seconds counted from the server's answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_wf_sign_in_lockout",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-06"
+title = "Signing out leaves nothing behind"
+text = "After Sign out and another person's sign-in in the same tab without a reload, no screen, figure, live region or saved state shows any shop, product, cart, order or count of the previous person, and answers to requests sent before Sign out are ignored."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_wf_sign_in_switch_person",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Sign-in screen and header menu by keyboard and on a phone"
+text = "The sign-in screen follows its published Tab order and focus rules, and at 375 by 812 the header menu opens and closes as a sheet with the published state attribute and reduced-motion end states, keeps Tab inside while open, returns focus to Menu, and is unreachable while closed."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_sign_in_and_menu_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Estate map markers and count"
+text = "The estate map draws the bundled coastline geometry with one marker per listed shop, its shop count attribute equals the count the shop list API returned for the current filters, and at 375 by 812 every marker's target is at least 44 pixels in each direction and the legend shows all five swatches with their labels."
+kind = "behavior"
+primary = "pytest"
+workflow = "estate-map"
+tests = [
+    "test_app.py::test_map_markers_and_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Shared marker state definition"
+text = "Map markers, the map legend and the shops table take each state's fill, ring width, dash pattern and label from one shared definition, as listed in Visual design."
+kind = "behavior"
+primary = "pytest"
+workflow = "estate-map"
+tests = [
+    "test_app.py::test_state_definition_shared",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Shop display state from the server"
+text = "Each shop's display state is computed on the server in the shop's own timezone with the precedence in Business rules, and every screen renders it from the server's answer even when the device clock or timezone is wrong."
+kind = "behavior"
+primary = "pytest"
+workflow = "estate-map"
+tests = [
+    "test_app.py::test_display_state_from_server_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Map limits, drag inertia and clusters"
+text = "Zoom and pan stay inside the published limits, the viewport attribute reports centre and zoom at the published precision, a released drag glides on at the published half-life, and below zoom 3 each region's shops group into one cluster with an exact count that separates with the published stagger."
+kind = "behavior"
+primary = "pytest"
+workflow = "estate-map"
+tests = [
+    "test_app.py::test_map_limits_glide_clusters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Live estate updates and arrivals"
+text = "The estate re-reads its shops every five seconds and updates marker states, names, legend counts and table rows in place on the same nodes, and a new order appears on its shop's marker with a drop and a single ring pulse, as qualified in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "estate-map"
+tests = [
+    "test_app.py::test_live_estate_in_place_and_arrival",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Estate filters in the address"
+text = "The estate's search box and state checkboxes keep the applied filters in the address in the published form with one history entry per change, and reload, Back and an opened address restore exactly those filters, markers, table and count."
+kind = "behavior"
+primary = "pytest"
+workflow = "estate-map"
+tests = [
+    "test_app.py::test_estate_filters_in_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Morning check on the estate"
+text = "A lead signs in, filters the estate to stock-critical and suspended shops, zooms past the clusters and goes Back one filter step, by keyboard alone at 1280 by 800 and by touch through the filter sheet at 375 by 812, hearing each applied filter's shop count in the estate updates region."
+kind = "behavior"
+primary = "workflow"
+workflow = "estate-map"
+tests = [
+    "test_app.py::test_wf_estate_map_morning_keyboard",
+    "test_app.py::test_wf_estate_map_morning_touch",
+]
+criteria = [
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Selecting a shop"
+text = "Selecting a marker or table row moves the viewport to the shop with the published easing and timing, reports moving then settled, and opens the detail panel after the published delay, and with reduced motion requested it cuts at once, reports settled straight away and opens the panel at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "shop-detail"
+tests = [
+    "test_app.py::test_selecting_shop_glide_and_reduced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Shop detail review"
+text = "A lead opens a shop from the map at every published viewport, reads its state, closing time and critical lines in a detail panel with the published geometry for that viewport, and closes the panel again by keyboard or tap."
+kind = "behavior"
+primary = "workflow"
+workflow = "shop-detail"
+tests = [
+    "test_app.py::test_wf_shop_detail_review",
+]
+criteria = [
+    "B11",
+]
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-17"
+title = "Detail panel survives refresh and Escape"
+text = "An open detail panel comes back after a reload with the same focus and scroll, and Escape closes it and returns focus to the control that opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "shop-detail"
+tests = [
+    "test_app.py::test_detail_panel_reload_escape",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Collapsed sheets are unavailable"
+text = "A closed filter sheet, detail sheet or unselected phone tab on the estate screen is not visible, not reachable by Tab and absent from the accessibility tree at every viewport, from the moment it starts closing."
+kind = "behavior"
+primary = "pytest"
+workflow = "shop-detail"
+tests = [
+    "test_app.py::test_collapsed_sheets_unavailable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Suspend and resume a shop"
+text = "A lead suspends a shop with a reason through the keyboard-complete Suspend shop dialog and resumes it, the change is announced, the shop's state changes in the API, map and table, and a suspended shop refuses new holds and offers no slots."
+kind = "behavior"
+primary = "pytest"
+workflow = "shop-detail"
+tests = [
+    "test_app.py::test_wf_shop_detail_suspend_resume",
+    "test_app.py::test_suspended_shop_keeps_day_plan",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Shops table alternative"
+text = "The shops table shows every listed shop with the same states, ring samples, labels and actions as the map, and updates its rows and counting figures in place."
+kind = "behavior"
+primary = "pytest"
+workflow = "estate-table"
+tests = [
+    "test_app.py::test_wf_estate_table_rows_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Estate keyboard control"
+text = "The estate screen follows the published Tab order, Skip to shops table moves focus to the table with the next Tab on the first row action, arrow keys pan the map and plus and minus zoom it whichever map control has focus, and every map action is reachable from the table by keyboard."
+kind = "behavior"
+primary = "pytest"
+workflow = "estate-table"
+tests = [
+    "test_app.py::test_wf_estate_table_keyboard_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Estate on a phone"
+text = "At 375 by 812 with touch a lead switches between the Map and Table tabs, pans with one finger, pinch-zooms inside the zoom limits, opens and closes the filter sheet, and selects a shop from the table, with every touched control at least 44 pixels in each direction and the table scrolling sideways only inside its charcoal panel."
+kind = "behavior"
+primary = "pytest"
+workflow = "estate-table"
+tests = [
+    "test_app.py::test_phone_tabs_pan_pinch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Estate reduced motion"
+text = "With reduced motion requested, every estate motion is replaced by its published end state while every task stays possible and the map reports reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "estate-table"
+tests = [
+    "test_app.py::test_estate_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Marker, cluster and row action names"
+text = "Markers, clusters and table row actions carry the accessible names built by the patterns in Public screens and controls and update them in the same read that changes the shop."
+kind = "behavior"
+primary = "pytest"
+workflow = "estate-table"
+tests = [
+    "test_app.py::test_marker_cluster_row_names",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Find an item at the nearest shop"
+text = "A shopper searches the catalogue, corrects the search, chooses and changes an area, sees the item's shops ranked by distance with available units, chooses a shop to collect from, and adds the item to the cart with the page's cart total counting to its new value and announced exactly once, by keyboard or tap at every published viewport."
+kind = "behavior"
+primary = "workflow"
+workflow = "nearest-shop"
+tests = [
+    "test_app.py::test_wf_nearest_shop_find_and_add",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-26"
+title = "Server-ranked availability"
+text = "The availability and cart shop APIs rank the operator's shops by great-circle distance with the published formula, rounding and tie-breaks."
+kind = "behavior"
+primary = "pytest"
+workflow = "nearest-shop"
+tests = [
+    "test_app.py::test_ranking_formula_and_ties",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Literal, bounded search"
+text = "Product, shop and order searches trim the query, match it literally without regard to case or accents with an exact count, and answer the validation error on q above 100 characters, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "nearest-shop"
+tests = [
+    "test_app.py::test_search_literal_and_bounded",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Latest input wins"
+text = "Search products, Search shops, Find order, Your area and Use my location show only the answer to the latest input, discarding any earlier answer that arrives later, in results, figures and status regions alike."
+kind = "behavior"
+primary = "pytest"
+workflow = "nearest-shop"
+tests = [
+    "test_app.py::test_wf_nearest_shop_latest_input_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Ranked shop list moves in place"
+text = "When the area changes, the ranked shop list keeps one node per shop, moves each to its new rank with the published state attributes and timing, counts its figures to the new values, and announces the ranking in the shop ranking region, with the reduced-motion end state at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "nearest-shop"
+tests = [
+    "test_app.py::test_ranked_list_moves_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Cart totals in exact cents"
+text = "The cart keeps lines, area and chosen shop on the server, marks short lines, totals only the lines the chosen shop can supply, and computes line totals, value-added tax and refunds in integer cents matching the worked examples in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_cart_totals_exact_cents",
+    "test_app.py::test_order_money_fields",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Cart changes follow the server"
+text = "Quantity steppers, Remove, Add to cart and Collect from change totals only on the server's answer and roll back to the server's values with the published error copy when the change fails."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_cart_changes_follow_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Keyboard-complete checkout dialog"
+text = "The checkout dialog and the stock-changed dialog work by keyboard alone, keep Tab inside the open dialog, close on Escape and return focus to the control that opened them, and the checkout dialog has the published geometry at each viewport with its content scrolling inside it."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_checkout_dialog_keyboard_geometry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Checkout survives refresh"
+text = "Reloading the cart with checkout open brings back the dialog with the same values, focused control and scroll position."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_checkout_survives_reload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Lost line beneath an open checkout"
+text = "When a line falls short at the chosen shop while checkout is open, the line message, figures and totals update in place within five seconds and the new total is announced without moving focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_lost_line_beneath_checkout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Checkout from cart to order page"
+text = "A shopper goes from a filled cart through shop, hold, day, time and contact details to the order page using the keyboard only, at 1280 by 800 and at 375 by 812."
+kind = "behavior"
+primary = "workflow"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_wf_checkout_keyboard_to_order",
+]
+criteria = [
+    "B12",
+]
+parameter_cases = [
+    "1280x800",
+    "375x812",
+]
+
+[[requirements]]
+id = "DP-36"
+title = "Stock holds on the server clock"
+text = "Holding the cart reserves its units at the chosen shop for the hold window on the server clock, all lines or none, claims lines in SKU order without ever answering a server error under overlap, and treats the hold as ended at and after its expiry instant."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-hold"
+tests = [
+    "test_app.py::test_holds_on_server_clock",
+    "test_app.py::test_hold_needs_cart_lines",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Single release of a hold"
+text = "A hold returns its units exactly once, whichever of a shopper's request or the background sweep of any app copy reaches it first."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-hold"
+tests = [
+    "test_app.py::test_single_release_of_hold",
+    "test_app.py::test_cart_change_releases_hold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Hold countdown follows the server"
+text = "The hold countdown, its meter and hold state follow the server's latest answer whatever the device clock says, the one-minute message is announced exactly once, the checking copy shows while the server has not yet answered, the ended message is announced in the hold status region, and a hold ending inside checkout keeps the dialog, its values and focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-hold"
+tests = [
+    "test_app.py::test_hold_countdown_follows_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Hold ends and Hold again"
+text = "A shopper whose hold ends in checkout, at 1280 by 800 and at 375 by 812 by keyboard, sees the hold-ended copy, reaches Hold again with focus as published, and places the order with a fresh request key, while the old key still replays its hold-expired answer."
+kind = "behavior"
+primary = "workflow"
+workflow = "stock-hold"
+tests = [
+    "test_app.py::test_wf_stock_hold_hold_again",
+]
+criteria = []
+parameter_cases = [
+    "1280x800",
+    "375x812",
+]
+
+[[requirements]]
+id = "DP-40"
+title = "Last unit has one winner"
+text = "Of any number of simultaneous claims on a shop's last unit, through any app copy, exactly one succeeds and every other gets the stock conflict answer naming the remaining quantity."
+kind = "behavior"
+primary = "pytest"
+workflow = "last-unit"
+tests = [
+    "test_app.py::test_last_unit_one_winner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Till sales and stock counts with request keys"
+text = "A manager records till sales and stock counts under the same stock rules as holds, and a till sale's request key replays its first answer, including a stored stock conflict, across app copies."
+kind = "behavior"
+primary = "pytest"
+workflow = "last-unit"
+tests = [
+    "test_app.py::test_till_sales_and_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Derived counters agree on the next read"
+text = "After a till sale, stock count, hold, cancellation or received return, every surface showing critical lines, display state, availability or the cart agrees on the next read, and the open estate updates the shop's marker name and state within five seconds on the same node."
+kind = "behavior"
+primary = "pytest"
+workflow = "last-unit"
+tests = [
+    "test_app.py::test_derived_counters_agree",
+    "test_app.py::test_store_state_filter_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Conflict explained to the shopper"
+text = "A refused hold opens the stock-changed dialog with the published conflict copy, geometry, open and close states, focus on its first action and Tab kept inside it, the conflict announced in the checkout messages region, and Escape returning focus to Hold items."
+kind = "behavior"
+primary = "pytest"
+workflow = "last-unit"
+tests = [
+    "test_app.py::test_conflict_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Till sale against an online basket"
+text = "A manager records a till sale by keyboard at 375 by 812 and at 1280 by 800, an open checkout shortens in place, the shopper's hold is refused with the remaining quantity, and the lead's live map renames and restates the shop marker within five seconds without a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "last-unit"
+tests = [
+    "test_app.py::test_wf_last_unit_till_sale_journey",
+]
+criteria = []
+parameter_cases = [
+    "1280x800",
+    "375x812",
+]
+
+[[requirements]]
+id = "DP-45"
+title = "Request keys on order placement"
+text = "Placing an order with a repeated request key returns the first answer byte for byte with no second effect on any app copy, and a changed body or a request still in progress on any copy gets its own conflict answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "repeat-submit"
+tests = [
+    "test_app.py::test_request_keys_on_order",
+    "test_app.py::test_hold_expired_answer_replays",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "One order per press"
+text = "Pressing Place order twice, reloading or retrying after a dropped connection creates one order, sends the same request key with the same body, announces the pending copy once with Place order aria-disabled and further presses ignored, announces the in-progress copy when it applies, and lands the shopper on that order's page."
+kind = "behavior"
+primary = "pytest"
+workflow = "repeat-submit"
+tests = [
+    "test_app.py::test_wf_repeat_submit_one_order_per_press",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Session end mid-checkout"
+text = "When the session ends while checkout is open, at 1280 by 800 or 375 by 812, the shopper is sent to sign-in with the published message, returns to the open checkout with every value and focus, and Place order sends the saved request key and body to create exactly one order."
+kind = "behavior"
+primary = "workflow"
+workflow = "repeat-submit"
+tests = [
+    "test_app.py::test_wf_repeat_submit_session_end",
+]
+criteria = []
+parameter_cases = [
+    "1280x800",
+    "375x812",
+]
+
+[[requirements]]
+id = "DP-48"
+title = "Restored checkout appears already open"
+text = "A checkout dialog restored by a reload or after signing in again reports open from its first frame without an entrance, in full and reduced motion, while one opened by Checkout passes through its opening state."
+kind = "behavior"
+primary = "pytest"
+workflow = "repeat-submit"
+tests = [
+    "test_app.py::test_restored_checkout_appears_open",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "All-or-nothing order placement"
+text = "Placing an order commits the database rows, the stored order document and the rebuilt order summary together or leaves none of them, with order numbers free of gaps and duplicates across app copies, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "order-commit"
+tests = [
+    "test_app.py::test_all_or_nothing_placement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "One confirmation email per order"
+text = "Exactly one confirmation email with the order number, shop name and local collection time is sent after an order commits, whichever app copy sends it, and none for an order that did not commit."
+kind = "behavior"
+primary = "pytest"
+workflow = "order-commit"
+tests = [
+    "test_app.py::test_one_confirmation_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Order documents stored as placed"
+text = "Each committed order has one document in object storage under the published key, written once at placement, and downloading it after any later transition or return returns those first bytes."
+kind = "behavior"
+primary = "pytest"
+workflow = "order-commit"
+tests = [
+    "test_app.py::test_documents_stored_as_placed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Storage outage pauses named controls"
+text = "When object storage cannot be reached at boot or later, the app still serves, slides in the storage notice with its state attribute or shows it at once under reduced motion, pauses only the three named storage controls with their published descriptions, and turns them back on within ten seconds of storage returning, without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "order-commit"
+tests = [
+    "test_app.py::test_storage_outage_and_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Working through a storage outage"
+text = "A care agent and a shopper use the app while storage is down, reach each paused control by keyboard with its pause sentence announced when pressed, see the storage notice, and finish every other task, at 1280 by 800 and at 375 by 812."
+kind = "behavior"
+primary = "workflow"
+workflow = "order-commit"
+tests = [
+    "test_app.py::test_wf_order_commit_outage_work",
+]
+criteria = []
+parameter_cases = [
+    "1280x800",
+    "375x812",
+]
+
+[[requirements]]
+id = "DP-54"
+title = "Effective-dated hours in the shop timezone"
+text = "Each shop's opening hours are stored and published as local times in its own timezone with an effective-from shop-local date, and today's display state, day plan and slots keep the hours in effect today until that date."
+kind = "behavior"
+primary = "pytest"
+workflow = "opening-hours"
+tests = [
+    "test_app.py::test_effective_dated_hours",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Daylight saving day plans and the repeated hour"
+text = "A shop's day plan lists only slot times that exist locally that day, offers a repeated hour once with its summer offset and refuses the second occurrence, matching the worked examples in Business rules both in the API and in the item text of the slots preview list."
+kind = "behavior"
+primary = "pytest"
+workflow = "opening-hours"
+tests = [
+    "test_app.py::test_dst_plans_and_repeated_hour",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Collection slots and capacity"
+text = "Shoppers are offered half-hour slots inside the published window and the shop's hours in effect on each local date, each slot takes at most two orders that are not cancelled with exactly that many winners across app copies, and the server rejects any other slot."
+kind = "behavior"
+primary = "pytest"
+workflow = "opening-hours"
+tests = [
+    "test_app.py::test_slots_and_capacity",
+    "test_app.py::test_day_plan_date_bounds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Checkout under reduced motion"
+text = "With reduced motion requested, the checkout dialog appears and leaves without sliding and every total in it changes at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_wf_checkout_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Publish opening hours"
+text = "A manager on a phone at 375 by 812 and at 1280 by 800 opens the Opening hours section, publishes weekly hours by keyboard effective from a chosen shop-local date that defaults to the shop's local today, hears the published confirmation, and previews any date's slot plan in the shop's timezone with the list updating in place, its count figure counting, the timezone line announced once and focus unmoved."
+kind = "behavior"
+primary = "workflow"
+workflow = "opening-hours"
+tests = [
+    "test_app.py::test_wf_opening_hours_publish",
+]
+criteria = []
+parameter_cases = [
+    "1280x800",
+    "375x812",
+]
+
+[[requirements]]
+id = "DP-59"
+title = "Order state machine"
+text = "Orders, returns and holds move only along the published transitions, and every other transition gets the invalid transition answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "fulfilment"
+tests = [
+    "test_app.py::test_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Returns, exact refunds and labels"
+text = "A manager requests, receives, settles or declines a return of collected units, received units go back into stock, refunds follow the per-line rule in Business rules, and a return label is stored on first request and returned unchanged on every later request."
+kind = "behavior"
+primary = "pytest"
+workflow = "fulfilment"
+tests = [
+    "test_app.py::test_returns_refunds_labels",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Back-office breakpoints and sections"
+text = "The shop back office shows its published one, two and three column layouts at 375, 768 and 1280 pixels wide, and below 700 pixels each section opens and closes with the published state attribute and timing, with closed sections unavailable."
+kind = "behavior"
+primary = "pytest"
+workflow = "fulfilment"
+tests = [
+    "test_app.py::test_backoffice_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-62"
+title = "Back office stays live"
+text = "The back office re-reads its orders, holds, stock and returns every five seconds and updates them in place without closing a dialog, clearing a field, moving focus, replacing the last shop updates message, or letting a stale timer re-hide a reopened section."
+kind = "behavior"
+primary = "pytest"
+workflow = "fulfilment"
+tests = [
+    "test_app.py::test_backoffice_stays_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Fulfil and return an order"
+text = "A manager at 1280 by 800, on a 768 by 1024 tablet and at 375 by 812 in one column takes an order from placed to collected and then a return from requested to settled by keyboard, with focus landing on the next legal row action after each step or on the table when none is left, row actions at least 44 pixels in each direction and announcements as published, while changes made elsewhere appear beneath the open Return items dialog."
+kind = "behavior"
+primary = "workflow"
+workflow = "fulfilment"
+tests = [
+    "test_app.py::test_wf_fulfilment_keyboard",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-64"
+title = "Chained, replayable order history"
+text = "Every order and return state change appends one history entry chained by the published digest rule, replay rebuilds the stored order state exactly from the entries alone, and a history that fails its check is refused naming the first broken entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "order-history"
+tests = [
+    "test_app.py::test_history_chain_and_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Review scrubber"
+text = "The review scrubber covers exactly the last 24 hours of the operator's order history on the server clock, moves only when the operator moves it by pointer, touch or the published keys, reports its exact position and readout at each stop, and counts its figure and the markers' count badges to their values at that moment, with the reduced-motion end state at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "order-history"
+tests = [
+    "test_app.py::test_review_scrubber",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Order search pages"
+text = "Order search pages newest first with a capped page size and an opaque cursor, reports the total count, and never repeats or skips an order while new orders arrive."
+kind = "behavior"
+primary = "pytest"
+workflow = "order-history"
+tests = [
+    "test_app.py::test_order_search_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Customer-care lookup"
+text = "A care agent finds a customer's orders, pages through them with Show more orders, opens one, reads and verifies its history, downloads its document and cancels it if needed, by keyboard at every published viewport, with focus and announcements as published."
+kind = "behavior"
+primary = "workflow"
+workflow = "order-history"
+tests = [
+    "test_app.py::test_wf_order_history_care",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-68"
+title = "Run manifest, health and shared copies"
+text = "The app installs, builds and serves from its run manifest on the published port, answers the health check, and keeps every rule in this brief when two copies share one database and bucket."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_manifest_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Server boundary"
+text = "The server accepts only same-origin JSON within the size limit and never serves source files or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Responsive layout, target size, focus and contrast"
+text = "Every screen fits 375 by 812, 768 by 1024 and 1280 by 800 with no horizontal scrolling, controls at least 44 pixels in each direction, the published focus outline on every focusable control at no less than 3 to 1 against what surrounds it, WCAG 2.2 AA contrast and a word beside every colour-coded status."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_responsive",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-71"
+title = "Motion contract and inventory"
+text = "Sheets, dialogs, sections and changing figures expose the published motion attributes and timing with reduced-motion end states, nothing moves except the motions named in Motion and effects, and two seconds after the last change the browser reports no running animation on the landing page or any signed-in screen, as qualified in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_contract",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Pinned-poster look and landing hero"
+text = "The landing page carries the pinned-poster direction with the split corner name, carmine field, still miniature map, generated tool drawings and the two named typefaces."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Working screens in the same language"
+text = "Working screens keep the small corner wordmark, red field, charcoal panels for maps, tables and drawings, pale pink block buttons and blunt one-sentence empty, loading and error copy."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B7",
+    "B9",
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Configuration from the environment"
+text = "Every service address and credential is read from the environment at start, never written into the source and never sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Sign-in survives reload"
+text = "Reloading the sign-in screen keeps the typed email but never the password, the focused control, the next address and any alert text, and the alert text is announced once."
+kind = "behavior"
+primary = "pytest"
+workflow = "sign-in"
+tests = [
+    "test_app.py::test_sign_in_reload_keeps",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Catalogue and product page layout"
+text = "The catalogue shows one, two and three product columns and the product page shows the item, area choice and ranked list in the published arrangement at 375, 768 and 1280 pixels wide, with every target at least 44 pixels in each direction."
+kind = "behavior"
+primary = "pytest"
+workflow = "nearest-shop"
+tests = [
+    "test_app.py::test_catalogue_product_layout",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-77"
+title = "Product page survives reload"
+text = "Reloading a product page keeps the chosen area, the chosen shop, the typed quantity and the focused control."
+kind = "behavior"
+primary = "pytest"
+workflow = "nearest-shop"
+tests = [
+    "test_app.py::test_product_page_reload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Short-line total counts down in place"
+text = "When a till sale shortens a line beneath an open checkout, the total figure counts down in place over the published figure timing in tabular figures, the checkout total region announces only the final value, and focus never moves, and with reduced motion requested the total changes at once with the same announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "last-unit"
+tests = [
+    "test_app.py::test_wf_last_unit_total_counts_down",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Unpublished hours survive reload"
+text = "Edited but unpublished opening hours come back after a reload with their values, the focused box and their field errors, until they are published."
+kind = "behavior"
+primary = "pytest"
+workflow = "opening-hours"
+tests = [
+    "test_app.py::test_wf_opening_hours_draft_reload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Hours editor layout"
+text = "The opening hours editor shows one weekday per row with the published arrangement at 375, 768 and 1280 pixels wide, every time box and checkbox at least 44 pixels in each direction and no sideways scrolling."
+kind = "behavior"
+primary = "pytest"
+workflow = "opening-hours"
+tests = [
+    "test_app.py::test_hours_editor_layout",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-81"
+title = "Storage notice layout"
+text = "At 375, 768 and 1280 pixels wide the storage notice spans the full width directly under the header, never covers the header or a paused control, and the last row of the screen scrolls clear of it."
+kind = "behavior"
+primary = "pytest"
+workflow = "order-commit"
+tests = [
+    "test_app.py::test_wf_order_commit_notice_layout",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-82"
+title = "Order page landing and layout"
+text = "After placement focus lands on the order page's level-1 heading, the order messages region carries the exact success copy, and at 375, 768 and 1280 pixels wide the page has no sideways scrolling and its download control is at least 44 pixels in each direction."
+kind = "behavior"
+primary = "pytest"
+workflow = "repeat-submit"
+tests = [
+    "test_app.py::test_order_page_landing",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-83"
+title = "Return items dialog survives reload"
+text = "Reloading the back office with Return items open brings the dialog back with its quantities, reason, focused field and scroll position."
+kind = "behavior"
+primary = "pytest"
+workflow = "fulfilment"
+tests = [
+    "test_app.py::test_wf_fulfilment_return_dialog_reload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Care order page layout"
+text = "The care order page shows the history list beside the header facts from 1200 pixels wide and below them otherwise, with the line table and the history list each scrolling inside its own panel."
+kind = "behavior"
+primary = "pytest"
+workflow = "order-history"
+tests = [
+    "test_app.py::test_care_order_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Care order page survives reload"
+text = "Reloading a care order page keeps the history list's scroll position, the focused control and the last care updates message."
+kind = "behavior"
+primary = "pytest"
+workflow = "order-history"
+tests = [
+    "test_app.py::test_wf_order_history_reload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Landing hero geometry"
+text = "The landing page holds the two pinned words at the published corner distances and heights with the inverting blend at 375, 768 and 1280 pixels wide, arranges its panels as published at each size, and never scrolls sideways."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_landing_geometry",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-87"
+title = "Not-found screen"
+text = "An unknown address answers HTTP 404 and shows the published not-found copy as a level-1 heading holding focus, with no sideways scrolling at 375, 768 and 1280 pixels wide."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_not_found_screen",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-88"
+title = "Held checkout survives reload"
+text = "Reloading a checkout with an active hold brings the dialog back with the countdown resuming from the server's remaining seconds, never from the start, and focus on the same control."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-hold"
+tests = [
+    "test_app.py::test_held_checkout_survives_reload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-89"
+title = "Hold controls by touch on a phone"
+text = "At 375 by 812 a shopper holds and releases items by tap alone in the full-screen checkout dialog, with the hold timer and hold buttons at least 44 pixels tall and the content scrolling inside the dialog."
+kind = "behavior"
+primary = "pytest"
+workflow = "stock-hold"
+tests = [
+    "test_app.py::test_wf_stock_hold_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve fields and \"_schema\":\"run-manifest-v1\"."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package (the production dependency tree from npm ls --omit=dev --all --json), both typefaces and the coastline data, each with its licence."
+tests = [
+    "test_app.py::test_if_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the production dependency tree from npm ls --omit=dev --all --json) is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0 or 0BSD; fonts are under OFL-1.1, and geometry data is CC0-1.0 or public domain."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "No datastore other than PostgreSQL and the S3 bucket: no SQLite, no key-value server, no application state in local files."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Server and browser code are written in TypeScript, with no hand-written JavaScript source files outside build output."
+tests = [
+    "test_app.py::test_if_typescript_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service configuration (development compose files and their environment values) is left unchanged."
+tests = [
+    "test_app.py::test_if_service_config",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "At run time the app requests nothing from third-party origins: no font, tile, script or analytics hosts."
+tests = [
+    "test_app.py::test_if_same_origin",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "sign-in"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-75",
+]
+critical = [
+    "test_app.py::test_wf_sign_in_landing_routes",
+    "test_app.py::test_wf_sign_in_lockout",
+    "test_app.py::test_wf_sign_in_switch_person",
+    "test_app.py::test_sign_in_and_menu_keyboard",
+    "test_app.py::test_foreign_ids_answer_as_never_existing",
+    "test_app.py::test_sign_in_reload_keeps",
+]
+
+[[workflows]]
+id = "estate-map"
+requirements = [
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_estate_map_morning_keyboard",
+    "test_app.py::test_wf_estate_map_morning_touch",
+    "test_app.py::test_live_estate_in_place_and_arrival",
+    "test_app.py::test_display_state_from_server_clock",
+    "test_app.py::test_estate_filters_in_address",
+    "test_app.py::test_map_markers_and_isolation",
+    "test_app.py::test_state_definition_shared",
+]
+checkpoints = [
+    "B8",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "shop-detail"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_shop_detail_review",
+    "test_app.py::test_wf_shop_detail_suspend_resume",
+    "test_app.py::test_detail_panel_reload_escape",
+    "test_app.py::test_collapsed_sheets_unavailable",
+    "test_app.py::test_selecting_shop_glide_and_reduced",
+]
+checkpoints = [
+    "B11",
+]
+critical_checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "estate-table"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_estate_table_rows_in_place",
+    "test_app.py::test_wf_estate_table_keyboard_order",
+    "test_app.py::test_phone_tabs_pan_pinch",
+    "test_app.py::test_marker_cluster_row_names",
+]
+
+[[workflows]]
+id = "nearest-shop"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-76",
+    "DP-77",
+]
+critical = [
+    "test_app.py::test_wf_nearest_shop_find_and_add",
+    "test_app.py::test_wf_nearest_shop_latest_input_wins",
+    "test_app.py::test_search_literal_and_bounded",
+    "test_app.py::test_ranked_list_moves_in_place",
+    "test_app.py::test_catalogue_product_layout",
+    "test_app.py::test_product_page_reload",
+]
+
+[[workflows]]
+id = "checkout"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-57",
+]
+critical = [
+    "test_app.py::test_wf_checkout_keyboard_to_order",
+    "test_app.py::test_checkout_dialog_keyboard_geometry",
+    "test_app.py::test_checkout_survives_reload",
+    "test_app.py::test_lost_line_beneath_checkout",
+    "test_app.py::test_cart_changes_follow_server",
+    "test_app.py::test_wf_checkout_reduced_motion",
+]
+checkpoints = [
+    "B12",
+]
+critical_checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "stock-hold"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-88",
+    "DP-89",
+]
+critical = [
+    "test_app.py::test_wf_stock_hold_hold_again",
+    "test_app.py::test_holds_on_server_clock",
+    "test_app.py::test_hold_countdown_follows_server",
+    "test_app.py::test_held_checkout_survives_reload",
+    "test_app.py::test_wf_stock_hold_touch",
+]
+
+[[workflows]]
+id = "last-unit"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_last_unit_till_sale_journey",
+    "test_app.py::test_wf_last_unit_total_counts_down",
+    "test_app.py::test_last_unit_one_winner",
+    "test_app.py::test_till_sales_and_counts",
+    "test_app.py::test_derived_counters_agree",
+    "test_app.py::test_conflict_dialog",
+]
+
+[[workflows]]
+id = "repeat-submit"
+requirements = [
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-82",
+]
+critical = [
+    "test_app.py::test_wf_repeat_submit_one_order_per_press",
+    "test_app.py::test_wf_repeat_submit_session_end",
+    "test_app.py::test_request_keys_on_order",
+    "test_app.py::test_order_page_landing",
+]
+
+[[workflows]]
+id = "order-commit"
+requirements = [
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-81",
+]
+critical = [
+    "test_app.py::test_all_or_nothing_placement",
+    "test_app.py::test_one_confirmation_email",
+    "test_app.py::test_documents_stored_as_placed",
+    "test_app.py::test_storage_outage_and_recovery",
+    "test_app.py::test_wf_order_commit_outage_work",
+    "test_app.py::test_wf_order_commit_notice_layout",
+]
+
+[[workflows]]
+id = "opening-hours"
+requirements = [
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-58",
+    "DP-79",
+    "DP-80",
+]
+critical = [
+    "test_app.py::test_wf_opening_hours_publish",
+    "test_app.py::test_wf_opening_hours_draft_reload",
+    "test_app.py::test_hours_editor_layout",
+    "test_app.py::test_effective_dated_hours",
+    "test_app.py::test_dst_plans_and_repeated_hour",
+    "test_app.py::test_slots_and_capacity",
+]
+
+[[workflows]]
+id = "fulfilment"
+requirements = [
+    "DP-59",
+    "DP-60",
+    "DP-61",
+    "DP-62",
+    "DP-63",
+    "DP-83",
+]
+critical = [
+    "test_app.py::test_wf_fulfilment_keyboard",
+    "test_app.py::test_state_machine",
+    "test_app.py::test_returns_refunds_labels",
+    "test_app.py::test_backoffice_breakpoints",
+    "test_app.py::test_backoffice_stays_live",
+    "test_app.py::test_wf_fulfilment_return_dialog_reload",
+]
+
+[[workflows]]
+id = "order-history"
+requirements = [
+    "DP-64",
+    "DP-65",
+    "DP-66",
+    "DP-67",
+    "DP-84",
+    "DP-85",
+]
+critical = [
+    "test_app.py::test_wf_order_history_care",
+    "test_app.py::test_history_chain_and_replay",
+    "test_app.py::test_review_scrubber",
+    "test_app.py::test_order_search_paging",
+    "test_app.py::test_care_order_layout",
+    "test_app.py::test_wf_order_history_reload",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-68",
+    "DP-69",
+    "DP-70",
+    "DP-71",
+    "DP-72",
+    "DP-73",
+    "DP-74",
+    "DP-86",
+    "DP-87",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_manifest_health",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B3",
+]
+critical_checkpoints = [
+    "B1",
+]

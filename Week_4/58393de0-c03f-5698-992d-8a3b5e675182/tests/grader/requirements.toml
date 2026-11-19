@@ -1,0 +1,1150 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 49
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "w01-classroom-live-join",
+    "w02-server-time-hand-in",
+    "w03-csg-group",
+    "w04-keyboard-transforms",
+    "w05-align",
+    "w06-workplane-touch",
+    "w07-circuit-overcurrent",
+    "w08-live-readout-two-tabs",
+    "w09-block-lab-loop",
+    "w10-export-worker",
+    "w11-glancet",
+    "w12-removal-and-access",
+    "w13-personal-signup-verification",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+    "B17",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+]
+rubric_total_weight = 100
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Hollowbrook Maker Co. <no-reply@hollowbrook.test>" } },
+]
+
+[criterion_weights]
+B1 = 3
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 5
+B12 = 3
+B13 = 5
+B14 = 3
+B15 = 3
+B16 = 5
+B17 = 3
+S1 = 5
+S2 = 5
+S3 = 5
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_minio_down"
+
+[[requirements]]
+id = "DP-01"
+title = "Classroom creation"
+text = "A verified Educator creates a classroom from the dashboard with a name, an IANA time zone, a join window and a hand-in time, and can do it entirely by keyboard."
+kind = "behavior"
+primary = "workflow"
+workflow = "w01-classroom-live-join"
+tests = [
+    "test_app.py::test_wf_w01_classroom_live_join_keyboard_setup",
+    "test_app.py::test_classroom_times_validation",
+    "test_app.py::test_wf_w01_classroom_live_join_zone_preselect_owned_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Join codes"
+text = "Each classroom has exactly one current join code, shown large in the Join code dialog and replaced immediately by `New code`, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "w01-classroom-live-join"
+tests = [
+    "test_app.py::test_join_code_rotation",
+    "test_app.py::test_join_code_dialog",
+    "test_app.py::test_join_rate_limit",
+    "test_app.py::test_wf_w01_classroom_live_join_empty_roster_pill_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Student join"
+text = "A Student joins at `/join` with a class code and a nickname, with no email or password, and gets a session bound to that one classroom."
+kind = "behavior"
+primary = "workflow"
+workflow = "w01-classroom-live-join"
+tests = [
+    "test_app.py::test_wf_w01_classroom_live_join_student_join",
+    "test_app.py::test_classroom_capacity",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Nickname rules"
+text = "Nicknames meet the stated length and character rules and are unique per classroom compared case-insensitively, both on join and on an instructor's rename."
+kind = "behavior"
+primary = "pytest"
+workflow = "w01-classroom-live-join"
+tests = [
+    "test_app.py::test_wf_w01_classroom_live_join_invalid_join",
+    "test_app.py::test_nickname_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Live roster joins"
+text = "A successful join adds that Student's tile to every open roster of the classroom and announces it in Status without a reload, within the live-update delay in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "w01-classroom-live-join"
+tests = [
+    "test_app.py::test_live_roster_joins",
+    "test_app.py::test_wf_w01_classroom_live_join_created_roster_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Classroom states"
+text = "A classroom is draft, open, in session, handed in or archived exactly as Business rules derive it, and every illegal transition is refused with its stated status."
+kind = "behavior"
+primary = "pytest"
+workflow = "w02-server-time-hand-in"
+tests = [
+    "test_app.py::test_classroom_states_and_transitions",
+    "test_app.py::test_wf_w02_server_time_hand_in_hand_in_all_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Join window on server time"
+text = "Join codes are accepted only inside the join window, judged on the server's time in the classroom's time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "w02-server-time-hand-in"
+tests = [
+    "test_app.py::test_join_window_server_time",
+    "test_app.py::test_wf_w02_server_time_hand_in_join_window_tablet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Hand-in freeze"
+text = "At the classroom's hand-in time every Student project, and at a Student's own hand-in that one project, becomes read-only, and every save to it is refused with the stated copy."
+kind = "behavior"
+primary = "workflow"
+workflow = "w02-server-time-hand-in"
+tests = [
+    "test_app.py::test_wf_w02_server_time_hand_in_classroom_freeze",
+    "test_app.py::test_wf_w02_server_time_hand_in_student_hand_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Server countdown"
+text = "The hand-in countdown and every classroom state label come from values the server publishes, never from the device clock, and refresh as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "w02-server-time-hand-in"
+tests = [
+    "test_app.py::test_server_countdown",
+    "test_app.py::test_wf_w02_server_time_hand_in_dashboard_state_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "3D Workshop shapes"
+text = "The 3D Workshop adds boxes, cylinders and spheres by button or key, sizes them in millimetres, and keeps the hidden scene description current."
+kind = "behavior"
+primary = "workflow"
+workflow = "w03-csg-group"
+tests = [
+    "test_app.py::test_wf_w03_csg_group_keyboard_build",
+    "test_app.py::test_wf_w03_csg_group_shape_buttons",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Holes and grouping"
+text = "Solid/Hole, Group and Ungroup follow the geometry rules in Business rules, grouping runs in a Web Worker, and equal inputs always give an equal result."
+kind = "behavior"
+primary = "pytest"
+workflow = "w03-csg-group"
+tests = [
+    "test_app.py::test_wf_w03_csg_group_group_rules",
+    "test_app.py::test_wf_w03_csg_group_nested_group_is_one_solid",
+    "test_app.py::test_wf_w03_csg_group_ungroup_object_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Revisions and saving"
+text = "Saves, by autosave or `Ctrl+S`, create gapless per-project revision numbers that count only after storage confirms the snapshot."
+kind = "behavior"
+primary = "pytest"
+workflow = "w03-csg-group"
+tests = [
+    "test_app.py::test_revisions_and_saving",
+    "test_app.py::test_wf_w03_csg_group_toolbar_ctrl_s",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Live roster saves"
+text = "Each Student save updates that Student's roster tile render, revision number and saved time in place and announces it in Status, within the live-update delay."
+kind = "behavior"
+primary = "pytest"
+workflow = "w03-csg-group"
+tests = [
+    "test_app.py::test_live_roster_saves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Keyboard transforms"
+text = "Arrow keys, Shift with arrows, Page Up and Page Down, and rotate mode move and turn the selection by the steps in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "w04-keyboard-transforms"
+tests = [
+    "test_app.py::test_keyboard_transforms",
+    "test_app.py::test_wf_w04_keyboard_transforms_front_face_rotate",
+    "test_app.py::test_wf_w04_keyboard_transforms_group_rotate",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Undo and persistence"
+text = "Undo and redo step through edits one at a time, and every object property survives a save and a reload unchanged."
+kind = "behavior"
+primary = "workflow"
+workflow = "w04-keyboard-transforms"
+tests = [
+    "test_app.py::test_wf_w04_keyboard_transforms_undo_redo",
+    "test_app.py::test_wf_w04_keyboard_transforms_persistence",
+    "test_app.py::test_wf_w04_keyboard_transforms_undo_depth",
+    "test_app.py::test_wf_w04_keyboard_transforms_noop_not_undo_step",
+    "test_app.py::test_wf_w04_keyboard_transforms_undo_not_in_textbox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Selection"
+text = "Tab, Shift+Tab, Shift+click and `Ctrl+A` select objects on the workplane, and Delete removes the selection."
+kind = "behavior"
+primary = "pytest"
+workflow = "w05-align"
+tests = [
+    "test_app.py::test_selection",
+    "test_app.py::test_wf_w05_align_three_on_z",
+    "test_app.py::test_wf_w05_align_phone_shift_tap",
+    "test_app.py::test_wf_w05_align_toolbar_shortcuts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Align"
+text = "The Align dialog moves two or more selected shapes so their centres share the selection's bounding-box centre on one axis, as one undoable step."
+kind = "behavior"
+primary = "workflow"
+workflow = "w05-align"
+tests = [
+    "test_app.py::test_wf_w05_align_keyboard",
+    "test_app.py::test_wf_w05_align_needs_two",
+    "test_app.py::test_wf_w05_align_noop_not_undo_step",
+    "test_app.py::test_wf_w05_align_undo_not_in_textbox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Phone editor"
+text = "At phone width the 3D Workshop shows a full-width canvas, a `Shapes` bottom sheet for adding shapes, and tap-to-select."
+kind = "behavior"
+primary = "workflow"
+workflow = "w06-workplane-touch"
+tests = [
+    "test_app.py::test_wf_w06_workplane_touch_phone_editor",
+    "test_app.py::test_wf_w06_workplane_touch_phone_drag_zoom",
+]
+criteria = [
+    "B17",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Camera by touch and pointer"
+text = "A one-finger or mouse drag on empty canvas orbits the camera, and a pinch or the mouse wheel zooms it, also under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "w06-workplane-touch"
+tests = [
+    "test_app.py::test_camera_touch_pointer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Workplane"
+text = "The Workplane tool moves the workplane onto a chosen face of a shape, and new shapes land on that workplane."
+kind = "behavior"
+primary = "pytest"
+workflow = "w06-workplane-touch"
+tests = [
+    "test_app.py::test_wf_w06_workplane_touch_workplane_faces",
+    "test_app.py::test_wf_w06_workplane_touch_tablet_workplane",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Circuit Bench parts and wiring"
+text = "Batteries, LEDs, resistors and switches are added from the parts toolbar, wired by dragging or by pressing terminal buttons, and listed by label."
+kind = "behavior"
+primary = "workflow"
+workflow = "w07-circuit-overcurrent"
+tests = [
+    "test_app.py::test_wf_w07_circuit_overcurrent_keyboard_burnout",
+    "test_app.py::test_wf_w07_circuit_overcurrent_duplicate_wire",
+    "test_app.py::test_wf_w07_circuit_overcurrent_pointer_wiring",
+    "test_app.py::test_wf_w07_circuit_overcurrent_switch_burnout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Circuit solver"
+text = "The simulation solves the circuit with the LED model in Business rules, burns out an LED above its current limit until it is reset, and gives zero current past an open switch."
+kind = "behavior"
+primary = "pytest"
+workflow = "w07-circuit-overcurrent"
+tests = [
+    "test_app.py::test_circuit_solver",
+    "test_app.py::test_wf_w07_circuit_overcurrent_reversed_led_blocks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Live readouts"
+text = "While the simulation runs, every readout, LED state and LED brightness updates in place within one simulation tick of an edit, with no submit button."
+kind = "behavior"
+primary = "workflow"
+workflow = "w08-live-readout-two-tabs"
+tests = [
+    "test_app.py::test_wf_w08_live_readout_two_tabs_live_resistance",
+    "test_app.py::test_wf_w08_live_readout_two_tabs_live_voltage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Stale tabs and concurrent saves"
+text = "A save based on an old revision is refused without overwriting, exactly one of several simultaneous saves wins, and open tabs of a project see each other's saves."
+kind = "behavior"
+primary = "pytest"
+workflow = "w08-live-readout-two-tabs"
+tests = [
+    "test_app.py::test_wf_w08_live_readout_two_tabs_two_tabs",
+    "test_app.py::test_stale_and_concurrent_saves",
+    "test_app.py::test_wf_w08_live_readout_two_tabs_circuit_tabs",
+    "test_app.py::test_wf_w08_live_readout_two_tabs_simultaneous_saves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Block Lab programs"
+text = "The Block Lab builds programs from palette blocks by pointer or keyboard, including blocks nested inside a Repeat body."
+kind = "behavior"
+primary = "workflow"
+workflow = "w09-block-lab-loop"
+tests = [
+    "test_app.py::test_wf_w09_block_lab_loop_keyboard_tower",
+    "test_app.py::test_wf_w09_block_lab_loop_step_limit",
+    "test_app.py::test_wf_w09_block_lab_loop_keyboard_edit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Block Lab run"
+text = "Play runs the program one action block per step interval and produces the objects Business rules define, which saves and viewers then show."
+kind = "behavior"
+primary = "pytest"
+workflow = "w09-block-lab-loop"
+tests = [
+    "test_app.py::test_block_lab_run",
+    "test_app.py::test_wf_w09_block_lab_loop_glancet_after_run",
+    "test_app.py::test_wf_w09_block_lab_loop_fields_locked_while_running",
+    "test_app.py::test_wf_w09_block_lab_loop_undo_locked_while_running",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Export dialog"
+text = "The Export dialog offers STL, OBJ and SVG in millimetres or inches and shows the size line before download, as qualified in Business rules."
+kind = "behavior"
+primary = "workflow"
+workflow = "w10-export-worker"
+tests = [
+    "test_app.py::test_wf_w10_export_worker_stl_inches",
+    "test_app.py::test_wf_w10_export_worker_circuit_svg",
+    "test_app.py::test_wf_w10_export_worker_nothing_to_export",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Export files"
+text = "Export files are built in a Web Worker as closed meshes, scaled exactly for inches, and count as exported only after storage confirms them."
+kind = "behavior"
+primary = "pytest"
+workflow = "w10-export-worker"
+tests = [
+    "test_app.py::test_export_files",
+    "test_app.py::test_wf_w10_export_worker_group_hole_stays_in_group",
+    "test_app.py::test_wf_w10_export_worker_hole_group_keeps_its_core",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Hand-in files"
+text = "A classroom's Educators see every Student export on the classroom page and download it from there."
+kind = "behavior"
+primary = "pytest"
+workflow = "w10-export-worker"
+tests = [
+    "test_app.py::test_hand_in_files",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Glancet docking"
+text = "`Watch <nickname> live` opens one docked Glancet viewer that takes focus and stays in place while the roster scrolls under it."
+kind = "behavior"
+primary = "workflow"
+workflow = "w11-glancet"
+tests = [
+    "test_app.py::test_wf_w11_glancet_watch_keyboard",
+    "test_app.py::test_wf_w11_glancet_expanded_modal",
+]
+criteria = [
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Glancet live and controls"
+text = "Glancet updates in place on each save, expands and shrinks, and closes by button or Escape, returning focus and leaving the scroll position unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "w11-glancet"
+tests = [
+    "test_app.py::test_wf_w11_glancet_live_expand",
+    "test_app.py::test_wf_w11_glancet_reduced_motion_escape",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Glancet motion"
+text = "Glancet fades in and out at an even rate over the configured time and turns its model at the stated speed, with the reduced-motion and phone variants in Motion and effects."
+kind = "visual"
+primary = "pytest"
+workflow = "w11-glancet"
+tests = [
+    "test_app.py::test_glancet_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Project visibility"
+text = "Projects, snapshots and exports that a person may not see answer as not found and never load."
+kind = "behavior"
+primary = "pytest"
+workflow = "w12-removal-and-access"
+tests = [
+    "test_app.py::test_project_visibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Instructor-only classroom actions"
+text = "Roster, rename, removal, hand-in and join-code actions are refused for Students and for Educators who are not in the classroom."
+kind = "behavior"
+primary = "pytest"
+workflow = "w12-removal-and-access"
+tests = [
+    "test_app.py::test_instructor_only_actions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Immediate removal"
+text = "Removing a Student or an Assistant takes effect on that person's next request, closes their live stream and shows them the removal notice."
+kind = "behavior"
+primary = "workflow"
+workflow = "w12-removal-and-access"
+tests = [
+    "test_app.py::test_wf_w12_removal_and_access_student_removed",
+    "test_app.py::test_wf_w12_removal_and_access_assistant_removed",
+    "test_app.py::test_wf_w12_removal_and_access_remove_last_tile",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Assistant instructors"
+text = "A classroom's owner adds Assistants by email and removes them, and an Assistant sees only the classrooms they were added to."
+kind = "behavior"
+primary = "pytest"
+workflow = "w12-removal-and-access"
+tests = [
+    "test_app.py::test_assistant_instructors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Sign-up and verification email"
+text = "Personal makers and Educators sign up with email and password and verify through an emailed link, which expires and is replaced when a new one is sent."
+kind = "behavior"
+primary = "workflow"
+workflow = "w13-personal-signup-verification"
+tests = [
+    "test_app.py::test_wf_w13_personal_signup_verification_journey",
+    "test_app.py::test_wf_w13_personal_signup_verification_expiry_resend",
+    "test_app.py::test_wf_w13_personal_signup_verification_educator_resend",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Unverified and pending sessions"
+text = "An unverified account cannot create a classroom, save or export, and a Student who has not confirmed a nickname reaches no editor and no data."
+kind = "behavior"
+primary = "pytest"
+workflow = "w13-personal-signup-verification"
+tests = [
+    "test_app.py::test_unverified_and_pending_sessions",
+    "test_app.py::test_wf_w13_personal_signup_verification_unverified_save_notice",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Storage outage"
+text = "When storage is unreachable, health reports it, saves and exports fail with the stated copy, and unsaved edits stay in the browser."
+kind = "behavior"
+primary = "pytest"
+workflow = "w13-personal-signup-verification"
+tests = [
+    "test_app.py::test_storage_outage",
+    "test_app.py::test_wf_w13_personal_signup_verification_outage_export",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Run manifest, health and grading hooks"
+text = "The app runs from `/app/run.json`, answers the health route, and provides the grading seed, session and clock routes exactly as specified."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_hooks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Configuration from environment"
+text = "Every service address, credential, token and timer is read from the named environment variables at start and never sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Server boundary"
+text = "The server answers same-origin requests only, enforces the body-size limits and serves no source files or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Landing page"
+text = "The public landing page carries the workshop header bar, blueprint welcome hero, live build poster card, three-editor intro row, classroom stats doodle band, editor feature rows, starter project card grid, start-a-classroom closing band and site footer."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Working screens look"
+text = "The dashboard, roster, editors, forms, dialogs, empty states and error bands follow the visual design language in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Responsive layouts"
+text = "Every screen fits 375×812, 768×1024 and 1280×800 with no horizontal scrolling, and every control is at least 44 pixels square to tap."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_responsive_layouts",
+]
+criteria = []
+parameter_cases = [
+    "narrow",
+    "medium",
+    "wide",
+]
+
+[[requirements]]
+id = "DP-46"
+title = "Hover, focus and motion rules"
+text = "Hover and focus change colour only, dialogs fade at an even rate, nothing loops unless named, and reduced motion removes every fade and loop."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_hover_focus_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Landing scenes and previews"
+text = "The build poster loop, the feature-row previews and the starter-card previews behave as stated, each with a pause control and a still fallback; the hero's 3D scene stays still."
+kind = "visual"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_landing_scenes_previews",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Dialogs and Status region"
+text = "Every modal dialog (the list under Dialogs in Interactions) keeps Tab inside it, closes on Escape and returns focus to its opener, and every page announces messages in one polite Status region."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dialogs_and_status",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Browser-side geometry and simulation"
+text = "Rendering, solid/hole geometry, circuit solving, block running and file building are done by the product's own browser code, and none of it is simulated or computed on the server."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with string `install`, `build`, `serve` and `\"_schema\":\"run-manifest-v1\"`, and nothing else is needed to install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`THIRD_PARTY_NOTICES.md` at `/app` lists every shipped package with its licence. Shipped packages means the production dependency tree reported by `npm ls --omit=dev --all --json`."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, Zlib, BlueOak-1.0.0 or CC0-1.0. Fonts are under OFL-1.1. Nothing shipped is GPL, LGPL or AGPL."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app uses no datastore or service beyond Postgres, MinIO and Mailpit. That means no Redis, no SQLite or file-based database, and no external API at runtime."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Fira Sans and every icon are served from the app itself. Pages make no requests to other origins."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service configuration and environment variable names are used unchanged."
+tests = [
+    "test_app.py::test_if_service_config",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The package lockfile is committed and the install command uses it."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "No asset, copy, font or name is taken from any existing maker-education site. Icons come from the Lucide set, and every render and doodle is generated by the app."
+tests = [
+    "test_app.py::test_if_original_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "w01-classroom-live-join"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+]
+critical = [
+    "test_app.py::test_wf_w01_classroom_live_join_keyboard_setup",
+    "test_app.py::test_wf_w01_classroom_live_join_student_join",
+    "test_app.py::test_live_roster_joins",
+    "test_app.py::test_join_code_dialog",
+    "test_app.py::test_wf_w01_classroom_live_join_invalid_join",
+    "test_app.py::test_wf_w01_classroom_live_join_created_roster_live",
+    "test_app.py::test_wf_w01_classroom_live_join_empty_roster_pill_focus",
+    "test_app.py::test_wf_w01_classroom_live_join_zone_preselect_owned_only",
+]
+checkpoints = [
+    "B13",
+]
+
+[[workflows]]
+id = "w02-server-time-hand-in"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+]
+critical = [
+    "test_app.py::test_wf_w02_server_time_hand_in_classroom_freeze",
+    "test_app.py::test_wf_w02_server_time_hand_in_student_hand_in",
+    "test_app.py::test_server_countdown",
+    "test_app.py::test_wf_w02_server_time_hand_in_hand_in_all_keyboard",
+    "test_app.py::test_wf_w02_server_time_hand_in_join_window_tablet",
+    "test_app.py::test_wf_w02_server_time_hand_in_dashboard_state_live",
+]
+
+[[workflows]]
+id = "w03-csg-group"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_w03_csg_group_keyboard_build",
+    "test_app.py::test_wf_w03_csg_group_group_rules",
+    "test_app.py::test_live_roster_saves",
+    "test_app.py::test_revisions_and_saving",
+    "test_app.py::test_wf_w03_csg_group_shape_buttons",
+    "test_app.py::test_wf_w03_csg_group_toolbar_ctrl_s",
+    "test_app.py::test_wf_w03_csg_group_nested_group_is_one_solid",
+    "test_app.py::test_wf_w03_csg_group_ungroup_object_limit",
+]
+checkpoints = [
+    "B16",
+]
+
+[[workflows]]
+id = "w04-keyboard-transforms"
+requirements = [
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_w04_keyboard_transforms_undo_redo",
+    "test_app.py::test_wf_w04_keyboard_transforms_persistence",
+    "test_app.py::test_keyboard_transforms",
+    "test_app.py::test_wf_w04_keyboard_transforms_front_face_rotate",
+    "test_app.py::test_wf_w04_keyboard_transforms_undo_depth",
+    "test_app.py::test_wf_w04_keyboard_transforms_group_rotate",
+    "test_app.py::test_wf_w04_keyboard_transforms_noop_not_undo_step",
+    "test_app.py::test_wf_w04_keyboard_transforms_undo_not_in_textbox",
+]
+
+[[workflows]]
+id = "w05-align"
+requirements = [
+    "DP-16",
+    "DP-17",
+]
+critical = [
+    "test_app.py::test_wf_w05_align_keyboard",
+    "test_app.py::test_selection",
+    "test_app.py::test_wf_w05_align_needs_two",
+    "test_app.py::test_wf_w05_align_three_on_z",
+    "test_app.py::test_wf_w05_align_phone_shift_tap",
+    "test_app.py::test_wf_w05_align_toolbar_shortcuts",
+    "test_app.py::test_wf_w05_align_noop_not_undo_step",
+    "test_app.py::test_wf_w05_align_undo_not_in_textbox",
+]
+
+[[workflows]]
+id = "w06-workplane-touch"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_wf_w06_workplane_touch_phone_editor",
+    "test_app.py::test_wf_w06_workplane_touch_workplane_faces",
+    "test_app.py::test_camera_touch_pointer",
+    "test_app.py::test_wf_w06_workplane_touch_tablet_workplane",
+    "test_app.py::test_wf_w06_workplane_touch_phone_drag_zoom",
+]
+checkpoints = [
+    "B17",
+]
+
+[[workflows]]
+id = "w07-circuit-overcurrent"
+requirements = [
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_w07_circuit_overcurrent_keyboard_burnout",
+    "test_app.py::test_circuit_solver",
+    "test_app.py::test_wf_w07_circuit_overcurrent_duplicate_wire",
+    "test_app.py::test_wf_w07_circuit_overcurrent_pointer_wiring",
+    "test_app.py::test_wf_w07_circuit_overcurrent_switch_burnout",
+    "test_app.py::test_wf_w07_circuit_overcurrent_reversed_led_blocks",
+]
+
+[[workflows]]
+id = "w08-live-readout-two-tabs"
+requirements = [
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_w08_live_readout_two_tabs_live_resistance",
+    "test_app.py::test_wf_w08_live_readout_two_tabs_two_tabs",
+    "test_app.py::test_wf_w08_live_readout_two_tabs_live_voltage",
+    "test_app.py::test_wf_w08_live_readout_two_tabs_circuit_tabs",
+    "test_app.py::test_wf_w08_live_readout_two_tabs_simultaneous_saves",
+]
+
+[[workflows]]
+id = "w09-block-lab-loop"
+requirements = [
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_w09_block_lab_loop_keyboard_tower",
+    "test_app.py::test_block_lab_run",
+    "test_app.py::test_wf_w09_block_lab_loop_step_limit",
+    "test_app.py::test_wf_w09_block_lab_loop_keyboard_edit",
+    "test_app.py::test_wf_w09_block_lab_loop_glancet_after_run",
+    "test_app.py::test_wf_w09_block_lab_loop_fields_locked_while_running",
+    "test_app.py::test_wf_w09_block_lab_loop_undo_locked_while_running",
+]
+
+[[workflows]]
+id = "w10-export-worker"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_w10_export_worker_stl_inches",
+    "test_app.py::test_wf_w10_export_worker_circuit_svg",
+    "test_app.py::test_export_files",
+    "test_app.py::test_hand_in_files",
+    "test_app.py::test_wf_w10_export_worker_nothing_to_export",
+    "test_app.py::test_wf_w10_export_worker_group_hole_stays_in_group",
+    "test_app.py::test_wf_w10_export_worker_hole_group_keeps_its_core",
+]
+
+[[workflows]]
+id = "w11-glancet"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_w11_glancet_watch_keyboard",
+    "test_app.py::test_wf_w11_glancet_live_expand",
+    "test_app.py::test_glancet_motion",
+    "test_app.py::test_wf_w11_glancet_expanded_modal",
+    "test_app.py::test_wf_w11_glancet_reduced_motion_escape",
+]
+checkpoints = [
+    "B11",
+]
+critical_checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "w12-removal-and-access"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_w12_removal_and_access_student_removed",
+    "test_app.py::test_wf_w12_removal_and_access_assistant_removed",
+    "test_app.py::test_project_visibility",
+    "test_app.py::test_instructor_only_actions",
+    "test_app.py::test_assistant_instructors",
+    "test_app.py::test_wf_w12_removal_and_access_remove_last_tile",
+]
+
+[[workflows]]
+id = "w13-personal-signup-verification"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_w13_personal_signup_verification_journey",
+    "test_app.py::test_wf_w13_personal_signup_verification_expiry_resend",
+    "test_app.py::test_unverified_and_pending_sessions",
+    "test_app.py::test_storage_outage",
+    "test_app.py::test_wf_w13_personal_signup_verification_educator_resend",
+    "test_app.py::test_wf_w13_personal_signup_verification_outage_export",
+    "test_app.py::test_wf_w13_personal_signup_verification_unverified_save_notice",
+]
+checkpoints = [
+    "B14",
+    "B15",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_grading_hooks",
+    "test_app.py::test_server_boundary",
+    "test_app.py::test_responsive_layouts",
+    "test_app.py::test_hover_focus_motion",
+    "test_app.py::test_landing_scenes_previews",
+    "test_app.py::test_dialogs_and_status",
+]
+checkpoints = [
+    "B2",
+    "B4",
+    "B9",
+]

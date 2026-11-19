@@ -1,0 +1,1142 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 49
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "deployment",
+    "accounts",
+    "profile",
+    "board-look",
+    "accessibility",
+    "three-views",
+    "motion",
+    "rules",
+    "draws",
+    "takebacks",
+    "ratings",
+    "concurrency",
+    "house",
+    "deadlines",
+    "chat",
+    "clubs",
+    "challenges",
+    "live-updates",
+    "record",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+rubric_total_weight = 44
+outages = []
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 5
+B4 = 5
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+LOGIN_MAX_FAILS = "5"
+LOCKOUT_SEC = "900"
+CHAT_RATE_LIMIT = "5"
+FIRST_MOVE_ABORT_SEC = "3600"
+MOVE_DEADLINE_SEC = "259200"
+
+[[requirements]]
+id = "DP-01"
+title = "Deployment and health."
+text = "The app answers at `APP_PUBLIC_URL` on `APP_PUBLIC_PORT`, binds `0.0.0.0`, and `GET /api/health` returns `200` once PostgreSQL is readable."
+kind = "behavior"
+primary = "workflow"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_app_answers_at_the_public_url_on_the_named_port",
+    "test_app.py::test_server_binds_all_interfaces_and_answers_from_outside_its_container",
+    "test_app.py::test_health_reports_ready_once_the_store_is_readable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Request identifiers."
+text = "Every request writes one structured stdout line carrying a `request_id`, and every response returns that value in its own `X-Request-Id` header."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_every_response_carries_a_request_identifier_header",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Refusals and collections."
+text = "A refusal answers in the client-error range with a reason a person can read, and any collection of records is a top-level JSON array."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_a_refusal_answers_in_the_client_error_range",
+    "test_app.py::test_the_member_directory_returns_a_top_level_json_array",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Own origin and scope."
+text = "Pages load nothing from another origin, and the product carries no clock, trainer, lesson, payment or advertising."
+kind = "behavior"
+primary = "pytest"
+workflow = "deployment"
+tests = [
+    "test_app.py::test_pages_load_no_foreign_scripts",
+    "test_app.py::test_no_page_offers_a_trainer_or_a_payment",
+    "test_app.py::test_no_game_carries_a_clock_or_a_time_control",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Seed data."
+text = "The six seeded members, two clubs, the ban, the block and the four games exist exactly once with the ratings, roles and counts this brief lists."
+kind = "behavior"
+primary = "workflow"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_seeded_members_sign_in_with_the_corpus_password",
+    "test_app.py::test_the_seeded_administrator_holds_the_elevated_role",
+    "test_app.py::test_the_seeded_top_band_member_holds_the_pinned_rating",
+    "test_app.py::test_the_seeded_provisional_member_holds_fewer_than_ten_rated_games",
+    "test_app.py::test_the_seeded_private_club_is_private",
+    "test_app.py::test_the_seeded_banned_member_is_recorded_as_banned",
+    "test_app.py::test_seeding_is_idempotent_across_a_restart",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Username shape."
+text = "A username outside `3` to `20` letters, digits and underscores is refused with `422`, and a case-variant of a taken name with `409`, creating nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_a_username_below_the_floor_is_refused_as_unprocessable",
+    "test_app.py::test_a_username_above_the_ceiling_is_refused_as_unprocessable",
+    "test_app.py::test_a_username_carrying_a_hyphen_is_refused_as_unprocessable",
+    "test_app.py::test_a_username_differing_only_in_letter_case_is_refused_as_a_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Sign in and sign out."
+text = "Members sign in by username or email through the `Username` field, member routes send a visitor without a session to `/login`, and signing out ends the token at once."
+kind = "behavior"
+primary = "workflow"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_a_signed_out_token_is_denied_on_the_next_call",
+    "test_app.py::test_a_member_signing_in_lands_inside_the_hall",
+    "test_app.py::test_a_visitor_without_a_session_is_sent_to_sign_in",
+    "test_app.py::test_a_caller_without_a_session_cannot_read_a_game",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Sign-in lock."
+text = "After `LOGIN_MAX_FAILS` refused sign-ins the account answers `423`, even to the right password, until `LOCKOUT_SEC` seconds pass."
+kind = "behavior"
+primary = "pytest"
+workflow = "accounts"
+tests = [
+    "test_app.py::test_repeated_sign_in_failures_lock_the_account_against_the_right_password",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Profile picture."
+text = "A member picks one of `avatar_01` to `avatar_12` or uploads a PNG, JPEG or WebP of up to `2` MB served as a `256` by `256` PNG, with `415`, `413` and `403` refusals storing nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "profile"
+tests = [
+    "test_app.py::test_selecting_a_supplied_avatar_sets_the_member_picture",
+    "test_app.py::test_an_avatar_of_an_unsupported_type_is_refused_as_unsupported_media",
+    "test_app.py::test_an_avatar_above_the_size_limit_is_refused_as_too_large",
+    "test_app.py::test_an_uploaded_picture_is_served_as_a_256_square_png",
+    "test_app.py::test_a_member_changing_another_members_avatar_is_refused_as_forbidden",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Rename everywhere."
+text = "A rename shows at once in the game header, on every chat message the member sent and in the `White` and `Black` record tags."
+kind = "behavior"
+primary = "workflow"
+workflow = "profile"
+tests = [
+    "test_app.py::test_a_rename_shows_the_new_username_in_the_game_header",
+    "test_app.py::test_a_rename_shows_the_new_username_on_existing_chat_messages",
+    "test_app.py::test_a_rename_reaches_the_position_record_tags",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Preferences persist."
+text = "View, flat set, deep set, theme and sound persist with the account across browsers, start on the flat view with `Classic`, `Marble`, `Forest` and sound on, refuse unknown names, and refuse another member with `403`."
+kind = "behavior"
+primary = "workflow"
+workflow = "profile"
+tests = [
+    "test_app.py::test_a_new_member_starts_on_the_default_theme",
+    "test_app.py::test_a_new_member_starts_on_the_default_flat_piece_set",
+    "test_app.py::test_the_profile_endpoint_returns_the_chosen_flat_piece_set",
+    "test_app.py::test_the_profile_endpoint_returns_the_sound_setting",
+    "test_app.py::test_every_declared_piece_set_and_theme_is_accepted_by_the_profile",
+    "test_app.py::test_an_unknown_piece_set_or_theme_is_refused",
+    "test_app.py::test_a_chosen_theme_survives_a_fresh_sign_in",
+    "test_app.py::test_a_member_cannot_change_another_members_preferences",
+    "test_app.py::test_a_chosen_theme_is_still_applied_after_a_fresh_page_load",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Piece sets."
+text = "The four flat sets and the three deep sets each visibly change every piece, while every piece keeps one accessible name in every set and view."
+kind = "behavior"
+primary = "workflow"
+workflow = "board-look"
+tests = [
+    "test_app.py::test_changing_the_piece_set_visibly_changes_the_board",
+]
+criteria = [
+    "B10",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Board themes."
+text = "Each of the five themes keeps its two squares at least `3:1` apart and its coordinate labels at least `4.5:1` against the square they sit on."
+kind = "behavior"
+primary = "workflow"
+workflow = "board-look"
+tests = [
+    "test_app.py::test_every_board_theme_keeps_its_squares_apart_and_its_text_readable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Deep piece shapes."
+text = "Each of the six deep piece types has its own silhouette: a horse-head knight, a rook with battlements, a king with a cross and a queen with a crown of points."
+kind = "visual"
+primary = "rubric"
+workflow = "board-look"
+tests = []
+criteria = [
+    "B1",
+    "B3",
+    "B9",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Accessibility contract."
+text = "Public routes and the game route pass WCAG 2.2 AA, targets are at least `24` by `24` CSS pixels, icon-only controls carry names, focus is visible, and the game route offers `Skip to board`."
+kind = "behavior"
+primary = "workflow"
+workflow = "accessibility"
+tests = [
+    "test_app.py::test_axe_bundle_is_present_for_the_wcag_audit",
+    "test_app.py::test_axe_flags_planted_violations_before_the_wcag_audit",
+    "test_app.py::test_contrast_helper_catches_a_known_failing_pair",
+    "test_app.py::test_public_routes_meet_wcag_at_desktop_width",
+    "test_app.py::test_the_game_route_meets_wcag_at_desktop_width",
+    "test_app.py::test_every_interactive_target_meets_the_minimum_size",
+    "test_app.py::test_every_icon_only_control_carries_an_accessible_name",
+    "test_app.py::test_the_sign_in_form_shows_a_focus_ring",
+    "test_app.py::test_the_skip_link_reaches_the_board",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Responsive layout."
+text = "Member routes never scroll sideways at `320`, `360`, `390` and `414` CSS pixels, the board stays square, and at `390` the side column sits under a full-width board."
+kind = "behavior"
+primary = "workflow"
+workflow = "accessibility"
+tests = [
+    "test_app.py::test_overflow_probe_catches_a_box_that_scrolls_sideways_at_the_narrowest_width",
+    "test_app.py::test_member_routes_do_not_scroll_sideways_at_the_narrowest_width",
+    "test_app.py::test_member_routes_hold_their_layout_at_every_pinned_width",
+    "test_app.py::test_the_board_stays_square_at_phone_width",
+]
+criteria = [
+    "B6",
+    "B7",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Three views of one position."
+text = "The game offers `Flat board`, `Deep board` and `Square list`, draws depth with hardware graphics, carries `64` named squares in its first response, and keeps the position when the view switches."
+kind = "behavior"
+primary = "workflow"
+workflow = "three-views"
+tests = [
+    "test_app.py::test_the_view_switch_offers_all_three_views",
+    "test_app.py::test_the_deep_view_renders_with_hardware_graphics",
+    "test_app.py::test_the_accessible_board_carries_sixty_four_named_squares",
+    "test_app.py::test_switching_views_mid_game_keeps_the_accessible_board_position",
+    "test_app.py::test_a_game_route_loads_directly_from_its_own_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Deep board fit and pointing."
+text = "The deep board fits `1440` by `900` and `390` wide without scrolling, plays a move by clicking a piece and then a marked destination, and marks the last move's two squares."
+kind = "behavior"
+primary = "workflow"
+workflow = "three-views"
+tests = [
+    "test_app.py::test_the_deep_board_fits_the_viewport",
+]
+criteria = [
+    "B2",
+    "B5",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Deep board follows the game."
+text = "After every move the deep board shows the piece travelling to its new square, and dragging or zooming turns the view without moving any piece."
+kind = "behavior"
+primary = "workflow"
+workflow = "three-views"
+tests = [
+    "test_app.py::test_the_deep_view_changes_after_a_move",
+    "test_app.py::test_dragging_the_deep_board_turns_the_view",
+    "test_app.py::test_a_deep_move_travels_through_the_frames_between_its_squares",
+]
+criteria = [
+    "B4",
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Move announcements."
+text = "Every move, the house's included, is announced in a live region in the pinned forms, ending in `, check` or `, checkmate` when the move gives check or mate."
+kind = "behavior"
+primary = "workflow"
+workflow = "three-views"
+tests = [
+    "test_app.py::test_a_move_is_announced_in_a_live_region",
+    "test_app.py::test_a_check_is_announced_with_the_check_ending",
+    "test_app.py::test_a_mate_is_announced_with_the_checkmate_ending",
+    "test_app.py::test_a_capture_is_announced_in_the_pinned_form",
+    "test_app.py::test_a_promotion_is_announced_in_the_pinned_form",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Game animations."
+text = "The move, capture, promotion, victory, defeat and draw animations each play on the page for between `150` and `1200` milliseconds."
+kind = "behavior"
+primary = "workflow"
+workflow = "motion"
+tests = [
+    "test_app.py::test_a_piece_move_animates_inside_the_duration_band",
+    "test_app.py::test_a_capture_animation_plays_inside_the_duration_band",
+    "test_app.py::test_a_promotion_animation_plays_inside_the_duration_band",
+    "test_app.py::test_a_victory_animation_plays_inside_the_duration_band",
+    "test_app.py::test_a_defeat_animation_plays_inside_the_duration_band",
+    "test_app.py::test_a_draw_animates_inside_the_duration_band",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Reduced motion."
+text = "Under reduced motion no endless animation runs, and the victory, defeat and draw screens keep every word and control."
+kind = "behavior"
+primary = "workflow"
+workflow = "motion"
+tests = [
+    "test_app.py::test_reduced_motion_removes_the_endless_animation_from_the_game",
+    "test_app.py::test_reduced_motion_keeps_every_word_of_the_finished_game_screen",
+    "test_app.py::test_reduced_motion_keeps_every_word_of_the_draw_screen",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Legal moves."
+text = "The server generates every legal move including castling, en passant and each promotion, accepts the coordinate form, and refuses a move leaving the mover's king in check with `422`."
+kind = "behavior"
+primary = "workflow"
+workflow = "rules"
+tests = [
+    "test_app.py::test_the_move_endpoint_accepts_the_coordinate_move_form",
+    "test_app.py::test_the_legal_moves_endpoint_lists_the_moves_of_the_current_position",
+    "test_app.py::test_a_caller_without_a_session_cannot_list_a_games_legal_moves",
+    "test_app.py::test_a_game_starts_from_a_supplied_position_record",
+    "test_app.py::test_castling_is_accepted_when_its_conditions_hold",
+    "test_app.py::test_capture_en_passant_is_accepted_when_legal",
+    "test_app.py::test_promotion_to_a_knight_is_accepted_through_the_five_character_move",
+    "test_app.py::test_a_move_leaving_the_movers_own_king_in_check_is_refused_as_unprocessable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Exact position record."
+text = "The en passant field names a square only when that capture is available, the halfmove clock resets on a capture or pawn move, and the fullmove number rises after each Black move."
+kind = "behavior"
+primary = "workflow"
+workflow = "rules"
+tests = [
+    "test_app.py::test_the_en_passant_field_is_empty_when_no_en_passant_capture_is_available",
+    "test_app.py::test_the_en_passant_field_names_a_square_only_when_the_capture_is_available",
+    "test_app.py::test_the_halfmove_clock_resets_to_zero_on_a_pawn_move",
+    "test_app.py::test_the_fullmove_number_increases_after_a_black_move",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Stored moves."
+text = "Moves are unique on game and ply, the game's `fen` equals its highest-ply move, and the move list records the move played."
+kind = "behavior"
+primary = "pytest"
+workflow = "rules"
+tests = [
+    "test_app.py::test_move_rows_are_unique_on_game_and_ply",
+    "test_app.py::test_the_stored_game_position_equals_its_highest_ply_move",
+    "test_app.py::test_the_game_records_the_played_move_in_its_move_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Game controls."
+text = "The game screen offers `Offer draw`, `Claim draw`, `Ask for takeback`, `Resign` and `Rematch`."
+kind = "behavior"
+primary = "pytest"
+workflow = "rules"
+tests = [
+    "test_app.py::test_the_game_offers_its_named_controls",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Repetition and claims."
+text = "Threefold and fifty-move claims draw only once their condition holds and otherwise answer `409`, and fivefold repetition and insufficient material draw automatically."
+kind = "behavior"
+primary = "workflow"
+workflow = "draws"
+tests = [
+    "test_app.py::test_two_positions_differing_only_in_castling_rights_are_not_one_repetition",
+    "test_app.py::test_two_positions_differing_only_in_en_passant_rights_are_not_one_repetition",
+    "test_app.py::test_an_early_threefold_claim_is_refused_as_a_conflict",
+    "test_app.py::test_a_threefold_claim_draws_the_game_once_the_condition_holds",
+    "test_app.py::test_an_early_fifty_move_claim_is_refused_as_a_conflict",
+    "test_app.py::test_a_fifty_move_claim_draws_the_game_once_the_condition_holds",
+    "test_app.py::test_a_fifth_repetition_ends_the_game_as_a_draw_with_no_claim",
+    "test_app.py::test_same_coloured_bishops_with_two_kings_draw_automatically",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Draw offers."
+text = "A draw offer is allowed only on the offering player's turn, expires when the opponent moves, and a second offer while one is open answers `409`."
+kind = "behavior"
+primary = "workflow"
+workflow = "draws"
+tests = [
+    "test_app.py::test_a_draw_offer_made_out_of_turn_is_refused",
+    "test_app.py::test_a_draw_offer_expires_when_the_opponent_moves",
+    "test_app.py::test_a_second_draw_offer_before_the_first_is_answered_is_refused_as_a_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Draw screen."
+text = "A drawn game shows `Drawn` with exactly the reason that ended it, so a game drawn by an accepted offer reads `agreement`."
+kind = "behavior"
+primary = "workflow"
+workflow = "draws"
+tests = [
+    "test_app.py::test_the_draw_screen_names_the_reason_the_game_ended",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Takebacks."
+text = "An accepted takeback restores the position, the move count, the repetition history and the claim rights, and accepting with none open answers `409`."
+kind = "behavior"
+primary = "workflow"
+workflow = "takebacks"
+tests = [
+    "test_app.py::test_an_accepted_takeback_restores_the_position_record",
+    "test_app.py::test_an_accepted_takeback_restores_the_move_count",
+    "test_app.py::test_an_accepted_takeback_restores_draw_claim_eligibility",
+    "test_app.py::test_accepting_a_takeback_with_none_pending_is_refused_as_a_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Turn order."
+text = "A move out of turn and a move into a finished game each answer `409`."
+kind = "behavior"
+primary = "workflow"
+workflow = "takebacks"
+tests = [
+    "test_app.py::test_a_move_submitted_out_of_turn_is_refused_as_a_conflict",
+    "test_app.py::test_a_move_submitted_into_a_finished_game_is_refused_as_a_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Leaving and returning."
+text = "A game reopened after a reload or a trip to another page shows the same position and move list, read from the store."
+kind = "behavior"
+primary = "workflow"
+workflow = "takebacks"
+tests = [
+    "test_app.py::test_a_game_survives_leaving_and_returning",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Rating formula."
+text = "Both ratings move by the standard expectation at step `40`, `20` or `10` from the pre-game numbers, rounded half away from zero, never below `100`, with a trailing `?` under `10` rated games."
+kind = "behavior"
+primary = "workflow"
+workflow = "ratings"
+tests = [
+    "test_app.py::test_a_rated_result_uses_the_new_player_step_factor",
+    "test_app.py::test_a_rated_result_uses_the_settled_player_step_factor",
+    "test_app.py::test_a_rated_result_uses_the_top_band_step_factor",
+    "test_app.py::test_a_fractional_rating_change_is_rounded_half_away_from_zero",
+    "test_app.py::test_a_rating_never_falls_below_the_floor",
+    "test_app.py::test_both_rating_changes_are_computed_from_the_pre_game_ratings",
+    "test_app.py::test_a_provisional_rating_is_shown_with_the_trailing_mark",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Voiding."
+text = "An administrator's void recomputes every later rated game of both players in order and writes audit rows naming the administrator and the ratings before and after, while a member's void answers `403`."
+kind = "behavior"
+primary = "workflow"
+workflow = "ratings"
+tests = [
+    "test_app.py::test_voiding_a_rated_game_recomputes_every_later_game_of_both_players",
+    "test_app.py::test_voiding_writes_an_audit_entry_carrying_the_ratings_before_the_void",
+    "test_app.py::test_voiding_writes_an_audit_entry_carrying_the_acting_administrator",
+    "test_app.py::test_a_member_voiding_a_rated_game_is_refused_as_forbidden",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Single winner."
+text = "Two moves for one ply leave one `201`, one `409` and one stored move, and a repeated accept under one `Idempotency-Key` returns the same game."
+kind = "behavior"
+primary = "workflow"
+workflow = "concurrency"
+tests = [
+    "test_app.py::test_accepting_one_challenge_twice_under_one_key_creates_no_second_game",
+    "test_app.py::test_two_moves_for_one_ply_give_exactly_one_created_and_one_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "House opponent."
+text = "The house plays only legal moves, answers one position identically every time, takes a mate in one and an undefended queen at `sharp`, and moves no rating."
+kind = "behavior"
+primary = "workflow"
+workflow = "house"
+tests = [
+    "test_app.py::test_every_house_move_is_legal_in_the_position_it_was_given",
+    "test_app.py::test_the_sharpest_house_level_plays_an_available_mate_in_one",
+    "test_app.py::test_the_sharpest_house_level_captures_an_undefended_queen",
+    "test_app.py::test_a_house_game_is_created_unrated_and_moves_no_rating",
+    "test_app.py::test_the_house_answers_one_position_identically_on_every_request",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Rematch."
+text = "A rematch swaps the colours and keeps the rated flag of the game before it."
+kind = "behavior"
+primary = "workflow"
+workflow = "house"
+tests = [
+    "test_app.py::test_a_rematch_swaps_the_colours",
+    "test_app.py::test_a_rematch_carries_the_rated_flag_of_the_game_before_it",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Abort and deadline."
+text = "A game with no first move inside `FIRST_MOVE_ABORT_SEC` reads `aborted` with no result and no rating change, and a game idle past `MOVE_DEADLINE_SEC` is lost by the player who owed the move."
+kind = "behavior"
+primary = "workflow"
+workflow = "deadlines"
+tests = [
+    "test_app.py::test_a_game_with_no_first_move_is_aborted_when_next_read",
+    "test_app.py::test_a_game_past_its_move_deadline_is_lost_by_the_player_who_owed_the_move",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Chat rules."
+text = "Chat returns messages in send order with their text verbatim, refuses an empty message and one over `500` characters with `422`, and answers `429` above `CHAT_RATE_LIMIT` messages in `10` seconds."
+kind = "behavior"
+primary = "workflow"
+workflow = "chat"
+tests = [
+    "test_app.py::test_chat_messages_are_returned_in_send_order",
+    "test_app.py::test_a_chat_message_of_exactly_the_limit_is_accepted",
+    "test_app.py::test_an_empty_chat_message_is_refused_as_unprocessable",
+    "test_app.py::test_an_over_long_chat_message_is_refused_as_unprocessable",
+    "test_app.py::test_chat_text_is_stored_without_interpreting_markup",
+    "test_app.py::test_chat_above_the_rate_limit_is_refused_as_too_many_requests",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Spectators."
+text = "Anyone who is not one of the two players is refused with `403` on reading the chat, posting to it and moving, and the position is untouched."
+kind = "behavior"
+primary = "workflow"
+workflow = "chat"
+tests = [
+    "test_app.py::test_a_non_player_reading_a_game_chat_is_refused_as_forbidden",
+    "test_app.py::test_a_caller_without_a_session_cannot_read_a_games_chat",
+    "test_app.py::test_a_non_player_posting_to_a_game_chat_is_refused_as_forbidden",
+    "test_app.py::test_a_spectator_submitting_a_move_is_refused_as_forbidden",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Chat beside the board."
+text = "A message shows in the game's chat panel under its sender's current name and picture."
+kind = "behavior"
+primary = "workflow"
+workflow = "chat"
+tests = [
+    "test_app.py::test_a_message_from_the_opponent_shows_in_the_chat_panel",
+]
+criteria = [
+    "B8",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Private clubs and bans."
+text = "A private club's game answers an outsider exactly as a missing game, and a banned member challenging through the club is refused with `403`."
+kind = "behavior"
+primary = "workflow"
+workflow = "clubs"
+tests = [
+    "test_app.py::test_a_private_club_game_reads_as_missing_to_an_outsider",
+    "test_app.py::test_a_banned_member_challenging_through_a_club_is_refused_as_forbidden",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Blocking."
+text = "While a block stands the blocked member's challenge and chat to the blocker answer `403`, and unblocking restores both."
+kind = "behavior"
+primary = "workflow"
+workflow = "clubs"
+tests = [
+    "test_app.py::test_a_blocked_member_challenging_the_blocker_is_refused_as_forbidden",
+    "test_app.py::test_a_blocked_member_chatting_the_blocker_is_refused_as_forbidden",
+    "test_app.py::test_unblocking_restores_the_ability_to_challenge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Notifications."
+text = "A challenge, an opponent's move and a chat message each raise the exact unread count, marking one read lowers it by exactly one, and the list and the bell show it."
+kind = "behavior"
+primary = "workflow"
+workflow = "clubs"
+tests = [
+    "test_app.py::test_a_challenge_creates_a_notification_for_its_recipient",
+    "test_app.py::test_an_opponent_move_creates_a_notification",
+    "test_app.py::test_a_chat_message_creates_a_notification",
+    "test_app.py::test_marking_one_notification_read_lowers_the_count_by_exactly_one",
+    "test_app.py::test_an_empty_notification_list_says_so",
+    "test_app.py::test_a_new_challenge_shows_in_the_notification_list_and_bell",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Challenges page."
+text = "A received challenge shows on `/challenges` with an `Accept` control that creates the game, and the colour the form sent is the colour the game carries."
+kind = "behavior"
+primary = "workflow"
+workflow = "challenges"
+tests = [
+    "test_app.py::test_a_received_challenge_appears_on_the_challenges_page",
+    "test_app.py::test_choosing_black_in_the_challenge_form_makes_the_challenger_black",
+    "test_app.py::test_the_challenges_route_names_its_empty_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Live updates."
+text = "An opponent's move, chat message, draw offer and takeback request, a new challenge and the unread count each reach an open page without a reload within `5` seconds."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-updates"
+tests = [
+    "test_app.py::test_an_opponent_move_reaches_an_open_game_page_without_a_reload",
+    "test_app.py::test_an_opponent_move_reaches_the_open_flat_board_without_a_reload",
+    "test_app.py::test_an_opponent_move_reaches_the_open_deep_board_without_a_reload",
+    "test_app.py::test_an_opponent_chat_message_reaches_an_open_game_page_without_a_reload",
+    "test_app.py::test_a_draw_offer_reaches_an_open_game_page_with_its_controls",
+    "test_app.py::test_a_takeback_request_reaches_an_open_game_page_without_a_reload",
+    "test_app.py::test_a_new_challenge_reaches_an_open_challenges_page_without_a_reload",
+    "test_app.py::test_the_notification_count_rises_on_an_open_page_without_a_reload",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Game record."
+text = "The record carries the seven tags in order with a `YYYY.MM.DD` date and correctly disambiguated notation, imports to the replayed position, refuses a bad record by line and names the opening by longest match."
+kind = "behavior"
+primary = "workflow"
+workflow = "record"
+tests = [
+    "test_app.py::test_the_record_carries_the_seven_standard_tags_in_order",
+    "test_app.py::test_a_caller_without_a_session_cannot_read_a_games_record",
+    "test_app.py::test_the_record_date_tag_is_written_in_the_pinned_format",
+    "test_app.py::test_the_record_disambiguates_two_identical_pieces_reaching_one_square",
+    "test_app.py::test_a_pinned_piece_creates_no_disambiguation_in_the_record",
+    "test_app.py::test_a_mating_move_carries_the_mate_suffix_in_the_record",
+    "test_app.py::test_importing_a_valid_record_reaches_the_replayed_position",
+    "test_app.py::test_an_invalid_record_is_refused_and_names_the_failing_line",
+    "test_app.py::test_the_opening_name_is_the_longest_match_in_the_pinned_table",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Members and the leaderboard."
+text = "A member's profile splits results by colour and lists finished games with their record links, and the leaderboard orders by rating, games and name behind a `next_cursor`."
+kind = "behavior"
+primary = "workflow"
+workflow = "record"
+tests = [
+    "test_app.py::test_a_member_profile_splits_its_record_by_colour",
+    "test_app.py::test_the_leaderboard_orders_by_rating_descending",
+    "test_app.py::test_the_leaderboard_breaks_a_rating_tie_by_games_played",
+    "test_app.py::test_the_leaderboard_returns_a_cursor_for_the_next_page",
+    "test_app.py::test_a_member_page_lists_their_finished_games",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Not-found page."
+text = "A game the member may not see, a game that does not exist and an unknown address show `That game is not here.` inside the club's own chrome."
+kind = "behavior"
+primary = "pytest"
+workflow = "record"
+tests = [
+    "test_app.py::test_an_unknown_game_address_shows_the_not_found_page",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "Write the seeded credentials into `/app/USER_README.md` beside each username, and leave the reserved `.browser_screenshots/` and `.downloads/` directories at the app root."
+tests = [
+    "test_app.py::test_if_credentials_file_and_reserved_directories",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "Ship `run.json` at the app root with string `install`, `build` and `serve` fields and a non-empty `serve` command."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "deployment"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+]
+critical = [
+    "test_app.py::test_server_binds_all_interfaces_and_answers_from_outside_its_container",
+    "test_app.py::test_health_reports_ready_once_the_store_is_readable",
+    "test_app.py::test_every_response_carries_a_request_identifier_header",
+]
+
+[[workflows]]
+id = "accounts"
+requirements = [
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_seeding_is_idempotent_across_a_restart",
+    "test_app.py::test_a_username_differing_only_in_letter_case_is_refused_as_a_conflict",
+    "test_app.py::test_repeated_sign_in_failures_lock_the_account_against_the_right_password",
+    "test_app.py::test_a_caller_without_a_session_cannot_read_a_game",
+]
+
+[[workflows]]
+id = "profile"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+]
+critical = [
+    "test_app.py::test_a_rename_reaches_the_position_record_tags",
+    "test_app.py::test_a_member_cannot_change_another_members_preferences",
+    "test_app.py::test_a_chosen_theme_survives_a_fresh_sign_in",
+]
+
+[[workflows]]
+id = "board-look"
+requirements = [
+    "DP-12",
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_every_board_theme_keeps_its_squares_apart_and_its_text_readable",
+]
+checkpoints = [
+    "B9",
+    "B10",
+]
+
+[[workflows]]
+id = "accessibility"
+requirements = [
+    "DP-15",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_axe_flags_planted_violations_before_the_wcag_audit",
+    "test_app.py::test_contrast_helper_catches_a_known_failing_pair",
+    "test_app.py::test_overflow_probe_catches_a_box_that_scrolls_sideways_at_the_narrowest_width",
+    "test_app.py::test_member_routes_hold_their_layout_at_every_pinned_width",
+]
+
+[[workflows]]
+id = "three-views"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+]
+critical = [
+    "test_app.py::test_switching_views_mid_game_keeps_the_accessible_board_position",
+    "test_app.py::test_the_deep_board_fits_the_viewport",
+    "test_app.py::test_the_deep_view_changes_after_a_move",
+    "test_app.py::test_dragging_the_deep_board_turns_the_view",
+    "test_app.py::test_a_check_is_announced_with_the_check_ending",
+    "test_app.py::test_a_mate_is_announced_with_the_checkmate_ending",
+    "test_app.py::test_a_capture_is_announced_in_the_pinned_form",
+    "test_app.py::test_a_promotion_is_announced_in_the_pinned_form",
+]
+checkpoints = [
+    "B2",
+]
+
+[[workflows]]
+id = "motion"
+requirements = [
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_a_piece_move_animates_inside_the_duration_band",
+    "test_app.py::test_a_capture_animation_plays_inside_the_duration_band",
+    "test_app.py::test_a_promotion_animation_plays_inside_the_duration_band",
+    "test_app.py::test_a_victory_animation_plays_inside_the_duration_band",
+    "test_app.py::test_a_defeat_animation_plays_inside_the_duration_band",
+]
+
+[[workflows]]
+id = "rules"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_a_move_leaving_the_movers_own_king_in_check_is_refused_as_unprocessable",
+    "test_app.py::test_the_en_passant_field_names_a_square_only_when_the_capture_is_available",
+    "test_app.py::test_a_caller_without_a_session_cannot_list_a_games_legal_moves",
+]
+
+[[workflows]]
+id = "draws"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_two_positions_differing_only_in_castling_rights_are_not_one_repetition",
+    "test_app.py::test_a_second_draw_offer_before_the_first_is_answered_is_refused_as_a_conflict",
+    "test_app.py::test_the_draw_screen_names_the_reason_the_game_ended",
+]
+
+[[workflows]]
+id = "takebacks"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_an_accepted_takeback_restores_the_position_record",
+    "test_app.py::test_a_move_submitted_into_a_finished_game_is_refused_as_a_conflict",
+    "test_app.py::test_a_game_survives_leaving_and_returning",
+]
+
+[[workflows]]
+id = "ratings"
+requirements = [
+    "DP-33",
+    "DP-34",
+]
+critical = [
+    "test_app.py::test_both_rating_changes_are_computed_from_the_pre_game_ratings",
+    "test_app.py::test_voiding_a_rated_game_recomputes_every_later_game_of_both_players",
+]
+
+[[workflows]]
+id = "concurrency"
+requirements = [
+    "DP-35",
+]
+critical = [
+    "test_app.py::test_two_moves_for_one_ply_give_exactly_one_created_and_one_conflict",
+]
+
+[[workflows]]
+id = "house"
+requirements = [
+    "DP-36",
+    "DP-37",
+]
+critical = [
+    "test_app.py::test_the_house_answers_one_position_identically_on_every_request",
+    "test_app.py::test_a_rematch_carries_the_rated_flag_of_the_game_before_it",
+]
+
+[[workflows]]
+id = "deadlines"
+requirements = [
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_a_game_past_its_move_deadline_is_lost_by_the_player_who_owed_the_move",
+]
+
+[[workflows]]
+id = "chat"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_chat_above_the_rate_limit_is_refused_as_too_many_requests",
+    "test_app.py::test_a_spectator_submitting_a_move_is_refused_as_forbidden",
+    "test_app.py::test_a_message_from_the_opponent_shows_in_the_chat_panel",
+    "test_app.py::test_a_caller_without_a_session_cannot_read_a_games_chat",
+]
+checkpoints = [
+    "B8",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "clubs"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-44",
+]
+critical = [
+    "test_app.py::test_a_private_club_game_reads_as_missing_to_an_outsider",
+    "test_app.py::test_marking_one_notification_read_lowers_the_count_by_exactly_one",
+    "test_app.py::test_a_new_challenge_shows_in_the_notification_list_and_bell",
+]
+
+[[workflows]]
+id = "challenges"
+requirements = [
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_a_received_challenge_appears_on_the_challenges_page",
+    "test_app.py::test_choosing_black_in_the_challenge_form_makes_the_challenger_black",
+]
+
+[[workflows]]
+id = "live-updates"
+requirements = [
+    "DP-46",
+]
+critical = [
+    "test_app.py::test_an_opponent_move_reaches_an_open_game_page_without_a_reload",
+    "test_app.py::test_an_opponent_move_reaches_the_open_flat_board_without_a_reload",
+    "test_app.py::test_an_opponent_move_reaches_the_open_deep_board_without_a_reload",
+    "test_app.py::test_an_opponent_chat_message_reaches_an_open_game_page_without_a_reload",
+    "test_app.py::test_a_draw_offer_reaches_an_open_game_page_with_its_controls",
+    "test_app.py::test_a_takeback_request_reaches_an_open_game_page_without_a_reload",
+    "test_app.py::test_a_new_challenge_reaches_an_open_challenges_page_without_a_reload",
+    "test_app.py::test_the_notification_count_rises_on_an_open_page_without_a_reload",
+]
+
+[[workflows]]
+id = "record"
+requirements = [
+    "DP-47",
+    "DP-48",
+    "DP-49",
+]
+critical = [
+    "test_app.py::test_importing_a_valid_record_reaches_the_replayed_position",
+    "test_app.py::test_a_member_page_lists_their_finished_games",
+    "test_app.py::test_a_caller_without_a_session_cannot_read_a_games_record",
+]

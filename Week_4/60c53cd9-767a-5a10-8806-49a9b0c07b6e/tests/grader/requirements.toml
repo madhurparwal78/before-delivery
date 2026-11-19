@@ -1,0 +1,1632 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 86
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "filter-homes",
+    "page-results",
+    "sweep-lens",
+    "place-hold",
+    "hold-race",
+    "manage-hold",
+    "share-hold",
+    "withdraw-unit",
+    "price-and-release",
+    "view-photos",
+    "search-outage",
+    "finder-layouts",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B13",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 91
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "meilisearch", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B13 = 3
+B5 = 5
+B6 = 3
+B7 = 5
+B8 = 5
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 3
+Q4 = 5
+Q5 = 5
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "meilisearch-down"
+port = 4174
+url_env = "APP_MEILISEARCH_DOWN_URL"
+
+[outages.env]
+MEILISEARCH_URL = "http://127.0.0.1:9"
+DATABASE_URL = "${DATABASE_URL}_searchdown"
+S3_BUCKET = "${S3_BUCKET}-searchdown"
+MEILISEARCH_INDEX = "units_searchdown"
+
+[[outages]]
+id = "minio-down"
+port = 4175
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "short-timer"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+HOLD_SECONDS = "20"
+HOLD_COOLDOWN_SECONDS = "40"
+HOLD_ATTEMPT_WINDOW_SECONDS = "30"
+SEARCH_RATE_LIMIT = "5"
+MEDIA_URL_SECONDS = "15"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+MEILISEARCH_INDEX = "units_short"
+
+[[outages]]
+id = "dst-clock"
+port = 4177
+url_env = "APP_DST_URL"
+
+[outages.env]
+APP_CLOCK_START = "2027-04-02T05:00:00Z"
+DATABASE_URL = "${DATABASE_URL}_dst"
+S3_BUCKET = "${S3_BUCKET}-dst"
+MEILISEARCH_INDEX = "units_dst"
+
+[[outages]]
+id = "dst-late"
+port = 4178
+url_env = "APP_DST_LATE_URL"
+
+[outages.env]
+APP_CLOCK_START = "2027-04-03T15:00:00Z"
+DATABASE_URL = "${DATABASE_URL}_dstlate"
+S3_BUCKET = "${S3_BUCKET}-dstlate"
+MEILISEARCH_INDEX = "units_dstlate"
+
+[[outages]]
+id = "short-session"
+port = 4179
+url_env = "APP_SHORT_SESSION_URL"
+
+[outages.env]
+SESSION_SECONDS = "20"
+DATABASE_URL = "${DATABASE_URL}_session"
+S3_BUCKET = "${S3_BUCKET}-session"
+MEILISEARCH_INDEX = "units_session"
+
+[[requirements]]
+id = "DP-01"
+title = "Faceted search"
+text = "GET /api/search returns the released, non-withdrawn homes that match the buyer's text and filters, with a total, per-facet counts, price bounds and every matching unit code, as specified in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "filter-homes"
+tests = [
+    "test_app.py::test_search_facets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Bounded search input"
+text = "Over-long search text, too many values in one facet, unknown facet values and a price floor above the ceiling are rejected with a field-level message, both in the API and beside the control, before the search service is consulted, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "filter-homes"
+tests = [
+    "test_app.py::test_search_input_bounds",
+    "test_app.py::test_wf_filter_homes_field_messages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Live filter updates"
+text = "Changing the search text, a facet chip or a price bound updates the facet counts, the result list, the live total and the lit tower cells in place without a page load, and the polite result-count region announces the new count."
+kind = "behavior"
+primary = "workflow"
+workflow = "filter-homes"
+tests = [
+    "test_app.py::test_wf_filter_homes_newest_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Anonymous search limit"
+text = "Searches without a session beyond the configured per-client limit answer 429 with Retry-After and the published message, and the finder counts the wait down without sending searches, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "filter-homes"
+tests = [
+    "test_app.py::test_search_rate_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Empty result state"
+text = "A search with no matches shows the giant cropped empty heading and the published hint from Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "filter-homes"
+tests = [
+    "test_app.py::test_empty_result_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Price-ordered pages"
+text = "Results come in pages of the published size, sorted by price and then unit code, with a cursor for the next page and a Show more homes control."
+kind = "behavior"
+primary = "pytest"
+workflow = "page-results"
+tests = [
+    "test_app.py::test_search_paging_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Stable paging"
+text = "Paging through any filtered list never repeats or skips a home because other buyers' holds, releases and lapses change availability between pages, and a price change between pages moves a home as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "page-results"
+tests = [
+    "test_app.py::test_paging_price_change_between_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Result rows"
+text = "Each result row shows the unit code, status, price, area in both units, bearing and facing, bedrooms, view and floor band, plus a Syncing tag while the row's latest change is not yet confirmed by the search service."
+kind = "behavior"
+primary = "workflow"
+workflow = "page-results"
+tests = [
+    "test_app.py::test_wf_page_results_rows",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Derived area and price figures"
+text = "Square feet, price per square metre and price per square foot are derived from the stored area and integer price by the rules in Business rules, and read the same in search, the lens and the detail dialog."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-and-release"
+tests = [
+    "test_app.py::test_derived_figures",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Public unit projection"
+text = "Tower, search and unit responses and the search documents carry exactly the published public fields, and the shared-link response carries exactly the published shared unit fields (no price figures) plus endsAt; none of them ever carries a holder's identity, hold id, quoted price or hold start time, and endsAt is the one hold field the shared-link response carries."
+kind = "behavior"
+primary = "pytest"
+workflow = "sweep-lens"
+tests = [
+    "test_app.py::test_public_projection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Tower availability"
+text = "GET /api/tower lists every unit cell with its live Postgres status and Syncing flag plus signed tower asset links, and the finder paints each cell from it."
+kind = "behavior"
+primary = "pytest"
+workflow = "sweep-lens"
+tests = [
+    "test_app.py::test_tower_cells",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Window Lens"
+text = "With the pointer over the tower, the unit under it gets a yellow frame, a round lens shows that unit's full-colour view with a north tick, a chip names its code, bearing and status, and the matching result row scrolls into view marked current."
+kind = "behavior"
+primary = "workflow"
+workflow = "sweep-lens"
+tests = [
+    "test_app.py::test_lens_shows_unit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Filtered and unavailable cells"
+text = "Cells outside the active filters are dimmed and the lens says so instead of showing a view, held, reserved, withdrawn and unreleased cells show a hatched or muted cell with a text status, and only pinnable cells are marked enabled, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "sweep-lens"
+tests = [
+    "test_app.py::test_wf_sweep_lens_cell_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "One facing bearing"
+text = "Each unit's bearing is derived once from its floor-plate model's window direction, stored as whole degrees with an eight-point label, and reads the same in search, the lens chip, the detail dialog and the search document."
+kind = "behavior"
+primary = "pytest"
+workflow = "sweep-lens"
+tests = [
+    "test_app.py::test_bearing_consistent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Pin a unit"
+text = "A click or Enter on a pinnable cell, or a click on a result row, pins the lens, opens the home's detail dialog and adds the unit to the address, and opening that address directly opens the same detail."
+kind = "behavior"
+primary = "pytest"
+workflow = "sweep-lens"
+tests = [
+    "test_app.py::test_pin_unit_address",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Lens motion"
+text = "The lens trails the pointer, crossfades the view when the unit changes and grows into the detail view panel on pin, each within the time range published in Motion and effects."
+kind = "behavior"
+primary = "pytest"
+workflow = "sweep-lens"
+tests = [
+    "test_app.py::test_lens_motion_ranges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Buyer accounts"
+text = "POST /api/accounts gives the same status and message whether or not the address already has an account, and never changes an existing account."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-hold"
+tests = [
+    "test_app.py::test_accounts_no_enumeration",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Sign-in"
+text = "POST /api/session signs a buyer or coordinator in with a session cookie that expires after the configured time, and a wrong password and an unknown address get the identical failure response."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-hold"
+tests = [
+    "test_app.py::test_sign_in",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Sign in to hold"
+text = "Pressing Hold this home while signed out opens the sign-in dialog, and after a successful sign-in the buyer lands in the hold confirmation for the same home without choosing it again."
+kind = "behavior"
+primary = "workflow"
+workflow = "place-hold"
+tests = [
+    "test_app.py::test_sign_in_to_hold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Place a hold"
+text = "POST /api/holds creates an active hold at the price version the buyer sent, with a quoted-price snapshot and a server-set end time, and the unit becomes held."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-hold"
+tests = [
+    "test_app.py::test_place_hold_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "One hold per buyer"
+text = "A buyer with an active hold cannot hold a second home, including through simultaneous requests."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-race"
+tests = [
+    "test_app.py::test_one_hold_per_buyer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Hold attempt limit"
+text = "Hold attempts by any signed-in account beyond the limit inside the attempt window answer 429 with Retry-After and the published message, and the confirm dialog counts the wait down before allowing another try."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-race"
+tests = [
+    "test_app.py::test_hold_attempt_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Repeatable hold requests"
+text = "A hold request repeated with the same Idempotency-Key, home and price version replays the stored first response without counting as a new attempt, and reusing a key for a different request is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-race"
+tests = [
+    "test_app.py::test_idempotent_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Hold confirmation"
+text = "Once the server confirms a hold, the detail dialog shows the full-bleed yellow confirmation with the published heading and the end time in sales-office time, and the cell, the chip and the row show the home as held by this buyer."
+kind = "behavior"
+primary = "workflow"
+workflow = "place-hold"
+tests = [
+    "test_app.py::test_wf_place_hold_confirmation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Keyboard hold flow"
+text = "Using only the keyboard, a buyer steps the lens across floors and stacks, pins a home, places and confirms a hold, and presses Escape to return focus to the cell they started from, with Tab wrapping inside every open dialog."
+kind = "behavior"
+primary = "workflow"
+workflow = "place-hold"
+tests = [
+    "test_app.py::test_wf_place_hold_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "One winner per home"
+text = "Of any number of simultaneous hold requests from different buyers for one available home, exactly one succeeds and every other gets the published conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-race"
+tests = [
+    "test_app.py::test_one_winner_per_home",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Losing a race"
+text = "A buyer whose hold loses sees the published message in the confirm dialog, the cell, chip and row turn Held without a page load, and Hold this home becomes disabled."
+kind = "behavior"
+primary = "workflow"
+workflow = "hold-race"
+tests = [
+    "test_app.py::test_wf_hold_race_lost_cell_held",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Tower stays current"
+text = "The finder re-reads tower statuses, the buyer's holds and any open home on the published interval and when the window regains focus, updating cells, the lens chip, row statuses and the open detail in place."
+kind = "behavior"
+primary = "pytest"
+workflow = "sweep-lens"
+tests = [
+    "test_app.py::test_wf_sweep_lens_matches_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Hold page"
+text = "The holder's hold page shows the home, the quoted price and price version, the end time, a countdown, the release control and the share controls."
+kind = "behavior"
+primary = "workflow"
+workflow = "manage-hold"
+tests = [
+    "test_app.py::test_hold_page_contents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Private holds"
+text = "Another account's hold id answers exactly like a hold that never existed, both in the API and on the hold page."
+kind = "behavior"
+primary = "pytest"
+workflow = "manage-hold"
+tests = [
+    "test_app.py::test_private_holds",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Quoted price snapshot"
+text = "A hold keeps the price and price version quoted when it was placed, whatever price changes happen later."
+kind = "behavior"
+primary = "pytest"
+workflow = "manage-hold"
+tests = [
+    "test_app.py::test_quoted_price_snapshot",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Release a hold"
+text = "The holder can release an active hold, the home becomes available at once and the share link stops working, and releasing an ended hold is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "manage-hold"
+tests = [
+    "test_app.py::test_release_hold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Server-decided lapse"
+text = "A hold lapses when the server reads or writes it at or after its end time, the countdown reaching zero only triggers a re-read, and the published lapsed notice appears only once the server reports the lapse."
+kind = "behavior"
+primary = "pytest"
+workflow = "manage-hold"
+tests = [
+    "test_app.py::test_wf_manage_hold_countdown_server_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Share link"
+text = "The holder can create, copy, regenerate and revoke a read-only share link for an active hold, and regenerating kills the previous link."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-hold"
+tests = [
+    "test_app.py::test_share_link_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Partner view"
+text = "Opening a live share link shows the home, its view and the hold's end time in sales-office time, with no buyer identity and no quoted price."
+kind = "behavior"
+primary = "workflow"
+workflow = "share-hold"
+tests = [
+    "test_app.py::test_partner_view",
+    "test_app.py::test_wf_share_hold_photo_unavailable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Link ends with hold"
+text = "A share link stops resolving the moment it is revoked or regenerated or its hold is released, lapses, is converted or its unit is withdrawn, and the page then shows the published dead-link heading."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-hold"
+tests = [
+    "test_app.py::test_wf_share_hold_regenerate_kills_old",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Read-only link"
+text = "Every write request through a share link is refused with the published read-only response and changes nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-hold"
+tests = [
+    "test_app.py::test_shared_read_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Coordinator console"
+text = "The sales coordinator signs in to a console that lists units, active holds with holder details and each unit's price versions, and every console endpoint refuses buyers and signed-out visitors."
+kind = "behavior"
+primary = "workflow"
+workflow = "withdraw-unit"
+tests = [
+    "test_app.py::test_console_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Withdraw a unit"
+text = "Withdrawing a unit immediately removes it from search results, facet counts, the unit endpoint, the pinnable tower cells, the lens and its view photograph links, and ends any active hold on it with the withdrawal end reason and its published copy, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "withdraw-unit"
+tests = [
+    "test_app.py::test_wf_withdraw_ends_hold_truthfully",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Confirmed index state"
+text = "Every change to a unit's search document is kept as a pending update in Postgres until the search service reports the task succeeded, and until then the home carries the Syncing flag with its Postgres status."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-outage"
+tests = [
+    "test_app.py::test_pending_index_updates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Release a floor band"
+text = "The coordinator releases an unreleased floor band, its homes become available, searchable and pinnable, and of simultaneous releases of one band exactly one succeeds."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-and-release"
+tests = [
+    "test_app.py::test_concurrent_band_release",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Price changes"
+text = "The coordinator sets a unit's price against the version they saw, a stale version answers 412 and changes nothing, simultaneous saves at one version have exactly one winner, and a saved change creates a new price version everywhere except existing holds."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-and-release"
+tests = [
+    "test_app.py::test_concurrent_price_saves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Convert to reservation"
+text = "The coordinator converts an active hold into a reservation, the unit becomes reserved and the hold's share link stops working."
+kind = "behavior"
+primary = "pytest"
+workflow = "withdraw-unit"
+tests = [
+    "test_app.py::test_convert_to_reservation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Stored tower assets"
+text = "The tower shell, per-band floor plates, facade and duotone ramp textures and the seeded view photographs live in the bucket under the published keys, with the models Draco-compressed."
+kind = "behavior"
+primary = "pytest"
+workflow = "view-photos"
+tests = [
+    "test_app.py::test_stored_tower_assets",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Confirmed view photographs"
+text = "A coordinator upload marks a unit View photographed only after the stored object's size and checksum match what was sent, and otherwise leaves the unit unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "view-photos"
+tests = [
+    "test_app.py::test_wf_view_photos_no_early_mark",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Signed media links"
+text = "Tower assets and view photographs are served only through short-lived signed links that expire after the configured time and stop working at once for withdrawn units."
+kind = "behavior"
+primary = "pytest"
+workflow = "view-photos"
+tests = [
+    "test_app.py::test_signed_media_links",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Storage outage"
+text = "With the object store unreachable, uploads answer 503 with the published message, the lens shows the unavailable caption and the finder falls back to the floor grid with the published notice."
+kind = "behavior"
+primary = "pytest"
+workflow = "view-photos"
+tests = [
+    "test_app.py::test_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Search outage"
+text = "With the search service unreachable, search answers 503, the finder shows the black outage banner and disables the filters, the tower still shows live availability with every released, non-withdrawn cell pinnable, and the banner clears by itself when search returns."
+kind = "behavior"
+primary = "workflow"
+workflow = "search-outage"
+tests = [
+    "test_app.py::test_wf_search_outage_recovers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Holds while search is down"
+text = "Holds, releases and coordinator changes still succeed while search is down, and the affected homes carry the Syncing flag on cells, chips, rows and the detail until the search service confirms them."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-outage"
+tests = [
+    "test_app.py::test_wf_search_outage_syncing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Desktop finder layout"
+text = "At 1280 by 800 the finder shows filters, tower and results as three side-by-side panes."
+kind = "behavior"
+primary = "pytest"
+workflow = "finder-layouts"
+tests = [
+    "test_app.py::test_desktop_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Tablet finder layout"
+text = "At 768 by 1024 the tower and the results sit side by side, and the filters open in a sheet."
+kind = "behavior"
+primary = "pytest"
+workflow = "finder-layouts"
+tests = [
+    "test_app.py::test_tablet_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Phone finder layout"
+text = "At 375 by 812 the tower stacks above the results, and the lens is a fixed inset in the tower stage."
+kind = "behavior"
+primary = "pytest"
+workflow = "finder-layouts"
+tests = [
+    "test_app.py::test_wf_finder_layouts_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Filter sheet"
+text = "The filter sheet opens from its button, keeps Tab inside, closes on Escape, returns focus to the button, and its chips update the results live behind it."
+kind = "behavior"
+primary = "pytest"
+workflow = "finder-layouts"
+tests = [
+    "test_app.py::test_wf_finder_layouts_filter_sheet",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from /app/run.json on the published port and answers the health check."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_run_manifest_health",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Configuration from environment"
+text = "Every service URL, credential, clock and timing setting is read from the environment at start and is never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Server boundary"
+text = "The server refuses cross-origin writes and oversized or wrongly typed bodies, never serves source or configuration files, and starts and serves while search or storage is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Landing descent"
+text = "Scrolling the landing page moves the tower camera from roof to podium through five floor bands, swapping the field colour at each band, reversing step by step on scroll back, and ending on the green Available now tally."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_landing_descent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Reduced motion"
+text = "When reduced motion is requested, the lens snaps without lag or crossfade, pinning opens the detail at once, and the landing shows one still camera pose per band."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_reduced_motion_landing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Still fallback without WebGL"
+text = "Without WebGL, the landing shows a still two-colour tower and the finder shows the floor grid with the same cells, lens and keyboard behaviour."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_no_webgl_fallback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Duotone look"
+text = "Every screen uses the flat ultramarine, white and yellow duotone language, square corners, the two Red Hat typefaces and yellow only for the accent uses listed in Visual design, with at most one yellow action per screen."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B13",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Sales-office time"
+text = "Every end time and every time inside API copy is shown in the sales-office zone with its published abbreviation, every response carries the server's Date, and countdowns follow the server's clock, not the browser's."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-hold"
+tests = [
+    "test_app.py::test_wf_share_hold_office_time",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Newest input wins"
+text = "An older search reply never replaces a newer one, and the search sent after a rate-limit wait uses the filters as they stand when the wait ends."
+kind = "behavior"
+primary = "pytest"
+workflow = "filter-homes"
+tests = [
+    "test_app.py::test_wf_filter_homes_wait_uses_newest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Announced pages"
+text = "Each appended page is announced in Notices with the published copy, focus lands on its first new row, and the total follows the newest reply."
+kind = "behavior"
+primary = "pytest"
+workflow = "page-results"
+tests = [
+    "test_app.py::test_wf_page_results_announced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Honest hold state"
+text = "No screen shows a home as held by the buyer before the server confirms it, a lost race shows the home as Held at once, and a retried hold after a lost reply replays the original hold."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-race"
+tests = [
+    "test_app.py::test_wf_hold_race_no_early_mine",
+    "test_app.py::test_wf_hold_race_lost_reply_replays",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Hold page survives time"
+text = "Countdown ticks and re-reads never close an open dialog, clear the share link or move focus, and an ended hold replaces the controls with the published ended copy and moves focus to the heading."
+kind = "behavior"
+primary = "pytest"
+workflow = "manage-hold"
+tests = [
+    "test_app.py::test_wf_manage_hold_dialog_survives",
+    "test_app.py::test_wf_manage_hold_lapse_during_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Expired session resumes the hold"
+text = "An expired session during a hold sends the buyer through sign-in in place and back to the same confirmation for the same home, with no hold placed until they confirm."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-hold"
+tests = [
+    "test_app.py::test_wf_place_hold_session_resume",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Held at the shown price"
+text = "A hold is placed only at the price version the buyer saw, a changed price is refused with the published conflict and shown in place, an open home updates its price in place, and the console lists each version with who set it and when."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-and-release"
+tests = [
+    "test_app.py::test_wf_price_and_release_shown_price",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Counts agree"
+text = "The available counts on the landing, the tower, unfiltered search facets and the console are equal after every change once the index confirms it, and an open home updates in place when it is withdrawn."
+kind = "behavior"
+primary = "pytest"
+workflow = "withdraw-unit"
+tests = [
+    "test_app.py::test_wf_withdraw_counters_agree",
+    "test_app.py::test_wf_withdraw_open_detail_updates",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Checked photo uploads"
+text = "Uploads are accepted only when their bytes are a PNG or JPEG of at least 1024 by 512 pixels, one at a time per unit, stored under a key derived from the checksum, and the console shows the photo as confirmed only after the server does."
+kind = "behavior"
+primary = "pytest"
+workflow = "view-photos"
+tests = [
+    "test_app.py::test_wf_view_photos_bytes_checked",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Tower survives context loss"
+text = "A lost WebGL context drops the finder to the floor grid with the published notice, keeping the focused unit and any open detail, and every drawn cell matches the newest tower read."
+kind = "behavior"
+primary = "pytest"
+workflow = "sweep-lens"
+tests = [
+    "test_app.py::test_wf_sweep_lens_context_loss",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Layout changes keep state"
+text = "Changing between the published viewports keeps the open home and its address, the filters and focus, and at phone width the inset lens never covers a tower cell."
+kind = "behavior"
+primary = "pytest"
+workflow = "finder-layouts"
+tests = [
+    "test_app.py::test_wf_finder_layouts_resize_keeps_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Published error order"
+text = "Each case in the API error-order table answers exactly as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_error_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Filters live in the address"
+text = "The finder address carries every active filter under the API's query names, each settled change adds one history entry, reload, bookmarks, Back and Forward restore the filters and their results, and invalid address values are dropped, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "filter-homes"
+tests = [
+    "test_app.py::test_wf_filter_homes_url_state",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Re-reads keep loaded pages"
+text = "Background re-reads update row statuses and Syncing tags in place without dropping loaded pages, reordering rows, clearing the current row, moving focus or resetting scroll, and a Show more homes reply that lands after a filter change is discarded unannounced."
+kind = "behavior"
+primary = "pytest"
+workflow = "page-results"
+tests = [
+    "test_app.py::test_wf_page_results_reread_keeps_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "The lens shows the newest unit"
+text = "The lens image, its accessible name and its chip always describe the unit now under the pointer or focus, a slower photograph for a unit the lens has left is never shown, and an open home's price version never goes backwards."
+kind = "behavior"
+primary = "pytest"
+workflow = "sweep-lens"
+tests = [
+    "test_app.py::test_wf_sweep_lens_newest_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Where sign-in and sign-out land"
+text = "Signing in keeps a buyer on the same address and sends a coordinator to the console, signing out of the hold page or console lands on the finder, and protected pages ask for sign-in in place, as qualified in Interactions."
+kind = "behavior"
+primary = "pytest"
+workflow = "place-hold"
+tests = [
+    "test_app.py::test_wf_place_hold_landing_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Simultaneous retries"
+text = "Simultaneous hold requests carrying one buyer's same Idempotency-Key and body create at most one hold, count as one attempt and all answer the identical stored response, which is replayed even after the hold has ended, and a malformed key is refused."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-race"
+tests = [
+    "test_app.py::test_idempotency_concurrent_same_key",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Nothing acts on a hold past its end"
+text = "Every write that touches a hold or its unit first applies the lapse check, so a release, share or convert at or after the end time answers 409 hold_ended and records the lapse at the end time, and another buyer can hold the home at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "manage-hold"
+tests = [
+    "test_app.py::test_hold_end_edges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Shared page carries no private data"
+text = "The shared page's HTML, title, meta tags, inline data and every response it fetches never contain the buyer's name or email, the hold id, the hold's start time or the quoted price, and the page is sent uncacheable, without a referrer and marked not for indexing."
+kind = "behavior"
+primary = "pytest"
+workflow = "share-hold"
+tests = [
+    "test_app.py::test_wf_share_hold_no_private_copy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Withdrawal races"
+text = "Of simultaneous withdrawals of one unit exactly one succeeds, and a withdrawal racing holds, price saves or a convert never leaves an active hold on a withdrawn unit, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "withdraw-unit"
+tests = [
+    "test_app.py::test_withdraw_races",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Prices are exact integers on the wire"
+text = "Price and version fields are accepted only as plain JSON integer literals within the safe-integer range, anything else answers 422 with the field message, and derived figures round half up from the stored integer."
+kind = "behavior"
+primary = "pytest"
+workflow = "price-and-release"
+tests = [
+    "test_app.py::test_price_integer_literals",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "View photographs served byte for byte"
+text = "Media links stream the stored object exactly as uploaded with its type, size and checksum ETag, an identical re-upload leaves one object under the same key, and the previous confirmed photo serves until a replacement is confirmed."
+kind = "behavior"
+primary = "pytest"
+workflow = "view-photos"
+tests = [
+    "test_app.py::test_view_photos_byte_identical",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Outage and recovery are announced"
+text = "The search outage banner appears once without a Notices message, and when search returns the banner is removed, the filters come back with their previous states and Notices announces the published recovery copy without moving focus."
+kind = "behavior"
+primary = "pytest"
+workflow = "search-outage"
+tests = [
+    "test_app.py::test_wf_search_outage_announced_recovery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "A closed sheet is gone"
+text = "At tablet and phone width a closed Filters sheet is invisible, outside the accessibility tree and unreachable by Tab or pointer, and everything behind an open dialog or the phone full-screen detail is inert."
+kind = "behavior"
+primary = "pytest"
+workflow = "finder-layouts"
+tests = [
+    "test_app.py::test_wf_finder_layouts_closed_sheet_inert",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Re-hold cooldown"
+text = "After a buyer's hold ends by their release or by lapse, that buyer cannot hold the same home again until the cooldown has passed and is told in sales-office time when they can, while withdrawal and conversion never start a cooldown."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-race"
+tests = [
+    "test_app.py::test_hold_cooldown",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "One state across instances"
+text = "Sessions, hold attempts, idempotency keys, search rate-limit counts and pending index updates live in Postgres and behave identically on every app instance sharing the database."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-race"
+tests = [
+    "test_app.py::test_cross_instance_state",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with exactly the string keys _schema (value run-manifest-v1), install, build and serve."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app names every shipped package with its licence, plus the Red Hat Display and Red Hat Text fonts and the Lucide icons. Shipped packages are the production dependency tree from npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and every bundled asset is licensed under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, CC0-1.0 or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Postgres, MinIO and Meilisearch are the only datastores. There is no SQLite, no Redis, and no state that must survive a restart kept in local files or process memory."
+tests = [
+    "test_app.py::test_if_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The app serves its own fonts, icons, models and scripts. The browser loads nothing from third-party origins."
+tests = [
+    "test_app.py::test_if_no_third_party_origins",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided service compose files and their seeded credentials are left unchanged."
+tests = [
+    "test_app.py::test_if_compose_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "package-lock.json is committed, and install uses npm ci."
+tests = [
+    "test_app.py::test_if_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-08"
+text = "Application source is TypeScript and is compiled during build."
+tests = [
+    "test_app.py::test_if_typescript",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "filter-homes"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-62",
+    "DP-73",
+]
+critical = [
+    "test_app.py::test_wf_filter_homes_newest_wins",
+    "test_app.py::test_wf_filter_homes_wait_uses_newest",
+    "test_app.py::test_wf_filter_homes_field_messages",
+    "test_app.py::test_wf_filter_homes_url_state",
+]
+
+[[workflows]]
+id = "page-results"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-63",
+    "DP-74",
+]
+critical = [
+    "test_app.py::test_wf_page_results_announced",
+    "test_app.py::test_paging_price_change_between_pages",
+    "test_app.py::test_wf_page_results_rows",
+    "test_app.py::test_wf_page_results_reread_keeps_pages",
+]
+
+[[workflows]]
+id = "sweep-lens"
+requirements = [
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+    "DP-28",
+    "DP-70",
+    "DP-75",
+]
+critical = [
+    "test_app.py::test_wf_sweep_lens_cell_states",
+    "test_app.py::test_wf_sweep_lens_context_loss",
+    "test_app.py::test_wf_sweep_lens_matches_server",
+    "test_app.py::test_wf_sweep_lens_newest_view",
+    "test_app.py::test_public_projection",
+]
+checkpoints = [
+    "B4",
+    "B13",
+    "B5",
+]
+critical_checkpoints = [
+    "B5",
+]
+
+[[workflows]]
+id = "place-hold"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-20",
+    "DP-24",
+    "DP-25",
+    "DP-66",
+    "DP-76",
+]
+critical = [
+    "test_app.py::test_wf_place_hold_confirmation",
+    "test_app.py::test_wf_place_hold_session_resume",
+    "test_app.py::test_wf_place_hold_keyboard",
+    "test_app.py::test_wf_place_hold_landing_routes",
+    "test_app.py::test_accounts_no_enumeration",
+]
+checkpoints = [
+    "B7",
+    "B8",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "hold-race"
+requirements = [
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-26",
+    "DP-27",
+    "DP-64",
+    "DP-77",
+    "DP-85",
+    "DP-86",
+]
+critical = [
+    "test_app.py::test_wf_hold_race_no_early_mine",
+    "test_app.py::test_wf_hold_race_lost_reply_replays",
+    "test_app.py::test_wf_hold_race_lost_cell_held",
+    "test_app.py::test_idempotency_concurrent_same_key",
+    "test_app.py::test_hold_cooldown",
+    "test_app.py::test_cross_instance_state",
+]
+
+[[workflows]]
+id = "manage-hold"
+requirements = [
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-65",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_manage_hold_dialog_survives",
+    "test_app.py::test_wf_manage_hold_lapse_during_dialog",
+    "test_app.py::test_wf_manage_hold_countdown_server_clock",
+    "test_app.py::test_hold_end_edges",
+    "test_app.py::test_private_holds",
+]
+checkpoints = [
+    "B9",
+]
+critical_checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "share-hold"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-61",
+    "DP-79",
+]
+critical = [
+    "test_app.py::test_wf_share_hold_office_time",
+    "test_app.py::test_wf_share_hold_regenerate_kills_old",
+    "test_app.py::test_wf_share_hold_no_private_copy",
+    "test_app.py::test_wf_share_hold_photo_unavailable",
+]
+checkpoints = [
+    "B10",
+]
+critical_checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "withdraw-unit"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-43",
+    "DP-68",
+    "DP-80",
+]
+critical = [
+    "test_app.py::test_wf_withdraw_counters_agree",
+    "test_app.py::test_wf_withdraw_open_detail_updates",
+    "test_app.py::test_wf_withdraw_ends_hold_truthfully",
+    "test_app.py::test_withdraw_races",
+]
+checkpoints = [
+    "B11",
+]
+
+[[workflows]]
+id = "price-and-release"
+requirements = [
+    "DP-09",
+    "DP-41",
+    "DP-42",
+    "DP-67",
+    "DP-81",
+]
+critical = [
+    "test_app.py::test_wf_price_and_release_shown_price",
+    "test_app.py::test_concurrent_price_saves",
+    "test_app.py::test_concurrent_band_release",
+    "test_app.py::test_price_integer_literals",
+]
+
+[[workflows]]
+id = "view-photos"
+requirements = [
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+    "DP-69",
+    "DP-82",
+]
+critical = [
+    "test_app.py::test_wf_view_photos_bytes_checked",
+    "test_app.py::test_wf_view_photos_no_early_mark",
+    "test_app.py::test_view_photos_byte_identical",
+]
+
+[[workflows]]
+id = "search-outage"
+requirements = [
+    "DP-40",
+    "DP-48",
+    "DP-49",
+    "DP-83",
+]
+critical = [
+    "test_app.py::test_wf_search_outage_syncing",
+    "test_app.py::test_wf_search_outage_recovers",
+    "test_app.py::test_wf_search_outage_announced_recovery",
+    "test_app.py::test_pending_index_updates",
+]
+
+[[workflows]]
+id = "finder-layouts"
+requirements = [
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-71",
+    "DP-84",
+]
+critical = [
+    "test_app.py::test_wf_finder_layouts_phone",
+    "test_app.py::test_wf_finder_layouts_filter_sheet",
+    "test_app.py::test_wf_finder_layouts_resize_keeps_state",
+    "test_app.py::test_wf_finder_layouts_closed_sheet_inert",
+]
+checkpoints = [
+    "B12",
+]
+critical_checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-54",
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-72",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_error_order",
+    "test_app.py::test_wf_cross_cutting_reduced_motion_landing",
+]
+checkpoints = [
+    "B1",
+    "B2",
+    "B3",
+]
+critical_checkpoints = [
+    "B1",
+]

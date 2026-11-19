@@ -1,0 +1,249 @@
+services:
+  main:
+    environment:
+      MAIL_FROM: Merrowfield Coach Hire <desk@merrowfield.example>
+      APP_PUBLIC_PORT: '4173'
+      APP_PUBLIC_URL: http://127.0.0.1:4173
+      DATABASE_URL: postgresql://gf_app:gf-app-dev-2b7d41@postgres:5432/gf_dev
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: gf-dev
+      S3_FORCE_PATH_STYLE: 'true'
+      S3_ACCESS_KEY_ID: gf-dev-root-71c3e0
+      S3_SECRET_ACCESS_KEY: gf-dev-secret-4b8d92
+      SMTP_HOST: mailpit
+      SMTP_PORT: '1025'
+      MAILPIT_URL: http://mailpit:8025
+      GOTENBERG_URL: http://gotenberg:3000
+      NTFY_URL: http://ntfy
+      NTFY_USERNAME: app
+      NTFY_PASSWORD: gfkit-dev
+      WIREMOCK_URL: http://wiremock:8080
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    depends_on:
+      postgres-seed:
+        condition: service_completed_successfully
+      minio-seed:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_healthy
+      gotenberg:
+        condition: service_healthy
+      ntfy:
+        condition: service_healthy
+      wiremock:
+        condition: service_healthy
+  postgres:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: gf_admin
+      POSTGRES_PASSWORD: gf-admin-dev-9e4a02
+      POSTGRES_DB: postgres
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -h 127.0.0.1 -U gf_admin -d postgres
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  postgres-seed:
+    image: postgres:16.4-bookworm@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      PGHOST: postgres
+      PGUSER: gf_admin
+      PGPASSWORD: gf-admin-dev-9e4a02
+      PGDATABASE: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      psql -Atqc "SELECT 1 FROM pg_roles WHERE rolname = 'gf_app'" | grep -q 1 ||
+        psql -qc "CREATE ROLE gf_app LOGIN PASSWORD 'gf-app-dev-2b7d41'"
+      psql -Atqc "SELECT 1 FROM pg_database WHERE datname = 'gf_dev'" | grep -q 1 ||
+        psql -qc "CREATE DATABASE gf_dev OWNER gf_app"
+  minio:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-dev-root-71c3e0
+      MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92
+    command: server /data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - MC_HOST_local=http://$$MINIO_ROOT_USER:$$MINIO_ROOT_PASSWORD@localhost:9000 mc ready local >/dev/null
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  minio-seed:
+    image: coollabsio/minio@sha256:69b55a1c1c5dc285ce04db96689f5b2102317fc77a50680a1874ca6efd1c87f9
+    environment:
+      MINIO_ROOT_USER: gf-dev-root-71c3e0
+      MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: 'no'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - |
+      export MC_HOST_local="http://$$MINIO_ROOT_USER:$$MINIO_ROOT_PASSWORD@minio:9000"
+      mc mb --ignore-existing local/gf-dev
+      mc anonymous set none local/gf-dev
+  mailpit:
+    image: axllent/mailpit:v1.27@sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68
+    healthcheck:
+      test:
+      - CMD
+      - /mailpit
+      - readyz
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  gotenberg:
+    image: gotenberg/gotenberg:8.39.0@sha256:13672f317b443c793e972b1bd2155ec62a3e7b6891b411e8196442cc053ee5f5
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - -o
+      - /dev/null
+      - http://127.0.0.1:3000/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+  ntfy:
+    image: binwiederhier/ntfy:v2.36.0@sha256:fb48c413eb11d50339962b5d62cddce0f800e7f77c626d638a7c20cb7e9c4465
+    command:
+    - serve
+    environment:
+      NTFY_AUTH_FILE: /tmp/ntfy-auth.db
+      NTFY_AUTH_DEFAULT_ACCESS: deny-all
+      NTFY_VISITOR_REQUEST_LIMIT_EXEMPT_HOSTS: 0.0.0.0/0
+      NTFY_VISITOR_TOPIC_CREATION_LIMIT_BURST: '100000'
+      NTFY_AUTH_USERS: gfkit-admin:$$2a$$10$$HZJkmBS/HmPoMWwBJGIcY.3HYVfyY4Y4L3f0FS9QcvimLh2AHZYha:admin,app:$$2a$$10$$gM/OVEm10tjKt0mPbgWUfO8o6CUjyndt1oQMQC.PMQMuNeFuj6eMy:user
+      NTFY_AUTH_ACCESS: app:*:rw
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - --spider
+      - http://127.0.0.1/v1/health
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  wiremock:
+    image: wiremock/wiremock:3.13.2@sha256:0d4ecb3e4dc8213fd7a4d37d6a78f6e6b553a6d2e15bd51b0999781282ac61b3
+    entrypoint:
+    - sh
+    - -c
+    - if [ -n "$$WIREMOCK_STUBS" ]; then printf '%s' "$$WIREMOCK_STUBS" > /home/wiremock/mappings/baseline.json;
+      fi; exec /docker-entrypoint.sh --port 8080 --disable-banner --max-request-journal-entries 20000 --admin-api-basic-auth
+      gfkit-admin:gfkit-dev
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -sf
+      - -u
+      - gfkit-admin:gfkit-dev
+      - http://127.0.0.1:8080/__admin/health
+      interval: 2s
+      timeout: 5s
+      retries: 60
+    environment:
+      WIREMOCK_STUBS: '{"mappings": [{"request": {"method": "GET", "urlPath": "/v1/find"}, "response": {"jsonBody":
+        {"suggestions": [{"id": "ad-101", "text": "Coventry station, Coventry CV1 2GT"}, {"id": "ad-102", "text":
+        "NEC, Birmingham B40 1NT"}, {"id": "ad-103", "text": "Solihull station, Solihull B91 3RQ"}, {"id": "ad-104",
+        "text": "Birmingham Airport, Birmingham B26 3QJ"}, {"id": "ad-105", "text": "Rugby station, Rugby CV21 3LA"},
+        {"id": "ad-106", "text": "Nuneaton station, Nuneaton CV11 4BU"}]}, "status": 200}}, {"request": {"method":
+        "GET", "urlPath": "/v1/get/ad-101"}, "response": {"jsonBody": {"line1": "Coventry station", "postcode":
+        "cv12gt", "town": "Coventry"}, "status": 200}}, {"request": {"method": "GET", "urlPath": "/v1/get/ad-102"},
+        "response": {"jsonBody": {"line1": "NEC", "postcode": "B40 1NT", "town": "Birmingham"}, "status": 200}},
+        {"request": {"method": "GET", "urlPath": "/v1/get/ad-103"}, "response": {"jsonBody": {"line1": "Solihull
+        station", "postcode": "b91 3rq", "town": "Solihull"}, "status": 200}}, {"request": {"method": "GET", "urlPath":
+        "/v1/get/ad-104"}, "response": {"jsonBody": {"line1": "Birmingham Airport", "postcode": "B26 3QJ", "town":
+        "Birmingham"}, "status": 200}}, {"request": {"method": "GET", "urlPath": "/v1/get/ad-105"}, "response":
+        {"jsonBody": {"line1": "Rugby station", "postcode": "cv21 3la", "town": "Rugby"}, "status": 200}}, {"request":
+        {"method": "GET", "urlPath": "/v1/get/ad-106"}, "response": {"jsonBody": {"line1": "Nuneaton station", "postcode":
+        "CV114BU", "town": "Nuneaton"}, "status": 200}}, {"priority": 9, "request": {"method": "POST", "urlPath":
+        "/v1/route"}, "response": {"jsonBody": {"legs": [{"km": "32.2", "minutes": 38}]}, "status": 200}}, {"priority":
+        8, "request": {"bodyPatterns": [{"matchesJsonPath": "$$.stops[2]"}], "method": "POST", "urlPath": "/v1/route"},
+        "response": {"jsonBody": {"legs": [{"km": "32.2", "minutes": 38}, {"km": "32.2", "minutes": 38}]}, "status":
+        200}}, {"priority": 7, "request": {"bodyPatterns": [{"matchesJsonPath": "$$.stops[3]"}], "method": "POST",
+        "urlPath": "/v1/route"}, "response": {"jsonBody": {"legs": [{"km": "32.2", "minutes": 38}, {"km": "32.2",
+        "minutes": 38}, {"km": "32.2", "minutes": 38}]}, "status": 200}}, {"priority": 6, "request": {"bodyPatterns":
+        [{"matchesJsonPath": "$$.stops[4]"}], "method": "POST", "urlPath": "/v1/route"}, "response": {"jsonBody":
+        {"legs": [{"km": "32.2", "minutes": 38}, {"km": "32.2", "minutes": 38}, {"km": "32.2", "minutes": 38}, {"km":
+        "32.2", "minutes": 38}]}, "status": 200}}, {"priority": 5, "request": {"bodyPatterns": [{"matchesJsonPath":
+        "$$.stops[5]"}], "method": "POST", "urlPath": "/v1/route"}, "response": {"jsonBody": {"legs": [{"km": "32.2",
+        "minutes": 38}, {"km": "32.2", "minutes": 38}, {"km": "32.2", "minutes": 38}, {"km": "32.2", "minutes":
+        38}, {"km": "32.2", "minutes": 38}]}, "status": 200}}, {"priority": 4, "request": {"bodyPatterns": [{"matchesJsonPath":
+        "$$.stops[6]"}], "method": "POST", "urlPath": "/v1/route"}, "response": {"jsonBody": {"legs": [{"km": "32.2",
+        "minutes": 38}, {"km": "32.2", "minutes": 38}, {"km": "32.2", "minutes": 38}, {"km": "32.2", "minutes":
+        38}, {"km": "32.2", "minutes": 38}, {"km": "32.2", "minutes": 38}]}, "status": 200}}, {"request": {"method":
+        "GET", "urlPath": "/v1/flights/WT123"}, "response": {"jsonBody": {"actualArrival": "2027-05-14T13:05:00Z",
+        "scheduledArrival": "2027-05-14T13:45:00Z", "status": "landed"}, "status": 200}}, {"request": {"method":
+        "GET", "urlPath": "/bank-holidays.json"}, "response": {"jsonBody": {"england-and-wales": {"division": "england-and-wales",
+        "events": [{"bunting": true, "date": "2027-01-01", "notes": "", "title": "New Year''s Day"}, {"bunting":
+        false, "date": "2027-03-26", "notes": "", "title": "Good Friday"}, {"bunting": true, "date": "2027-03-29",
+        "notes": "", "title": "Easter Monday"}, {"bunting": true, "date": "2027-05-03", "notes": "", "title": "Early
+        May bank holiday"}, {"bunting": true, "date": "2027-05-31", "notes": "", "title": "Spring bank holiday"},
+        {"bunting": true, "date": "2027-08-30", "notes": "", "title": "Summer bank holiday"}, {"bunting": true,
+        "date": "2027-12-27", "notes": "Substitute day", "title": "Christmas Day"}, {"bunting": true, "date": "2027-12-28",
+        "notes": "Substitute day", "title": "Boxing Day"}]}}, "status": 200}}, {"request": {"method": "GET", "queryParameters":
+        {"cursor": {"absent": true}}, "urlPath": "/v2/operators"}, "response": {"jsonBody": {"nextCursor": "p2",
+        "operators": [{"email": "desk@op-1001.example", "id": "OP-1001", "name": "Hanley Motor Services", "sizes":
+        [16, 49, 70], "telephone": "01632 960200", "town": "Coventry"}, {"email": "desk@op-1002.example", "id":
+        "OP-1002", "name": "Arden Vale Coaches", "sizes": [31, 49], "telephone": "01632 960201", "town": "Solihull"},
+        {"email": "desk@op-1003.example", "id": "OP-1003", "name": "Nuneaton Road Travel", "sizes": [8, 12, 16],
+        "telephone": "01632 960202", "town": "Nuneaton"}, {"email": "desk@op-1004.example", "id": "OP-1004", "name":
+        "Rugby Town Minibuses", "sizes": [8, 12], "telephone": "01632 960203", "town": "Rugby"}, {"email": "desk@op-1005.example",
+        "id": "OP-1005", "name": "Leam Valley Executive Travel", "sizes": [49, 56], "telephone": "01632 960204",
+        "town": "Leamington Spa"}, {"email": "desk@op-1006.example", "id": "OP-1006", "name": "Tame Bridge Coachworks",
+        "sizes": [31, 49, 70], "telephone": "01632 960205", "town": "Tamworth"}, {"email": "desk@op-1007.example",
+        "id": "OP-1007", "name": "Walsall Lock Coaches", "sizes": [16, 49], "telephone": "01632 960206", "town":
+        "Walsall"}, {"email": "desk@op-1008.example", "id": "OP-1008", "name": "Dudley Castle Travel", "sizes":
+        [12, 16, 31], "telephone": "01632 960207", "town": "Dudley"}, {"email": "desk@op-1009.example", "id": "OP-1009",
+        "name": "Redditch Needle Coaches", "sizes": [49, 56, 70], "telephone": "01632 960208", "town": "Redditch"},
+        {"email": "desk@op-1010.example", "id": "OP-1010", "name": "Stafford Shire Passenger Services", "sizes":
+        [31, 56], "telephone": "01632 960209", "town": "Stafford"}]}, "status": 200}}, {"request": {"method": "GET",
+        "queryParameters": {"cursor": {"equalTo": "p2"}}, "urlPath": "/v2/operators"}, "response": {"jsonBody":
+        {"nextCursor": "p3", "operators": [{"email": "desk@op-1011.example", "id": "OP-1011", "name": "Hinckley
+        Boot Travel", "sizes": [8, 16], "telephone": "01632 960210", "town": "Hinckley"}, {"email": "desk@op-1012.example",
+        "id": "OP-1012", "name": "Kenilworth Keep Coaches", "sizes": [49, 70], "telephone": "01632 960211", "town":
+        "Kenilworth"}, {"email": "desk@op-1013.example", "id": "OP-1013", "name": "Warwick Bear Minibuses", "sizes":
+        [8, 12, 16], "telephone": "01632 960212", "town": "Warwick"}, {"email": "desk@op-1014.example", "id": "OP-1014",
+        "name": "Lichfield Spire Coaches", "sizes": [31, 49], "telephone": "01632 960213", "town": "Lichfield"},
+        {"email": "desk@op-1015.example", "id": "OP-1015", "name": "Telford Gorge Travel", "sizes": [16, 49, 56],
+        "telephone": "01632 960214", "town": "Telford"}, {"email": "desk@op-1016.example", "id": "OP-1016", "name":
+        "Worcester Sauce Bottle Tours", "sizes": [12, 31], "telephone": "01632 960215", "town": "Worcester"}, {"email":
+        "desk@op-1017.example", "id": "OP-1017", "name": "Burton Brewery Coaches", "sizes": [49, 70], "telephone":
+        "01632 960216", "town": "Burton upon Trent"}, {"email": "desk@op-1018.example", "id": "OP-1018", "name":
+        "Stourbridge Glass Travel", "sizes": [8, 12], "telephone": "01632 960217", "town": "Stourbridge"}, {"email":
+        "desk@op-1019.example", "id": "OP-1019", "name": "Sutton Park Coachlines", "sizes": [31, 49, 56], "telephone":
+        "01632 960218", "town": "Sutton Coldfield"}, {"email": "desk@op-1020.example", "id": "OP-1020", "name":
+        "Bromsgrove Nail Works Minibuses", "sizes": [16], "telephone": "01632 960219", "town": "Bromsgrove"}]},
+        "status": 200}}, {"request": {"method": "GET", "queryParameters": {"cursor": {"equalTo": "p3"}}, "urlPath":
+        "/v2/operators"}, "response": {"jsonBody": {"nextCursor": null, "operators": [{"email": "desk@op-1021.example",
+        "id": "OP-1021", "name": "Atherstone Ball Game Coaches", "sizes": [49], "telephone": "01632 960220", "town":
+        "Atherstone"}, {"email": "desk@op-1022.example", "id": "OP-1022", "name": "Daventry Mast Travel", "sizes":
+        [12, 31], "telephone": "01632 960221", "town": "Daventry"}, {"email": "desk@op-1023.example", "id": "OP-1023",
+        "name": "Kidderminster Carpet Coaches", "sizes": [16, 49], "telephone": "01632 960222", "town": "Kidderminster"},
+        {"email": "desk@op-1024.example", "id": "OP-1024", "name": "Hereford Cider Mill Travel", "sizes": [56, 70],
+        "telephone": "01632 960223", "town": "Hereford"}]}, "status": 200}}]}'
+x-minio-root:
+  MINIO_ROOT_USER: gf-dev-root-71c3e0
+  MINIO_ROOT_PASSWORD: gf-dev-secret-4b8d92

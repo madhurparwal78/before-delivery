@@ -1,0 +1,1895 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 99
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "invite-accept-live",
+    "withdraw-cooldown-limit",
+    "degree-visibility",
+    "block-vanish",
+    "compose-mentions",
+    "reaction-picker-live",
+    "comments-reposts",
+    "feed-pill-time",
+    "live-conversation",
+    "endorse-reorder",
+    "application-board",
+    "profile-conflict-phone",
+    "job-coedit-screening",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B13",
+    "B4",
+    "B5",
+    "B6",
+    "B14",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 78
+solo_criteria = []
+
+[criterion_weights]
+B1 = 3
+B2 = 3
+B3 = 3
+B13 = 3
+B4 = 5
+B5 = 3
+B6 = 3
+B14 = 3
+B7 = 3
+B8 = 3
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 3
+S2 = 3
+S3 = 5
+Q1 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+GRADING_KEY = "grade-pw-41c7"
+PLAINWORK_START_AT = "2027-03-01T15:00:00Z"
+PLAINWORK_TIME_ZONE = "America/Chicago"
+PLAINWORK_INVITE_COOLDOWN_SECONDS = "300"
+PLAINWORK_WEEKLY_INVITES = "5"
+PLAINWORK_POST_MAX_CHARS = "280"
+PLAINWORK_SEE_MORE_CHARS = "120"
+PLAINWORK_EDIT_WINDOW_SECONDS = "600"
+PLAINWORK_TYPING_TIMEOUT_MS = "3000"
+PLAINWORK_MAX_SKILLS = "6"
+PLAINWORK_PHOTO_MAX_BYTES = "300000"
+PLAINWORK_RESUME_MAX_BYTES = "200000"
+PLAINWORK_FEED_PAGE_SIZE = "5"
+
+[[services]]
+name = "minio"
+
+[services.env]
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Plainwork <no-reply@plainwork.example>"
+
+[[outages]]
+id = "storage-down"
+port = 4174
+url_env = "APP_STORAGE_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+PORT = "4175"
+DATABASE_URL = "${DATABASE_URL}_storage_down"
+GRADING_KEY = "grade-pw-41c7"
+PLAINWORK_START_AT = "2027-03-01T15:00:00Z"
+PLAINWORK_TIME_ZONE = "America/Chicago"
+PLAINWORK_INVITE_COOLDOWN_SECONDS = "300"
+PLAINWORK_WEEKLY_INVITES = "5"
+PLAINWORK_POST_MAX_CHARS = "280"
+PLAINWORK_SEE_MORE_CHARS = "120"
+PLAINWORK_EDIT_WINDOW_SECONDS = "600"
+PLAINWORK_TYPING_TIMEOUT_MS = "3000"
+PLAINWORK_MAX_SKILLS = "6"
+PLAINWORK_PHOTO_MAX_BYTES = "300000"
+PLAINWORK_RESUME_MAX_BYTES = "200000"
+PLAINWORK_FEED_PAGE_SIZE = "5"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "`/app/run.json` installs, builds and serves the app, which listens on the published port and answers `GET /api/health` as qualified in Deployment."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_reports_storage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Configuration endpoint"
+text = "`GET /api/config` returns the configured limits, time zone and current business-clock instant in the shape given in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_config_shape_and_values",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Business clock"
+text = "Every stored and shown time comes from one business clock that starts at `PLAINWORK_START_AT`, runs in real time and moves only through the grading clock route, with open pages re-rendering within 2 seconds of a move."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_business_clock_drives_times_and_open_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Grading seed route"
+text = "`POST /api/grading/seed` with the grading key creates the published records in one call and returns their ids by key, and every grading route answers 404 without the right key."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_seed_creates_records_and_key_guard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Sign-up with an emailed code"
+text = "Joining sends a six-digit confirmation code to Mailpit, and the new account can sign in only after the code is confirmed."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_signup_emails_code_and_confirm_gates_signin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Sign-in and sessions"
+text = "Sign-in sets an HTTP-only session cookie, every member route and page requires it, and sign-out ends it."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_session_cookie_required_and_signout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "One error shape and order"
+text = "Every API error uses the published JSON shape and the single published precedence order."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_shape_and_precedence",
+]
+criteria = []
+parameter_cases = [
+    "cross_origin_first",
+    "too_large_first",
+    "media_type_before_auth",
+    "auth_before_missing",
+    "missing_before_forbidden",
+    "body_id_missing_before_validation",
+    "forbidden_before_validation",
+    "conflict_before_validation",
+    "validation_before_limit",
+    "unknown_path",
+]
+
+[[requirements]]
+id = "DP-08"
+title = "Idempotent creates"
+text = "A repeated `Idempotency-Key` on a post, comment, message or application returns the stored response without a second record, and reusing a key with a different body is rejected."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_idempotency_key_replay_and_reuse",
+]
+criteria = []
+parameter_cases = [
+    "post",
+    "comment",
+    "message",
+    "application",
+]
+
+[[requirements]]
+id = "DP-09"
+title = "Server boundary"
+text = "The server is same-origin only, enforces the published body limits, and never serves source, configuration or credentials."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Credentials from the environment"
+text = "Every service URL and credential is read from the published environment variables at start and is never hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Connection state machine"
+text = "Connect, Withdraw, Accept, Ignore, Remove connection and Block move a pair only along the published table, and each state shows exactly its published buttons."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-accept-live"
+tests = [
+    "test_app.py::test_connection_state_machine_and_buttons",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Cross-sent and repeated requests"
+text = "Two members who send each other a request at the same moment end with exactly one connection and no pending request, and repeating Connect while a request is pending, a double click included, leaves exactly one request that counts once against the weekly limit."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-accept-live"
+tests = [
+    "test_app.py::test_cross_and_repeated_connect",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Connection emails"
+text = "A new request and an accepted request each send one Mailpit message with the published subject, and Ignore and Withdraw send none."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-accept-live"
+tests = [
+    "test_app.py::test_connection_emails",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Live network updates"
+text = "Invitations, connection buttons, the My network count and the connection announcements update on the other member's open pages within 2 seconds without reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-accept-live"
+tests = [
+    "test_app.py::test_live_network_updates",
+    "test_app.py::test_invitation_focus_and_double_accept",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Degree Roll"
+text = "When the viewer's degree to an open profile changes, the numeral rolls from the old value to the new one in 480 milliseconds, the mutual line settles next, and only then do Message and Endorse appear."
+kind = "behavior"
+primary = "pytest"
+workflow = "invite-accept-live"
+tests = [
+    "test_app.py::test_degree_roll_sequence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Invite and accept journey"
+text = "Two members with one mutual connection go from 2nd degree to connected by keyboard, live on both screens, with both emails delivered."
+kind = "behavior"
+primary = "workflow"
+workflow = "invite-accept-live"
+tests = [
+    "test_app.py::test_wf_invite_accept_live_happy",
+    "test_app.py::test_wf_invite_accept_live_ignore_then_connect",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Withdraw cooldown"
+text = "Inviting the same person again after a withdrawal is refused until the cooldown ends on the business clock and is allowed at exactly the retry instant, and the cooldown alert shows the server's retry instant in the configured time zone whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "withdraw-cooldown-limit"
+tests = [
+    "test_app.py::test_withdraw_cooldown_and_retry_instant",
+    "test_app.py::test_wf_withdraw_cooldown_live_receiver",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Weekly invitation limit"
+text = "A member may create at most `PLAINWORK_WEEKLY_INVITES` requests in any 604,800 seconds of business-clock time, withdrawn ones included, and a request stops counting once it is exactly that old."
+kind = "behavior"
+primary = "pytest"
+workflow = "withdraw-cooldown-limit"
+tests = [
+    "test_app.py::test_weekly_invite_limit_window",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Withdraw and limit journey"
+text = "A member withdraws an invitation, meets the cooldown alert, invites again once the clock reaches the retry instant, and meets and clears the weekly limit, all by keyboard."
+kind = "behavior"
+primary = "workflow"
+workflow = "withdraw-cooldown-limit"
+tests = [
+    "test_app.py::test_wf_withdraw_cooldown_limit_cooldown",
+    "test_app.py::test_wf_withdraw_cooldown_limit_weekly",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Degree from the graph"
+text = "Degree is the shortest path over connections that ignores members blocked either way with the viewer, labelled 1st, 2nd, 3rd+ or Out of network with the published data values. A profile at degree 2 or 3 also shows the connection path, which follows graph changes live even when neither member took part."
+kind = "behavior"
+primary = "pytest"
+workflow = "degree-visibility"
+tests = [
+    "test_app.py::test_degree_from_graph_with_blocks",
+    "test_app.py::test_connection_path_reroutes_live",
+    "test_app.py::test_connection_path_private_and_blocks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Mutual connections"
+text = "The mutual line counts and names the connections shared with the viewer by the published rule and links to a list in the same order."
+kind = "behavior"
+primary = "pytest"
+workflow = "degree-visibility"
+tests = [
+    "test_app.py::test_mutual_line_and_list",
+]
+criteria = []
+parameter_cases = [
+    "one",
+    "two",
+    "three",
+]
+
+[[requirements]]
+id = "DP-22"
+title = "Profile field projection"
+text = "The profile API returns exactly the published field list for the owner's visibility setting and the viewer's degree, with every hidden field absent."
+kind = "behavior"
+primary = "pytest"
+workflow = "degree-visibility"
+tests = [
+    "test_app.py::test_profile_projection",
+]
+criteria = []
+parameter_cases = [
+    "owner",
+    "public",
+    "connections_first",
+    "connections_other",
+    "private_first",
+    "private_other",
+    "blocked",
+]
+
+[[requirements]]
+id = "DP-23"
+title = "Visibility setting and placeholders"
+text = "A member chooses Public, Connections only or Private in Settings, and restricted viewers see the published placeholder or the not-available page."
+kind = "behavior"
+primary = "pytest"
+workflow = "degree-visibility"
+tests = [
+    "test_app.py::test_visibility_setting_and_placeholders",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Search matching and order"
+text = "People, posts and jobs search match every query word as a word prefix, follow the published filters and order, and never return blocked members or private non-connections."
+kind = "behavior"
+primary = "pytest"
+workflow = "degree-visibility"
+tests = [
+    "test_app.py::test_people_search_matching_filters_order",
+    "test_app.py::test_post_and_job_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Search count, latest input and failure"
+text = "Search updates results in place as the member types, announces the published count, always shows the results for the latest text even when an older response arrives late, and shows the published failure sentence with a Try again button when a search request fails."
+kind = "behavior"
+primary = "pytest"
+workflow = "degree-visibility"
+tests = [
+    "test_app.py::test_search_in_place_count_and_latest_input",
+    "test_app.py::test_search_failure_and_try_again",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Degree and visibility journey"
+text = "A member viewing a chain of people sees each degree, mutual line and visibility placeholder exactly, in people search and on the phone layout too."
+kind = "behavior"
+primary = "workflow"
+workflow = "degree-visibility"
+tests = [
+    "test_app.py::test_wf_degree_visibility_desktop",
+    "test_app.py::test_wf_degree_visibility_phone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Block effects"
+text = "A block ends the connection, deletes pending requests and follows both ways, and hides each member from the other everywhere, as qualified in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "block-vanish"
+tests = [
+    "test_app.py::test_block_effects_both_ways",
+    "test_app.py::test_block_drops_degree_through_bridge_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Block controls"
+text = "Block is reached from More actions and confirmed in a dialog by keyboard, and Settings lists blocked members with Unblock, which returns the pair to no connection."
+kind = "behavior"
+primary = "pytest"
+workflow = "block-vanish"
+tests = [
+    "test_app.py::test_block_controls_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Counts without blocked members"
+text = "Every count and summary a member sees leaves out members blocked with that viewer and equals the rows it summarises, after races and deletions."
+kind = "behavior"
+primary = "pytest"
+workflow = "block-vanish"
+tests = [
+    "test_app.py::test_counts_leave_out_blocked",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Block journey"
+text = "A member blocks another by keyboard, each profile becomes unavailable to the other, the blocked member vanishes from search, feed and mutual lines, and unblocking restores Connect."
+kind = "behavior"
+primary = "workflow"
+workflow = "block-vanish"
+tests = [
+    "test_app.py::test_wf_block_vanish_keyboard",
+    "test_app.py::test_wf_block_vanish_unblock",
+    "test_app.py::test_wf_block_vanish_search_and_settings",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Post composer, limit and see more"
+text = "The composer counts code points against `PLAINWORK_POST_MAX_CHARS`, shows the published counter text and disables Post past the limit or when the text is blank, and text longer than `PLAINWORK_SEE_MORE_CHARS` code points is cut there with an ellipsis and a see more button that expands it in place."
+kind = "behavior"
+primary = "pytest"
+workflow = "compose-mentions"
+tests = [
+    "test_app.py::test_composer_counter_limit_and_see_more",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Mention suggestions"
+text = "Typing @ and a character in the composer opens a listbox of matching 1st-degree connections that works by arrow keys, Enter and Escape without leaving the dialog."
+kind = "behavior"
+primary = "pytest"
+workflow = "compose-mentions"
+tests = [
+    "test_app.py::test_mention_suggestions_keyboard",
+    "test_app.py::test_mention_inside_text_keeps_the_rest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Mentions, hashtags and plain-text rendering"
+text = "Saved mentions link only to the author's 1st-degree connections and hashtags link to their lowercase hashtag page by the published patterns, and post and comment text renders as plain text with line breaks and only the published links, so typed markup, scripts and styles never become page elements."
+kind = "behavior"
+primary = "pytest"
+workflow = "compose-mentions"
+tests = [
+    "test_app.py::test_plain_text_rendering_mentions_hashtags",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Hashtag pages"
+text = "Each hashtag page lists the visible posts carrying that tag, matched case-insensitively, newest first, under the published post and member counts."
+kind = "behavior"
+primary = "pytest"
+workflow = "compose-mentions"
+tests = [
+    "test_app.py::test_hashtag_page_counts_and_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Edit window"
+text = "An author can edit a post only before its edit window closes on the business clock, and an edited post shows the Edited label."
+kind = "behavior"
+primary = "pytest"
+workflow = "compose-mentions"
+tests = [
+    "test_app.py::test_edit_window_server_decides",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Compose journey"
+text = "A member writes a post by keyboard with a picked mention, a hashtag and an over-limit detour, then sees its links, see more, the hashtag page and the edit window closing."
+kind = "behavior"
+primary = "workflow"
+workflow = "compose-mentions"
+tests = [
+    "test_app.py::test_wf_compose_mentions_happy",
+    "test_app.py::test_wf_compose_mentions_window_closes_while_editing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Reaction rules and summary"
+text = "Each member holds at most one of the five reaction types per post, and the summary text and data values follow the published rule for the viewer."
+kind = "behavior"
+primary = "pytest"
+workflow = "reaction-picker-live"
+tests = [
+    "test_app.py::test_reaction_summary_rules",
+]
+criteria = []
+parameter_cases = [
+    "none",
+    "you",
+    "you_and_one",
+    "you_and_others",
+    "connection",
+    "connection_and_one",
+    "latest_connection",
+    "one_reaction",
+    "many_reactions",
+]
+
+[[requirements]]
+id = "DP-38"
+title = "Reaction picker keyboard"
+text = "The reaction toolbar opens from Choose reaction and works by arrow keys with wrapping, Home, End, Enter, Space and Escape, with focus returned."
+kind = "behavior"
+primary = "pytest"
+workflow = "reaction-picker-live"
+tests = [
+    "test_app.py::test_reaction_picker_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Live reactions"
+text = "A reaction changes the summary on every other open page showing that post within 2 seconds and is announced on the reacting page."
+kind = "behavior"
+primary = "pytest"
+workflow = "reaction-picker-live"
+tests = [
+    "test_app.py::test_live_reactions_and_announcement",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Notifications"
+text = "The published events create notifications, reactions and comments group per post, the Notifications link carries the unread count, and items arrive live."
+kind = "behavior"
+primary = "pytest"
+workflow = "reaction-picker-live"
+tests = [
+    "test_app.py::test_notifications_group_and_arrive_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Reaction journey"
+text = "A member reacts to another's post by keyboard and by shortcut, and the author's open page shows each summary change live."
+kind = "behavior"
+primary = "workflow"
+workflow = "reaction-picker-live"
+tests = [
+    "test_app.py::test_wf_reaction_picker_live_keyboard",
+    "test_app.py::test_wf_reaction_picker_live_shortcut",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Comments and replies"
+text = "Comments are one level deep, a reply to a reply attaches to the same top-level comment with a prefilled mention, both levels read oldest first, and the thread works as a keyboard tree with collapsed replies."
+kind = "behavior"
+primary = "pytest"
+workflow = "comments-reposts"
+tests = [
+    "test_app.py::test_comment_tree_one_level_and_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Comment deletion"
+text = "A deleted comment with replies leaves the published placeholder and keeps its replies, and a deleted comment without replies disappears."
+kind = "behavior"
+primary = "pytest"
+workflow = "comments-reposts"
+tests = [
+    "test_app.py::test_comment_deletion_placeholder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Live comments and counts"
+text = "New and deleted comments reach other open pages within 2 seconds, and the comment and repost count lines always equal the live rows."
+kind = "behavior"
+primary = "pytest"
+workflow = "comments-reposts"
+tests = [
+    "test_app.py::test_live_comments_and_counts",
+    "test_app.py::test_comment_send_failure_keeps_text_then_one_comment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Comment and repost journey"
+text = "Two members build a thread of a comment and two replies and watch a deletion keep the replies live on both screens, and two reposts of one post show once in a feed and twice in its count until deleting the original removes the plain repost and leaves the placeholder in the other."
+kind = "behavior"
+primary = "workflow"
+workflow = "comments-reposts"
+tests = [
+    "test_app.py::test_wf_comments_reposts_thread_delete",
+    "test_app.py::test_wf_comments_reposts_repost_delete",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Reposts"
+text = "A member reposts a post plainly at most once or with their own thoughts, and a plain repost carries the published credit line."
+kind = "behavior"
+primary = "pytest"
+workflow = "comments-reposts"
+tests = [
+    "test_app.py::test_reposts_plain_and_with_thoughts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Deleted posts are gone"
+text = "A deleted post answers 404 and leaves every feed, search, hashtag page, notification, count and plain repost, while reposts with thoughts keep their own text over the published placeholder."
+kind = "behavior"
+primary = "pytest"
+workflow = "comments-reposts"
+tests = [
+    "test_app.py::test_deleted_post_gone_everywhere",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Follows"
+text = "A member follows and unfollows members and companies, and what they follow feeds their home feed."
+kind = "behavior"
+primary = "pytest"
+workflow = "feed-pill-time"
+tests = [
+    "test_app.py::test_follows_feed_the_home_feed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Feed contents and order"
+text = "The home feed holds posts and reposts from the viewer, their connections and what they follow, newest first, one entry per original post and nothing from blocked members."
+kind = "behavior"
+primary = "pytest"
+workflow = "feed-pill-time"
+tests = [
+    "test_app.py::test_feed_contents_and_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Stable feed pages"
+text = "The feed pages by `PLAINWORK_FEED_PAGE_SIZE` with a stable cursor, so paging while posts arrive or are deleted never repeats or skips an entry."
+kind = "behavior"
+primary = "pytest"
+workflow = "feed-pill-time"
+tests = [
+    "test_app.py::test_feed_stable_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "New posts pill"
+text = "Posts that arrive while the feed is open wait behind an announced Show new posts button that inserts them at the top with focus on the first. Show more posts and Back from a post page keep the member's place, and a focused entry deleted live hands focus on."
+kind = "behavior"
+primary = "pytest"
+workflow = "feed-pill-time"
+tests = [
+    "test_app.py::test_new_posts_pill",
+    "test_app.py::test_feed_focused_entry_deleted_live",
+    "test_app.py::test_feed_more_focus_and_back_restores_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Relative times"
+text = "Every shown time follows the published relative-time ladder on the business clock and updates within 2 seconds of a clock move and at least once a minute."
+kind = "behavior"
+primary = "pytest"
+workflow = "feed-pill-time"
+tests = [
+    "test_app.py::test_relative_time_ladder",
+]
+criteria = []
+parameter_cases = [
+    "now",
+    "minutes",
+    "hours",
+    "days",
+    "weeks",
+    "date",
+]
+
+[[requirements]]
+id = "DP-53"
+title = "Feed shortcuts"
+text = "J, K, L, C and ? work in the feed whenever focus is not in a text field, as published."
+kind = "behavior"
+primary = "pytest"
+workflow = "feed-pill-time"
+tests = [
+    "test_app.py::test_feed_shortcuts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Feed journey"
+text = "A member watches another member's two new posts wait behind the pill, inserts them, moves through them by keyboard, and sees their time labels follow the clock."
+kind = "behavior"
+primary = "workflow"
+workflow = "feed-pill-time"
+tests = [
+    "test_app.py::test_wf_feed_pill_time_keyboard_clock",
+    "test_app.py::test_wf_feed_pill_time_phone_reduced",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Who can message"
+text = "Only 1st-degree connections can message each other and anyone else meets the published refusal, and a conversation answers 404 to everyone but its two members, and to both of them while either blocks the other."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-conversation"
+tests = [
+    "test_app.py::test_who_can_message",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Message composer and live delivery"
+text = "Enter sends, Shift+Enter adds a line, blank text is not sent, and the message appears in the other member's open thread within 2 seconds with an announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-conversation"
+tests = [
+    "test_app.py::test_message_composer_live_delivery",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Typing indicator"
+text = "While one member types, the other's open thread shows the published typing status until the typing timeout passes or the message arrives."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-conversation"
+tests = [
+    "test_app.py::test_typing_indicator",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Read receipts and unread counts"
+text = "A message becomes read only when its recipient's thread is open and visible, the sender sees the Seen time live, and unread counts and the Messaging link name follow the rows."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-conversation"
+tests = [
+    "test_app.py::test_read_receipts_and_unread_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "First-message email"
+text = "The first message of a new conversation sends the recipient one Mailpit message with the published subject."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-conversation"
+tests = [
+    "test_app.py::test_first_message_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Offline message outbox"
+text = "While the page is offline, sent messages wait in the thread marked Waiting to send under the published offline status, and once it is online again they send one at a time in typed order with no duplicates."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-conversation"
+tests = [
+    "test_app.py::test_offline_message_outbox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Message retries and unsent messages"
+text = "A message whose send fails on the network is retried with the same Idempotency-Key on the published schedule, and a message the server refuses stays as an unsent message with Retry sending and Delete unsent message."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-conversation"
+tests = [
+    "test_app.py::test_message_retry_same_key_and_unsent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Conversation journey"
+text = "Two connected members exchange messages with typing, line breaks, read receipts and unread counts updating live, and a non-connection meets the refusal."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-conversation"
+tests = [
+    "test_app.py::test_wf_live_conversation_exchange",
+    "test_app.py::test_wf_live_conversation_refusal",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Skills and endorsements"
+text = "Only 1st-degree connections can endorse a member's listed skill, once per skill, by toggling its Endorse button."
+kind = "behavior"
+primary = "pytest"
+workflow = "endorse-reorder"
+tests = [
+    "test_app.py::test_endorsements_rules_and_toggle",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Skill order and live reorder"
+text = "Skills order by endorsement count then name with the published row text, and the owner's open profile reorders within 2 seconds of an endorsement."
+kind = "behavior"
+primary = "pytest"
+workflow = "endorse-reorder"
+tests = [
+    "test_app.py::test_skill_order_live_reorder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Skill limit"
+text = "Saving more than `PLAINWORK_MAX_SKILLS` skills is refused with the published alert, and the limit itself is allowed."
+kind = "behavior"
+primary = "pytest"
+workflow = "endorse-reorder"
+tests = [
+    "test_app.py::test_skill_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Endorsement journey"
+text = "A connection endorses two skills by keyboard and the owner's open profile reorders live, a non-connection sees no Endorse buttons, and the owner meets the skill limit."
+kind = "behavior"
+primary = "workflow"
+workflow = "endorse-reorder"
+tests = [
+    "test_app.py::test_wf_endorse_reorder_live",
+    "test_app.py::test_wf_endorse_reorder_stranger_and_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Company pages and job posts"
+text = "A company page shows its follower count and open jobs, and only its admins edit it and publish jobs with a closing instant."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-board"
+tests = [
+    "test_app.py::test_company_page_and_job_posting",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Job search and saved jobs"
+text = "Members filter open jobs by location, workplace and date posted, save and unsave them, and see Saved and Applied tabs in My jobs."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-board"
+tests = [
+    "test_app.py::test_job_search_filters_and_saved",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Job closing instant"
+text = "A job stops accepting applications when the business clock reaches its closing instant, and open pages switch to the closed text within 2 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-board"
+tests = [
+    "test_app.py::test_job_closing_instant",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Resume uploads"
+text = "A resume must be a PDF within `PLAINWORK_RESUME_MAX_BYTES` and counts as attached only after object storage confirms the exact bytes."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-board"
+tests = [
+    "test_app.py::test_resume_upload_confirmed_bytes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "One application per job"
+text = "A member applies to a job at most once, double submits included, and a second attempt shows the published already-applied alert."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-board"
+tests = [
+    "test_app.py::test_one_application_per_job",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Application state machine"
+text = "An application moves only along the published stages, by the role each stage names, with the applicant's status text and an attributed history."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-board"
+tests = [
+    "test_app.py::test_application_state_machine_and_history",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Application access"
+text = "An application and its resume answer 404 to everyone except the applicant and the member who posted the job."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-board"
+tests = [
+    "test_app.py::test_application_access",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Applicants board"
+text = "The poster's board shows one column per stage, and cards move between legal columns by drag, by the Move menu or by the published keyboard pickup, with announcements. A move that meets a newer move puts the card where it is stored with the published alert."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-board"
+tests = [
+    "test_app.py::test_applicants_board_moves",
+    "test_app.py::test_board_move_meets_newer_move",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Live application status"
+text = "Each status change reaches the applicant's open Applied tab within 2 seconds with the published announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-board"
+tests = [
+    "test_app.py::test_live_application_status",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Screening answers and knock-outs"
+text = "An application's answers to the job's screening questions are checked by the published rules with every failing question named, and a knock-out miss moves the application to not selected at once, with its automatic history line and email."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-board"
+tests = [
+    "test_app.py::test_screening_answers_and_knockouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Live hiring funnel"
+text = "The poster's board shows the hiring funnel's reached counts, conversion rates and median time to first view by the published rules, updating within 2 seconds of any change."
+kind = "behavior"
+primary = "pytest"
+workflow = "application-board"
+tests = [
+    "test_app.py::test_live_hiring_funnel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Application journey"
+text = "An applicant applies with a PDF after two refused files, the poster moves the application to Offered on the board, and the applicant follows each status live until the job closes."
+kind = "behavior"
+primary = "workflow"
+workflow = "application-board"
+tests = [
+    "test_app.py::test_wf_application_board_happy",
+    "test_app.py::test_wf_application_board_knockout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Job editor presence"
+text = "Company admins with the same job's editor open see who else is editing and which field each is typing in, live, with the published text."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-coedit-screening"
+tests = [
+    "test_app.py::test_job_editor_presence_and_typing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Field-level job saves"
+text = "Each job field saves on its own against the version it read, other editors' saved values arrive live, and a stale save shows the published field conflict with Use theirs and Keep mine."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-coedit-screening"
+tests = [
+    "test_app.py::test_field_level_job_saves",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Screening question builder"
+text = "Company admins build up to 10 screening questions of the four published types with required and knock-out settings, reorder them by keyboard or drag with an announcement, and cannot change them once someone has applied."
+kind = "behavior"
+primary = "pytest"
+workflow = "job-coedit-screening"
+tests = [
+    "test_app.py::test_screening_builder_rules_and_reorder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Job co-editing journey"
+text = "Two admins edit one job at the same time, see each other's presence and typing live, resolve a field conflict and build its screening questions by keyboard, while a member who is not an admin cannot open the editor."
+kind = "behavior"
+primary = "workflow"
+workflow = "job-coedit-screening"
+tests = [
+    "test_app.py::test_wf_job_coedit_screening_conflict",
+    "test_app.py::test_wf_job_coedit_screening_builder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Section versions and conflicts"
+text = "Each profile section saves against the version it read, and a stale save shows the conflict alert with Load latest and Save mine anyway."
+kind = "behavior"
+primary = "pytest"
+workflow = "profile-conflict-phone"
+tests = [
+    "test_app.py::test_section_versions_and_conflict",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Photo uploads"
+text = "Profile and post photos must be JPEG or PNG within `PLAINWORK_PHOTO_MAX_BYTES`, are stored with metadata stripped and the same pixels, and show as attached only after storage confirms them."
+kind = "behavior"
+primary = "pytest"
+workflow = "profile-conflict-phone"
+tests = [
+    "test_app.py::test_photo_uploads_strip_metadata",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Storage outage"
+text = "When object storage is unreachable, uploads are refused with the published alert, health reports unavailable, and everything else keeps working."
+kind = "behavior"
+primary = "pytest"
+workflow = "profile-conflict-phone"
+tests = [
+    "test_app.py::test_storage_outage_refuses_uploads_only",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Phone layout and touch"
+text = "Below 768 pixels wide the app uses the bottom tab bar, two-screen messaging and full-screen dialogs, with every action reachable by touch on targets at least 44 pixels square."
+kind = "behavior"
+primary = "pytest"
+workflow = "profile-conflict-phone"
+tests = [
+    "test_app.py::test_phone_layout_and_touch",
+    "test_app.py::test_phone_back_restores_conversation_list",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-87"
+title = "Conflict and phone journey"
+text = "Two editors resolve an About conflict, a phone member messages by touch, and on the storage-outage instance a photo upload fails while a text post succeeds."
+kind = "behavior"
+primary = "workflow"
+workflow = "profile-conflict-phone"
+tests = [
+    "test_app.py::test_wf_profile_conflict_phone_about",
+    "test_app.py::test_wf_profile_conflict_phone_message",
+    "test_app.py::test_wf_profile_conflict_phone_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-88"
+title = "Published breakpoints"
+text = "Feed, profile, inbox and applicants board take their published layouts at 375, 768 and 1280 pixels wide, with nothing scrolling sideways."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_published_breakpoints",
+]
+criteria = []
+parameter_cases = [
+    "phone",
+    "tablet",
+    "desktop",
+]
+
+[[requirements]]
+id = "DP-89"
+title = "Dialogs, menus and focus"
+text = "Every dialog and menu keeps Tab inside while open, closes on Escape, and returns focus to the control that opened it."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_dialogs_and_menus_keep_focus",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-90"
+title = "Live regions"
+text = "The named live regions speak exactly the published announcement for each async result, success and failure alike."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_live_region_announcements",
+]
+criteria = []
+parameter_cases = [
+    "post_published",
+    "post_failed",
+    "post_updated",
+    "post_deleted",
+    "comment_posted",
+    "comment_failed",
+    "comment_deleted",
+    "reposted",
+]
+
+[[requirements]]
+id = "DP-91"
+title = "Empty and not-found states"
+text = "Empty, no-results and not-available states show their published sentence and action character for character."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_empty_and_not_found_states",
+]
+criteria = []
+parameter_cases = [
+    "empty_feed",
+    "empty_inbox",
+    "no_notifications",
+    "no_invitations",
+    "no_saved_jobs",
+    "no_applications",
+    "no_blocked",
+    "no_search_results",
+    "unknown_address",
+    "unavailable_profile",
+    "unavailable_post",
+]
+
+[[requirements]]
+id = "DP-92"
+title = "Reduced motion"
+text = "With reduced motion requested, the Degree Roll and every other transition show their end state in the first frame with the same function and announcements."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_reduced_motion_end_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-93"
+title = "Bundled assets only"
+text = "Every font, script and style is served by the app itself, and no page requests any other origin."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_bundled_assets_same_origin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-94"
+title = "Server-pushed live updates"
+text = "Live changes reach open pages from the app server's own event stream, triggered by stored changes, never by client timers that guess at state."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-95"
+title = "Design language and degree numeral"
+text = "Every screen is set type in Funnel Display and Funnel Sans, pink on one navy field, with four widely spaced sizes, square corners and no filler graphics, and on every other member's profile the degree numeral is the largest object on screen with the mutual line set directly beneath it."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B4",
+    "B5",
+    "B6",
+    "B14",
+    "B7",
+    "B8",
+    "B9",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-96"
+title = "Landing hero"
+text = "The signed-out landing page shows the stacked two-ink name flush left, the promise sentence bottom right, and only the monogram and the Sign in and Join links."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-97"
+title = "Working screens"
+text = "Feed, inbox, jobs and the applicants board separate items by space and surface fields, set names large and counts in even-width figures, and show empty and error states as one big sentence with one underlined action."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-98"
+title = "Featured skills"
+text = "The owner features up to three skills in a chosen order, reordered by keyboard or drag with an announcement, and each skill row names an endorser by the published rule. A reorder that meets a newer save goes back to the stored order with the published alert."
+kind = "behavior"
+primary = "pytest"
+workflow = "endorse-reorder"
+tests = [
+    "test_app.py::test_featured_skills_order_and_endorser_line",
+    "test_app.py::test_featured_stale_reorder_and_drag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-99"
+title = "Sent invitations grid"
+text = "My network's sent invitations form a keyboard grid where the member selects rows and withdraws them in one all-or-nothing action, with the published confirm, announcement and focus rule."
+kind = "behavior"
+primary = "pytest"
+workflow = "withdraw-cooldown-limit"
+tests = [
+    "test_app.py::test_sent_grid_keyboard_withdraw",
+    "test_app.py::test_batch_withdraw_api_all_or_nothing",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "`/app/run.json` exists with exactly the string keys `_schema` (value `run-manifest-v1`), `install`, `build` and `serve`, and `install` uses the committed npm lockfile (`npm ci`)."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "`/app/THIRD_PARTY_NOTICES.md` lists every shipped package (the production dependency tree from `npm ls --omit=dev --all --json`) with its version and licence, plus the Funnel Display and Funnel Sans font files and their SIL Open Font Licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package (the same production tree) is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, BlueOak-1.0.0 or CC0-1.0, and the bundled fonts are under OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores state only in the provided PostgreSQL database and MinIO bucket: no SQLite, Redis, other datastore, or state files on disk."
+tests = [
+    "test_app.py::test_if_state_only_in_provided_stores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service configuration for PostgreSQL, MinIO and Mailpit (its compose files and environment values) is left unmodified."
+tests = [
+    "test_app.py::test_if_service_config_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Application code is written in TypeScript (`.ts` or `.tsx`), with plain JavaScript only in tool configuration files."
+tests = [
+    "test_app.py::test_if_typescript_sources",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "At runtime the app makes network requests only to the three configured services, and fonts are bundled files, not fetched."
+tests = [
+    "test_app.py::test_if_fonts_bundled",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "invite-accept-live"
+requirements = [
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-15",
+    "DP-16",
+]
+critical = [
+    "test_app.py::test_wf_invite_accept_live_happy",
+    "test_app.py::test_live_network_updates",
+    "test_app.py::test_cross_and_repeated_connect",
+    "test_app.py::test_degree_roll_sequence",
+    "test_app.py::test_wf_invite_accept_live_ignore_then_connect",
+    "test_app.py::test_invitation_focus_and_double_accept",
+]
+checkpoints = [
+    "B4",
+    "B6",
+]
+critical_checkpoints = [
+    "B4",
+]
+
+[[workflows]]
+id = "withdraw-cooldown-limit"
+requirements = [
+    "DP-17",
+    "DP-18",
+    "DP-19",
+    "DP-99",
+]
+critical = [
+    "test_app.py::test_wf_withdraw_cooldown_limit_cooldown",
+    "test_app.py::test_wf_withdraw_cooldown_limit_weekly",
+    "test_app.py::test_withdraw_cooldown_and_retry_instant",
+    "test_app.py::test_sent_grid_keyboard_withdraw",
+    "test_app.py::test_wf_withdraw_cooldown_live_receiver",
+]
+
+[[workflows]]
+id = "degree-visibility"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+]
+critical = [
+    "test_app.py::test_wf_degree_visibility_desktop",
+    "test_app.py::test_wf_degree_visibility_phone",
+    "test_app.py::test_profile_projection",
+    "test_app.py::test_visibility_setting_and_placeholders",
+    "test_app.py::test_search_in_place_count_and_latest_input",
+    "test_app.py::test_mutual_line_and_list",
+    "test_app.py::test_degree_from_graph_with_blocks",
+    "test_app.py::test_connection_path_reroutes_live",
+    "test_app.py::test_connection_path_private_and_blocks",
+]
+checkpoints = [
+    "B6",
+    "B14",
+]
+
+[[workflows]]
+id = "block-vanish"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_block_vanish_keyboard",
+    "test_app.py::test_block_effects_both_ways",
+    "test_app.py::test_counts_leave_out_blocked",
+    "test_app.py::test_block_controls_keyboard",
+    "test_app.py::test_wf_block_vanish_unblock",
+    "test_app.py::test_wf_block_vanish_search_and_settings",
+    "test_app.py::test_block_drops_degree_through_bridge_live",
+]
+
+[[workflows]]
+id = "compose-mentions"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_compose_mentions_happy",
+    "test_app.py::test_mention_suggestions_keyboard",
+    "test_app.py::test_plain_text_rendering_mentions_hashtags",
+    "test_app.py::test_edit_window_server_decides",
+    "test_app.py::test_hashtag_page_counts_and_order",
+    "test_app.py::test_composer_counter_limit_and_see_more",
+    "test_app.py::test_mention_inside_text_keeps_the_rest",
+]
+
+[[workflows]]
+id = "reaction-picker-live"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_reaction_picker_live_keyboard",
+    "test_app.py::test_reaction_picker_keyboard",
+    "test_app.py::test_live_reactions_and_announcement",
+    "test_app.py::test_reaction_summary_rules",
+    "test_app.py::test_wf_reaction_picker_live_shortcut",
+]
+
+[[workflows]]
+id = "comments-reposts"
+requirements = [
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_comments_reposts_thread_delete",
+    "test_app.py::test_wf_comments_reposts_repost_delete",
+    "test_app.py::test_live_comments_and_counts",
+    "test_app.py::test_deleted_post_gone_everywhere",
+    "test_app.py::test_comment_tree_one_level_and_keyboard",
+    "test_app.py::test_comment_deletion_placeholder",
+    "test_app.py::test_comment_send_failure_keeps_text_then_one_comment",
+]
+
+[[workflows]]
+id = "feed-pill-time"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+]
+critical = [
+    "test_app.py::test_wf_feed_pill_time_keyboard_clock",
+    "test_app.py::test_wf_feed_pill_time_phone_reduced",
+    "test_app.py::test_feed_stable_pages",
+    "test_app.py::test_new_posts_pill",
+    "test_app.py::test_relative_time_ladder",
+    "test_app.py::test_feed_more_focus_and_back_restores_place",
+    "test_app.py::test_feed_focused_entry_deleted_live",
+]
+
+[[workflows]]
+id = "live-conversation"
+requirements = [
+    "DP-55",
+    "DP-56",
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+    "DP-61",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_live_conversation_exchange",
+    "test_app.py::test_message_composer_live_delivery",
+    "test_app.py::test_who_can_message",
+    "test_app.py::test_message_retry_same_key_and_unsent",
+    "test_app.py::test_offline_message_outbox",
+]
+
+[[workflows]]
+id = "endorse-reorder"
+requirements = [
+    "DP-63",
+    "DP-64",
+    "DP-65",
+    "DP-66",
+    "DP-98",
+]
+critical = [
+    "test_app.py::test_wf_endorse_reorder_live",
+    "test_app.py::test_skill_order_live_reorder",
+    "test_app.py::test_featured_skills_order_and_endorser_line",
+    "test_app.py::test_endorsements_rules_and_toggle",
+    "test_app.py::test_wf_endorse_reorder_stranger_and_limit",
+    "test_app.py::test_featured_stale_reorder_and_drag",
+]
+
+[[workflows]]
+id = "application-board"
+requirements = [
+    "DP-67",
+    "DP-68",
+    "DP-69",
+    "DP-70",
+    "DP-71",
+    "DP-72",
+    "DP-73",
+    "DP-74",
+    "DP-75",
+    "DP-76",
+    "DP-77",
+    "DP-78",
+]
+critical = [
+    "test_app.py::test_wf_application_board_happy",
+    "test_app.py::test_resume_upload_confirmed_bytes",
+    "test_app.py::test_application_access",
+    "test_app.py::test_job_closing_instant",
+    "test_app.py::test_applicants_board_moves",
+    "test_app.py::test_one_application_per_job",
+    "test_app.py::test_live_application_status",
+    "test_app.py::test_wf_application_board_knockout",
+    "test_app.py::test_live_hiring_funnel",
+    "test_app.py::test_board_move_meets_newer_move",
+]
+
+[[workflows]]
+id = "profile-conflict-phone"
+requirements = [
+    "DP-83",
+    "DP-84",
+    "DP-85",
+    "DP-86",
+    "DP-87",
+]
+critical = [
+    "test_app.py::test_wf_profile_conflict_phone_about",
+    "test_app.py::test_wf_profile_conflict_phone_outage",
+    "test_app.py::test_section_versions_and_conflict",
+    "test_app.py::test_phone_layout_and_touch",
+    "test_app.py::test_photo_uploads_strip_metadata",
+    "test_app.py::test_phone_back_restores_conversation_list",
+]
+
+[[workflows]]
+id = "job-coedit-screening"
+requirements = [
+    "DP-79",
+    "DP-80",
+    "DP-81",
+    "DP-82",
+]
+critical = [
+    "test_app.py::test_wf_job_coedit_screening_conflict",
+    "test_app.py::test_wf_job_coedit_screening_builder",
+    "test_app.py::test_job_editor_presence_and_typing",
+    "test_app.py::test_field_level_job_saves",
+    "test_app.py::test_screening_builder_rules_and_reorder",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-88",
+    "DP-89",
+    "DP-90",
+    "DP-91",
+    "DP-92",
+    "DP-93",
+    "DP-94",
+    "DP-95",
+    "DP-96",
+    "DP-97",
+]
+critical = [
+    "test_app.py::test_health_reports_storage",
+    "test_app.py::test_grading_seed_creates_records_and_key_guard",
+    "test_app.py::test_session_cookie_required_and_signout",
+    "test_app.py::test_error_shape_and_precedence",
+]
+checkpoints = [
+    "B1",
+    "B11",
+]

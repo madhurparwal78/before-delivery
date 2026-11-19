@@ -1,0 +1,1397 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 71
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "session-lifecycle",
+    "join-link",
+    "invites",
+    "silent-round",
+    "reveal",
+    "image-notes",
+    "concurrent-edit",
+    "clustering",
+    "dot-voting",
+    "trash-restore",
+    "facilitator-only",
+    "recap",
+    "billing",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 90
+solo_criteria = [
+    "B12",
+]
+services = [
+    { name = "postgres", env = {} },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Lanternfold Rooms <rooms@lanternfold.test>" } },
+    { name = "killbill", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 3
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 5
+B8 = 3
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 5
+B13 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+S4 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 5
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAILPIT_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "killbill-down"
+port = 4176
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "replica-b"
+port = 4177
+url_env = "APP_REPLICA_URL"
+
+[outages.env]
+INSTANCE_ID = "b"
+
+[[outages]]
+id = "short-purge"
+port = 4178
+url_env = "APP_SHORT_PURGE_URL"
+
+[outages.env]
+TRASH_PURGE_SECONDS = "6"
+DELIVERY_RETRY_SECONDS = "300"
+
+[[outages]]
+id = "short-grace"
+port = 4179
+url_env = "APP_SHORT_GRACE_URL"
+
+[outages.env]
+PAYMENT_GRACE_SECONDS = "5"
+
+[[requirements]]
+id = "DP-01"
+title = "Facilitator sign-in"
+text = "Each seeded facilitator signs in with email and password and gets a session cookie, and every facilitator endpoint rejects requests without it, as stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-lifecycle"
+tests = [
+    "test_app.py::test_signin_sessions",
+    "test_app.py::test_wf_session_lifecycle_signin",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Workshop from a template"
+text = "A signed-in facilitator creates a workshop with a client fee from one of four templates in the New workshop dialog and lands on its board in Draft, with that template's frames in the rail."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-lifecycle"
+tests = [
+    "test_app.py::test_workshop_templates_api",
+    "test_app.py::test_wf_session_lifecycle_create",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Session state machine"
+text = "The workshop moves only along the legal edges in Business rules and only on the facilitator's command. Every other edge is rejected with `illegal_transition`, except that any edge out of `closed` or `archived` is rejected with `workshop_closed`, which comes first in the 409 order."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-lifecycle"
+tests = [
+    "test_app.py::test_state_machine",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "One advance wins"
+text = "When the same transition is sent several times at once with different operation ids, on one instance or several, exactly one succeeds. The rest are rejected with `illegal_transition`, or with `workshop_closed` when the winning move entered `closed` or `archived`."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-lifecycle"
+tests = [
+    "test_app.py::test_one_advance_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Server-held timers"
+text = "Silent rounds and voting end at a deadline the server sets, and notes or dots that arrive after it are rejected with `deadline_passed`, whatever the browser clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "silent-round"
+tests = [
+    "test_app.py::test_deadline_server_side",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Join link"
+text = "Each workshop has one unguessable join link that admits participants without an account to that workshop only, and a repeated join from the same browser keeps one participant. A link that cannot be used admits nobody, and its join page shows the matching message from Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-link"
+tests = [
+    "test_app.py::test_join_link_api",
+    "test_app.py::test_wf_join_link_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Revoke and rotate the link"
+text = "The facilitator can turn the join link off or replace it mid-session. After that, the old link and every session joined through it stop working on every instance, as stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-link"
+tests = [
+    "test_app.py::test_link_rotate_revoke",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Link expiry"
+text = "A join link stops working at the resolved instant of the scheduled end plus the grace period in elapsed seconds, as stated in Business rules, and the facilitator sees that instant on the workshop."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-link"
+tests = [
+    "test_app.py::test_link_expiry_dst",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Email invites"
+text = "Adding client emails sends each distinct address one Mailpit invite, addressed to that address alone, carrying the join link active when the message leaves."
+kind = "behavior"
+primary = "pytest"
+workflow = "invites"
+tests = [
+    "test_app.py::test_wf_invites_paste_and_send",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Invites wait out a mail outage"
+text = "When mail is unreachable, invites are accepted with status queued and shown with the outage copy. No invite message is sent, and delivery keeps being retried without a restart, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "invites"
+tests = [
+    "test_app.py::test_wf_invites_mail_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "What each viewer receives"
+text = "Every board response and stream event carries only the fields listed for the caller's role, so unrevealed note text and author names never reach other participants."
+kind = "behavior"
+primary = "pytest"
+workflow = "silent-round"
+tests = [
+    "test_app.py::test_silent_round_projection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Card backs on screen"
+text = "During a silent round, other participants' notes render as outline-only card backs at their real positions, with no note text in their DOM, while the facilitator's card backs show the author name."
+kind = "behavior"
+primary = "pytest"
+workflow = "silent-round"
+tests = [
+    "test_app.py::test_card_backs_dom",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "One note per add"
+text = "Retrying or double-pressing Add note leaves exactly one note on the board, because a repeated operation id returns the stored result."
+kind = "behavior"
+primary = "pytest"
+workflow = "silent-round"
+tests = [
+    "test_app.py::test_wf_silent_round_double_save",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Silent brainstorm journey"
+text = "A participant joins from the link and writes private notes into a frame while the round timer counts down, seeing other people's notes only as card backs and a rising hidden counter."
+kind = "behavior"
+primary = "workflow"
+workflow = "silent-round"
+tests = [
+    "test_app.py::test_wf_silent_round_brainstorm",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Reveal releases every note"
+text = "After the facilitator presses Reveal, every note in the round is revealed, including notes still being saved when Reveal was pressed. The next board response gives every viewer its text, while author names stay with the author and the facilitator."
+kind = "behavior"
+primary = "pytest"
+workflow = "reveal"
+tests = [
+    "test_app.py::test_reveal_releases_racing_notes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Face-down reveal motion"
+text = "On reveal, card backs flip in a wave ordered by distance from each frame's centre, with the timing in Motion and effects, and each frame counter then shows its note total."
+kind = "behavior"
+primary = "pytest"
+workflow = "reveal"
+tests = [
+    "test_app.py::test_wf_reveal_wave",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Reduced-motion reveal"
+text = "With reduced motion on, revealed cards switch to their fronts with a short crossfade, the reveal is announced for each frame, and focus moves to the first announced frame's heading."
+kind = "behavior"
+primary = "pytest"
+workflow = "reveal"
+tests = [
+    "test_app.py::test_wf_reveal_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Image stickies"
+text = "Participants add PNG, JPEG or WebP image notes. Each image's type is judged by its bytes, its size is bounded, and its metadata is removed before storage in MinIO. Image notes stay hidden from others until reveal."
+kind = "behavior"
+primary = "pytest"
+workflow = "image-notes"
+tests = [
+    "test_app.py::test_image_upload_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Image storage outage"
+text = "When file storage is down, image uploads fail with the storage outage copy, while text notes and the rest of the board keep working."
+kind = "behavior"
+primary = "pytest"
+workflow = "image-notes"
+tests = [
+    "test_app.py::test_wf_image_notes_storage_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Per-field last write wins"
+text = "When two people change different fields of the same note at once, both changes survive, and when they change the same field, the later write wins."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-edit"
+tests = [
+    "test_app.py::test_per_field_last_write_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Live board updates across instances"
+text = "Every change committed on any instance reaches every open board on every instance within the live-update delay, in strictly increasing version order per board. A reconnecting stream first catches up to the current version, as stated in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-edit"
+tests = [
+    "test_app.py::test_live_updates_across_instances",
+    "test_app.py::test_wf_concurrent_edit_live_two_boards",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Honest snap-back"
+text = "A note move or edit that the server rejects, or that cannot reach the server, returns visibly to its saved state and the failure is announced, as qualified in Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-edit"
+tests = [
+    "test_app.py::test_wf_concurrent_edit_snap_back",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Clusters and connectors"
+text = "After reveal, participants and the facilitator create, rename and delete clusters, place notes in them and connect notes, with the effects on notes and dots stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "clustering"
+tests = [
+    "test_app.py::test_clusters_connectors_effects",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Counts that match the board"
+text = "Frame note counts, hidden counts and cluster note counts always equal the notes stored on the board, including after moves between clusters and deletions."
+kind = "behavior"
+primary = "pytest"
+workflow = "clustering"
+tests = [
+    "test_app.py::test_counts_match_board",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Keyboard move and reorder"
+text = "Without a pointer, a user picks up a note, reorders it inside its cluster or moves it to a named cluster or frame, and each step is announced and saved."
+kind = "behavior"
+primary = "pytest"
+workflow = "clustering"
+tests = [
+    "test_app.py::test_wf_clustering_keyboard_move",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Clustering journey"
+text = "After reveal, a participant drags notes into named clusters, cluster note counts update on every screen, and the arrangement survives a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "clustering"
+tests = [
+    "test_app.py::test_wf_clustering_search_drag",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Dot budget"
+text = "During voting, each participant spends dots on clusters and takes them back within the budget the facilitator set. Simultaneous spends on any mix of instances never take anyone past that budget."
+kind = "behavior"
+primary = "pytest"
+workflow = "dot-voting"
+tests = [
+    "test_app.py::test_dot_budget_concurrent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Vote totals from the ledger"
+text = "Cluster dot totals and each participant's remaining dots are derived from the dot ledger and always match it, and participants see only their own dots until the workshop closes."
+kind = "behavior"
+primary = "pytest"
+workflow = "dot-voting"
+tests = [
+    "test_app.py::test_vote_totals_from_ledger",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Voting journey"
+text = "The facilitator starts voting with a dot budget and a duration, participants place dots on clusters, and the facilitator's drawer ranks clusters by live totals."
+kind = "behavior"
+primary = "workflow"
+workflow = "dot-voting"
+tests = [
+    "test_app.py::test_wf_dot_voting_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Facilitator-only notes"
+text = "Notes the facilitator marks facilitator-only, at creation or later, appear only on the facilitator's board. For participants they leave their cluster and connectors, and they never count in frame or cluster totals."
+kind = "behavior"
+primary = "pytest"
+workflow = "facilitator-only"
+tests = [
+    "test_app.py::test_facilitator_only_notes",
+    "test_app.py::test_wf_facilitator_only_mark",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Frame trash and exact restore"
+text = "Moving a frame to trash and restoring it before its purge time brings back every note, cluster membership and order, connector and dot exactly as they were."
+kind = "behavior"
+primary = "pytest"
+workflow = "trash-restore"
+tests = [
+    "test_app.py::test_trash_exact_restore",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Undo a deleted frame"
+text = "A facilitator who trashes a frame by mistake restores it from the Trash dialog and sees it back in the rail with its notes, clusters and counts."
+kind = "behavior"
+primary = "workflow"
+workflow = "trash-restore"
+tests = [
+    "test_app.py::test_wf_trash_restore_dialog",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Recap files in storage"
+text = "Closing a workshop stores three kinds of file in MinIO under the published keys: a board PDF with an extractable text layer, one PNG per frame at the plan's recap scale, and the notes CSV."
+kind = "behavior"
+primary = "pytest"
+workflow = "recap"
+tests = [
+    "test_app.py::test_recap_files_csv_pdf",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Recap email"
+text = "Once the files are stored and any sponsor invoice exists, the sponsor and each invited client receive exactly one recap email that links to the recap page and quotes the invoice."
+kind = "behavior"
+primary = "pytest"
+workflow = "recap"
+tests = [
+    "test_app.py::test_wf_recap_close_and_deliver",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Spreadsheet-safe CSV"
+text = "Every cell in the notes CSV that starts with =, +, - or @ is made inert, as stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "recap"
+tests = [
+    "test_app.py::test_recap_csv_inert",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Recap waits out outages"
+text = "If storage, billing or mail is unreachable at close, the board keeps working. The recap stays queued with the outage reason and a rising attempt count, and no recap email is sent. It completes without a restart once the service returns, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "recap"
+tests = [
+    "test_app.py::test_recap_waits_out_outages",
+]
+criteria = []
+parameter_cases = [
+    "storage",
+    "billing",
+    "mail",
+]
+
+[[requirements]]
+id = "DP-37"
+title = "Sponsor recap page"
+text = "The sponsor opens the recap link from the email and sees the cluster ranking, the invoice number and the downloadable files, or the queued status while delivery is pending."
+kind = "behavior"
+primary = "workflow"
+workflow = "recap"
+tests = [
+    "test_app.py::test_wf_recap_sponsor_page",
+    "test_app.py::test_wf_recap_queued_page",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Health and run manifest"
+text = "The app starts from /app/run.json, listens on the stated port and answers the health check with HTTP 200 and the stated JSON, including each dependency's state."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_manifest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Server boundary"
+text = "The server accepts same-origin requests only, enforces the stated body limits, never serves source or credentials, and boots while storage, mail or billing is unreachable."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Configuration from the environment"
+text = "Every service credential and URL is read from the named environment variables at start, and none is hard-coded or sent to the browser."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Responsive layout"
+text = "Seven pages fit the 375x812, 768x1024 and 1280x800 viewports with no horizontal page overflow: the marketing page, workshop list, billing page, activity log, join page, board and recap page."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_responsive",
+]
+criteria = []
+parameter_cases = [
+    "375x812",
+    "768x1024",
+    "1280x800",
+]
+
+[[requirements]]
+id = "DP-42"
+title = "Keyboard and focus"
+text = "Every public control can be reached by keyboard in the stated order, shows a visible focus ring and is at least 44 by 44 pixels, and every dialog returns focus to its opener when it closes."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Motion discipline"
+text = "Every motion in the product is one listed in Motion and effects. Each one only moves, scales, rotates or fades elements, can be paused through the page's animation controls, and has the stated reduced-motion substitute."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_discipline",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Papery canvas look"
+text = "The board looks like warm paper with a faint dot grid and butter-yellow stickies with a darker edge, a crisp offset shadow and a faint sheen. One rust accent marks only live or active state, and gradients appear only where Visual design allows them."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B12",
+    "B13",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Editorial marketing page"
+text = "The landing page is a wide editorial column with serif headlines and ruled sections over a drifting gradient mesh, beside a mini canvas that plays the face-down reveal, followed by three plan cards."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Plans mirrored from Kill Bill"
+text = "Each facilitator has one Kill Bill account and subscription. The plan, term, entitlements and invoices the app enforces and shows are mirrored from what Kill Bill reports, as stated in Business rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing"
+tests = [
+    "test_app.py::test_billing_mirror",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Upgrade now with Kill Bill's invoice"
+text = "An upgrade changes the Kill Bill subscription immediately and records Kill Bill's prorated invoice in the app with the same number and amount, once per operation id. Otherwise it answers `billing_unavailable` with nothing changed in either system."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing"
+tests = [
+    "test_app.py::test_wf_billing_unavailable",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Downgrade at term end"
+text = "A downgrade is scheduled in Kill Bill for the charged-through date and shown as a pending change in the facilitator's time zone. The current entitlements and invoices stay unchanged until then. While Kill Bill is unreachable, a downgrade answers `billing_unavailable` and nothing changes."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing"
+tests = [
+    "test_app.py::test_downgrade_scheduled",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Plan limits"
+text = "Creating a workshop or starting a silent round beyond the plan's entitlement answers `plan_limit` with the limit, the usage and the plan, and exactly the allowed number of concurrent creates succeed across instances."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing"
+tests = [
+    "test_app.py::test_plan_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Overdue payment"
+text = "An unpaid facilitator invoice puts the workspace in past due, then in read-only after the grace period, where writes answer `payment_required`, and a successful payment retry restores it."
+kind = "behavior"
+primary = "pytest"
+workflow = "billing"
+tests = [
+    "test_app.py::test_overdue_payment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Plan and billing journey"
+text = "The facilitator opens Plan and billing, upgrades and hears the invoice announcement, sees the usage meters' caps change, then schedules a downgrade and sees its start date."
+kind = "behavior"
+primary = "workflow"
+workflow = "billing"
+tests = [
+    "test_app.py::test_wf_billing_change_plan",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Sponsor invoice on close"
+text = "Closing a workshop with a fee above zero raises exactly one Kill Bill invoice on the sponsor's account for that exact amount, across retries, outages and instances."
+kind = "behavior"
+primary = "pytest"
+workflow = "recap"
+tests = [
+    "test_app.py::test_sponsor_invoice_once",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Room capacity"
+text = "Joining a workshop that already holds the plan's participant cap of active participants answers `room_full`, and concurrent joins for the last places admit exactly the cap."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-link"
+tests = [
+    "test_app.py::test_room_capacity_concurrent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Daily invite quota"
+text = "Invites count against the plan's daily allowance per facilitator-local calendar day across every instance. A batch that does not fit is rejected whole with `quota_exceeded` and a wait until local midnight."
+kind = "behavior"
+primary = "pytest"
+workflow = "invites"
+tests = [
+    "test_app.py::test_invite_quota_local_day",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Request rate limits"
+text = "Sign-in failures, joins, board writes, uploads and cursor updates are limited as the published table states, in fixed windows counted in Postgres, with `rate_limited` and the rate-limit headers."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_rate_limits",
+]
+criteria = []
+parameter_cases = [
+    "signin",
+    "join",
+    "board_writes",
+    "uploads",
+    "presence",
+]
+
+[[requirements]]
+id = "DP-56"
+title = "Repeated operations across instances"
+text = "Copies of one operation that arrive at once on one or several instances apply once and all receive the identical stored response, while a different body under the same operation id answers `op_conflict`."
+kind = "behavior"
+primary = "pytest"
+workflow = "concurrent-edit"
+tests = [
+    "test_app.py::test_repeated_operations_across_instances",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Ended sessions stop mid-vote"
+text = "After the join link is turned off or replaced, a participant's next request on any instance answers `session_ended`. Their open board shows the session-ended page, and dots they already placed stay in the totals."
+kind = "behavior"
+primary = "pytest"
+workflow = "dot-voting"
+tests = [
+    "test_app.py::test_wf_dot_voting_session_ended",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Private content never reaches copies"
+text = "Facilitator-only notes and participant names appear in no recap copy, including the PDF text and metadata, the PNGs, the CSV, the recap API and the recap email."
+kind = "behavior"
+primary = "pytest"
+workflow = "facilitator-only"
+tests = [
+    "test_app.py::test_wf_facilitator_only_recap_privacy",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Board version history"
+text = "The board keeps snapshots at the stated points, and restoring one is itself a new, undoable change that reaches every open board."
+kind = "behavior"
+primary = "pytest"
+workflow = "trash-restore"
+tests = [
+    "test_app.py::test_version_history_restore",
+    "test_app.py::test_wf_trash_restore_versions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Note search"
+text = "Search finds revealed notes by their words in the stated rank order, and never returns another person's unrevealed note."
+kind = "behavior"
+primary = "pytest"
+workflow = "clustering"
+tests = [
+    "test_app.py::test_search_rank_visibility",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Activity log"
+text = "The facilitator reads an append-only log of workspace actions, newest first, through an opaque cursor."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-lifecycle"
+tests = [
+    "test_app.py::test_activity_log",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Workspace isolation"
+text = "A facilitator or participant who asks for anything outside their own workspace gets `not_found`. That covers workshops, notes, frames, clusters, connectors, trash items, versions and activity entries."
+kind = "behavior"
+primary = "pytest"
+workflow = "session-lifecycle"
+tests = [
+    "test_app.py::test_workspace_isolation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Collaborator cursors"
+text = "Each viewer sees other collaborators' cursors with a coloured halo, with names only for the facilitator and no other cursors for participants during a silent round."
+kind = "behavior"
+primary = "pytest"
+workflow = "silent-round"
+tests = [
+    "test_app.py::test_presence_cursors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Hero, pricing and canvas motion"
+text = "Eight motions run with the timings in Motion and effects and their reduced-motion substitutes: the hero mesh drift, the scroll-scrubbed demo, the pricing toggle, spring drag, card entrance, number tickers, meter fills and cursor gliding."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_cases",
+]
+criteria = []
+parameter_cases = [
+    "hero_drift",
+    "scroll_demo",
+    "pricing_toggle",
+    "card_entrance",
+    "spring_drop",
+    "number_ticker",
+    "meter_fill",
+    "cursor_glide",
+]
+
+[[requirements]]
+id = "DP-65"
+title = "Daylight-saving schedule times"
+text = "A scheduled start or end that falls in a spring-forward gap is rejected with its field message. A time in a fall-back overlap resolves to the earlier instant, and the end-after-start check compares the resolved instants."
+kind = "behavior"
+primary = "pytest"
+workflow = "join-link"
+tests = [
+    "test_app.py::test_wf_join_link_dst_schedule",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Safe invite batches"
+text = "An invite batch with any entry that is not a bare address is rejected whole, with nothing sent or counted, and addresses that differ only in case are sent and counted once. Titles with line breaks or control characters are rejected. Every message has one To recipient and a subject that decodes exactly."
+kind = "behavior"
+primary = "pytest"
+workflow = "invites"
+tests = [
+    "test_app.py::test_invite_batches_headers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Reveal after a dropped connection"
+text = "A board that misses the reveal while its stream is down runs the face-down wave and announces each frame's reveal exactly once when the stream resumes. A board first loaded after the reveal shows no flip and no announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "reveal"
+tests = [
+    "test_app.py::test_wf_reveal_dropped_connection",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Deleted images are gone"
+text = "Deleting an image note makes its image URL answer `not_found` at once. Its MinIO object is removed once no note, trashed frame or stored version uses it, which is delayed until storage returns when storage is down, as qualified in Services."
+kind = "behavior"
+primary = "pytest"
+workflow = "image-notes"
+tests = [
+    "test_app.py::test_deleted_image_gone",
+    "test_app.py::test_wf_image_notes_add_delete",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Paired dot returns"
+text = "Every dot return cancels exactly one earlier spend, and concurrent returns of one dot give back exactly one. Deleting a cluster mid-vote returns every spend on it in the same change, and a racing spend is either returned too or answers `not_found`."
+kind = "behavior"
+primary = "pytest"
+workflow = "dot-voting"
+tests = [
+    "test_app.py::test_paired_dot_returns",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Purge time enforced at read"
+text = "From its purge time, a trashed frame is gone from the trash list, search and version restore, and restoring it answers `not_found`, whether or not the worker has deleted it yet."
+kind = "behavior"
+primary = "pytest"
+workflow = "trash-restore"
+tests = [
+    "test_app.py::test_purge_at_read",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Only published fields accepted"
+text = "A board write carrying any key not published for that endpoint answers a field error on that key, applies nothing and is stored for replay, so nobody can reveal a note or set its author by adding keys."
+kind = "behavior"
+primary = "pytest"
+workflow = "facilitator-only"
+tests = [
+    "test_app.py::test_unknown_keys_rejected",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve fields and \"_schema\":\"run-manifest-v1\", and nothing else is required to start the app."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) with its version and licence, and names IBM Plex Sans, IBM Plex Mono, Instrument Serif and Lucide in full."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package is licensed MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0 or 0BSD, and fonts are OFL-1.1, written as OFL-1.1 in the notices."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Application state lives only in the provided Postgres and MinIO, Kill Bill is used only as the billing provider, and no shipped package is one of the listed datastore clients."
+tests = [
+    "test_app.py::test_if_no_extra_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The provided service definitions, their images and their environment variable names are left unchanged."
+tests = [
+    "test_app.py::test_if_services_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The browser loads fonts, icons and scripts only from the app's own origin."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "Server and client source is TypeScript; JavaScript files appear only as tool configuration (*.config.js, *rc.js, their .cjs/.mjs forms, or dotfiles) or as build output under dist, build or out."
+tests = [
+    "test_app.py::test_if_typescript_only",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "session-lifecycle"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-61",
+    "DP-62",
+]
+critical = [
+    "test_app.py::test_wf_session_lifecycle_create",
+    "test_app.py::test_wf_session_lifecycle_signin",
+    "test_app.py::test_one_advance_wins",
+    "test_app.py::test_signin_sessions",
+]
+
+[[workflows]]
+id = "join-link"
+requirements = [
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-53",
+    "DP-65",
+]
+critical = [
+    "test_app.py::test_wf_join_link_pages",
+    "test_app.py::test_link_rotate_revoke",
+    "test_app.py::test_room_capacity_concurrent",
+    "test_app.py::test_link_expiry_dst",
+]
+
+[[workflows]]
+id = "invites"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-54",
+    "DP-66",
+]
+critical = [
+    "test_app.py::test_wf_invites_paste_and_send",
+    "test_app.py::test_wf_invites_mail_outage",
+    "test_app.py::test_invite_quota_local_day",
+    "test_app.py::test_invite_batches_headers",
+]
+
+[[workflows]]
+id = "silent-round"
+requirements = [
+    "DP-05",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+    "DP-63",
+]
+critical = [
+    "test_app.py::test_wf_silent_round_brainstorm",
+    "test_app.py::test_wf_silent_round_double_save",
+    "test_app.py::test_silent_round_projection",
+]
+checkpoints = [
+    "B12",
+]
+critical_checkpoints = [
+    "B12",
+]
+
+[[workflows]]
+id = "reveal"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-67",
+]
+critical = [
+    "test_app.py::test_wf_reveal_wave",
+    "test_app.py::test_wf_reveal_dropped_connection",
+    "test_app.py::test_reveal_releases_racing_notes",
+]
+
+[[workflows]]
+id = "image-notes"
+requirements = [
+    "DP-18",
+    "DP-19",
+    "DP-68",
+]
+critical = [
+    "test_app.py::test_wf_image_notes_add_delete",
+    "test_app.py::test_wf_image_notes_storage_outage",
+    "test_app.py::test_image_upload_validation",
+    "test_app.py::test_deleted_image_gone",
+]
+
+[[workflows]]
+id = "concurrent-edit"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_concurrent_edit_snap_back",
+    "test_app.py::test_per_field_last_write_wins",
+    "test_app.py::test_repeated_operations_across_instances",
+]
+
+[[workflows]]
+id = "clustering"
+requirements = [
+    "DP-23",
+    "DP-24",
+    "DP-25",
+    "DP-26",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_wf_clustering_search_drag",
+    "test_app.py::test_wf_clustering_keyboard_move",
+    "test_app.py::test_counts_match_board",
+]
+
+[[workflows]]
+id = "dot-voting"
+requirements = [
+    "DP-27",
+    "DP-28",
+    "DP-29",
+    "DP-57",
+    "DP-69",
+]
+critical = [
+    "test_app.py::test_wf_dot_voting_journey",
+    "test_app.py::test_wf_dot_voting_session_ended",
+    "test_app.py::test_dot_budget_concurrent",
+    "test_app.py::test_paired_dot_returns",
+    "test_app.py::test_vote_totals_from_ledger",
+]
+
+[[workflows]]
+id = "trash-restore"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-59",
+    "DP-70",
+]
+critical = [
+    "test_app.py::test_wf_trash_restore_dialog",
+    "test_app.py::test_trash_exact_restore",
+    "test_app.py::test_purge_at_read",
+]
+
+[[workflows]]
+id = "facilitator-only"
+requirements = [
+    "DP-30",
+    "DP-58",
+    "DP-71",
+]
+critical = [
+    "test_app.py::test_wf_facilitator_only_recap_privacy",
+    "test_app.py::test_unknown_keys_rejected",
+]
+
+[[workflows]]
+id = "recap"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_recap_close_and_deliver",
+    "test_app.py::test_wf_recap_sponsor_page",
+    "test_app.py::test_recap_files_csv_pdf",
+    "test_app.py::test_recap_csv_inert",
+    "test_app.py::test_recap_waits_out_outages",
+    "test_app.py::test_sponsor_invoice_once",
+]
+checkpoints = [
+    "B13",
+]
+
+[[workflows]]
+id = "billing"
+requirements = [
+    "DP-46",
+    "DP-47",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+]
+critical = [
+    "test_app.py::test_wf_billing_change_plan",
+    "test_app.py::test_wf_billing_unavailable",
+    "test_app.py::test_overdue_payment",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-38",
+    "DP-39",
+    "DP-40",
+    "DP-41",
+    "DP-42",
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-55",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_responsive",
+    "test_app.py::test_wf_cross_cutting_keyboard",
+    "test_app.py::test_health_and_manifest",
+]

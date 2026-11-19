@@ -1,0 +1,1227 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 60
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "browse-programme",
+    "pick-seats",
+    "hold-seats",
+    "checkout",
+    "payments-paused",
+    "hold-expiry",
+    "live-map",
+    "my-tickets",
+    "exchange",
+    "refund",
+    "waitlist",
+    "owner",
+    "mail",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 87
+solo_criteria = []
+
+[criterion_weights]
+B1 = 5
+B2 = 5
+B3 = 5
+B4 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 1
+B13 = 3
+B14 = 3
+S1 = 5
+S2 = 5
+S3 = 3
+S4 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 1
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[services]]
+name = "postgres"
+
+[services.env]
+
+[[services]]
+name = "killbill"
+
+[services.env]
+
+[[services]]
+name = "mailpit"
+
+[services.env]
+MAIL_FROM = "Halyard Hall Box Office <boxoffice@halyardhall.example>"
+
+[[outages]]
+id = "killbill-down"
+port = 4174
+url_env = "APP_KILLBILL_DOWN_URL"
+
+[outages.env]
+KILLBILL_URL = "http://127.0.0.1:9"
+
+[[outages]]
+id = "mailpit-down"
+port = 4175
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+
+[[outages]]
+id = "short-timer"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+HOLD_SECONDS = "5"
+OFFER_SECONDS = "8"
+DATABASE_URL = "${DATABASE_URL}_short"
+
+[[requirements]]
+id = "DP-01"
+title = "Programme page"
+text = "The programme page lists every performance in start order with its venue-time start and each price tier's face value and seats remaining, and links each to its seat map."
+kind = "behavior"
+primary = "workflow"
+workflow = "browse-programme"
+tests = [
+    "test_app.py::test_wf_browse_programme_listing",
+    "test_app.py::test_wf_browse_programme_sold_out",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Venue-time start labels"
+text = "Every performance start appears in the API, on every screen and in every email as the venue-time label defined in Business rules, the same whatever time zone the browser is in."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-programme"
+tests = [
+    "test_app.py::test_venue_labels_any_time_zone",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Fall-back late set"
+text = "A start whose wall time repeats on the night clocks fall back resolves to its first occurrence, and one whose wall time does not exist is rejected, as Business rules state."
+kind = "behavior"
+primary = "pytest"
+workflow = "browse-programme"
+tests = [
+    "test_app.py::test_publish_resolves_fall_back_night",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Seat map page"
+text = "The seat map page shows the performance header, the section tabs, the price tier choice, the horseshoe map of the chosen section with the stage at the top, the Sightline readout and the cart, with every seat drawn in its current state."
+kind = "behavior"
+primary = "workflow"
+workflow = "pick-seats"
+tests = [
+    "test_app.py::test_wf_pick_seats_keyboard_hold",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Seat map keyboard grid"
+text = "The seat map is one keyboard grid with a single tabbable seat that arrow keys, Home, End, Page Up and Page Down move as Interactions describe, and Space or Enter selects."
+kind = "behavior"
+primary = "pytest"
+workflow = "pick-seats"
+tests = [
+    "test_app.py::test_seat_map_keyboard_grid",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Price tier choice"
+text = "The price tier choice is a radio group operated by arrow keys that dims and disables seats outside the chosen tier and clears them from the selection."
+kind = "behavior"
+primary = "pytest"
+workflow = "pick-seats"
+tests = [
+    "test_app.py::test_price_tier_radio_group",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Place kept in the address"
+text = "The address holds the performance, section, active seat and price tier, so reload, Back and a second tab reopen the same place while held seats come back from the server."
+kind = "behavior"
+primary = "pytest"
+workflow = "pick-seats"
+tests = [
+    "test_app.py::test_address_keeps_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Sightline wedge geometry"
+text = "When a seat becomes active or is hovered, the Sightline wedge is drawn from that seat's centre to the stage's left and right corners, each point within 2 px on screen once it settles, and carries the seat's id, angle, distance and state in its published attributes."
+kind = "visual"
+primary = "pytest"
+workflow = "pick-seats"
+tests = [
+    "test_app.py::test_sightline_wedge_geometry",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Sightline readout"
+text = "The Sightline readout shows the seat's off-centre angle in whole degrees and its distance to the stage lip in metres to one decimal, matching the seat API and the wedge attributes once it settles."
+kind = "behavior"
+primary = "pytest"
+workflow = "pick-seats"
+tests = [
+    "test_app.py::test_sightline_readout_matches_seat_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Sightline wedge states"
+text = "A taken seat's wedge is hatched and its readout shows the taken label, and a seat held by, sold to or offered to the viewer has its wedge outlined in the accent colour, with the wedge's state attribute naming which."
+kind = "visual"
+primary = "pytest"
+workflow = "pick-seats"
+tests = [
+    "test_app.py::test_sightline_wedge_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Sightline motion"
+text = "With motion allowed, the wedge draws its left edge, then its right edge, then its fill, the apex glides to a newly active seat and the readout numerals count from the previous seat's values, all within the times in Motion and effects."
+kind = "visual"
+primary = "pytest"
+workflow = "pick-seats"
+tests = [
+    "test_app.py::test_sightline_motion_sequence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Reduced motion"
+text = "With reduced motion set, the wedge and its final readout appear in one frame with no edge draw, glide or count, and every other transition is instant, with the same values, labels and announcements."
+kind = "visual"
+primary = "pytest"
+workflow = "pick-seats"
+tests = [
+    "test_app.py::test_reduced_motion_wedge",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Published breakpoints"
+text = "The seat map page is stacked map-then-cart at phone width, map with a bottom cart sheet at tablet width and map with a side cart rail that stays in view while the page scrolls at desktop width, at exactly the breakpoints in Screens and layout."
+kind = "visual"
+primary = "pytest"
+workflow = "pick-seats"
+tests = [
+    "test_app.py::test_published_breakpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Small screens and touch"
+text = "At the phone viewport every seat target meets the touch size in Visual design and the map pans inside its own frame, so the page never scrolls sideways; at every viewport every button, link, tab, radio and field meets that touch size."
+kind = "visual"
+primary = "pytest"
+workflow = "pick-seats"
+tests = [
+    "test_app.py::test_phone_touch_targets_and_panning",
+    "test_app.py::test_wf_pick_seats_phone_touch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Hold seats"
+text = "Holding seats puts them in the buyer's cart under one server expiry, up to the seat limit, which also counts the buyer's own tickets for that performance and holds across concurrent requests from any tab, as the holds endpoint in API defines."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-seats"
+tests = [
+    "test_app.py::test_hold_seats_api",
+    "test_app.py::test_wf_hold_seats_wrong_device_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "One winner per seat"
+text = "When several buyers try to hold the same seat at the same moment, exactly one gets it and every other request reports that seat as taken."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-seats"
+tests = [
+    "test_app.py::test_one_winner_per_seat",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Losing a contested seat"
+text = "A buyer who loses a seat in a hold sees the seat-taken notice and announcement from Feedback states, sees that seat drawn as taken, and keeps every other seat they held."
+kind = "behavior"
+primary = "workflow"
+workflow = "hold-seats"
+tests = [
+    "test_app.py::test_wf_hold_seats_last_seat_contest",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Release a held seat"
+text = "Releasing a held seat from the cart returns it to sale or to the waitlist at once and updates the cart totals."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-seats"
+tests = [
+    "test_app.py::test_release_held_seat",
+    "test_app.py::test_wf_hold_seats_release_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Itemised cart in cents"
+text = "The cart lists each seat's face value and seat fee, one order fee and a total, all in whole cents computed as Business rules state, and the lines always add up to the total."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_cart_in_whole_cents",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Checkout dialog by keyboard"
+text = "The checkout dialog keeps Tab and Shift+Tab inside it, closes on Escape except while a payment is confirming, returns focus to its opener, and its error summary links move focus to the fields."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_checkout_dialog_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Pay for held seats"
+text = "A buyer pays for held seats from the checkout dialog and sees the confirmation heading, order number, itemised receipt panel and receipt line from Feedback states."
+kind = "behavior"
+primary = "workflow"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_wf_checkout_pay_keyboard",
+    "test_app.py::test_wf_checkout_fix_field_errors",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Checkout replay safety"
+text = "Repeating a checkout with the same idempotency key returns the first response and creates one order and one Kill Bill payment, and reusing a key with a different body is rejected."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_checkout_idempotent_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Issue only on confirmed payment"
+text = "An order stays pending payment, with its tickets shown as payment pending, until Kill Bill records a successful purchase for the order's total, and only then are tickets issued and a receipt sent or queued."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_issue_only_on_confirmed_payment",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Confirmation outlives the hold timer"
+text = "Once payment is confirmed, the hold countdown reaching zero afterwards never closes, hides or changes the confirmation or receipt panel and announces nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_confirmation_outlives_hold_timer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Declined payment"
+text = "A payment Kill Bill declines releases the held seats with no ticket issued and no receipt, and shows the declined copy from Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "checkout"
+tests = [
+    "test_app.py::test_declined_payment_releases_seats",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Payments paused at checkout"
+text = "When Kill Bill cannot be reached, checkout answers the payments-unavailable response (503, never the 402 a declined payment answers) and the dialog shows the payments-paused banner and announcement word for word while the seats stay held."
+kind = "behavior"
+primary = "pytest"
+workflow = "payments-paused"
+tests = [
+    "test_app.py::test_checkout_payments_unavailable",
+    "test_app.py::test_wf_payments_paused_banner",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "No oversell while payments are paused"
+text = "While Kill Bill is unreachable, no ticket is issued, no seat becomes sold and seats remaining per tier is unchanged."
+kind = "behavior"
+primary = "pytest"
+workflow = "payments-paused"
+tests = [
+    "test_app.py::test_no_oversell_payments_paused",
+    "test_app.py::test_wf_payments_paused_then_recovered",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Server-decided hold expiry"
+text = "A hold ends at its server expiry instant, after which its seats count as released in every response and go back to sale or to the waitlist, whatever the device clock says."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-expiry"
+tests = [
+    "test_app.py::test_hold_expires_on_server",
+    "test_app.py::test_wf_hold_expiry_walk_away",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Countdown follows the server"
+text = "The hold countdown starts from the seconds left the server reports, ignores the device's date and time, and treats the hold as ended only when the server says so."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-expiry"
+tests = [
+    "test_app.py::test_countdown_follows_server",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Hold ended notice"
+text = "When the server reports a hold has ended, the cart empties and shows the hold-ended notice and announcement from Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "hold-expiry"
+tests = [
+    "test_app.py::test_hold_ended_notice",
+    "test_app.py::test_wf_hold_expiry_to_waitlist",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Taken seats change in place"
+text = "A seat another buyer holds, buys or is offered turns to taken on every open seat map within the live-update delay in Business rules without a reload, and a released seat turns back to on sale the same way."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-map"
+tests = [
+    "test_app.py::test_taken_seats_change_in_place",
+    "test_app.py::test_wf_live_map_two_browsers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Selected seat lost while choosing"
+text = "A seat in the buyer's unheld selection that another buyer takes is removed from the selection and announced with the taken copy from Feedback states."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-map"
+tests = [
+    "test_app.py::test_selected_seat_lost_while_choosing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "One announcement per result"
+text = "Every async result named in Feedback states makes exactly one announcement in the Box office updates region of each page Feedback states names for it, never two and never none."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-map"
+tests = [
+    "test_app.py::test_one_announcement_per_result",
+    "test_app.py::test_wf_live_map_selection_lost",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "My tickets page"
+text = "The My tickets page lists the buyer's orders newest first with each ticket's seat, tier, status and available Exchange and Refund actions, plus their waitlist places and open offers."
+kind = "behavior"
+primary = "workflow"
+workflow = "my-tickets"
+tests = [
+    "test_app.py::test_wf_my_tickets_after_purchase",
+    "test_app.py::test_wf_my_tickets_refunded_has_no_actions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "My tickets live in every tab"
+text = "A purchase, exchange or refund made in one tab shows in My tickets in every other open tab of the same browser within the live-update delay, without a reload."
+kind = "behavior"
+primary = "pytest"
+workflow = "my-tickets"
+tests = [
+    "test_app.py::test_my_tickets_live_in_every_tab",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Provider-confirmed ticket status"
+text = "A ticket shows Issued, and a refund shows Refunded, only after Kill Bill confirms the payment or refund; until then the ticket shows its pending status in every response and every open tab, and nothing is sold, issued, refunded or freed before Kill Bill answers."
+kind = "behavior"
+primary = "pytest"
+workflow = "my-tickets"
+tests = [
+    "test_app.py::test_ticket_status_provider_confirmed",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Exchange a seat"
+text = "A ticket holder exchanges an issued ticket for an on-sale seat in the same performance, confirms the price difference, and sees the new seat in My tickets and the old seat released."
+kind = "behavior"
+primary = "workflow"
+workflow = "exchange"
+tests = [
+    "test_app.py::test_wf_exchange_downward_ui",
+    "test_app.py::test_wf_exchange_upward_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Exchange difference to the cent"
+text = "An exchange charges or refunds exactly the difference between the old and new seats' face value plus seat fee, never charges the order fee, and records that amount in Kill Bill; a charge Kill Bill declines answers payment_declined (402) and leaves the ticket issued on its old seat."
+kind = "behavior"
+primary = "pytest"
+workflow = "exchange"
+tests = [
+    "test_app.py::test_exchange_difference_to_the_cent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Change window"
+text = "Exchanges and refunds close at the change cutoff and sales close at the start instant, each refused with the response Business rules state."
+kind = "behavior"
+primary = "pytest"
+workflow = "exchange"
+tests = [
+    "test_app.py::test_change_window_and_sales_close",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Refund tickets"
+text = "A ticket holder refunds an issued ticket from My tickets, sees the exact refund amount before confirming, and sees the ticket move from Refund pending to Refunded, while open seat maps show the freed seat, back on sale or offered to the next waiting fan, as DP-31 and Seat states describe."
+kind = "behavior"
+primary = "workflow"
+workflow = "refund"
+tests = [
+    "test_app.py::test_wf_refund_whole_order_ui",
+    "test_app.py::test_wf_refund_partial_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Refund amounts and the order fee"
+text = "A refund returns each refunded ticket's face value plus seat fee, plus the order fee only when it leaves the order with no issued tickets, and moves the order to partially refunded or refunded."
+kind = "behavior"
+primary = "pytest"
+workflow = "refund"
+tests = [
+    "test_app.py::test_refund_amounts_and_order_fee",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Refund recorded in Kill Bill"
+text = "Every refund and every downward exchange is recorded as Kill Bill refund transactions against the order's payments totalling exactly the refunded amount, and an unreachable Kill Bill leaves the ticket issued."
+kind = "behavior"
+primary = "pytest"
+workflow = "refund"
+tests = [
+    "test_app.py::test_refund_recorded_in_killbill",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Join a sold-out tier's waitlist"
+text = "A fan can join a price tier's waitlist only when the tier has no seats remaining, once per email per tier, and sees their place in the queue."
+kind = "behavior"
+primary = "pytest"
+workflow = "waitlist"
+tests = [
+    "test_app.py::test_join_sold_out_waitlist",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Offers in join order"
+text = "Each seat released in a tier with people waiting is offered to the earliest waiting entry, one seat per offer, and an expired or declined offer passes the seat to the next entry or back to sale."
+kind = "behavior"
+primary = "pytest"
+workflow = "waitlist"
+tests = [
+    "test_app.py::test_offers_in_join_order",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Offer window edges"
+text = "An offer accepted before its server expiry instant succeeds and one accepted at or after that instant is refused, whatever the device clock says, and an acceptance whose payment Kill Bill declines answers payment_declined (402)."
+kind = "behavior"
+primary = "pytest"
+workflow = "waitlist"
+tests = [
+    "test_app.py::test_offer_window_edges",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Accept or decline an offer"
+text = "A waitlisted fan opens their offer, sees the seat, total and time left, and either accepts and pays to see the confirmation or declines and sees the declined copy."
+kind = "behavior"
+primary = "workflow"
+workflow = "waitlist"
+tests = [
+    "test_app.py::test_wf_waitlist_join_and_accept",
+    "test_app.py::test_wf_waitlist_decline",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Waitlist offer email"
+text = "Each offer sends exactly one email to the waiting fan with the seat, total, expiry in venue time and the offer link, in queue order."
+kind = "behavior"
+primary = "pytest"
+workflow = "waitlist"
+tests = [
+    "test_app.py::test_waitlist_offer_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Owner sign-in"
+text = "Owner pages and endpoints require the owner session created with the seeded passcode and answer the unauthenticated response without it."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner"
+tests = [
+    "test_app.py::test_owner_session_required",
+    "test_app.py::test_wf_owner_sign_in_failure",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Publish a performance"
+text = "The owner publishes a performance with a title, a venue-time start and price tiers made of rows or seats, validated as API states."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner"
+tests = [
+    "test_app.py::test_publish_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Owner dashboard"
+text = "The owner dashboard shows each performance's start label and, per tier, seats on sale, held, sold and offered plus waitlist length, updating within the live-update delay, including holds fans make on the seat map."
+kind = "behavior"
+primary = "workflow"
+workflow = "owner"
+tests = [
+    "test_app.py::test_wf_owner_publish_and_watch",
+    "test_app.py::test_wf_owner_orders_outbox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Seats remaining from seat states"
+text = "Seats remaining per tier always equals the count of that tier's seats on sale after holds, releases, expiries, purchases, exchanges, refunds and offers, in every response and screen."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner"
+tests = [
+    "test_app.py::test_seats_remaining_from_seat_states",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Order reconciliation"
+text = "The owner's order list shows every order with its status, totals, Kill Bill payment ids and receipt status, and every issued ticket belongs to an order with a confirmed payment and a queued or sent receipt."
+kind = "behavior"
+primary = "pytest"
+workflow = "owner"
+tests = [
+    "test_app.py::test_order_reconciliation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Order receipt email"
+text = "Each paid order sends exactly one receipt to the buyer, itemised as Services states, with the venue-time start."
+kind = "behavior"
+primary = "pytest"
+workflow = "mail"
+tests = [
+    "test_app.py::test_order_receipt_email",
+    "test_app.py::test_wf_mail_receipt_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Exchange and refund emails"
+text = "Each completed exchange and each completed refund sends exactly one confirmation email as Services states."
+kind = "behavior"
+primary = "pytest"
+workflow = "mail"
+tests = [
+    "test_app.py::test_exchange_and_refund_emails",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Receipts survive a mail outage"
+text = "When mail cannot be reached, payments still issue tickets and every email is queued, then sent exactly once by any running copy of the server after mail returns, without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "mail"
+tests = [
+    "test_app.py::test_receipts_survive_mail_outage",
+    "test_app.py::test_wf_mail_outage_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Owner outbox"
+text = "The owner outbox lists every email with recipient, subject, kind and Queued or Sent status, matching what Mailpit received."
+kind = "behavior"
+primary = "pytest"
+workflow = "mail"
+tests = [
+    "test_app.py::test_owner_outbox_matches_mailpit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Programme-book look"
+text = "Every screen looks like a printed concert programme as Visual design describes: warm ivory paper, one oxblood ink, brass for the sightline, hairline rules, serif headings and fixed-width figures."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from the run manifest and answers the health check as Deployment states."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_and_seeded_service",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Server boundary"
+text = "The server accepts same-origin JSON within the size limit, never serves source or credentials, and keeps serving when Kill Bill or mail is unreachable, as Server boundary states."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Service credentials from the environment"
+text = "Every service URL and credential is read from the environment at start and never written into source, client code or responses."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with \"_schema\":\"run-manifest-v1\" and string install, build and serve commands, and the app is started only through it."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/THIRD_PARTY_NOTICES.md lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json) and every bundled font, each with its name, version and licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package and font is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The only datastore is the Postgres database at DATABASE_URL: no SQLite, Redis, embedded databases or state files."
+tests = [
+    "test_app.py::test_if_postgres_only",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "Fonts and all client assets are served by the app itself, and pages make no requests to other origins."
+tests = [
+    "test_app.py::test_if_same_origin_assets",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "The provided dev service definitions for Postgres, Kill Bill and Mailpit are left unchanged."
+tests = [
+    "test_app.py::test_if_service_definitions_unchanged",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "All server and browser source is TypeScript (.ts or .tsx); plain JavaScript appears only in tool configuration files."
+tests = [
+    "test_app.py::test_if_typescript_sources",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "browse-programme"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+]
+critical = [
+    "test_app.py::test_wf_browse_programme_listing",
+    "test_app.py::test_wf_browse_programme_sold_out",
+    "test_app.py::test_publish_resolves_fall_back_night",
+]
+
+[[workflows]]
+id = "pick-seats"
+requirements = [
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+    "DP-14",
+]
+critical = [
+    "test_app.py::test_wf_pick_seats_keyboard_hold",
+    "test_app.py::test_wf_pick_seats_phone_touch",
+    "test_app.py::test_seat_map_keyboard_grid",
+    "test_app.py::test_address_keeps_place",
+    "test_app.py::test_reduced_motion_wedge",
+    "test_app.py::test_published_breakpoints",
+]
+checkpoints = [
+    "B2",
+    "B3",
+    "B14",
+]
+critical_checkpoints = [
+    "B2",
+]
+
+[[workflows]]
+id = "hold-seats"
+requirements = [
+    "DP-15",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_hold_seats_last_seat_contest",
+    "test_app.py::test_wf_hold_seats_wrong_device_clock",
+]
+checkpoints = [
+    "B5",
+    "B6",
+    "B13",
+]
+
+[[workflows]]
+id = "checkout"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-25",
+]
+critical = [
+    "test_app.py::test_wf_checkout_pay_keyboard",
+    "test_app.py::test_confirmation_outlives_hold_timer",
+]
+checkpoints = [
+    "B8",
+    "B12",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "payments-paused"
+requirements = [
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_payments_paused_banner",
+    "test_app.py::test_wf_payments_paused_then_recovered",
+    "test_app.py::test_no_oversell_payments_paused",
+]
+
+[[workflows]]
+id = "hold-expiry"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+]
+critical = [
+    "test_app.py::test_wf_hold_expiry_walk_away",
+    "test_app.py::test_wf_hold_expiry_to_waitlist",
+    "test_app.py::test_countdown_follows_server",
+    "test_app.py::test_hold_ended_notice",
+]
+
+[[workflows]]
+id = "live-map"
+requirements = [
+    "DP-31",
+    "DP-32",
+    "DP-33",
+]
+critical = [
+    "test_app.py::test_wf_live_map_two_browsers",
+    "test_app.py::test_wf_live_map_selection_lost",
+    "test_app.py::test_one_announcement_per_result",
+]
+
+[[workflows]]
+id = "my-tickets"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-36",
+]
+critical = [
+    "test_app.py::test_wf_my_tickets_after_purchase",
+    "test_app.py::test_my_tickets_live_in_every_tab",
+    "test_app.py::test_ticket_status_provider_confirmed",
+]
+checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "exchange"
+requirements = [
+    "DP-37",
+    "DP-38",
+    "DP-39",
+]
+critical = [
+    "test_app.py::test_wf_exchange_downward_ui",
+    "test_app.py::test_wf_exchange_upward_ui",
+    "test_app.py::test_exchange_difference_to_the_cent",
+]
+
+[[workflows]]
+id = "refund"
+requirements = [
+    "DP-40",
+    "DP-41",
+    "DP-42",
+]
+critical = [
+    "test_app.py::test_wf_refund_whole_order_ui",
+    "test_app.py::test_refund_amounts_and_order_fee",
+]
+
+[[workflows]]
+id = "waitlist"
+requirements = [
+    "DP-43",
+    "DP-44",
+    "DP-45",
+    "DP-46",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_waitlist_join_and_accept",
+    "test_app.py::test_wf_waitlist_decline",
+    "test_app.py::test_offer_window_edges",
+]
+
+[[workflows]]
+id = "owner"
+requirements = [
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-51",
+    "DP-52",
+]
+critical = [
+    "test_app.py::test_wf_owner_publish_and_watch",
+    "test_app.py::test_wf_owner_orders_outbox",
+]
+checkpoints = [
+    "B10",
+]
+
+[[workflows]]
+id = "mail"
+requirements = [
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-56",
+]
+critical = [
+    "test_app.py::test_wf_mail_outage_ui",
+    "test_app.py::test_wf_mail_receipt_ui",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-57",
+    "DP-58",
+    "DP-59",
+    "DP-60",
+]
+critical = [
+    "test_app.py::test_health_and_seeded_service",
+    "test_app.py::test_server_boundary",
+]

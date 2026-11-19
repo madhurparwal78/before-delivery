@@ -1,0 +1,1055 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 45
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "wf-keyboard-build",
+    "wf-exact-encodings",
+    "wf-text-bytes",
+    "wf-breakpoints",
+    "wf-regex-budget",
+    "wf-fork-merge",
+    "wf-files",
+    "wf-span-carry",
+    "wf-share",
+    "wf-versions",
+    "wf-team-live",
+    "wf-stale-save",
+    "wf-phone",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B13",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q8",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+]
+rubric_total_weight = 82
+solo_criteria = []
+services = [
+    { name = "postgres", env = { WRINGBENCH_GRADING = "1" } },
+    { name = "minio", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Wringbench <hello@wringbench.test>" } },
+    { name = "meilisearch", env = {} },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 3
+B13 = 3
+B5 = 3
+B6 = 3
+B7 = 3
+B8 = 5
+B9 = 5
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+Q1 = 3
+Q8 = 3
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "minio-down"
+port = 4174
+url_env = "APP_MINIO_DOWN_URL"
+
+[outages.env]
+S3_ENDPOINT = "http://127.0.0.1:9"
+WRINGBENCH_GRADING = "1"
+
+[[outages]]
+id = "meilisearch-down"
+port = 4175
+url_env = "APP_MEILISEARCH_DOWN_URL"
+
+[outages.env]
+MEILISEARCH_URL = "http://127.0.0.1:9"
+WRINGBENCH_GRADING = "1"
+
+[[outages]]
+id = "short-limits"
+port = 4176
+url_env = "APP_SHORT_URL"
+
+[outages.env]
+WRINGBENCH_GRADING = "1"
+WRINGBENCH_OUTPUT_DISPLAY_BYTES = "64"
+WRINGBENCH_VERSIONS_KEPT = "3"
+WRINGBENCH_TEAM_MAX = "2"
+WRINGBENCH_FILE_MAX_BYTES = "1024"
+WRINGBENCH_INPUT_MAX_BYTES = "2048"
+WRINGBENCH_SHARE_TTL_CHOICES = "30s,1h"
+WRINGBENCH_SEARCH_INDEX = "recipes_short"
+DATABASE_URL = "${DATABASE_URL}_short"
+S3_BUCKET = "${S3_BUCKET}-short"
+
+[[requirements]]
+id = "DP-01"
+title = "Run manifest and health"
+text = "The app installs, builds and serves from /app/run.json on port 4173 (or APP_PUBLIC_PORT), and GET /api/health always answers 200 with the status body defined in API."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_health_reports_storage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Published limits from the environment"
+text = "Every limit in Configuration and secrets is read from its environment variable at start, and GET /api/config returns the client-side ones so the page obeys the configured values."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_config_from_env",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Grading routes"
+text = "With WRINGBENCH_GRADING=1, POST /api/grading/seed creates users, teams, recipes, versions, files and snapshots in one call and POST /api/grading/outage simulates an outage of storage, search or the live channel, and both answer 404 otherwise."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_grading_routes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "One error shape and precedence"
+text = "Every API error uses the single error body and the precedence order stated in API, so another person's or another team's resource is never revealed."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_error_precedence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Server boundary"
+text = "The server is same-origin only, enforces the published body-size limits, never serves source or credentials, and starts serving even when storage or search is unreachable, as qualified in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_server_boundary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Instrument-panel look"
+text = "The workbench and every secondary screen carry the flat, dense, blue-and-green pane language described in Visual design, with the 4-pane layout on wide screens and tabs on phones."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B13",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Recipes bake only in the browser"
+text = "All baking happens in a dedicated worker in the page using bundled open-licensed libraries, and the server stores and relays recipes but never bakes them."
+kind = "source"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Motion with a reduced-motion path"
+text = "Hover, press, step arrival, dialog entrance, accordion and output crossfade motion run at the durations in Motion and effects, and under reduced motion each one shows its end state at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_motion_and_reduced_motion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Workbench panes and starter recipe"
+text = "The workbench at / and /w shows the four named pane regions and, on a first visit, the starter recipe from Seed data baked over its sample input."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-keyboard-build"
+tests = [
+    "test_app.py::test_wf_keyboard_build_starter",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Operation finder"
+text = "Find operation filters the operation catalogue live, and the arrow keys plus Enter add the active operation at the end of the recipe while focus stays in the search field."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-keyboard-build"
+tests = [
+    "test_app.py::test_operation_finder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Step editing by keyboard with announcements"
+text = "A focused step can be moved, removed, disabled and given a breakpoint with the published keys and buttons, and each change is announced in Workbench announcements with the published copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-keyboard-build"
+tests = [
+    "test_app.py::test_wf_keyboard_build_step_keys",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Auto-bake"
+text = "With Auto-bake checked, the recipe bakes the configured delay after the last input or recipe change and updates the output, statuses and run time in place, and when unchecked only Bake, Step and the shortcut bake."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-keyboard-build"
+tests = [
+    "test_app.py::test_wf_keyboard_build_autobake",
+    "test_app.py::test_wf_keyboard_build_shortcut_in_finder",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Keyboard-only recipe building"
+text = "The founder can build, edit, bake, step through and lay out a recipe using only the keyboard, as in Journey 1."
+kind = "behavior"
+primary = "workflow"
+workflow = "wf-keyboard-build"
+tests = [
+    "test_app.py::test_wf_keyboard_build_journey",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Encoding operations"
+text = "The Encoding family produces exactly the outputs and errors in the operation catalogue, including every worked example."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-exact-encodings"
+tests = [
+    "test_app.py::test_wf_exact_encodings_catalogue",
+    "test_app.py::test_wf_exact_encodings_keyboard_arguments",
+    "test_app.py::test_wf_exact_encodings_hexdump_width",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Pane separators and focus movement"
+text = "The three separators resize the panes by pointer and keyboard within the published bounds, and Tab order and Escape follow the published rules."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-exact-encodings"
+tests = [
+    "test_app.py::test_wf_exact_encodings_separators",
+    "test_app.py::test_wf_exact_encodings_family_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Input encoding and Input status"
+text = "Input bytes come from the typed text in the chosen Input encoding, unencodable characters block the bake with the published error, and Input status shows the published byte and line counts."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-text-bytes"
+tests = [
+    "test_app.py::test_wf_text_bytes_input_encoding",
+    "test_app.py::test_wf_text_bytes_encoding_switch",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Output view, invalid UTF-8 and truncation"
+text = "The Output pane shows text or hex as the published rules require, falls back to hex for output that is not valid UTF-8, truncates display at the configured cap, and Download output always saves every byte."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-text-bytes"
+tests = [
+    "test_app.py::test_wf_text_bytes_output_view",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Text, data format and checksum operations"
+text = "The Text, Data formats and Checksums families produce exactly the outputs and errors in the operation catalogue."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-text-bytes"
+tests = [
+    "test_app.py::test_wf_text_bytes_operations",
+    "test_app.py::test_wf_text_bytes_edge_operations",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Breakpoints, Step and the lamp"
+text = "Breakpoints pause the bake before their step, Step runs one enabled step at a time and skips disabled steps, and the lamp, button name, status and announcement follow the published rules, with no lamp transition under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-breakpoints"
+tests = [
+    "test_app.py::test_wf_breakpoints_pause_resume",
+    "test_app.py::test_wf_breakpoints_reduced_motion_lamp",
+    "test_app.py::test_wf_breakpoints_keyboard_toggle",
+    "test_app.py::test_wf_breakpoints_lamp_motion",
+    "test_app.py::test_wf_breakpoints_link_keeps_flags",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Regular expression operations"
+text = "Find and Replace and Extract Matches follow JavaScript regular expression syntax with the published flags, replacement tokens and errors."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-regex-budget"
+tests = [
+    "test_app.py::test_wf_regex_budget_operations",
+    "test_app.py::test_wf_regex_budget_flags_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Regular expression time budget"
+text = "A bake containing a regular expression step that runs past the configured budget is stopped with the published error, and the workbench stays usable for the next bake."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-regex-budget"
+tests = [
+    "test_app.py::test_wf_regex_budget_watchdog",
+    "test_app.py::test_wf_regex_budget_extract_watchdog",
+    "test_app.py::test_wf_regex_budget_change_cancels_runaway",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Operation errors"
+text = "A failing operation stops the bake and shows the published error line, the step's Error state and the stopped status, with step numbers that count disabled steps."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-regex-budget"
+tests = [
+    "test_app.py::test_wf_regex_budget_operation_error",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Fork and Merge"
+text = "Fork runs the steps up to the matching Merge on each piece separately and Merge joins them in order, with the published branch error copy."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-fork-merge"
+tests = [
+    "test_app.py::test_wf_fork_merge_branches",
+    "test_app.py::test_wf_fork_merge_keyboard_disable",
+    "test_app.py::test_wf_fork_merge_first_branch_error",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Team recipe reproduces for teammates"
+text = "A teammate who opens the same team recipe version over the same input in another browser sees identical output and identical error text."
+kind = "behavior"
+primary = "workflow"
+workflow = "wf-fork-merge"
+tests = [
+    "test_app.py::test_wf_fork_merge_teammate",
+    "test_app.py::test_wf_fork_merge_teammate_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Files and size caps"
+text = "A dropped or chosen file over the file cap is refused before upload, a file within the cap is stored in MinIO byte for byte before it becomes the input, and a storage outage refuses the file with the published alert."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-files"
+tests = [
+    "test_app.py::test_wf_files_store",
+    "test_app.py::test_wf_files_invalid_text_keyboard_clear",
+    "test_app.py::test_wf_files_exact_cap_download",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Compression and Download output"
+text = "Gzip and Gunzip follow the published properties, Gunzip of Gzip returns the input byte for byte, and the downloaded output is the full baked output under the published file name."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-files"
+tests = [
+    "test_app.py::test_wf_files_gzip",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Suggestion control"
+text = "The Input pane offers Suggested <operation> only by the published detection rules, and activating it adds that operation at the end of the recipe."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-files"
+tests = [
+    "test_app.py::test_wf_files_suggestion",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Span carry"
+text = "Selecting input bytes shows, for each supported step, the output range those bytes became, marks the first unsupported step as span lost, and reports the final mapping in Output status and in an announcement."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-span-carry"
+tests = [
+    "test_app.py::test_wf_span_carry_example",
+    "test_app.py::test_wf_span_carry_binary_and_lost_case",
+    "test_app.py::test_wf_span_carry_clamp_and_disabled",
+    "test_app.py::test_wf_span_carry_keyboard_reselect",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Input tabs"
+text = "The Inputs tabs hold up to 10 independent inputs, each with its own text, encoding, file and selection, and the recipe bakes the selected tab."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-span-carry"
+tests = [
+    "test_app.py::test_wf_span_carry_input_tabs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Recipe link in the address"
+text = "Copy link produces the published /w#r=…&i=… link, which reproduces the recipe, input bytes and output for anyone, signed in or not, and a damaged link shows the published alert and an empty workbench."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-share"
+tests = [
+    "test_app.py::test_wf_share_recipe_link",
+    "test_app.py::test_wf_share_link_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Share snapshot lifecycle"
+text = "A share snapshot is Pending until storage confirms its input and output, then Active, then Expired by the server clock or Revoked by its owner, and no page decides expiry from the device clock."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-share"
+tests = [
+    "test_app.py::test_wf_share_snapshot_lifecycle",
+    "test_app.py::test_wf_share_server_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Snapshot downloads are byte-exact"
+text = "Downloading a snapshot's input or output returns exactly the stored bytes, including invalid UTF-8 and CRLF line endings, and only while the snapshot is Active."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-share"
+tests = [
+    "test_app.py::test_wf_share_byte_exact",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Saved versions and retention"
+text = "Each save creates the next immutable version from a stated base version, a stale base version is rejected, and only the configured number of newest versions is kept."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-versions"
+tests = [
+    "test_app.py::test_wf_versions_retention",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Compare versions"
+text = "The Compare versions dialog lists the changes between two versions with the published line copy and the published step-matching rule, so a moved step never shows as removed plus added."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-versions"
+tests = [
+    "test_app.py::test_wf_versions_compare",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Restore a version"
+text = "Restoring version k creates the next version identical step for step to k, with the published note, and leaves every version in between."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-versions"
+tests = [
+    "test_app.py::test_wf_versions_restore",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Wring Line v1 import"
+text = "Importing Wring Line v1 text matches lines by the published grammar and rename tables, creates a recipe only when every line matches, reports each unmatched line by line number, and creates nothing on a re-import."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-versions"
+tests = [
+    "test_app.py::test_wf_versions_import",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Library and search"
+text = "The Library lists the person's own and their teams' recipes, and Search recipes finds them through Meilisearch by name, note, tags, operation names and argument values within 2 seconds of a save, never showing another team's recipes."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-versions"
+tests = [
+    "test_app.py::test_library_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Search outage fallback"
+text = "While Meilisearch is unreachable, the Library shows the published search notice and still lists recipes by most recent use, and saves still succeed."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-versions"
+tests = [
+    "test_app.py::test_search_outage_fallback",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Accounts and email verification"
+text = "Sign-up sends a one-time verification link through Mailpit, and only verified accounts can sign in."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-team-live"
+tests = [
+    "test_app.py::test_wf_team_live_signup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Teams and invites"
+text = "A team owner invites by email through Mailpit with a one-time link, the invitee joins from it, and the configured team size cap is enforced with the published 409."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-team-live"
+tests = [
+    "test_app.py::test_wf_team_live_invite",
+    "test_app.py::test_wf_team_live_keep_mine_and_remove",
+    "test_app.py::test_wf_team_live_dialog_escape",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Live team updates"
+text = "A saved version of a team recipe reaches every other open workbench showing that recipe, and every open Library, within 2 seconds without a reload, and while the live channel is down workbenches show the published paused notice and catch up when it returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-team-live"
+tests = [
+    "test_app.py::test_wf_team_live_update_banner",
+    "test_app.py::test_wf_team_live_outage_catchup",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Concurrent saves"
+text = "Of two or more saves from the same base version, exactly one creates the next version and every other one answers 409 version_conflict."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-stale-save"
+tests = [
+    "test_app.py::test_wf_stale_save_concurrent",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Stale save dialog"
+text = "A save rejected as stale opens the This recipe changed dialog with the published text and choices, and keyboard focus stays inside it and returns to Save when it closes."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-stale-save"
+tests = [
+    "test_app.py::test_wf_stale_save_dialog",
+    "test_app.py::test_wf_stale_save_own_other_tab",
+    "test_app.py::test_wf_stale_save_keyboard_copy",
+    "test_app.py::test_wf_stale_save_load_latest_keeps_tabs",
+    "test_app.py::test_wf_stale_save_modal_inert",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Phone layout and Add operation sheet"
+text = "At 700 px wide or less the panes become the Workbench panes tabs, and the Add operation bottom sheet adds operations by touch and is inert and out of the Tab order when closed."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-phone"
+tests = [
+    "test_app.py::test_wf_phone_sheet",
+    "test_app.py::test_wf_phone_sheet_escape_and_wrap",
+    "test_app.py::test_wf_phone_live_update",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Touch reorder on phones"
+text = "Steps reorder by touch drag on their Reorder step N handle with the published announcement, and every phone control is at least 44 by 44 px."
+kind = "behavior"
+primary = "pytest"
+workflow = "wf-phone"
+tests = [
+    "test_app.py::test_wf_phone_touch_reorder",
+    "test_app.py::test_wf_phone_touch_reorder_two_places",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve fields and \"_schema\":\"run-manifest-v1\"."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "THIRD_PARTY_NOTICES.md at /app lists every shipped package (the production dependency tree from npm ls --omit=dev --all --json), the bundled Inter and Fragment Mono fonts and the Lucide icons, each with its licence."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Every shipped package, font and icon set is under MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, 0BSD, Zlib or OFL-1.1."
+tests = [
+    "test_app.py::test_if_licences_allowed",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "The app stores state only in PostgreSQL, MinIO, Meilisearch and the browser's own storage, with no SQLite, no other database or cache, and no state files on disk."
+tests = [
+    "test_app.py::test_if_no_other_datastore",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "The given service definitions and their environment values are left unchanged; the app reads them and never overrides them."
+tests = [
+    "test_app.py::test_if_service_env_untouched",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Server and browser source is TypeScript, and package-lock.json is committed."
+tests = [
+    "test_app.py::test_if_typescript_and_lockfile",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "The served pages make no requests to any origin other than the app's own."
+tests = [
+    "test_app.py::test_if_same_origin_requests",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "wf-keyboard-build"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-11",
+    "DP-12",
+    "DP-13",
+]
+critical = [
+    "test_app.py::test_wf_keyboard_build_journey",
+    "test_app.py::test_wf_keyboard_build_autobake",
+    "test_app.py::test_wf_keyboard_build_starter",
+    "test_app.py::test_operation_finder",
+    "test_app.py::test_wf_keyboard_build_step_keys",
+    "test_app.py::test_wf_keyboard_build_shortcut_in_finder",
+]
+checkpoints = [
+    "B1",
+    "B5",
+]
+critical_checkpoints = [
+    "B1",
+]
+
+[[workflows]]
+id = "wf-exact-encodings"
+requirements = [
+    "DP-14",
+    "DP-15",
+]
+critical = [
+    "test_app.py::test_wf_exact_encodings_catalogue",
+    "test_app.py::test_wf_exact_encodings_separators",
+    "test_app.py::test_wf_exact_encodings_keyboard_arguments",
+    "test_app.py::test_wf_exact_encodings_hexdump_width",
+    "test_app.py::test_wf_exact_encodings_family_keyboard",
+]
+
+[[workflows]]
+id = "wf-text-bytes"
+requirements = [
+    "DP-16",
+    "DP-17",
+    "DP-18",
+]
+critical = [
+    "test_app.py::test_wf_text_bytes_input_encoding",
+    "test_app.py::test_wf_text_bytes_output_view",
+    "test_app.py::test_wf_text_bytes_operations",
+    "test_app.py::test_wf_text_bytes_encoding_switch",
+    "test_app.py::test_wf_text_bytes_edge_operations",
+]
+
+[[workflows]]
+id = "wf-breakpoints"
+requirements = [
+    "DP-19",
+]
+critical = [
+    "test_app.py::test_wf_breakpoints_pause_resume",
+    "test_app.py::test_wf_breakpoints_reduced_motion_lamp",
+    "test_app.py::test_wf_breakpoints_keyboard_toggle",
+    "test_app.py::test_wf_breakpoints_lamp_motion",
+    "test_app.py::test_wf_breakpoints_link_keeps_flags",
+]
+
+[[workflows]]
+id = "wf-regex-budget"
+requirements = [
+    "DP-20",
+    "DP-21",
+    "DP-22",
+]
+critical = [
+    "test_app.py::test_wf_regex_budget_operations",
+    "test_app.py::test_wf_regex_budget_watchdog",
+    "test_app.py::test_wf_regex_budget_operation_error",
+    "test_app.py::test_wf_regex_budget_extract_watchdog",
+    "test_app.py::test_wf_regex_budget_flags_keyboard",
+    "test_app.py::test_wf_regex_budget_change_cancels_runaway",
+]
+
+[[workflows]]
+id = "wf-fork-merge"
+requirements = [
+    "DP-23",
+    "DP-24",
+]
+critical = [
+    "test_app.py::test_wf_fork_merge_branches",
+    "test_app.py::test_wf_fork_merge_teammate",
+    "test_app.py::test_wf_fork_merge_keyboard_disable",
+    "test_app.py::test_wf_fork_merge_first_branch_error",
+    "test_app.py::test_wf_fork_merge_teammate_live",
+]
+
+[[workflows]]
+id = "wf-files"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+]
+critical = [
+    "test_app.py::test_wf_files_store",
+    "test_app.py::test_wf_files_gzip",
+    "test_app.py::test_wf_files_suggestion",
+    "test_app.py::test_wf_files_invalid_text_keyboard_clear",
+    "test_app.py::test_wf_files_exact_cap_download",
+]
+
+[[workflows]]
+id = "wf-span-carry"
+requirements = [
+    "DP-28",
+    "DP-29",
+]
+critical = [
+    "test_app.py::test_wf_span_carry_example",
+    "test_app.py::test_wf_span_carry_input_tabs",
+    "test_app.py::test_wf_span_carry_binary_and_lost_case",
+    "test_app.py::test_wf_span_carry_clamp_and_disabled",
+    "test_app.py::test_wf_span_carry_keyboard_reselect",
+]
+checkpoints = [
+    "B8",
+]
+critical_checkpoints = [
+    "B8",
+]
+
+[[workflows]]
+id = "wf-share"
+requirements = [
+    "DP-30",
+    "DP-31",
+    "DP-32",
+]
+critical = [
+    "test_app.py::test_wf_share_recipe_link",
+    "test_app.py::test_wf_share_snapshot_lifecycle",
+    "test_app.py::test_wf_share_server_clock",
+    "test_app.py::test_wf_share_byte_exact",
+    "test_app.py::test_wf_share_link_keyboard",
+]
+
+[[workflows]]
+id = "wf-versions"
+requirements = [
+    "DP-33",
+    "DP-34",
+    "DP-35",
+    "DP-36",
+    "DP-37",
+    "DP-38",
+]
+critical = [
+    "test_app.py::test_wf_versions_retention",
+    "test_app.py::test_wf_versions_compare",
+    "test_app.py::test_wf_versions_restore",
+    "test_app.py::test_wf_versions_import",
+    "test_app.py::test_library_search",
+    "test_app.py::test_search_outage_fallback",
+]
+checkpoints = [
+    "B11",
+    "B12",
+]
+
+[[workflows]]
+id = "wf-team-live"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-41",
+]
+critical = [
+    "test_app.py::test_wf_team_live_signup",
+    "test_app.py::test_wf_team_live_invite",
+    "test_app.py::test_wf_team_live_update_banner",
+    "test_app.py::test_wf_team_live_outage_catchup",
+    "test_app.py::test_wf_team_live_keep_mine_and_remove",
+    "test_app.py::test_wf_team_live_dialog_escape",
+]
+
+[[workflows]]
+id = "wf-stale-save"
+requirements = [
+    "DP-42",
+    "DP-43",
+]
+critical = [
+    "test_app.py::test_wf_stale_save_concurrent",
+    "test_app.py::test_wf_stale_save_dialog",
+    "test_app.py::test_wf_stale_save_own_other_tab",
+    "test_app.py::test_wf_stale_save_keyboard_copy",
+    "test_app.py::test_wf_stale_save_load_latest_keeps_tabs",
+    "test_app.py::test_wf_stale_save_modal_inert",
+]
+
+[[workflows]]
+id = "wf-phone"
+requirements = [
+    "DP-44",
+    "DP-45",
+]
+critical = [
+    "test_app.py::test_wf_phone_sheet",
+    "test_app.py::test_wf_phone_touch_reorder",
+    "test_app.py::test_wf_phone_sheet_escape_and_wrap",
+    "test_app.py::test_wf_phone_live_update",
+    "test_app.py::test_wf_phone_touch_reorder_two_places",
+]
+checkpoints = [
+    "B9",
+    "B10",
+]
+critical_checkpoints = [
+    "B9",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-01",
+    "DP-02",
+    "DP-03",
+    "DP-04",
+    "DP-05",
+    "DP-06",
+    "DP-07",
+    "DP-08",
+]
+critical = [
+    "test_app.py::test_health_reports_storage",
+    "test_app.py::test_error_precedence",
+]

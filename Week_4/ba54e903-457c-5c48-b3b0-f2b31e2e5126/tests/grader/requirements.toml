@@ -1,0 +1,1779 @@
+schema_version = 1
+id_prefix = "DP"
+mandatory_count = 99
+allowed_kinds = [
+    "behavior",
+    "visual",
+    "source",
+]
+test_files = [
+    "test_app.py",
+]
+workflow_ids = [
+    "not-found",
+    "signup",
+    "signup-validation",
+    "access",
+    "communities",
+    "notifications",
+    "trending",
+    "consent-support",
+    "home-media",
+    "membership",
+    "message-authority",
+    "messaging",
+    "live-workspace",
+    "directory",
+    "media",
+    "search",
+    "cross-cutting",
+]
+criterion_ids = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+    "Q1",
+    "Q2",
+    "Q3",
+    "Q4",
+    "Q5",
+    "Q6",
+    "Q7",
+    "Q8",
+    "Q9",
+]
+rubric_total_weight = 86
+solo_criteria = []
+services = [
+    { name = "postgres", env = {} },
+    { name = "mailpit", env = { MAIL_FROM = "Community Hub <no-reply@example.com>" } },
+]
+
+[criterion_weights]
+B1 = 5
+B2 = 3
+B3 = 3
+B4 = 5
+B5 = 3
+B6 = 5
+B7 = 3
+B8 = 5
+B9 = 3
+B10 = 3
+B11 = 3
+B12 = 3
+S1 = 5
+S2 = 3
+S3 = 3
+Q1 = 5
+Q2 = 5
+Q3 = 3
+Q4 = 3
+Q5 = 3
+Q6 = 3
+Q7 = 3
+Q8 = 3
+Q9 = 3
+
+[runtime]
+app_port = 4173
+health_path = "/api/health"
+manifest = "run.json"
+bootstrap_probe = ""
+
+[[outages]]
+id = "mailpit-down"
+port = 4174
+url_env = "APP_MAIL_DOWN_URL"
+
+[outages.env]
+PORT = "4174"
+SMTP_HOST = "127.0.0.1"
+SMTP_PORT = "9"
+MAILPIT_URL = "http://127.0.0.1:9"
+
+[[requirements]]
+id = "DP-01"
+title = "Health and error envelope"
+text = "GET /api/health answers 200 with {\"status\": \"ok\"} once the database is ready, even while the mail service is down, and every refused API request answers only the shared error body with the stated status and code."
+kind = "behavior"
+primary = "pytest"
+workflow = "not-found"
+tests = [
+    "test_app.py::test_health_and_envelope",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-02"
+title = "Sign-up and sign-in session"
+text = "Sign-up stores the lowercased email and the trimmed display name and answers a bearer token with the self user at its stated defaults, login restores the same self user, and PATCH /api/users/@me updates and validates the profile."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup"
+tests = [
+    "test_app.py::test_signup_session",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-03"
+title = "Confirmation email on sign-up"
+text = "Every successful sign-up sends exactly one confirmation email with the stated subject and lines, addressed so that it decodes to exactly one recipient carrying the member's stored display name and address."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup"
+tests = [
+    "test_app.py::test_confirmation_email",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-04"
+title = "Sign-up validation"
+text = "Sign-up refuses an invalid email, display name, username, password or date of birth and a taken email or username with the stated status and field, counts every character of a password up to 128 and of a trimmed, NFC-normalised display name up to 32, refuses line breaks and control characters in the name and email, and writes no member row and no email."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup-validation"
+tests = [
+    "test_app.py::test_signup_validation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-05"
+title = "Unauthenticated and revoked tokens"
+text = "A missing, forged or logged-out token is refused with 401 unauthorized, a wrong password with 401 invalid_credentials, and logout revokes the presented token."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_tokens",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-06"
+title = "Email confirmation; confirmation link is a capability"
+text = "The one-time confirmation token confirms the address once within its lifetime, a resend supersedes every earlier token so only the newest works, the /verify-email page shows the stated lines, and an email-level community refuses posts until the address is confirmed. The confirmation token is stored only as its SHA-256 digest, a plain request for the link never confirms, and the /verify-email page, sent with no-referrer, replaces its address with the bare /verify-email and confirms by its own request."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup"
+tests = [
+    "test_app.py::test_email_confirmation",
+    "test_app.py::test_confirmation_capability",
+    "test_app.py::test_wf_signup_confirm_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-07"
+title = "Sign-in lockout; cross-site requests refused"
+text = "Five failed logins for one email within the lockout period lock every login for that email with 429 and Retry-After, even when the attempts arrive at once, while other emails stay unaffected. Every POST, PUT, PATCH or DELETE and every live connection carrying a foreign or null Origin answers 403 forbidden before authentication, counting no lockout failure and changing nothing, on every instance, and the live connection never carries the session token in its URL."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_lockout",
+    "test_app.py::test_cross_site",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-08"
+title = "Password change"
+text = "A password change validates both fields under the account password rule, revokes every other token of the member at once while the requesting token keeps working, sends the stated notice email, and of two simultaneous changes exactly one wins."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_password_change",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-09"
+title = "Published directory"
+text = "GET /api/servers returns only published communities in the stated envelope, twelve per page by default, ordered by member count then slug, and refuses out-of-bounds parameters by name."
+kind = "behavior"
+primary = "pytest"
+workflow = "directory"
+tests = [
+    "test_app.py::test_directory_api",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-10"
+title = "Directory search and category"
+text = "The directory query matches name, description and keywords ignoring case, and the category filter keeps only that category while all filters nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "directory"
+tests = [
+    "test_app.py::test_directory_search_category",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-11"
+title = "Unpublished and unknown slugs"
+text = "An unpublished or unknown community slug answers 404 not_found on the API for everyone but the community's own members."
+kind = "behavior"
+primary = "pytest"
+workflow = "not-found"
+tests = [
+    "test_app.py::test_unpublished_unknown_slugs",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-12"
+title = "Community detail"
+text = "A community answers its stated fields, including its derived member and online counts, with working image URLs, and lists the channels the caller may view in position order with their type and slowmode."
+kind = "behavior"
+primary = "pytest"
+workflow = "communities"
+tests = [
+    "test_app.py::test_community_detail",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-13"
+title = "Publishing and the sitemap"
+text = "Owners publish and unpublish a community, which at once leaves and rejoins the directory list, its total, the category counts, keyword search, every non-member read and the sitemap while its members keep every read, and the sitemap and robots file list exactly the stated public pages."
+kind = "behavior"
+primary = "pytest"
+workflow = "not-found"
+tests = [
+    "test_app.py::test_publishing_sitemap",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-14"
+title = "Community creation"
+text = "Creating a community stores it with the caller as owner, one general text channel and a member count of 1, refuses invalid fields and a taken slug, and keeps the slug through a rename."
+kind = "behavior"
+primary = "pytest"
+workflow = "communities"
+tests = [
+    "test_app.py::test_community_creation",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-15"
+title = "Owner-only community changes"
+text = "A member who is not the owner cannot rename, publish or unpublish a community and gets 403 forbidden."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_owner_only_changes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-16"
+title = "Join, leave and member list"
+text = "Joining records one membership and raises the count by exactly one even under simultaneous joins, a repeat join writes nothing, leaving lowers the count, the owner cannot leave, and the member list orders members and reports invisible members as offline."
+kind = "behavior"
+primary = "pytest"
+workflow = "communities"
+tests = [
+    "test_app.py::test_join_leave_members",
+    "test_app.py::test_wf_communities_join_open",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-17"
+title = "Invites"
+text = "Invites carry the stated shape, admit exactly their use limit of new members however many accept at once, refuse banned callers, follow create_invite and admit members to unpublished communities, with expiry as qualified in DP-82."
+kind = "behavior"
+primary = "pytest"
+workflow = "communities"
+tests = [
+    "test_app.py::test_invites",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-18"
+title = "Read markers"
+text = "Each member's per-channel read marker starts at the newest message on join, moves forward on post and acknowledge but never backward, and drives the unread and mention counts, from which a deleted message drops at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "communities"
+tests = [
+    "test_app.py::test_read_markers",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-19"
+title = "Posting and history"
+text = "A posted message is stored trimmed against its channel with the stated shape and length rule, and channel history pages oldest first with before and limit."
+kind = "behavior"
+primary = "pytest"
+workflow = "messaging"
+tests = [
+    "test_app.py::test_posting_history",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-20"
+title = "Non-members refused"
+text = "A caller who has not joined a community cannot read or post in its channels and gets 403 forbidden on those channel paths, with nothing stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "messaging"
+tests = [
+    "test_app.py::test_non_members_refused",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-21"
+title = "Edit and delete rules"
+text = "Only the author edits a message, the author or a holder of manage_messages deletes it, a viewer lacking that right gets 403, and a deleted message leaves every read with its reactions and attachments while its replies stay with no parent."
+kind = "behavior"
+primary = "pytest"
+workflow = "messaging"
+tests = [
+    "test_app.py::test_edit_delete_rules",
+    "test_app.py::test_wf_messaging_owner_deletes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-22"
+title = "Reactions and threads"
+text = "Reactions are idempotent and unique per member and emoji even when identical reactions arrive at once, summarise as emoji, count and me, custom emoji need the entitlement, and replies stay in their channel with a reply count that drops when a reply is deleted."
+kind = "behavior"
+primary = "pytest"
+workflow = "messaging"
+tests = [
+    "test_app.py::test_reactions_threads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-23"
+title = "Slowmode and tier limits"
+text = "Slowmode refuses a second post inside its window with 429 and Retry-After, and upload size and message length follow the caller's tier."
+kind = "behavior"
+primary = "pytest"
+workflow = "messaging"
+tests = [
+    "test_app.py::test_slowmode_tier_limits",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-24"
+title = "Retries never duplicate"
+text = "A retried post with the same nonce from the same author in the same channel, including simultaneous retries, answers the one stored message with 200 and stores, notifies and rate-limits nothing more."
+kind = "behavior"
+primary = "pytest"
+workflow = "messaging"
+tests = [
+    "test_app.py::test_nonce_replay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-25"
+title = "Bans"
+text = "Members holding ban_members ban and unban as qualified by role rank, and a banned member is removed, refused the community's channels and joins, and kept out until the ban is lifted."
+kind = "behavior"
+primary = "pytest"
+workflow = "message-authority"
+tests = [
+    "test_app.py::test_bans",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-26"
+title = "Time-outs"
+text = "A time-out, set as qualified by role rank, limits the member to view_channel in every channel of the community until communication_disabled_until passes by the server's clock or it is lifted, and manage_messages exempts an author from slowmode."
+kind = "behavior"
+primary = "pytest"
+workflow = "message-authority"
+tests = [
+    "test_app.py::test_timeouts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-27"
+title = "Roles and channel overwrites"
+text = "Roles and channel overwrites are managed and validated as stated, the overwrite and permission reads answer each caller as stated, and overwrites resolve to the stated effective permissions, which every read, write, listing, mention and live delivery follows at the moment it happens."
+kind = "behavior"
+primary = "pytest"
+workflow = "message-authority"
+tests = [
+    "test_app.py::test_roles_overwrites",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-28"
+title = "Notifications on post"
+text = "Every other member who may view the channel receives exactly one notification per new message, of kind mention, reply or message, and a muted member receives only mentions and replies."
+kind = "behavior"
+primary = "pytest"
+workflow = "notifications"
+tests = [
+    "test_app.py::test_notifications_on_post",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-29"
+title = "Notification inbox"
+text = "The inbox lists only entries the recipient may see now, newest first with an unread filter and count, marks one or all visible entries read, refuses another member's or a hidden entry, and shows hidden entries again unchanged when access returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "notifications"
+tests = [
+    "test_app.py::test_inbox_visibility",
+    "test_app.py::test_wf_notifications_mark_read",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-30"
+title = "Mention rules"
+text = "Code spans never mention, @everyone and @here work only for holders of mention_everyone, replies notify the parent author, and an edit notifies only members the message has never mentioned before while keeping earlier mention notifications."
+kind = "behavior"
+primary = "pytest"
+workflow = "notifications"
+tests = [
+    "test_app.py::test_mention_rules",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-31"
+title = "Hidden channels never notify"
+text = "A member who cannot view a channel is never mentioned or notified by it, including through @everyone, @here and edits."
+kind = "behavior"
+primary = "pytest"
+workflow = "notifications"
+tests = [
+    "test_app.py::test_hidden_channels_never_notify",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-32"
+title = "Media uploads"
+text = "Uploads report the type, displayed pixel size (following JPEG orientation) and running time read from their bytes, are served with byte ranges, join messages by id, follow attach_files and disappear with their message."
+kind = "behavior"
+primary = "pytest"
+workflow = "media"
+tests = [
+    "test_app.py::test_media_uploads",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-33"
+title = "Message search"
+text = "Message search applies text, phrase and every stated filter to the text channels the caller may view, newest first with paging, and refuses malformed queries naming q."
+kind = "behavior"
+primary = "pytest"
+workflow = "search"
+tests = [
+    "test_app.py::test_message_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-34"
+title = "Checkout and entitlements"
+text = "The public tiers, the test-card checkout, declined and invalid attempts, Idempotency-Key replay and conflict, one-at-a-time decisions per member, cancellation and every entitlement gate behave as stated, each decided attempt records its tier change, billing record and entitlement changes together or not at all, and only a success queues one receipt email with the exact amount."
+kind = "behavior"
+primary = "pytest"
+workflow = "membership"
+tests = [
+    "test_app.py::test_checkout_entitlements",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-35"
+title = "Upgrades and downgrades; keyboard-complete checkout"
+text = "Moving from Basic to Max charges the difference, moving down charges nothing, each receipt states the amount charged, and every lost entitlement is undone at once. The modal Checkout dialog opens with focus in Card number, wraps Tab and Shift with Tab inside itself, pays on Enter in Card number, ignores Escape while a payment runs, closes on Escape afterwards with focus back on its Subscribe button, and keeps the page behind inert."
+kind = "behavior"
+primary = "pytest"
+workflow = "membership"
+tests = [
+    "test_app.py::test_upgrade_downgrade",
+    "test_app.py::test_wf_membership_checkout_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-36"
+title = "Trending weeks"
+text = "The trending list ranks the seeded weeks with neighbour weeks, keeps original ranks under a category filter, refuses malformed or unknown values and answers game history newest first."
+kind = "behavior"
+primary = "pytest"
+workflow = "trending"
+tests = [
+    "test_app.py::test_trending_weeks",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-37"
+title = "Live member counts in trending"
+text = "Every trending week and game detail reports the community's current member count, so a join or leave shows at once, and reports no community to non-members while that community is unpublished."
+kind = "behavior"
+primary = "pytest"
+workflow = "trending"
+tests = [
+    "test_app.py::test_trending_live_counts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-38"
+title = "Safety, support and page views"
+text = "The safety library searches and filters within 256 characters, a support ticket gets a padded HUB reference and an acknowledgement email, and a page view is stored."
+kind = "behavior"
+primary = "pytest"
+workflow = "consent-support"
+tests = [
+    "test_app.py::test_safety_support_pageview",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-39"
+title = "Marketing home and download"
+text = "The home shows its display line and two actions over a looping muted WebM hero video with a keyboard-operable pause control, a scrolling word strip and rising feature blocks, and the download page names the visitor's platform."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-media"
+tests = [
+    "test_app.py::test_home_hero_and_download",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-40"
+title = "Listening room"
+text = "The listening room never autoplays, plays its three tracks with their real lengths, advances when a track ends, moves its equalizer only while music plays, and is fully operable by keyboard with the stated seek step, volume step and value text."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-media"
+tests = [
+    "test_app.py::test_wf_home_media_listening_room",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-41"
+title = "Directory page"
+text = "The directory page renders cards with the stated counts, badge, icon alternative text and detail link, pages twelve cards at a time, sizes every image, loads banners lazily and matches each detail page."
+kind = "behavior"
+primary = "pytest"
+workflow = "directory"
+tests = [
+    "test_app.py::test_wf_directory_cards",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-42"
+title = "Directory search and filters page"
+text = "The category chips and the search box filter the grid, mark the selected chip, keep the choice in the address across a reload, and an empty result offers Reset filters."
+kind = "behavior"
+primary = "pytest"
+workflow = "directory"
+tests = [
+    "test_app.py::test_wf_directory_filters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-43"
+title = "Join from a signed-out visit"
+text = "A signed-out visitor who presses Join community registers, is joined and lands in the default channel with the joined status line, and the session survives a reload."
+kind = "behavior"
+primary = "workflow"
+workflow = "signup"
+tests = [
+    "test_app.py::test_wf_signup_join_register",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-44"
+title = "Only the published surface"
+text = "Unlisted pages and documentation paths answer the custom 404 page, and the API answers only its listed paths and methods, with 404 for unknown paths, trailing slashes and malformed ids, 405 with Allow for unlisted methods including HEAD and OPTIONS, and 422 for unreadable bodies, as stated in Server boundary."
+kind = "behavior"
+primary = "pytest"
+workflow = "not-found"
+tests = [
+    "test_app.py::test_unlisted_surface",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-45"
+title = "Trending pages"
+text = "The trending page shows the week selector, the featured card and the ranked list, keeps week and category in the address so reload, a shared link, Back and Forward restore the same view, replaces a refused address with the default view, and the game page links to its community or says it is not available."
+kind = "behavior"
+primary = "pytest"
+workflow = "trending"
+tests = [
+    "test_app.py::test_wf_trending_address_history",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-46"
+title = "Account pages"
+text = "The sign-up and login pages mark and announce field errors and keep entered values except the password, return only to a same-origin next path, settings shows the session and logs out, and signed-out visits to private pages land on login with next."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup-validation"
+tests = [
+    "test_app.py::test_wf_signup_validation_account_pages",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-47"
+title = "Membership page and checkout"
+text = "The membership page shows the comparison table, prices and subscribe buttons, and its Checkout dialog shows processing, success with a check mark, and a declined card with Try again."
+kind = "behavior"
+primary = "workflow"
+workflow = "membership"
+tests = [
+    "test_app.py::test_wf_membership_signed_out_subscribe",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-48"
+title = "Support doorways; keyboard-complete consent and support"
+text = "The footer carries the support doorways and Cookie preferences, and the request form moves focus to its first refused field and announces the reference or the limit line in a status region present before the submit, keeping the entered values on a refusal. The cookie dialog never takes focus on a first visit, opens from Cookie preferences with focus on Analytics, closes on Escape without saving and returns focus to its opener, and the support form follows its published Tab order and submits from the keyboard."
+kind = "behavior"
+primary = "pytest"
+workflow = "consent-support"
+tests = [
+    "test_app.py::test_wf_consent_support_request",
+    "test_app.py::test_wf_consent_support_keyboard",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-49"
+title = "Consent, trackers and locale"
+text = "The first-visit consent panel offers the stated choices and announces a save, the stored choice governs the analytics and marketing trackers and can be reopened, and the language choice sets every page's lang."
+kind = "behavior"
+primary = "pytest"
+workflow = "consent-support"
+tests = [
+    "test_app.py::test_wf_consent_support_cookies",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-50"
+title = "Safety library and charter"
+text = "The library search and filters update as the visitor types and announce the count in one stable status region while focus stays in the search box, show the empty message, open article pages, and the teen charter flip cards turn on click, Enter and Space."
+kind = "behavior"
+primary = "pytest"
+workflow = "consent-support"
+tests = [
+    "test_app.py::test_wf_consent_support_safety_library",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-51"
+title = "Workspace layout"
+text = "The workspace shows the rail, channel list, stream and member list with the stated landmarks, sizes and phone behaviour, switches channels with Alt and the arrow keys, shows slowmode and meets WCAG 2.2 AA."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-workspace"
+tests = [
+    "test_app.py::test_workspace_layout",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-52"
+title = "Composer"
+text = "Enter sends and Shift with Enter adds a line, a sent message appears at once with its time and author, and a failed send keeps its row with Retry and stores exactly once."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-workspace"
+tests = [
+    "test_app.py::test_wf_live_workspace_composer",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-53"
+title = "Live stream"
+text = "A message, edit, deletion or reaction made elsewhere appears in an open workspace within 3 seconds without a refresh, older history loads at the top, and Jump to new messages appears when the reader is scrolled up."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-workspace"
+tests = [
+    "test_app.py::test_wf_live_workspace_live_stream",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-54"
+title = "Message actions"
+text = "Mention suggestions, the reaction picker and toggle chips, thread replies, inline editing and the notifications panel work by pointer and keyboard as stated."
+kind = "behavior"
+primary = "workflow"
+workflow = "live-workspace"
+tests = [
+    "test_app.py::test_message_actions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-55"
+title = "Message entrance; workspace breakpoints"
+text = "A newly arrived message slides and fades in over 0.1 to 0.4 seconds, and under reduced motion it arrives without animation. The workspace shows Open channels and no rail at 767, the rail, sidebar and Show members with the member list hidden and the Thread, Search results and Notifications panels opening over the stream at 768 and 1279, and the visible member list with no Show members at 1280, where the stream stays at least 480 CSS pixels wide beside an open panel."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-workspace"
+tests = [
+    "test_app.py::test_message_entrance",
+    "test_app.py::test_workspace_breakpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-56"
+title = "Media in the stream"
+text = "The composer attaches several files, drops files over the upload limit with a status line, and both sender and other members see images and videos inline with their size and running time."
+kind = "behavior"
+primary = "workflow"
+workflow = "media"
+tests = [
+    "test_app.py::test_wf_media_attach_stream",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-57"
+title = "Search panel"
+text = "The Search messages field opens the Search results panel with the count, channel, local time and highlighted terms, closes on Escape, and reports a refused query."
+kind = "behavior"
+primary = "pytest"
+workflow = "search"
+tests = [
+    "test_app.py::test_wf_search_panel",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-58"
+title = "Workspace follows permissions"
+text = "The workspace disables the composer and Attach files without send_messages, hides Add reaction without add_reactions, shows Delete message to holders of manage_messages, and drops a channel the viewer can no longer see within 3 seconds and restores it when access returns."
+kind = "behavior"
+primary = "pytest"
+workflow = "message-authority"
+tests = [
+    "test_app.py::test_wf_message_authority_permissions_ui",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-59"
+title = "Page conventions"
+text = "Every public route has one level-one heading, the title suffix, sized images with alternative text, WCAG 2.2 AA at desktop, a skip link first and a visible focus ring, and no console errors."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_conventions",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-60"
+title = "Responsive and reduced-motion rules"
+text = "Every public route meets WCAG 2.2 AA at tablet and phone width, collapses its primary links behind Menu at phone width, reflows at 320 CSS pixels and stands still under reduced motion."
+kind = "behavior"
+primary = "pytest"
+workflow = "cross-cutting"
+tests = [
+    "test_app.py::test_wf_cross_cutting_responsive",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-61"
+title = "Hover easing"
+text = "On the marketing home the Membership navigation link and the Get the app button ease into their hover state, the link washing to the indigo accent."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-media"
+tests = [
+    "test_app.py::test_hover_easing",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-62"
+title = "Still feature blocks on a phone"
+text = "At phone width the home feature blocks are already in place and only move with the page scroll."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-media"
+tests = [
+    "test_app.py::test_phone_feature_blocks_still",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-63"
+title = "Public visual design"
+text = "The marketing, directory, trending, membership, listening room and safety pages follow the two-field palette, type and card shapes in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "S2",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-64"
+title = "Workspace and member visual design"
+text = "The workspace, checkout, search panel and confirmation page follow the depth shading, message row arrangement and composer styling in Visual design."
+kind = "visual"
+primary = "rubric"
+workflow = "cross-cutting"
+tests = []
+criteria = [
+    "B8",
+    "B9",
+    "B10",
+    "B11",
+    "B12",
+    "S1",
+    "S2",
+    "S3",
+]
+parameter_cases = []
+
+[[requirements]]
+id = "DP-65"
+title = "Role rank"
+text = "A manager who is not the owner bans, times out, edits, deletes, assigns and sets overwrites only for roles and members ranked below their own highest role, and gets 403 forbidden otherwise."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_role_rank",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-66"
+title = "Derived online counts"
+text = "A community's online count equals its baseline plus its members whose status is online, idle or dnd, and it changes at once for every community a member belongs to on a status change, join, leave or ban, without losing simultaneous updates."
+kind = "behavior"
+primary = "pytest"
+workflow = "communities"
+tests = [
+    "test_app.py::test_online_counts",
+    "test_app.py::test_wf_communities_presence",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-67"
+title = "Support request limit"
+text = "At most three support requests per email address are accepted within SUPPORT_WINDOW_SECONDS, even in a simultaneous burst, and the rest answer 429 with Retry-After, storing and sending nothing."
+kind = "behavior"
+primary = "pytest"
+workflow = "consent-support"
+tests = [
+    "test_app.py::test_support_limit",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-68"
+title = "Mail outage recovery"
+text = "While the mail service is unreachable every request that triggers an email still succeeds within 2 seconds, and each pending email is delivered exactly once within 60 seconds of the service returning, without a restart."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup"
+tests = [
+    "test_app.py::test_wf_signup_mail_outage",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-69"
+title = "Reduced motion followed live"
+text = "Turning reduced motion on while the home or listening room is open stops the hero video, word strip, feature blocks and equalizer within 1 second without a reload while the music keeps playing, and turning it off never restarts the video."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-media"
+tests = [
+    "test_app.py::test_wf_home_media_reduced_motion_live",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-70"
+title = "Refused reactions and edits roll back"
+text = "A reaction chip or inline edit that the server refuses returns to its true state, and the refusal is announced in the workspace status region."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-workspace"
+tests = [
+    "test_app.py::test_refused_changes_roll_back",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-71"
+title = "Hidden messages answer not found"
+text = "Every edit, delete, replies and reaction call on a message in a channel the caller may not view answers 404 not_found, never 403."
+kind = "behavior"
+primary = "pytest"
+workflow = "messaging"
+tests = [
+    "test_app.py::test_hidden_messages_404",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-72"
+title = "Deleted messages leave the inbox"
+text = "Deleting a message removes every notification about it from every inbox, unread count and read-all total at once."
+kind = "behavior"
+primary = "pytest"
+workflow = "notifications"
+tests = [
+    "test_app.py::test_deleted_leave_inbox",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-73"
+title = "Calendar week dates"
+text = "Trending week labels and game history weeks show their own calendar date in every viewer time zone."
+kind = "behavior"
+primary = "pytest"
+workflow = "trending"
+tests = [
+    "test_app.py::test_wf_trending_time_zones",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-74"
+title = "Duplicate sign-ups"
+text = "Simultaneous sign-ups sharing an email or a username leave exactly one account and one confirmation email, with one 201 and every other answering 409 naming email, or username when only that is shared, and never a server error."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup"
+tests = [
+    "test_app.py::test_duplicate_signups",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-75"
+title = "Notification paging"
+text = "The inbox pages newest first with limit and before into full pages of currently visible entries with has_more, never repeating or skipping an entry while new ones arrive, and the panel's Show older notifications button appends the next page."
+kind = "behavior"
+primary = "pytest"
+workflow = "notifications"
+tests = [
+    "test_app.py::test_notification_paging",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-76"
+title = "Quoted parents follow edits"
+text = "Every reply carries its parent as it stands now in referenced_message on every read, replay and live event, the reply row's quote line follows the parent's edits as stated in Live delivery, and a deleted parent leaves no quote while the reply stays."
+kind = "behavior"
+primary = "pytest"
+workflow = "messaging"
+tests = [
+    "test_app.py::test_quoted_parents",
+    "test_app.py::test_wf_messaging_thread_quote",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-77"
+title = "Literal directory search"
+text = "The directory search treats percent signs, underscores and backslashes as literal text, refuses a search over 100 code points or a page above 1000 naming the parameter, and answers a page past the last with no cards and the true total."
+kind = "behavior"
+primary = "pytest"
+workflow = "directory"
+tests = [
+    "test_app.py::test_literal_directory_search",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-78"
+title = "Live catch-up after reconnecting; closed workspace panels are unavailable"
+text = "After a dropped live connection returns, the open channel shows every missed message, edit, deletion and reaction within 3 seconds in order and without duplicates, drops any channel lost meanwhile, and announces Reconnecting… and Connected. A closed Members, channel, Thread, Search results or Notifications panel or Choose a reaction dialog is absent from the accessibility tree, the Tab order and the pointer, and Escape closes an open one with focus back on its opener."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-workspace"
+tests = [
+    "test_app.py::test_wf_live_workspace_reconnect",
+    "test_app.py::test_closed_workspace_panels",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-79"
+title = "Published refusal copy"
+text = "Every API refusal, including those the framework raises, carries the fixed message published for its code, and every unknown page answers status 404 with the not-found page's exact title, heading and text in its first HTML response."
+kind = "behavior"
+primary = "pytest"
+workflow = "not-found"
+tests = [
+    "test_app.py::test_refusal_copy",
+    "test_app.py::test_wf_not_found_stale_link",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-80"
+title = "Sign-up error summary"
+text = "The sign-up page checks every field in the browser by the account field rules, counting code points and using the current UTC date, sends no request while any field fails, and announces a Fix <COUNT> fields summary whose links name each error and move focus to its field."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup-validation"
+tests = [
+    "test_app.py::test_wf_signup_validation_summary",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-81"
+title = "Ended sessions leave the workspace"
+text = "When a token is revoked by logout or by another session's password change, every live connection opened with it closes and its open workspace lands on /login with next and the session-ended alert within 3 seconds, whichever instance holds the connection, while the requesting session keeps receiving."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_wf_access_ended_session",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-82"
+title = "Invite expiry edges; only public users about others"
+text = "An invite works until, and never at or after, an expires_at exactly max_age_seconds after its whole-second created_at by the database clock, and an expired, revoked or used-up code answers 404 even to an existing member and never admits anyone after a revoke has answered. Wherever another person appears, in members, bans, message authors, quoted parents, invite inviters, notification actors and every live event, they are exactly a public user, and an invisible member is reported offline in every list and live event."
+kind = "behavior"
+primary = "pytest"
+workflow = "communities"
+tests = [
+    "test_app.py::test_invite_expiry",
+    "test_app.py::test_public_users",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-83"
+title = "Inbox updates in place"
+text = "With the Notifications panel open and older pages appended, each new visible entry is prepended and each deleted or hidden entry removed within 3 seconds, with the unread count in step and no row duplicated, lost or refocused."
+kind = "behavior"
+primary = "pytest"
+workflow = "notifications"
+tests = [
+    "test_app.py::test_wf_notifications_inbox_in_place",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-84"
+title = "Published breakpoints"
+text = "The home and every public route switch layout exactly at 768 and 1280 CSS pixels, so 767 shows the phone layout, 768 and 1279 the tablet layout and 1280 the desktop layout."
+kind = "behavior"
+primary = "pytest"
+workflow = "home-media"
+tests = [
+    "test_app.py::test_home_breakpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-85"
+title = "Server-timed time-outs"
+text = "A timed-out member's composer shows the remaining time counted against the server's clock and re-enables within 3 seconds after communication_disabled_until and never before, even when the browser clock is hours ahead or behind."
+kind = "behavior"
+primary = "pytest"
+workflow = "message-authority"
+tests = [
+    "test_app.py::test_wf_message_authority_timeout_clock",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-86"
+title = "Exact message counters"
+text = "Reply counts, reaction counts and mention counts always equal their recomputed values after simultaneous replies, deletes and reactions, nonce replays, and edits that remove or restore a mention."
+kind = "behavior"
+primary = "pytest"
+workflow = "messaging"
+tests = [
+    "test_app.py::test_exact_counters",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-87"
+title = "Latest directory input wins; directory breakpoints"
+text = "The directory grid, result count, pressed chip and address always show the visitor's last search, chip, page or history step, even when an earlier response arrives later. The directory grid shows one column below 768, two from 768 to 1279 and four from 1280 with equal row tops, the chip bar wraps without sideways scroll down to 320, and the detail page switches from stacked to two columns exactly at 768."
+kind = "behavior"
+primary = "pytest"
+workflow = "directory"
+tests = [
+    "test_app.py::test_wf_directory_latest_wins",
+    "test_app.py::test_wf_directory_breakpoints",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-88"
+title = "Safe media serving"
+text = "Upload names lose directory parts at slashes and backslashes, control characters and names over 255 code points are refused naming file, and every media response carries nosniff, the sandbox policy and the stated disposition with a UTF-8 file name."
+kind = "behavior"
+primary = "pytest"
+workflow = "media"
+tests = [
+    "test_app.py::test_safe_media_serving",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-89"
+title = "Latest search wins"
+text = "The Search results panel shows only the last query's count, results and highlighted terms, with Searching… until its answer arrives, never an earlier slower answer."
+kind = "behavior"
+primary = "pytest"
+workflow = "search"
+tests = [
+    "test_app.py::test_wf_search_latest_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-90"
+title = "Many instances, one database"
+text = "Any number of app instances started from /app with their own PORT serve one product through the shared database, so live delivery (including a 4000-emoji Max-tier message), ended sessions, lockout, slowmode, replays, the support limit, counts, invite validity and email delivery behave the same whichever instance serves each request."
+kind = "behavior"
+primary = "pytest"
+workflow = "live-workspace"
+tests = [
+    "test_app.py::test_multi_instance",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-91"
+title = "Collapsed Menu is unavailable"
+text = "In the phone layout of every public route, including the not-found page, the primary links are absent from the accessibility tree, the Tab order and the pointer while Menu is collapsed, Escape closes an open Menu with focus back on it, and a closed cookie dialog leaves the Tab order."
+kind = "behavior"
+primary = "pytest"
+workflow = "not-found"
+tests = [
+    "test_app.py::test_wf_not_found_phone_menu",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-92"
+title = "Landing replaces history"
+text = "A successful login or sign-up replaces the form's history entry, a join from register lands exactly on /channels/<COMMUNITY_ID>/<DEFAULT_CHANNEL_ID> with one Back returning to the community detail page showing Open community, signed-in visits to login or register replace themselves, and logging out replaces settings."
+kind = "behavior"
+primary = "pytest"
+workflow = "signup"
+tests = [
+    "test_app.py::test_wf_signup_landing_history",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-93"
+title = "Unsent drafts survive an ended session"
+text = "The composer keeps each member's unsent draft per channel in the tab, restores it exactly and never sends it when the same member signs in again after the session ended, and discards it when a different member signs in there."
+kind = "behavior"
+primary = "pytest"
+workflow = "access"
+tests = [
+    "test_app.py::test_wf_access_drafts",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-94"
+title = "Per-caller answers; latest trending input wins"
+text = "Every session or optional-session API answer carries Cache-Control no-store and Vary Authorization, interleaved callers always get their own view, and a tab that signs in as another member never draws an answer fetched for the earlier caller. On the trending and game pages, the week label, step buttons, pressed chip, featured card, list, history and address always show the last week step, category press or Back or Forward step, even when an earlier answer arrives later."
+kind = "behavior"
+primary = "pytest"
+workflow = "trending"
+tests = [
+    "test_app.py::test_per_caller_answers",
+    "test_app.py::test_wf_trending_switch_member",
+    "test_app.py::test_wf_trending_latest_wins",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-95"
+title = "Status lines stay put"
+text = "The request, cookie, payment and confirmation status lines stay in the same element until the next action in that region replaces them, never cleared by a timer, even ten minutes later."
+kind = "behavior"
+primary = "pytest"
+workflow = "consent-support"
+tests = [
+    "test_app.py::test_status_lines_stay",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-96"
+title = "Moderation races"
+text = "No post by a banned member is accepted after the ban answered, simultaneous bans and a leave lower the counts by exactly one with one ban stored, simultaneous time-outs settle on one end every read agrees on, and a moderator's action racing their role removal never succeeds after the removal answered."
+kind = "behavior"
+primary = "pytest"
+workflow = "message-authority"
+tests = [
+    "test_app.py::test_moderation_races",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-97"
+title = "Media stored as submitted; released when the client leaves"
+text = "Every upload is stored in the database and served byte for byte as received from every instance, reported with its sha256 and an ETag of it, and an If-None-Match revalidation answers 304 keeping every safety header. Abandoned media downloads and live connections release their database work within 5 seconds with no session left active or idle in a transaction for them, each instance holds at most 20 database sessions, health and history keep answering within 2 seconds, and media sends its first byte within 2 seconds."
+kind = "behavior"
+primary = "pytest"
+workflow = "media"
+tests = [
+    "test_app.py::test_media_stored_as_submitted",
+    "test_app.py::test_wf_media_video_abandon",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-98"
+title = "Search results follow changes"
+text = "With Search results open, a deleted result or one from a channel the viewer loses leaves within 3 seconds with the count in step, an edited result shows its new body, marks and (edited) in place, quote lines follow their parents, new messages are never added and focus stays put."
+kind = "behavior"
+primary = "pytest"
+workflow = "search"
+tests = [
+    "test_app.py::test_wf_search_follows_changes",
+]
+criteria = []
+parameter_cases = []
+
+[[requirements]]
+id = "DP-99"
+title = "No server error for any input"
+text = "A NUL character or broken percent-encoding in a query parameter or JSON string field the endpoint reads answers 422 naming it, a body nested deeper than 32 levels or holding a lone surrogate escape answers 422 with no field, a NUL or invalid UTF-8 in a path parameter answers 404, and no input ever produces a server error, stack trace, SQL text, driver message or server file path."
+kind = "behavior"
+primary = "pytest"
+workflow = "not-found"
+tests = [
+    "test_app.py::test_hostile_input",
+]
+criteria = []
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-01"
+text = "/app/run.json exists with string install, build and serve commands and \"_schema\": \"run-manifest-v1\"."
+tests = [
+    "test_app.py::test_if_run_manifest",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-02"
+text = "/app/USER_README.md lists the seeded logins, including member@example.com and the password deku-demo-pw-2026."
+tests = [
+    "test_app.py::test_if_user_readme",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-03"
+text = "Use only the PostgreSQL database and the Mailpit mail service: no Python module under /app imports sqlite3, redis, pymongo, stripe, boto3, celery, kafka, sendgrid or twilio, and no other datastore, file store, queue, mail transport, payment processor or third-party service is used."
+tests = [
+    "test_app.py::test_if_no_other_datastores",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-04"
+text = "Python dependencies install into /app/.venv, and every run.json command calls tools as .venv/bin/<tool> or python -m <tool>."
+tests = [
+    "test_app.py::test_if_venv_tools",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-05"
+text = "/app/THIRD_PARTY_NOTICES.md names every shipped package with its version and licence, where shipped packages means the production dependency tree: every package the install command puts into /app/.venv, plus, if npm is used, every package in npm ls --omit=dev --all --json."
+tests = [
+    "test_app.py::test_if_third_party_notices",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-06"
+text = "Every shipped package uses one of MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC, PSF-2.0, MPL-2.0, 0BSD or Unlicense."
+tests = [
+    "test_app.py::test_if_licences",
+]
+parameter_cases = []
+
+[[if_rules]]
+id = "IF-07"
+text = "All brand names, community names, game names, fonts, artwork, video and music are original or openly licensed and served from the app's own origin, and empty .browser_screenshots/ and .downloads/ directories exist at /app."
+tests = [
+    "test_app.py::test_if_own_origin_assets",
+]
+parameter_cases = []
+
+[[workflows]]
+id = "not-found"
+requirements = [
+    "DP-01",
+    "DP-11",
+    "DP-13",
+    "DP-44",
+    "DP-79",
+    "DP-91",
+    "DP-99",
+]
+critical = [
+    "test_app.py::test_wf_not_found_stale_link",
+    "test_app.py::test_wf_not_found_phone_menu",
+    "test_app.py::test_unlisted_surface",
+    "test_app.py::test_publishing_sitemap",
+    "test_app.py::test_hostile_input",
+]
+
+[[workflows]]
+id = "signup"
+requirements = [
+    "DP-02",
+    "DP-03",
+    "DP-06",
+    "DP-43",
+    "DP-68",
+    "DP-74",
+    "DP-92",
+]
+critical = [
+    "test_app.py::test_wf_signup_join_register",
+    "test_app.py::test_wf_signup_confirm_link",
+    "test_app.py::test_wf_signup_mail_outage",
+    "test_app.py::test_wf_signup_landing_history",
+    "test_app.py::test_duplicate_signups",
+]
+
+[[workflows]]
+id = "signup-validation"
+requirements = [
+    "DP-04",
+    "DP-46",
+    "DP-80",
+]
+critical = [
+    "test_app.py::test_wf_signup_validation_summary",
+    "test_app.py::test_wf_signup_validation_account_pages",
+    "test_app.py::test_signup_validation",
+]
+
+[[workflows]]
+id = "access"
+requirements = [
+    "DP-05",
+    "DP-07",
+    "DP-08",
+    "DP-15",
+    "DP-65",
+    "DP-81",
+    "DP-93",
+]
+critical = [
+    "test_app.py::test_wf_access_ended_session",
+    "test_app.py::test_wf_access_drafts",
+    "test_app.py::test_lockout",
+    "test_app.py::test_role_rank",
+    "test_app.py::test_cross_site",
+]
+
+[[workflows]]
+id = "communities"
+requirements = [
+    "DP-12",
+    "DP-14",
+    "DP-16",
+    "DP-17",
+    "DP-18",
+    "DP-66",
+    "DP-82",
+]
+critical = [
+    "test_app.py::test_wf_communities_join_open",
+    "test_app.py::test_wf_communities_presence",
+    "test_app.py::test_invites",
+    "test_app.py::test_online_counts",
+    "test_app.py::test_invite_expiry",
+    "test_app.py::test_public_users",
+]
+
+[[workflows]]
+id = "notifications"
+requirements = [
+    "DP-28",
+    "DP-29",
+    "DP-30",
+    "DP-31",
+    "DP-72",
+    "DP-75",
+    "DP-83",
+]
+critical = [
+    "test_app.py::test_wf_notifications_inbox_in_place",
+    "test_app.py::test_wf_notifications_mark_read",
+    "test_app.py::test_inbox_visibility",
+    "test_app.py::test_deleted_leave_inbox",
+    "test_app.py::test_notification_paging",
+]
+
+[[workflows]]
+id = "trending"
+requirements = [
+    "DP-36",
+    "DP-37",
+    "DP-45",
+    "DP-73",
+    "DP-94",
+]
+critical = [
+    "test_app.py::test_wf_trending_address_history",
+    "test_app.py::test_wf_trending_time_zones",
+    "test_app.py::test_wf_trending_switch_member",
+    "test_app.py::test_per_caller_answers",
+    "test_app.py::test_wf_trending_latest_wins",
+]
+
+[[workflows]]
+id = "consent-support"
+requirements = [
+    "DP-38",
+    "DP-48",
+    "DP-49",
+    "DP-50",
+    "DP-67",
+    "DP-95",
+]
+critical = [
+    "test_app.py::test_wf_consent_support_request",
+    "test_app.py::test_wf_consent_support_safety_library",
+    "test_app.py::test_support_limit",
+    "test_app.py::test_status_lines_stay",
+    "test_app.py::test_wf_consent_support_keyboard",
+]
+
+[[workflows]]
+id = "home-media"
+requirements = [
+    "DP-39",
+    "DP-40",
+    "DP-61",
+    "DP-62",
+    "DP-69",
+    "DP-84",
+]
+critical = [
+    "test_app.py::test_wf_home_media_listening_room",
+    "test_app.py::test_wf_home_media_reduced_motion_live",
+    "test_app.py::test_home_breakpoints",
+]
+
+[[workflows]]
+id = "membership"
+requirements = [
+    "DP-34",
+    "DP-35",
+    "DP-47",
+]
+critical = [
+    "test_app.py::test_wf_membership_checkout_keyboard",
+    "test_app.py::test_checkout_entitlements",
+]
+
+[[workflows]]
+id = "message-authority"
+requirements = [
+    "DP-25",
+    "DP-26",
+    "DP-27",
+    "DP-58",
+    "DP-85",
+    "DP-96",
+]
+critical = [
+    "test_app.py::test_wf_message_authority_permissions_ui",
+    "test_app.py::test_wf_message_authority_timeout_clock",
+    "test_app.py::test_bans",
+    "test_app.py::test_moderation_races",
+]
+
+[[workflows]]
+id = "messaging"
+requirements = [
+    "DP-19",
+    "DP-20",
+    "DP-21",
+    "DP-22",
+    "DP-23",
+    "DP-24",
+    "DP-71",
+    "DP-76",
+    "DP-86",
+]
+critical = [
+    "test_app.py::test_wf_messaging_thread_quote",
+    "test_app.py::test_hidden_messages_404",
+    "test_app.py::test_quoted_parents",
+    "test_app.py::test_exact_counters",
+    "test_app.py::test_reactions_threads",
+]
+
+[[workflows]]
+id = "live-workspace"
+requirements = [
+    "DP-51",
+    "DP-52",
+    "DP-53",
+    "DP-54",
+    "DP-55",
+    "DP-70",
+    "DP-78",
+    "DP-90",
+]
+critical = [
+    "test_app.py::test_wf_live_workspace_composer",
+    "test_app.py::test_wf_live_workspace_live_stream",
+    "test_app.py::test_wf_live_workspace_reconnect",
+    "test_app.py::test_refused_changes_roll_back",
+    "test_app.py::test_closed_workspace_panels",
+    "test_app.py::test_workspace_breakpoints",
+]
+
+[[workflows]]
+id = "directory"
+requirements = [
+    "DP-09",
+    "DP-10",
+    "DP-41",
+    "DP-42",
+    "DP-77",
+    "DP-87",
+]
+critical = [
+    "test_app.py::test_wf_directory_cards",
+    "test_app.py::test_wf_directory_filters",
+    "test_app.py::test_literal_directory_search",
+    "test_app.py::test_wf_directory_latest_wins",
+    "test_app.py::test_wf_directory_breakpoints",
+]
+
+[[workflows]]
+id = "media"
+requirements = [
+    "DP-32",
+    "DP-56",
+    "DP-88",
+    "DP-97",
+]
+critical = [
+    "test_app.py::test_wf_media_attach_stream",
+    "test_app.py::test_wf_media_video_abandon",
+    "test_app.py::test_safe_media_serving",
+    "test_app.py::test_media_stored_as_submitted",
+]
+
+[[workflows]]
+id = "search"
+requirements = [
+    "DP-33",
+    "DP-57",
+    "DP-89",
+    "DP-98",
+]
+critical = [
+    "test_app.py::test_wf_search_panel",
+    "test_app.py::test_wf_search_latest_wins",
+    "test_app.py::test_wf_search_follows_changes",
+]
+
+[[workflows]]
+id = "cross-cutting"
+requirements = [
+    "DP-59",
+    "DP-60",
+    "DP-63",
+    "DP-64",
+]
+critical = [
+    "test_app.py::test_wf_cross_cutting_conventions",
+    "test_app.py::test_wf_cross_cutting_responsive",
+]
+checkpoints = [
+    "B4",
+    "B6",
+    "B8",
+]
+critical_checkpoints = [
+    "B6",
+]
