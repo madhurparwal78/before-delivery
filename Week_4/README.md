@@ -30,12 +30,12 @@ something that installs, builds, answers a health probe and survives the task's 
 workflow checks and an LLM rubric that drives a real browser. There is no repository to patch and no
 oracle diff to approximate.
 
-This delivery is **broad and shallow: 210 tasks, 419 graded rollouts.** Every task carries one
-`opus-5` run; 209 of the 210 also carry one `glm-5.3` run. With one run per task per model, every
+This delivery is **broad and shallow: 210 tasks, 420 graded rollouts.** Every task carries one
+`opus-5` run; 210 of the 210 also carry one `glm-5.3` run. With one run per task per model, every
 per-task number here is **a single observation, not a rate**, and the two cohorts are only directly
-comparable on the 209 tasks they share.
+comparable on the 210 tasks they share.
 
-**Not one of the 419 rollouts passed every workflow.** Throughout this document **pass rate is
+**Not one of the 420 rollouts passed every workflow.** Throughout this document **pass rate is
 `combined_score`** from `final_score.json`, as a percentage, averaged over runs where more than one
 is pooled:
 
@@ -56,18 +56,18 @@ is **not pass@k**.
 | Property | Value |
 | --- | --- |
 | Tasks | 210 (25 from week 1, 50 from week 2, 70 from week 3, 65 new in week 4) |
-| Models | `opus-5` (210 runs), `glm-5.3` (209 runs) |
+| Models | `opus-5` (210 runs), `glm-5.3` (210 runs) |
 | Runs per task per model | 1 |
-| Graded rollouts | 419; 403 with `judge = "scored"`, 14 `deployment-failed`, 2 judge `invalid` |
+| Graded rollouts | 420; 404 with `judge = "scored"`, 14 `deployment-failed`, 2 judge `invalid` |
 | Languages | TypeScript (181), Python (20), Go (5), JavaScript (3), Rust (1) |
 | Agent harness | `openhands-sdk` on Harbor 0.24.0 |
 | Grader | `rewardkit-0.2.3`, LLM judge, 3 samples per criterion |
 | Reward signal | pytest outcome pass rate, `reward.json` |
 
-Across all 419 rollouts the corpus pass rate is **21.06%** (σ 0.2154, range 0.000-0.820). That
+Across all 420 rollouts the corpus pass rate is **21.01%** (σ 0.2154, range 0.000-0.820). That
 number mixes two cohorts and should not be quoted on its own.
 
-**`opus-5` beats `glm-5.3` on 201 of 209 shared tasks** (`glm-5.3` wins `e76c8222`), by 33.40 points on average (largest gap 80.52
+**`opus-5` beats `glm-5.3` on 202 of 210 shared tasks** (`glm-5.3` wins `e76c8222`), by 33.51 points on average (largest gap 80.52
 points on `188e98f8`). 7 shared tasks tie (both models score the same).
 
 Two numbers travel together throughout and must not be confused. **Pass rate is `combined_score`**,
@@ -87,9 +87,13 @@ the grader labels `combined_score` a diagnostic.
   were checked for leaked provider ids (redacted to `[REDACTED]`), every `task.toml` loads in Harbor 0.24 and validates
   against its schema, and every scored run's scores recompute from its shipped `ctrf.json`, `judge.json` and
   `requirements.toml`.
-- **1 task still carries `opus-5` only:** `065a9171`.
 
 **Notes on the week 4 tasks.**
+
+- **Week-1 update shipped with this week:** `065a9171` (tallow-cover) now carries its `glm-5.3` run. It is a week-1 task,
+  not a new one, so it is not counted among the week-4 tasks. Its grader gained a one-line fix
+  (`tests/grader/test_app.py:2289`, `page.clock.pause_at` now gets an ISO time) and the `opus-5` run was re-graded with it:
+  55.62% → 55.81%, still easy. The tests image was rebuilt and re-pinned.
 
 - **`glm-5.3` runs that stopped early:** on `16d8dda1`, `6d58f80f` and `e3a06c1e` the `glm-5.3` agent's terminal stopped
   responding and the run ended before the app was finished, so the run is scored `deployment-failed`. The `opus-5`
@@ -116,7 +120,7 @@ kiro-greenfield/
     ├── environment/, solution/, tests/
     └── trajectories/
         ├── opus-5/run_1
-        └── glm-5.3/run_1     # 209 of 210 tasks
+        └── glm-5.3/run_1     # 210 of 210 tasks
 ```
 
 Task directories are named by their `uuid_v5`, and every task is referred to by its 8-character
@@ -142,15 +146,15 @@ below are cut here, on the same bands as the wider Greenfield corpus, from the s
 | `hard` | [25%, 37.5%) |
 | `expert` | < 25% |
 
-| tier | tasks on `opus-5` | tasks on `glm-5.3` (209) |
+| tier | tasks on `opus-5` | tasks on `glm-5.3` (210) |
 |---|--:|--:|
 | `trivial` | 0 | 0 |
 | `easy` | 24 | 4 |
 | `medium` | 65 | 4 |
 | `hard` | 86 | 7 |
-| `expert` | 35 | 194 |
+| `expert` | 35 | 195 |
 
-The two models put a task in the same band on **40 of 209** shared tasks. With one run per task,
+The two models put a task in the same band on **40 of 210** shared tasks. With one run per task,
 a tier here is one draw, not a measured rate: a task one run away from a band edge could land in the
 neighbouring band on a re-run. Treat these tiers as provisional until each task has repeated runs.
 
@@ -182,7 +186,7 @@ score. `—` means the task has no `glm-5.3` run; `wk` is the week the task was 
 | `bc58b4f3` teamseat | 2 | 64.85% | 5/10 | 0.860 | 0.823 | 0.00% | 0/10 | 0.495 | 0.871 |
 | `8f4910c6` rungboard | 2 | 62.14% | 6/13 | 0.843 | 0.831 | 0.00% | 0/13 | 0.236 | 0.864 |
 | `1c568f2d` exhibit-clearance-desk | 1 | 60.86% | 5/11 | 0.841 | 0.789 | 0.00% † | 0/11 | 0.000 | 0.000 |
-| `065a9171` tallow-cover | 1 | 55.62% | 5/14 | 0.793 | 0.946 | — | | | |
+| `065a9171` tallow-cover | 1 | 55.81% | 5/14 | 0.804 | 0.946 | 0.00% | 0/14 | 0.587 | 0.800 |
 | `09ede887` conference-workshop-booking-vb | 2 | 54.94% | 3/9 | 0.820 | 1.000 | 51.34% | 3/9 | 0.739 | 0.846 |
 | `107eb6d6` tour-freight-desk | 1 | 54.59% | 4/11 | 0.771 | 0.871 | 37.98% | 2/11 | 0.723 | 0.871 |
 | `c8622c96` saltprint-desk | 1 | 51.54% | 5/14 | 0.830 | 0.667 | 0.00% | 0/14 | 0.420 | 0.228 |
@@ -394,61 +398,61 @@ score. `—` means the task has no `glm-5.3` run; `wk` is the week the task was 
 ‡ judge `invalid`: the judge result was not usable, so the run has no rubric score (`9d9cc75d` glm-5.3, `bff3a720` glm-5.3).
 
 **7 tasks tie for the lowest `opus-5` score** at 0.00% (`0d31a2e4` pratfall-cup, `267caec2` cutline-awards-desk, `643d0eb4` governed-table-workspace, `8694c8f3` afterglass, `9371a8da` marginalia-room, `9bfc9b36` boltrope-loft-bench, `b6915223` elevens-fantasy); **`bf768c0f` chess-match-arena is the highest** at 82.01%
-(15 of 19 workflows). `opus-5` scores zero on 7 of 210 tasks; `glm-5.3` on 180 of 209.
+(15 of 19 workflows). `opus-5` scores zero on 7 of 210 tasks; `glm-5.3` on 181 of 210.
 
-### Model comparison (209 shared tasks)
+### Model comparison (210 shared tasks)
 
 | | `opus-5` | `glm-5.3` | Δ |
 | --- | ---: | ---: | ---: |
-| Pass rate | 37.68% | 4.28% | -33.40 |
-| Reward (pytest) | 77.09% | 32.36% | -44.73 |
-| Workflows passed | 19.72% | 2.41% | -17.31 |
-| Rubric `R` (judged runs) | 0.8378 | 0.5957 | -0.2421 |
-| Tasks won | 201 | 1 | |
+| Pass rate | 37.77% | 4.26% | -33.51 |
+| Reward (pytest) | 77.10% | 32.48% | -44.62 |
+| Workflows passed | 19.80% | 2.40% | -17.40 |
+| Rubric `R` (judged runs) | 0.8383 | 0.5968 | -0.2416 |
+| Tasks won | 202 | 1 | |
 
-**Most `glm-5.3` zeros are workflow zeros.** 180 of its 180 zero-score runs passed no workflow, so
+**Most `glm-5.3` zeros are workflow zeros.** 181 of its 181 zero-score runs passed no workflow, so
 `workflow^0.50` is 0 and the product collapses even where pytest and rubric are above zero.
 
 With n = 1 per task, no single-task gap can be separated from run-to-run noise.
 
 ## Analysis
 
-**Check accuracy does not survive composition.** On the 209 shared tasks `opus-5` passes 78.0% of
-pytest outcome cases but only **19.7% of workflows**; `glm-5.3` passes 34.2% of cases and **2.4%
+**Check accuracy does not survive composition.** On the 210 shared tasks `opus-5` passes 78.0% of
+pytest outcome cases but only **19.8% of workflows**; `glm-5.3` passes 34.3% of cases and **2.4%
 of workflows**. A workflow passes only when at least 90% of its steps pass **and** none of its
 critical steps fail, so partial
 competence collapses at the join.
 
-| Channel (209 shared tasks) | `opus-5` | `glm-5.3` |
+| Channel (210 shared tasks) | `opus-5` | `glm-5.3` |
 | --- | ---: | ---: |
-| Workflows | 556 / 2,819 (19.72%) | 68 / 2,819 (2.41%) |
-| Pytest outcome cases | 16,621 / 21,312 (77.99%) | 7,247 / 21,216 (34.16%) |
-| `if_score` (instruction-following cases), mean over deployed runs | 0.9580 | 0.8435 |
-| Critical-case failures | 3,657 | 10,476 |
+| Workflows | 561 / 2,833 (19.80%) | 68 / 2,833 (2.40%) |
+| Pytest outcome cases | 16,695 / 21,404 (78.00%) | 7,301 / 21,308 (34.26%) |
+| `if_score` (instruction-following cases), mean over deployed runs | 0.9582 | 0.8443 |
+| Critical-case failures | 3,667 | 10,500 |
 
 <picture>
   <source type="image/svg+xml" media="(prefers-color-scheme: dark)" srcset="images/composition_gap-dark.svg">
   <source type="image/svg+xml" srcset="images/composition_gap-light.svg">
   <source media="(prefers-color-scheme: dark)" srcset="images/composition_gap-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="images/composition_gap-light.png">
-  <img alt="Pytest pass rate, if_score and workflow pass rate for opus-5 and glm-5.3 on the 209 shared tasks; both pass far more checks than workflows" src="images/composition_gap-light.png" width="880">
+  <img alt="Pytest pass rate, if_score and workflow pass rate for opus-5 and glm-5.3 on the 210 shared tasks; both pass far more checks than workflows" src="images/composition_gap-light.png" width="880">
 </picture>
 
 **The workflow channel decides the headline.** Because `workflow` carries exponent 0.50, it moves
 `combined_score` twice as hard as either other channel, and a zero there is unrecoverable. This is
 why `glm-5.3`'s rubric and pytest numbers look far better than its pass rate.
 
-**Critical failures cluster on a few tasks.** For `opus-5`, `f5399a16` (71), `4e9d79c2` (66), `a05f9e92` (59), `a0426c74` (51) account for 247 of 3,667 critical-case failures (7%). For `glm-5.3`, `47bad8ab` (138), `4e9d79c2` (127), `ec70a373` (122), `6d707fb9` (113) account for 500 of 10,476 critical-case failures (5%). 
+**Critical failures cluster on a few tasks.** For `opus-5`, `f5399a16` (71), `4e9d79c2` (66), `a05f9e92` (59), `a0426c74` (51) account for 247 of 3,667 critical-case failures (7%). For `glm-5.3`, `47bad8ab` (138), `4e9d79c2` (127), `ec70a373` (122), `6d707fb9` (113) account for 500 of 10,500 critical-case failures (5%). 
 
 **The rubric is high and fairly stable.** `opus-5`'s mean `R` is 0.8383, and 24 of its 210 runs score
 `R = 1.000`. Each criterion is judged three times; the three samples agree unanimously on **4,238 of
-5,078** `opus-5` criteria (83.5%) and **4,033 of 4,665** `glm-5.3` criteria (86.5%, scored runs). `R` excludes the
+5,078** `opus-5` criteria (83.5%) and **4,042 of 4,687** `glm-5.3` criteria (86.2%, scored runs). `R` excludes the
 `quality` criteria, which are reported separately (judged runs; `quality` mean 0.527 for `opus-5`, 0.309 for
 `glm-5.3`) and never enter `combined_score`.
 
 **Deploy is a cliff, not a slope.** The grader installs and builds the delivered app, starts it and
 waits up to 180 s for its health path to return HTTP 200 before any test runs. A run that misses it
-is recorded as `deployment-failed` with `reward = 0.0`. 14 of the 419 rollouts in this delivery failed to deploy (`001efc8f` glm-5.3, `16d8dda1` glm-5.3, `19accd6d` glm-5.3, `1c568f2d` glm-5.3, `3a79fa7f` glm-5.3, `5b2d9011` glm-5.3, `6d58f80f` glm-5.3, `77da028d` glm-5.3, `7c59c163` glm-5.3, `abdfc26d` glm-5.3, `d9719209` glm-5.3, `e3a06c1e` glm-5.3, `e7dd0ed1` glm-5.3, `ec70a373` glm-5.3); all others deployed and were scored.
+is recorded as `deployment-failed` with `reward = 0.0`. 14 of the 420 rollouts in this delivery failed to deploy (`001efc8f` glm-5.3, `16d8dda1` glm-5.3, `19accd6d` glm-5.3, `1c568f2d` glm-5.3, `3a79fa7f` glm-5.3, `5b2d9011` glm-5.3, `6d58f80f` glm-5.3, `77da028d` glm-5.3, `7c59c163` glm-5.3, `abdfc26d` glm-5.3, `d9719209` glm-5.3, `e3a06c1e` glm-5.3, `e7dd0ed1` glm-5.3, `ec70a373` glm-5.3); all others deployed and were scored.
 
 ## Coverage
 
@@ -509,8 +513,8 @@ run_1/
     └── judge.json       per-criterion rubric verdicts, 3 samples each, with reasoning
 ```
 
-The delivery carries **13,043 screenshots** across the 419 rollouts (7,013 `opus-5`, 6,030 `glm-5.3`),
-captured by the judge. 404 runs have normal-profile screenshots; 366 also have touch and 220 also have
+The delivery carries **13,066 screenshots** across the 420 rollouts (7,013 `opus-5`, 6,053 `glm-5.3`),
+captured by the judge. 405 runs have normal-profile screenshots; 367 also have touch and 221 also have
 reduced-motion screenshots.
 
 ## Scoring methodology
@@ -545,7 +549,7 @@ combined_score = W^0.50 · P^0.25 · R^0.25
 ```
 
 - **`W`**, workflow pass rate. A workflow passes when at least 90% of its steps pass and none of its
-  critical steps fail. On 340 of the 419 runs (`workflow_basis = "pytest + judge checkpoints"`), judge
+  critical steps fail. On 340 of the 420 runs (`workflow_basis = "pytest + judge checkpoints"`), judge
   checkpoints count as workflow steps alongside pytest cases.
 - **`P`**, pytest pass rate over outcome cases. Instruction-following cases are excluded from `P` and
   reported as `if_score`.
@@ -554,7 +558,7 @@ combined_score = W^0.50 · P^0.25 · R^0.25
   scored but excluded from `R`.
 
 **A weak channel cannot be bought back.** Under a geometric mean the product is dragged toward its
-weakest term, and a zero anywhere is a zero overall. 187 of the 187 zero-score runs in this delivery are
+weakest term, and a zero anywhere is a zero overall. 188 of the 188 zero-score runs in this delivery are
 `W = 0` runs.
 
 ### The RL signal
