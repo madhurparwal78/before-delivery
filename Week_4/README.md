@@ -409,14 +409,14 @@ With n = 1 per task, no single-task gap can be separated from run-to-run noise.
 **Check accuracy does not survive composition.** On the 215 shared tasks `opus-5` passes 77.5% of
 pytest outcome cases but only **19.2% of workflows**; `glm-5.3` passes 33.7% of cases and **2.3%
 of workflows**. A workflow passes only when at least 90% of its steps pass **and** none of its
-critical steps fail (the graders of `77da028d`, `89091e13`, `d7f8bf0d`, `f2c63136` round the 90% down, `passed >= total * 9 // 10`, so 6 of 7 steps passes there), so partial
+critical steps fail (the graders of `f2c63136` round the 90% down, `passed >= total * 9 // 10`, so 6 of 7 steps passes there), so partial
 competence collapses at the join.
 
 | Channel (215 shared tasks) | `opus-5` | `glm-5.3` |
 | --- | ---: | ---: |
 | Workflows | 559 / 2,905 (19.24%) | 68 / 2,905 (2.34%) |
 | Pytest outcome cases | 16,989 / 21,923 (77.49%) | 7,363 / 21,822 (33.74%) |
-| `if_score` (instruction-following cases), mean over deployed runs | 0.9512 | 0.8380 |
+| `if_score` (instruction-following cases), mean over deployed runs | 0.9559 | 0.8416 |
 | Critical-case failures | 3,875 | 10,890 |
 
 <picture>

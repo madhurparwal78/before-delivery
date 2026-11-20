@@ -2540,30 +2540,37 @@ def test_if_no_internet(browser: Browser, app_url: str) -> None:
     assert foreign == [], foreign
 
 
+def _plain_js(root: Path) -> list[str]:
+    """Hand-written JavaScript under root: not tool configuration, build tooling or build output (IF rule on TypeScript).
+
+    Build tooling: a file run by package.json scripts or run.json, or kept under a top-level scripts/ or tools/.
+    Build output: under a tsconfig outDir, compiled from a .ts/.tsx of the same name, or beside such a file (bundler chunks).
+    """
+    cmds = ""
+    for name in ("package.json", "run.json"):
+        if (root / name).is_file():
+            data = json.loads((root / name).read_text())
+            cmds += " " + " ".join(map(str, (data.get("scripts") or {}).values() if name == "package.json" else data.values()))
+    outs = []
+    for tc in [*root.glob("tsconfig*.json"), *root.glob("*/tsconfig*.json")]:
+        out = re.search(r'"outDir"\s*:\s*"([^"]+)"', tc.read_text())
+        if out:
+            outs.append((tc.parent / out.group(1)).resolve())
+    files = [p for p in root.rglob("*") if p.is_file() and not {"node_modules", ".git", "coverage"} & set(p.relative_to(root).parts)]
+    stems = {p.stem for p in files if p.suffix in (".ts", ".tsx")}
+    js = [p for p in files if p.suffix in (".js", ".mjs", ".cjs", ".jsx") and not re.search(r"(^\.|\.config\.(c|m)?js$|rc\.(c|m)?js$)", p.name)]
+    built_dirs = {p.parent for p in js if p.stem in stems}
+
+    def exempt(p: Path) -> bool:
+        rel = p.relative_to(root)
+        return (rel.as_posix() in cmds or p.name in cmds or rel.parts[0] in ("scripts", "tools")
+                or any(o == p.resolve() or o in p.resolve().parents for o in outs)
+                or p.stem in stems or p.parent in built_dirs)
+    return [p.relative_to(root).as_posix() for p in js if not exempt(p)]
+
+
 def test_if_typescript_source() -> None:
     root = Path("/app")
-    names = {"node_modules", ".git", "dist", "build", "out", ".next"}
-    prefixes: set[tuple[str, ...]] = {("public", "assets")}
-
-    def as_parts(entry: str) -> tuple[str, ...]:
-        return tuple(p for p in entry.strip().strip("/").split("/") if p not in ("", "."))
-
-    ignore = root / ".gitignore"
-    if ignore.exists():
-        for line in ignore.read_text().splitlines():
-            if line.strip() and not line.strip().startswith("#") and as_parts(line):
-                prefixes.add(as_parts(line))
-    for config in [*root.glob("tsconfig*.json"), *root.glob("*/tsconfig*.json")]:
-        out = re.search(r'"outDir"\s*:\s*"([^"]+)"', config.read_text())
-        if out:
-            prefixes.add(config.parent.relative_to(root).parts + as_parts(out.group(1)))
-
-    def output(parts: tuple[str, ...]) -> bool:
-        return bool(set(parts) & names) or any(parts[:len(pre)] == pre for pre in prefixes)
-
-    files = [p for p in root.rglob("*") if p.is_file() and not output(p.relative_to(root).parts)]
-    stems = {p.stem for p in files if p.suffix in {".ts", ".tsx"}}
-    assert stems, "no TypeScript source under /app"
-    plain = [p for p in files if p.suffix in {".js", ".mjs", ".cjs", ".jsx"}
-             and "config" not in p.name and not p.name.startswith(".") and p.stem not in stems]
+    assert any(p.suffix in (".ts", ".tsx") for p in root.rglob("*") if "node_modules" not in p.parts), "no TypeScript source under /app"
+    plain = _plain_js(root)
     assert plain == [], f"plain JavaScript source: {plain}"

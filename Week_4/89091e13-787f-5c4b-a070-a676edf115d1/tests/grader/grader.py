@@ -650,7 +650,7 @@ def evaluate_workflows(registry: Registry, observed: dict[str, bool]) -> tuple[W
         refs = [ref for item in registry.requirements if item.workflow == workflow.id for ref in item.tests]
         passed = sum(families[ref] for ref in refs)
         critical_failed = tuple(ref for ref in workflow.critical if not families[ref])
-        outcomes.append(WorkflowOutcome(workflow.id, passed >= len(refs) * 9 // 10 and not critical_failed,
+        outcomes.append(WorkflowOutcome(workflow.id, passed * 10 >= len(refs) * 9 and not critical_failed,
                                         passed, len(refs), critical_failed))
     return tuple(outcomes)
 
@@ -1010,7 +1010,7 @@ def judged_workflows(functional, values: dict[str, float]) -> tuple[float, list[
             raise InvalidArtifact(f"workflow {item.id}: checkpoint(s) {sorted(set(judged) - set(values))} not judged")
         total, ok = item.substeps_total + len(judged), item.substeps_passed + sum(judged.values())
         critical = [*item.critical_failed, *(cid for cid in spec.critical_checkpoints if not judged[cid])]
-        done = ok >= total * 9 // 10 and not critical
+        done = ok * 10 >= total * 9 and not critical
         passed += done
         rows.append({"id": item.id, "passed": done, "steps_passed": ok, "steps_total": total,
                      "checkpoints": {cid: bool(v) for cid, v in judged.items()}, "critical_failed": critical})

@@ -3752,6 +3752,8 @@ def shipped_packages() -> list[dict]:
     stack = list((tree.get("dependencies") or {}).items())
     while stack:
         name, node = stack.pop()
+        if not node.get("version"):   # listed but not installed (an optional peer such as pg-native): not shipped
+            continue
         if (name, node.get("version")) in found:
             continue
         lic = node.get("license")

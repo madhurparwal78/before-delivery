@@ -3531,16 +3531,38 @@ def test_if_service_config_untouched() -> None:
     assert not hits, f"service configuration edited: {hits}"
 
 
+def _plain_js(root: Path) -> list[str]:
+    """Hand-written JavaScript under root: not tool configuration, build tooling or build output (IF rule on TypeScript).
+
+    Build tooling: a file run by package.json scripts or run.json, or kept under a top-level scripts/ or tools/.
+    Build output: under a tsconfig outDir, compiled from a .ts/.tsx of the same name, or beside such a file (bundler chunks).
+    """
+    cmds = ""
+    for name in ("package.json", "run.json"):
+        if (root / name).is_file():
+            data = json.loads((root / name).read_text())
+            cmds += " " + " ".join(map(str, (data.get("scripts") or {}).values() if name == "package.json" else data.values()))
+    outs = []
+    for tc in [*root.glob("tsconfig*.json"), *root.glob("*/tsconfig*.json")]:
+        out = re.search(r'"outDir"\s*:\s*"([^"]+)"', tc.read_text())
+        if out:
+            outs.append((tc.parent / out.group(1)).resolve())
+    files = [p for p in root.rglob("*") if p.is_file() and not {"node_modules", ".git", "coverage"} & set(p.relative_to(root).parts)]
+    stems = {p.stem for p in files if p.suffix in (".ts", ".tsx")}
+    js = [p for p in files if p.suffix in (".js", ".mjs", ".cjs", ".jsx") and not re.search(r"(^\.|\.config\.(c|m)?js$|rc\.(c|m)?js$)", p.name)]
+    built_dirs = {p.parent for p in js if p.stem in stems}
+
+    def exempt(p: Path) -> bool:
+        rel = p.relative_to(root)
+        return (rel.as_posix() in cmds or p.name in cmds or rel.parts[0] in ("scripts", "tools")
+                or any(o == p.resolve() or o in p.resolve().parents for o in outs)
+                or p.stem in stems or p.parent in built_dirs)
+    return [p.relative_to(root).as_posix() for p in js if not exempt(p)]
+
+
 def test_if_typescript_source() -> None:
     assert (APP_ROOT / "package-lock.json").is_file()
-    js, ts = [], 0
-    for f in APP_ROOT.rglob("*"):
-        parts = f.relative_to(APP_ROOT).parts
-        if not f.is_file() or any(p.startswith(".") for p in parts) or set(parts[:-1]) & {"node_modules", "dist", "build", "out", "coverage"}:
-            continue
-        if f.suffix in (".ts", ".tsx"):
-            ts += 1
-        elif f.suffix in (".js", ".jsx", ".mjs", ".cjs") and not re.search(r"\.config\.[cm]?js$", f.name):
-            js.append(str(f))
+    ts = sum(1 for f in APP_ROOT.rglob("*") if f.suffix in (".ts", ".tsx") and "node_modules" not in f.parts)
+    js = _plain_js(APP_ROOT)
     assert ts > 0, "no TypeScript source found"
     assert not js, f"JavaScript application source: {js[:10]}"
